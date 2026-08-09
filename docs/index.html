@@ -72,12 +72,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">34 error</span>
+      <span class="badge error">37 error</span>
       <span class="badge warning">18 warning</span>
       <span class="badge hint">5 hint</span>
       <span class="badge fix">5 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 57 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 60 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -305,6 +305,15 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary"><code>_bind( )</code> on an event — a dead control</p>
         <p class="detail">The slot is an event, so a data binding in it never becomes a handler. The control renders and does nothing. Use <code>client-&gt;_event( )</code>.</p>
       </article>
+      <article class="rule" id="binding-on-association" data-search="binding-on-association a binding written into an association attribute only properties and aggregations can be data-bound. xmltemplateprocessor handles an association attribute by taking its value verbatim as a control id (createid(svalue), or a comma/space split for a 0..n association) — bindinginfo.parse is never called on it. so the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. drive an association imperatively instead, with a control_by_id setter — which is also why settable-property-via-action deliberately never pushes an association towards a binding. error">
+        <h3><a href="#binding-on-association">binding-on-association</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a binding written into an association attribute</p>
+        <p class="detail">Only properties and aggregations can be data-bound. <code>XMLTemplateProcessor</code> handles an association attribute by taking its value <strong>verbatim as a control ID</strong> (<code>createId(sValue)</code>, or a comma/space split for a 0..n association) — <code>BindingInfo.parse</code> is never called on it. So the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. Drive an association imperatively instead, with a <code>CONTROL_BY_ID</code> setter — which is also why <code>settable-property-via-action</code> deliberately never pushes an association towards a binding.</p>
+        <pre><code>a( n = `selectedSection` v = client-&gt;_bind( section ) )   " association -&gt; id "{/SECTION}"
+" follow_up_action( … t_arg = VALUE #( ( `opl` ) ( `setSelectedSection` ) ( section ) ) )</code></pre>
+      </article>
       <article class="rule" id="binding-to-local" data-search="binding-to-local a local variable bound the instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. bind an instance attribute. warning">
         <h3><a href="#binding-to-local">binding-to-local</a>
           <span class="badge warning">warning</span>
@@ -330,6 +339,15 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="detail">An escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. Inside an ABAP string template the backslash is the template's own escape: <code>\{</code> collapses to a bare <code>{</code> before the builder ever sees it, and the view dies exactly as if nothing had been escaped. Write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (<code>\\\{</code>). Invisible to <code>unescaped-brace-in-style</code>, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart.</p>
         <pre><code>DATA(css) = |&lt;style&gt;.a \{color:red\}&lt;/style&gt;|.  " collapses
 DATA(ok)  = `&lt;style&gt;.a \{color:red\}&lt;/style&gt;`.  " survives</code></pre>
+      </article>
+      <article class="rule" id="denied-control-method" data-search="denied-control-method a control_by_id wire naming a method the frontend denylist refuses the wire's allowed side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. the denied side is a closed set, and it is silent in the same way a wrong id is: frontendaction logs "method not allowed" and returns, so the abap compiles, the view renders and the button does nothing. denied are the methods that would break the framework's own invariants — teardown and reparenting (destroy, exit, setparent, adddependent, placeat), model and binding swaps (setmodel, setbinding, bind/unbind), event-handler tampering (attach/detach, fireevent), the render lifecycle (rerender, invalidate) and the generic reflection mutators that take the member name as an argument (addaggregation, removeallaggregation, setassociation, …). the named per-aggregation methods are allowed and are never reported: removeallitems and destroycontent touch only children the control itself owns, exactly like the long-allowed removeitem. error">
+        <h3><a href="#denied-control-method">denied-control-method</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a <code>CONTROL_BY_ID</code> wire naming a method the frontend denylist refuses</p>
+        <p class="detail">The wire's ALLOWED side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. The DENIED side is a closed set, and it is silent in the same way a wrong id is: <code>FrontendAction</code> logs "method not allowed" and returns, so the ABAP compiles, the view renders and the button does nothing. Denied are the methods that would break the framework's own invariants — teardown and reparenting (<code>destroy</code>, <code>exit</code>, <code>setParent</code>, <code>addDependent</code>, <code>placeAt</code>), model and binding swaps (<code>setModel</code>, <code>setBinding*</code>, <code>bind*</code>/<code>unbind*</code>), event-handler tampering (<code>attach*</code>/<code>detach*</code>, <code>fireEvent</code>), the render lifecycle (<code>rerender</code>, <code>invalidate</code>) and the GENERIC reflection mutators that take the member name as an argument (<code>addAggregation</code>, <code>removeAllAggregation</code>, <code>setAssociation</code>, …). The NAMED per-aggregation methods are allowed and are never reported: <code>removeAllItems</code> and <code>destroyContent</code> touch only children the control itself owns, exactly like the long-allowed <code>removeItem</code>.</p>
+        <pre><code>follow_up_action( val = client-&gt;cs_event-control_by_id
+                  t_arg = VALUE #( ( `list` ) ( `destroy` ) ) )</code></pre>
       </article>
       <article class="rule" id="duplicate-for-iterator" data-search="duplicate-for-iterator the same for iterator name twice in one method fine on abap 7.50+, where the iterator is local to its value #( ) expression — but a 7.02 downport (abaplint --fix, and the transpiler behind a node-based runtime) materializes each one as data &lt;name&gt; type i in the method body, and the second declaration fails activation with "variable already defined". use distinct names (i, j, k) per value block. warning">
         <h3><a href="#duplicate-for-iterator">duplicate-for-iterator</a>
@@ -503,6 +521,15 @@ ENDIF.</code></pre>
         </h3>
         <p class="summary">a hand-written <code>{/TYPO}</code> the derived model has no path for</p>
         <p class="detail">The field just stays empty — no error, anywhere. Inside a bound aggregation a relative <code>{TYPO}</code> is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's <code>TYPES</code>. Never guessed.</p>
+      </article>
+      <article class="rule" id="unknown-model" data-search="unknown-model a name&gt; binding against a model the app does not have abap2ui5 serves exactly one data model per view slot — the default one, serialized from the class's public attributes — plus the framework's own device&gt; and message&gt; (and http&gt; on a switched path). a prefix outside that set resolves to no model at all, and ui5 leaves the property unset without a word. it is the most common leftover of a ported demo-kit sample, whose original names its models freely ({ui&gt;/rowmode}, {i18n&gt;key}): the fix is to fold the field into the default model with client-&gt;_bind( ), not to add a model — and there is no i18n model by design, because translation is a backend concern. a model registered by a set_odata_model wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all. error">
+        <h3><a href="#unknown-model">unknown-model</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a <code>name&gt;</code> binding against a model the app does not have</p>
+        <p class="detail">abap2UI5 serves exactly <strong>one</strong> data model per view slot — the default one, serialized from the class's PUBLIC attributes — plus the framework's own <code>device&gt;</code> and <code>message&gt;</code> (and <code>http&gt;</code> on a switched path). A prefix outside that set resolves to no model at all, and UI5 leaves the property unset without a word. It is the most common leftover of a ported demo-kit sample, whose original names its models freely (<code>{ui&gt;/rowMode}</code>, <code>{i18n&gt;KEY}</code>): the fix is to fold the field into the default model with <code>client-&gt;_bind( )</code>, not to add a model — and there is no i18n model by design, because translation is a backend concern. A model registered by a <code>SET_ODATA_MODEL</code> wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all.</p>
+        <pre><code>a( n = `text` v = `{i18n&gt;title}` )
+a( n = `text` v = client-&gt;_bind( title ) )</code></pre>
       </article>
       <article class="rule" id="unused-public-attribute" data-search="unused-public-attribute a public attribute nothing in the class ever touches only public attributes are serialized into the model (z2ui5_cl_core_srv_model filters on visibility), so every one of them is shipped to the browser on every roundtrip. one that is never bound, never read and never written is pure transport weight. deliberately narrower than "not bound in any view": an attribute used only in abap code is not dead, it is state — public is precisely how a value survives the roundtrip. only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see. hint">
         <h3><a href="#unused-public-attribute">unused-public-attribute</a>

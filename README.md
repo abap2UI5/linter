@@ -45,6 +45,9 @@ Two gates:
    | `settable-property-via-action` | a `CONTROL_BY_ID` `set…( )` on a control that has a bindable property of that name — bind it two-way instead |
    | `relative-binding-without-context` | a relative `{FIELD}` on a control outside any bound aggregation — it resolves against nothing and the control renders empty |
    | `frontend-action-unknown-id` | a `CONTROL_BY_ID` wire whose literal id no view of the class declares — the frontend finds nothing and the wire silently does nothing |
+   | `denied-control-method` | a `CONTROL_BY_ID` wire naming a method the frontend denylist refuses (`destroy`, `setModel`, `bindProperty`, the generic reflection mutators) — the dispatch logs and returns, the control is never touched |
+   | `binding-on-association` | a binding written into an *association* attribute — the XML parser takes the value as a control ID, never as a binding, so the association stays empty |
+   | `unknown-model` | a `{name>…}` binding against a model the app does not have — abap2UI5 serves one default model plus `device>`/`message>`, and an unknown prefix leaves the property unset |
    | `date-type-without-source` | a `sap.ui.model.type.Date`/`DateTime`/`Time` binding with no `formatOptions.source` — the JSON model can only carry a string, so the type throws on every format |
    | `binding-type-mismatch` | an ABAP character field bound to a numeric/boolean property — it arrives as `"100"` where UI5 declared a float, which future mode rejects |
    | `missing-accessibility` | icon-only `Button` without `tooltip`, `Image` without `alt` |

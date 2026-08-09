@@ -526,7 +526,8 @@ ENDCLASS.`;
 // -------------------------------------------------------------- new rules ----
 // display-root-mismatch, binding-type-mismatch, event-arg-out-of-range
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules, namedModels } = await import('../lib/abap-rules.mjs');
+  const { deniedControlMethod } = await import('../lib/frontend-actions.mjs');
   const roots = checkAbapSource(fs.readFileSync(f('roots.clas.abap'), 'utf8'));
   const mismatches = roots.findings.filter((x) => x.type === 'display-root-mismatch');
   assert(mismatches.length === 2,
@@ -585,6 +586,38 @@ ENDCLASS.`;
     'settable-property-via-action: an association cannot be bound and is never reported');
   assert(!setters.some((x) => x.member === 'asyncURLHandler'),
     'settable-property-via-action: a function-typed property cannot travel in a JSON model');
+
+  // --- the three silent wires: denied method, bound association, named model
+  const wires = checkAbapSource(fs.readFileSync(f('wires.clas.abap'), 'utf8')).findings;
+
+  const denied = wires.filter((x) => x.type === 'denied-control-method');
+  assert(denied.length === 3, `denied-control-method: the three denied wires (got ${denied.map((x) => x.value).join() || 'none'})`);
+  assert(denied.some((x) => x.value === 'destroy' && x.member === 'destroy'),
+    'denied-control-method: destroy is denied by exact name');
+  assert(denied.some((x) => x.value === 'addAggregation'),
+    'denied-control-method: the generic reflection mutators are denied');
+  assert(denied.some((x) => x.value === 'bindProperty' && x.member === 'bind'),
+    'denied-control-method: the finding names the PREFIX that matched, not the method');
+  assert(!denied.some((x) => x.value === 'removeAllContent'),
+    'denied-control-method: a NAMED per-aggregation mutator is allowed by the runtime and never reported');
+  assert(deniedControlMethod('removeAllItems') === null && deniedControlMethod('destroyContent') === null,
+    'denied-control-method: the removeAll/destroy prefixes match no named method');
+  assert(deniedControlMethod('removeAllAggregation') === 'removeAllAggregation',
+    'denied-control-method: the generic form of the same name IS denied');
+
+  const assoc = wires.filter((x) => x.type === 'binding-on-association');
+  assert(assoc.length === 1 && assoc[0].member === 'selectedSection',
+    `binding-on-association: the bound association is reported (got ${assoc.map((x) => x.member).join() || 'none'})`);
+
+  const models = wires.filter((x) => x.type === 'unknown-model');
+  assert(models.length === 2 && models.every((x) => ['i18n', 'ui'].includes(x.value)),
+    `unknown-model: only the two models the app does not have (got ${models.map((x) => x.value).join() || 'none'})`);
+  assert(!models.some((x) => ['device', 'message', 'http'].includes(x.value)),
+    'unknown-model: the framework models are on every view slot');
+  assert(!models.some((x) => x.value === 'srv'),
+    'unknown-model: a model the class registers with SET_ODATA_MODEL is available');
+  assert(namedModels('client->_event_client( val = client->cs_event-set_odata_model t_arg = VALUE #( ( url ) ( name ) ) ).') === null,
+    'unknown-model: a class registering a model under a non-literal name is not judged at all');
 
   // --- a relative binding with no context to resolve against ----------------
   const orphan = checkAbapSource(fs.readFileSync(f('orphanbind.clas.abap'), 'utf8'))

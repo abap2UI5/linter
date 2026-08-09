@@ -6,7 +6,8 @@
  *
  *   lib/formatters.mjs        <- app/webapp/model/formatter.js
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap
- *                                (the GLOBAL_TARGETS map inside the embedded JS)
+ *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
+ *                                CONTROL_BY_ID deny lists in the embedded JS)
  *
  * Upstream is not a dependency here, so a change there is a SILENT breaking
  * change: a new CONTROL_GLOBAL target makes the linter report correct new
@@ -25,7 +26,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
-import { GLOBAL_TARGETS, CSS_PROPERTIES } from '../lib/frontend-actions.mjs';
+import {
+  GLOBAL_TARGETS, CSS_PROPERTIES,
+  CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
+} from '../lib/frontend-actions.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
@@ -98,6 +102,19 @@ export function parseCssProperties(abapSrc) {
   return [...js.slice(at, end).matchAll(/["'`]([a-z-]+)["'`]/g)].map((m) => m[1]);
 }
 
+/** One of FrontendAction.js's two CONTROL_BY_ID deny arrays, by name — the
+ *  quoted entries between `const <name> = [` and its closing bracket. An
+ *  entry may carry a trailing `//` comment, which is stripped first. */
+export function parseDenyList(abapSrc, name) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf(`const ${name} = [`);
+  if (at === -1) return [];
+  const end = js.indexOf('];', at);
+  if (end === -1) return [];
+  const body = js.slice(at, end).replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return [...body.matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+}
+
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
 async function fetchText(url) {
@@ -160,6 +177,21 @@ if (invokedDirectly) {
   // linter is here to catch, so the mirror must not drift either
   const upstreamCss = parseCssProperties(actionSrc);
   if (upstreamCss.length) report('CONTROL_BY_ID css properties (lib/frontend-actions.mjs)', CSS_PROPERTIES, upstreamCss);
+  /* The CONTROL_BY_ID denylist is the third closed set in the same file. It
+   * drifts in BOTH directions with consequences: a method that became denied
+   * upstream is a wire the linter still calls fine, and a method that was
+   * freed stays reported as broken. */
+  for (const [what, ours] of [
+    ['CONTROL_METHOD_DENY_EXACT', CONTROL_METHOD_DENY_EXACT],
+    ['CONTROL_METHOD_DENY_PREFIXES', CONTROL_METHOD_DENY_PREFIXES],
+  ]) {
+    const theirs = parseDenyList(actionSrc, what);
+    if (!theirs.length) {
+      console.error(`check-upstream: could not find ${what} in the frontendaction class — the embedding changed, update parseDenyList`);
+      process.exit(2);
+    }
+    report(`CONTROL_BY_ID ${what} (lib/frontend-actions.mjs)`, ours, theirs);
+  }
   for (const name of Object.keys(GLOBAL_TARGETS)) {
     if (upstreamTargets[name]) {
       report(`CONTROL_GLOBAL ${name} methods`, GLOBAL_TARGETS[name], upstreamTargets[name]);
