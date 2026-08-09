@@ -271,7 +271,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 434 KB one-line snapshot (`ui5Version` 1.150.0, 970 controls, 219
+The 468 KB one-line snapshot (`ui5Version` 1.151.0, 988 controls, 219
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
@@ -286,6 +286,23 @@ generation dropped from ~3 minutes to ~2 seconds when the unanchored
 `(\w+)\.extend\(` scan — 167 of those 172 seconds — was replaced by a
 literal-anchored one (`extendHits`). The snapshot's version bounds what the
 gate can know (reasoning in the README).
+
+**Keep the pins on the latest published `@openui5` line.** The floor the gate
+checks against (`minUi5`, default 1.71) is a *separate* parameter, so a bump
+does not change a single verdict on existing code — measured on the ai-demokit
+corpus, the 1.150 → 1.151 bump produced **0 new findings across 339 ports**.
+What it does change is what a member *newer than the pin* reports as. A member
+above the floor but below the pin is `member-too-new` / `control-too-new` /
+`event-parameter-too-new` / `enum-value-too-new` — verdicts a consumer can
+knowingly accept (ai-demokit's `POST_171` deviations excuse exactly those). A
+member above the *pin* does not exist in the snapshot at all and degrades into
+`unknown-control` / `unknown-property` / `unknown-aggregation` — "typo?" — plus
+a `render` load failure, and **no consumer can excuse those**: they are the
+shape a real typo has. So a stale pin does not under-report, it *mis*-reports,
+and it blocks every consumer building on a control released after it
+(`sap.tnt.SideNavigationSearchField` @1.151 was the case that surfaced this).
+Bumping is one PR: the pins, `npm install`, `npm run generate-metadata`, and
+the snapshot header numbers above.
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
@@ -302,7 +319,7 @@ OPENUI5_DIR=./openui5 node node_modules/@abap2ui5/linter/scripts/generate-metada
 
 Note what that does **not** mean: ai-demokit does not reuse `data/properties.json`
 itself. It builds its sample universe from an OpenUI5 *checkout* that can be
-newer than the `@openui5` packages pinned here (1.152 vs 1.150 at the time of
+newer than the `@openui5` packages pinned here (1.152 vs 1.151 at the time of
 writing, and npm has no 1.152), and a snapshot older than the universe loses
 the `@since` of controls introduced in between — `scopeOf` then reads them as
 in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,

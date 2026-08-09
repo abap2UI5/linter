@@ -14,7 +14,7 @@ can see them, because the view only exists at runtime.
 Two gates:
 
 1. **Property gate** — everything the view writes is resolved against a UI5
-   metadata snapshot (970 controls with their full member lists and types,
+   metadata snapshot (988 controls with their full member lists and types,
    219 enums, generated from the OpenUI5 sources). It reports:
 
    | Finding | Example |
@@ -101,7 +101,7 @@ src/zcl_my_app.clas.abap
   51:35  hint     event NO_HANDLER is raised but never handled …                    event-without-handler
 
 4 problems (2 errors, 1 warning, 1 hint)
-abap2ui5-linter: 12 file(s), 1 failing, 0 skipped (target SAPUI5 1.71, metadata from 1.150.0, failing on warning)
+abap2ui5-linter: 12 file(s), 1 failing, 0 skipped (target SAPUI5 1.71, metadata from 1.151.0, failing on warning)
 ```
 
 Files with nothing to report are not printed.
