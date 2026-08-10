@@ -875,6 +875,35 @@ ENDCLASS.`;
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// ---------------------------------------------- optional render deps ----
+// playwright + @openui5/* are optionalDependencies: absent, the property
+// gate still works and a requested render fails with one actionable message
+{
+  const { RENDER_DEPS, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
+  const pkg = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+  assert(!pkg.dependencies && RENDER_DEPS.slice().sort().join() === Object.keys(pkg.optionalDependencies).sort().join(),
+    'render deps: RENDER_DEPS mirrors exactly the optionalDependencies of package.json');
+  assert(missingRenderDeps().length === 0,
+    'render deps: everything is installed in this environment');
+  // intercept resolution to simulate an --omit=optional install
+  const missing = missingRenderDeps(() => { throw new Error('MODULE_NOT_FOUND'); });
+  assert(missing.length === RENDER_DEPS.length,
+    'render deps: an unresolvable install reports every render dep as missing');
+  const err = renderDepsError(missing);
+  assert(err.code === 'ERR_RENDER_DEPS_MISSING',
+    'render deps: the refusal carries a stable code the CLI can catch');
+  assert(/playwright/.test(err.message) && /@openui5\/sap\.ui\.core/.test(err.message),
+    'render deps: the message names the missing packages');
+  assert(/npm install/.test(err.message) && /--no-render/.test(err.message) && /render: false/.test(err.message),
+    'render deps: the message says how to install them and how to run without them');
+  const partial = renderDepsError(missingRenderDeps((id) => {
+    if (id.startsWith('playwright')) throw new Error('MODULE_NOT_FOUND');
+    return id;
+  }));
+  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('optionalDependencies')[0]),
+    'render deps: only what is actually missing is named');
+}
+
 // ------------------------------------------------- curated formatter mirror ----
 // the render harness provides the same formatter surface the rule judges by —
 // the demo-kit pack was removed upstream, and a harness still mirroring it

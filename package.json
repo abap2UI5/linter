@@ -45,7 +45,7 @@
     "url": "https://github.com/abap2UI5/abap2UI5/issues"
   },
   "homepage": "https://github.com/abap2UI5/linter#readme",
-  "dependencies": {
+  "optionalDependencies": {
     "@openui5/sap.f": "1.151.0",
     "@openui5/sap.m": "1.151.0",
     "@openui5/sap.tnt": "1.151.0",
