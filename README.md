@@ -14,7 +14,7 @@ can see them, because the view only exists at runtime.
 Two gates:
 
 1. **Property gate** — everything the view writes is resolved against a UI5
-   metadata snapshot (970 controls with their full member lists and types,
+   metadata snapshot (988 controls with their full member lists and types,
    219 enums, generated from the OpenUI5 sources). It reports:
 
    | Finding | Example |
@@ -45,6 +45,9 @@ Two gates:
    | `settable-property-via-action` | a `CONTROL_BY_ID` `set…( )` on a control that has a bindable property of that name — bind it two-way instead |
    | `relative-binding-without-context` | a relative `{FIELD}` on a control outside any bound aggregation — it resolves against nothing and the control renders empty |
    | `frontend-action-unknown-id` | a `CONTROL_BY_ID` wire whose literal id no view of the class declares — the frontend finds nothing and the wire silently does nothing |
+   | `denied-control-method` | a `CONTROL_BY_ID` wire naming a method the frontend denylist refuses (`destroy`, `setModel`, `bindProperty`, the generic reflection mutators) — the dispatch logs and returns, the control is never touched |
+   | `binding-on-association` | a binding written into an *association* attribute — the XML parser takes the value as a control ID, never as a binding, so the association stays empty |
+   | `unknown-model` | a `{name>…}` binding against a model the app does not have — abap2UI5 serves one default model plus `device>`/`message>`, and an unknown prefix leaves the property unset |
    | `date-type-without-source` | a `sap.ui.model.type.Date`/`DateTime`/`Time` binding with no `formatOptions.source` — the JSON model can only carry a string, so the type throws on every format |
    | `binding-type-mismatch` | an ABAP character field bound to a numeric/boolean property — it arrives as `"100"` where UI5 declared a float, which future mode rejects |
    | `missing-accessibility` | icon-only `Button` without `tooltip`, `Image` without `alt` |
@@ -101,7 +104,7 @@ src/zcl_my_app.clas.abap
   51:35  hint     event NO_HANDLER is raised but never handled …                    event-without-handler
 
 4 problems (2 errors, 1 warning, 1 hint)
-abap2ui5-linter: 12 file(s), 1 failing, 0 skipped (target SAPUI5 1.71, metadata from 1.150.0, failing on warning)
+abap2ui5-linter: 12 file(s), 1 failing, 0 skipped (target SAPUI5 1.71, metadata from 1.151.0, failing on warning)
 ```
 
 Files with nothing to report are not printed.

@@ -79,6 +79,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-for-event' — default severity: error"
         },
+        "binding-on-association": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'binding-on-association' — default severity: error"
+        },
         "binding-to-local": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-to-local' — default severity: warning"
@@ -114,6 +118,10 @@
         "date-type-without-source": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'date-type-without-source' — default severity: error"
+        },
+        "denied-control-method": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'denied-control-method' — default severity: error"
         },
         "display-root-mismatch": {
           "$ref": "#/definitions/rule",
@@ -282,6 +290,10 @@
         "unknown-event-parameter": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-event-parameter' — default severity: hint"
+        },
+        "unknown-model": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-model' — default severity: error"
         },
         "unknown-property": {
           "$ref": "#/definitions/rule",

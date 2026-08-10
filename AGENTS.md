@@ -13,7 +13,7 @@ and GitHub Action, no SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, ~156 assertions
+npm test                          # test/run.mjs, home-grown asserts, ~255 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: docs/index.html, the published reference
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
@@ -65,8 +65,8 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `uncurated-formatter` (list: `lib/formatters.mjs`), `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `duplicate-for-iterator` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `missing-accessibility` |
+| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `duplicate-for-iterator`, `denied-control-method` |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -105,9 +105,14 @@ and `BINDING_METHODS` there. Kept in step 2026-08-02 with abap2UI5's new
 `POPUP: setWithinArea` target (`sap.ui.core.Popup.setWithinArea`, @since
 1.89) — a target added upstream is a **silent** breaking change here until
 this file follows: the linter reports the correct new wire as an
-`invalid-frontend-action`. Only **closed** sets belong in it: `CONTROL_BY_ID`
-accepts any control method that does not match a deny prefix, so a whitelist
-for it would report correct code.
+`invalid-frontend-action`. Only **closed** sets belong in it, which is why
+`CONTROL_BY_ID` is mirrored from its DENIED side (`CONTROL_METHOD_DENY_EXACT`,
+`CONTROL_METHOD_DENY_PREFIXES` → `denied-control-method`) and not from an
+allowed one: any public control method the denylist misses runs, so a
+whitelist would report correct code while the denylist reports only wires the
+frontend provably refuses. That mirror drifts in **both** directions —
+a newly denied method is a wire the linter still calls fine, a freed one stays
+reported as broken — so `check-upstream` compares both arrays.
 
 A rule may also carry `fixes: [{ start, end, text }]` (see `lib/fix.mjs`):
 exact spans in the source it was given, applied by `--fix`. Attach them only
@@ -230,6 +235,34 @@ The second 2026-08-04 round added, each corpus-measured first:
 | the last two generic pattern-lint rules | `ui5-internal-access` (mProperties & friends), `commercial-ui5-host` |
 | `hardcoded-binding-path` said "don't", nothing said "does it exist" | `unknown-binding-path` now also judges `path: '/X'` in complex binding infos and `${/X}` in expressions — the first corpus run found the row-index trap (`/T_ITEMS/9/TEXT` is legal; numeric segments now step into the bound table's row) |
 
+The 2026-08-09 round asked the same question of the two knowledge sources the
+earlier rounds had not fully mined — the FRONTEND's own closed sets, and the
+UI5 member KINDS the snapshot already carries:
+
+| Origin | Rule |
+| --- | --- |
+| the CONTROL_BY_ID denylist in `FrontendAction.js` — the closed half of a wire whose allowed half is open | `denied-control-method` + `CONTROL_METHOD_DENY_EXACT`/`_PREFIXES` in `lib/frontend-actions.mjs`, both gated by `check-upstream` |
+| `XMLTemplateProcessor` never parses an association attribute as a binding (`_iKind === 3` → `createId(sValue)`) | `binding-on-association` |
+| abap2UI5 serves ONE model per slot; a ported sample's `{ui>/x}` / `{i18n>KEY}` survives the port silently | `unknown-model` |
+
+`denied-control-method` is the complement the mirror file had explicitly ruled
+out: "CONTROL_BY_ID's method list is deliberately absent … open by design". The
+ALLOWED side is open — but the DENIED side is a closed set, and a wire naming
+one of those is exactly as silent as an unknown id (`FrontendAction` logs and
+returns). It is only expressible because upstream split the denylist into an
+EXACT half and a PREFIX half in the same round: while `removeAll` was a prefix,
+"denied" and "a named per-aggregation method the runtime allows" were not
+distinguishable, and the rule would have reported working code.
+
+`unknown-model` is the first rule that needed the ABAP class to say what is
+*allowed* rather than what is wrong: `SET_ODATA_MODEL` is the one wire that can
+widen the framework's three models, so `namedModels( )` collects it and a class
+that registers one under a non-literal name is not judged at all — the same
+caution `viewIds` takes. All three measured **0 findings across the 340-file
+ai-demokit corpus**, each with a fixture proving it sees its own defect and
+leaves the neighbouring legal form (`removeAllContent`, `device>`/`message>`/a
+registered `srv>`) alone.
+
 Also in that round: `undeclared-namespace` gained a `--fix` for the
 conventional prefixes, `--format sarif`, the adoption **baseline**
 (`--update-baseline`, stale entries FAIL), a page POOL in the render gate
@@ -271,7 +304,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 434 KB one-line snapshot (`ui5Version` 1.150.0, 970 controls, 219
+The 468 KB one-line snapshot (`ui5Version` 1.151.0, 988 controls, 219
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
@@ -286,6 +319,23 @@ generation dropped from ~3 minutes to ~2 seconds when the unanchored
 `(\w+)\.extend\(` scan — 167 of those 172 seconds — was replaced by a
 literal-anchored one (`extendHits`). The snapshot's version bounds what the
 gate can know (reasoning in the README).
+
+**Keep the pins on the latest published `@openui5` line.** The floor the gate
+checks against (`minUi5`, default 1.71) is a *separate* parameter, so a bump
+does not change a single verdict on existing code — measured on the ai-demokit
+corpus, the 1.150 → 1.151 bump produced **0 new findings across 339 ports**.
+What it does change is what a member *newer than the pin* reports as. A member
+above the floor but below the pin is `member-too-new` / `control-too-new` /
+`event-parameter-too-new` / `enum-value-too-new` — verdicts a consumer can
+knowingly accept (ai-demokit's `POST_171` deviations excuse exactly those). A
+member above the *pin* does not exist in the snapshot at all and degrades into
+`unknown-control` / `unknown-property` / `unknown-aggregation` — "typo?" — plus
+a `render` load failure, and **no consumer can excuse those**: they are the
+shape a real typo has. So a stale pin does not under-report, it *mis*-reports,
+and it blocks every consumer building on a control released after it
+(`sap.tnt.SideNavigationSearchField` @1.151 was the case that surfaced this).
+Bumping is one PR: the pins, `npm install`, `npm run generate-metadata`, and
+the snapshot header numbers above.
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
@@ -302,7 +352,7 @@ OPENUI5_DIR=./openui5 node node_modules/@abap2ui5/linter/scripts/generate-metada
 
 Note what that does **not** mean: ai-demokit does not reuse `data/properties.json`
 itself. It builds its sample universe from an OpenUI5 *checkout* that can be
-newer than the `@openui5` packages pinned here (1.152 vs 1.150 at the time of
+newer than the `@openui5` packages pinned here (1.152 vs 1.151 at the time of
 writing, and npm has no 1.152), and a snapshot older than the universe loses
 the `@since` of controls introduced in between — `scopeOf` then reads them as
 in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
