@@ -875,6 +875,35 @@ ENDCLASS.`;
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// ---------------------------------------------- optional render deps ----
+// playwright + @openui5/* are optionalDependencies: absent, the property
+// gate still works and a requested render fails with one actionable message
+{
+  const { RENDER_DEPS, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
+  const pkg = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+  assert(!pkg.dependencies && RENDER_DEPS.slice().sort().join() === Object.keys(pkg.optionalDependencies).sort().join(),
+    'render deps: RENDER_DEPS mirrors exactly the optionalDependencies of package.json');
+  assert(missingRenderDeps().length === 0,
+    'render deps: everything is installed in this environment');
+  // intercept resolution to simulate an --omit=optional install
+  const missing = missingRenderDeps(() => { throw new Error('MODULE_NOT_FOUND'); });
+  assert(missing.length === RENDER_DEPS.length,
+    'render deps: an unresolvable install reports every render dep as missing');
+  const err = renderDepsError(missing);
+  assert(err.code === 'ERR_RENDER_DEPS_MISSING',
+    'render deps: the refusal carries a stable code the CLI can catch');
+  assert(/playwright/.test(err.message) && /@openui5\/sap\.ui\.core/.test(err.message),
+    'render deps: the message names the missing packages');
+  assert(/npm install/.test(err.message) && /--no-render/.test(err.message) && /render: false/.test(err.message),
+    'render deps: the message says how to install them and how to run without them');
+  const partial = renderDepsError(missingRenderDeps((id) => {
+    if (id.startsWith('playwright')) throw new Error('MODULE_NOT_FOUND');
+    return id;
+  }));
+  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('optionalDependencies')[0]),
+    'render deps: only what is actually missing is named');
+}
+
 // ------------------------------------------------- curated formatter mirror ----
 // the render harness provides the same formatter surface the rule judges by —
 // the demo-kit pack was removed upstream, and a harness still mirroring it
@@ -1192,6 +1221,46 @@ ENDCLASS.`;
     'report: a flag missing its value is refused instead of crashing the gate');
   assert(/no such file or directory: .*no-such-path/.test(fails(['no-such-path', '--no-render'])),
     'report: a mistyped path is one clean line and exit 2, not a stack trace');
+}
+
+// --------------------------------------------------------------- typings ----
+// types.d.ts is the typed contract of the exports map: hand-written (the
+// implementation has no TypeScript build step by design), gated here so it
+// can neither go stale against the exports map nor stop parsing
+{
+  const cp = await import('node:child_process');
+  const ROOT = path.join(FIX, '..', '..');
+  const dts = fs.readFileSync(path.join(ROOT, 'types.d.ts'), 'utf8');
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+
+  // every exports subpath that resolves to code has its declare-module block,
+  // and every subpath's "types" condition points at this file
+  const subpaths = Object.entries(pkg.exports).filter(([, v]) => typeof v === 'object');
+  const undeclared = subpaths
+    .map(([k]) => (k === '.' ? '@abap2ui5/linter' : `@abap2ui5/linter/${k.slice(2)}`))
+    .filter((m) => !dts.includes(`declare module "${m}"`));
+  assert(subpaths.length && !undeclared.length,
+    `typings: every code subpath of the exports map is declared (missing: ${undeclared.join(', ') || 'none'})`);
+  assert(subpaths.every(([, v]) => v.types === './types.d.ts') && pkg.types === './types.d.ts'
+    && pkg.files.includes('types.d.ts'),
+    'typings: the types conditions, the top-level types field and files[] all carry types.d.ts');
+
+  // tsc --noEmit keeps the file syntactically and internally valid. typescript
+  // is a devDependency used ONLY for this check - there is still no build step
+  const { createRequire } = await import('node:module');
+  let tsc = null;
+  try { tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc'); } catch { /* not installed */ }
+  if (tsc) {
+    let ok = true;
+    let msg = '';
+    try {
+      cp.execFileSync('node', [tsc, '--noEmit', '--strict', '--target', 'es2022', 'types.d.ts'],
+        { cwd: ROOT, encoding: 'utf8' });
+    } catch (e) { ok = false; msg = (e.stdout || e.stderr || '').trim().slice(0, 400); }
+    assert(ok, `typings: types.d.ts type-checks clean (${msg || 'tsc --noEmit'})`);
+  } else {
+    assert(true, 'typings: typescript not installed - tsc check skipped (structural gate above still ran)');
+  }
 }
 
 // ---------------------------------------------------------------- schema ----

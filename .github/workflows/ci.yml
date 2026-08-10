@@ -10,7 +10,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - run: npm ci
+      # the Chromium download is the slow half of the install; cache it keyed
+      # on the lockfile (which pins the playwright version). On a hit,
+      # `playwright install` finds the browser and only installs system deps
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium --with-deps
       # npm test includes the metadata drift gate (generate-metadata --check):
       # ~2s since the extend-scan fix, so it no longer needs its own step

@@ -205,7 +205,15 @@ if (opt.fix) {
   }
 }
 
-const results = await checkFiles(files, opt);
+let results;
+try {
+  results = await checkFiles(files, opt);
+} catch (e) {
+  // the render gate's deps are optional - requested-but-absent is a usage/
+  // environment problem worth one actionable line, not a stack trace
+  if (e.code === 'ERR_RENDER_DEPS_MISSING') die(e.message);
+  throw e;
+}
 
 /* The baseline: adopt the linter on a repo that already has findings.
  * --update-baseline freezes the CURRENT findings as accepted debt;

@@ -32,18 +32,36 @@ runs:
         node-version: 22
     - name: Install abap2UI5-linter
       shell: bash
-      run: npm ci --prefix "${{ github.action_path }}"
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: npm ci --prefix "$ACTION_PATH"
     - name: Install Chromium
       shell: bash
-      run: npx --prefix "${{ github.action_path }}" playwright install chromium --with-deps
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: npx --prefix "$ACTION_PATH" playwright install chromium --with-deps
     - name: Run abap2UI5-linter
       shell: bash
-      # only explicitly-set inputs become flags, so the checked repo's
+      # Inputs reach the shell only through env - a `${{ }}` interpolated into
+      # `run:` would let a crafted input inject shell commands. Only
+      # explicitly-set inputs become flags, so the checked repo's
       # abap2ui5lint.jsonc governs everything left unset. Annotations are on
       # by default inside a workflow - that is what puts a finding on the diff
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        LINT_PATHS: ${{ inputs.paths }}
+        LINT_MIN_UI5: ${{ inputs['min-ui5'] }}
+        LINT_FAIL_ON: ${{ inputs['fail-on'] }}
+        LINT_ANNOTATIONS: ${{ inputs.annotations }}
+        LINT_FLAGS: ${{ inputs.flags }}
       run: |
         ARGS=()
-        if [ -n "${{ inputs['min-ui5'] }}" ]; then ARGS+=(--min-ui5 "${{ inputs['min-ui5'] }}"); fi
-        if [ -n "${{ inputs['fail-on'] }}" ]; then ARGS+=(--fail-on "${{ inputs['fail-on'] }}"); fi
-        if [ "${{ inputs.annotations }}" = "false" ]; then ARGS+=(--no-annotate); fi
-        node "${{ github.action_path }}/cli.mjs" ${{ inputs.paths }} "${ARGS[@]}" ${{ inputs.flags }}
+        if [ -n "$LINT_MIN_UI5" ]; then ARGS+=(--min-ui5 "$LINT_MIN_UI5"); fi
+        if [ -n "$LINT_FAIL_ON" ]; then ARGS+=(--fail-on "$LINT_FAIL_ON"); fi
+        if [ "$LINT_ANNOTATIONS" = "false" ]; then ARGS+=(--no-annotate); fi
+        # paths and flags are documented as space-separated lists, so they are
+        # split on whitespace DELIBERATELY - via read -a into argv words, which
+        # word-splits without re-parsing quotes, globs or metacharacters
+        read -r -a PATH_ARGS <<< "$LINT_PATHS"
+        read -r -a FLAG_ARGS <<< "$LINT_FLAGS"
+        node "$ACTION_PATH/cli.mjs" "${PATH_ARGS[@]}" "${ARGS[@]}" "${FLAG_ARGS[@]}"
