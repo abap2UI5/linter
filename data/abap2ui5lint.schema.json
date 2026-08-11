@@ -267,6 +267,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'popover-display-val' — default severity: error"
         },
+        "raw-javascript-to-frontend": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'raw-javascript-to-frontend' — default severity: warning"
+        },
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'relative-binding-without-context' — default severity: error"

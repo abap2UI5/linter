@@ -741,7 +741,16 @@ ENDCLASS.`;
     'unknown-frontend-action: a server-remapped alias is fine');
   assert(!act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
     .some((x) => x.type === 'unknown-frontend-action'),
-    'unknown-frontend-action: the raw-JavaScript escape hatch is not judged');
+    'unknown-frontend-action: the raw-JavaScript escape hatch is not an unknown ACTION');
+  assert(act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.member === 'follow_up_action'),
+    'raw-javascript-to-frontend: the escape hatch ships code, and code does not belong on the wire');
+  assert(act('client->_event_client( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: _event_client has no raw-JS path — a non-name literal can never dispatch');
+  assert(!act('client->follow_up_action( val = lv_dynamic ).')
+    .some((x) => x.type === 'raw-javascript-to-frontend' || x.type === 'unknown-frontend-action'),
+    'raw-javascript-to-frontend: a runtime value is not statically knowable and not judged');
 
   assert(act('client->_event_client( val = client->cs_event-control_by_id view = `NESTED` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
     .some((x) => x.type === 'unknown-view-slot' && x.value === 'NESTED'),
@@ -844,6 +853,7 @@ CLASS zcl_j IMPLEMENTATION.
     v->open( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
         )->a( n = \`xmlns:w\` v = \`sap.ui.integration.widgets\`
+        )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
         ${leaf}
         )->shut( ).
     client->view_display( v->stringify( ) ).
@@ -858,6 +868,24 @@ ENDCLASS.`).findings;
   assert(!jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( manifest )')
     .some((x) => x.type === 'json-bind-on-scalar-property'),
     'json-bind-on-scalar-property: a plain bind of the same attribute is fine');
+
+  // --- JavaScript through the VIEW ------------------------------------------
+  assert(jsonBind(')->leaf( `Button` )->a( n = `press` v = `z2ui5.oView.doSomething()` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.member === 'press'),
+    'raw-javascript-to-frontend: a hand-written handler string on an event attribute');
+  assert(!jsonBind(')->leaf( `Button` )->a( n = `press` v = client->_event( `SAVE` ) )')
+    .some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: the client->_event( ) wire is the correct form');
+  assert(jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<script>alert(1)</script>` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.value === 'script tag'),
+    'raw-javascript-to-frontend: a <script> tag through core:HTML content');
+  assert(!jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: a stylesheet is not code and stays fine');
+  const { checkXmlSource } = await import('../lib/index.mjs');
+  assert(!checkXmlSource('<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><Button press=".onPress"/></mvc:View>')
+    .findings.some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: a raw view.xml has a controller — handler names belong there');
 
   // --- date/time model types over a JSON model ------------------------------
   const dates = checkAbapSource(fs.readFileSync(f('datetype.clas.abap'), 'utf8'));

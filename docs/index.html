@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">44 error</span>
-      <span class="badge warning">20 warning</span>
+      <span class="badge warning">21 warning</span>
       <span class="badge hint">7 hint</span>
       <span class="badge fix">5 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 71 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 72 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -553,6 +553,17 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btninfo` ).<
         <p class="fixnote"><strong>--fix:</strong> The parameter name is rewritten to <code>xml</code>, the argument untouched.</p>
         <pre><code>client-&gt;popover_display( val = popover-&gt;stringify( ) ).  " does not compile
 client-&gt;popover_display( xml = popover-&gt;stringify( ) ).  " correct</code></pre>
+      </article>
+      <article class="rule" id="raw-javascript-to-frontend" data-search="raw-javascript-to-frontend raw javascript shipped to the browser — via follow_up_action or the view abap2ui5's frontend is a renderer: behaviour travels as data (bindings, cs_event- actions), never as code. three shapes break that line, and all three run unchecked in the browser, invisible to every gate and to anyone reading the abap: a non-name val in follow_up_action( ) (the raw-js escape hatch — inserted verbatim as custom_js), a hand-written handler string on an event attribute (ui5 evaluates it as javascript), and a &lt;script&gt; tag inside an attribute value (the core:html route). use a cs_event- frontend action, a client-&gt;_event( ) wire or backend logic instead. a repo that deliberately allows the escape hatch can lower or disable the rule in its abap2ui5lint.jsonc. warning">
+        <h3><a href="#raw-javascript-to-frontend">raw-javascript-to-frontend</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">raw JavaScript shipped to the browser — via <code>follow_up_action</code> or the view</p>
+        <p class="detail">abap2UI5's frontend is a <strong>renderer</strong>: behaviour travels as data (bindings, <code>cs_event-</code> actions), never as code. Three shapes break that line, and all three run unchecked in the browser, invisible to every gate and to anyone reading the ABAP: a non-name <code>val</code> in <code>follow_up_action( )</code> (the raw-JS escape hatch — inserted verbatim as <code>custom_js</code>), a hand-written handler string on an event attribute (UI5 evaluates it as JavaScript), and a <code>&lt;script&gt;</code> tag inside an attribute value (the <code>core:HTML</code> route). Use a <code>cs_event-</code> frontend action, a <code>client-&gt;_event*( )</code> wire or backend logic instead. A repo that deliberately allows the escape hatch can lower or disable the rule in its <code>abap2ui5lint.jsonc</code>.</p>
+        <pre><code>client-&gt;follow_up_action( val = `sap.ui.getCore().byId('x').focus()` ).   " raw JS
+)-&gt;a( n = `press` v = `z2ui5.oView.doSomething()` )                        " handler string
+" instead:
+client-&gt;follow_up_action( val = client-&gt;cs_event-set_focus t_arg = VALUE #( ( `x` ) ) ).</code></pre>
       </article>
       <article class="rule" id="separate-lifecycle-ifs" data-search="separate-lifecycle-ifs lifecycle checks in separate if blocks instead of one if/elseif chain the lifecycle flags (check_on_init, check_on_event, check_on_navigated, …) are not all mutually exclusive, so separate if blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. one if/elseif chain makes the branches exclusive by construction. the guard idiom is exclusive too and is never reported: an if block that leaves the method (if client-&gt;check_on_event( \go\ ). … return. endif.) cannot flow into the next block. warning">
         <h3><a href="#separate-lifecycle-ifs">separate-lifecycle-ifs</a>

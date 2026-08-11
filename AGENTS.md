@@ -65,8 +65,8 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
+| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -319,6 +319,18 @@ shipped (the doctrine working): `$event.oSource.sId` anchors are resolved
 CLIENT-side (any `$`-prefixed value is not a static id), and
 `literalElements` used to hand a |…| template's RAW text to the rules — a
 template with an interpolation is now `null` like any other runtime value.
+
+Same round, by explicit project decision: **`raw-javascript-to-frontend`**
+(warning) — the frontend is a renderer, behaviour travels as data, never as
+code. Three shapes, one rule id: `follow_up_action`'s raw-JS escape hatch (a
+non-name literal `val` is inserted verbatim as `custom_js` —
+`z2ui5_cl_core_client~follow_up_action`), a hand-written handler string on an
+event attribute (UI5 evaluates it as JavaScript; the literal-on-event cell
+that completed the `binding-for-event` / `event-for-property` matrix), and a
+`<script>` tag in an attribute value. ABAP classes only — a raw `.view.xml`
+has a controller whose handler names belong there (`fromAbap` in
+`checkNodes`). A `_event_client` with a non-name literal is different: it has
+no raw-JS path, so that is an `unknown-frontend-action` instead.
 
 **Known candidate backlog:**
 
