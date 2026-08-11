@@ -27,7 +27,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
 import {
-  GLOBAL_TARGETS, CSS_PROPERTIES,
+  GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
 } from '../lib/frontend-actions.mjs';
 
@@ -115,6 +115,21 @@ export function parseDenyList(abapSrc, name) {
   return [...body.matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
 }
 
+/** The BINDING_CALL method map of FrontendAction.js: the function-valued
+ *  entries of `const BINDING_METHODS = { … }`. Every one of them takes the
+ *  binding as its first parameter, which is what the parse keys on — an
+ *  indent change upstream must not silently empty this list. */
+export function parseBindingMethods(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const BINDING_METHODS = {');
+  if (at === -1) return [];
+  const body = braceRegion(js, js.indexOf('{', at));
+  // shorthand-method DEFINITIONS only (`filter(binding, …) {`) — a helper
+  // CALLED with the binding (`buildFilterGroups(binding, path);`) is not an
+  // entry, and the `) {` tail is what tells the two apart
+  return [...body.matchAll(/(\w+)\s*\(\s*binding\b[^)]*\)\s*\{/g)].map((m) => m[1]);
+}
+
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
 async function fetchText(url) {
@@ -196,6 +211,17 @@ if (invokedDirectly) {
     if (upstreamTargets[name]) {
       report(`CONTROL_GLOBAL ${name} methods`, GLOBAL_TARGETS[name], upstreamTargets[name]);
     }
+  }
+  /* BINDING_CALL's method map is the fourth closed set in the same file —
+   * it was the one mirror check-upstream did NOT compare, which is exactly
+   * how a mirror rots. */
+  {
+    const theirs = parseBindingMethods(actionSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find BINDING_METHODS in the frontendaction class — the embedding changed, update parseBindingMethods');
+      process.exit(2);
+    }
+    report('BINDING_CALL methods (lib/frontend-actions.mjs)', [...BINDING_METHODS], theirs);
   }
 
   if (drift) {

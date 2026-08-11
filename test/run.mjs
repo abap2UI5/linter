@@ -661,12 +661,17 @@ ENDCLASS.`;
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
 
   // --- CONTROL_BY_ID against the ids the class actually declares ------------
-  const ids = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'))
-    .filter((x) => x.type === 'frontend-action-unknown-id');
-  assert(ids.length === 1 && ids[0].value === 'messageview',
-    `frontend-action-unknown-id: only the miscased id is reported (got ${ids.map((x) => x.value).join() || 'none'})`);
+  const actionFindings = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'));
+  const ids = actionFindings.filter((x) => x.type === 'frontend-action-unknown-id');
+  assert(ids.length === 2 && ids.map((x) => x.value).sort().join() === 'messageview,msgView',
+    `frontend-action-unknown-id: the miscased CONTROL_BY_ID and the unknown SET_FOCUS id are reported (got ${ids.map((x) => x.value).join() || 'none'})`);
+  assert(ids.find((x) => x.value === 'msgView')?.control === 'SET_FOCUS',
+    'frontend-action-unknown-id: the id-addressed action names itself in the finding');
   assert(ids[0].allowed.sort().join() === 'mainPage,messageView',
     `frontend-action-unknown-id: the finding carries the declared ids (got ${ids[0].allowed.join()})`);
+  const anchors = actionFindings.filter((x) => x.type === 'popover-anchor-unknown-id');
+  assert(anchors.length === 1 && anchors[0].value === 'mainpage',
+    `popover-anchor-unknown-id: only the miscased anchor is reported (got ${anchors.map((x) => x.value).join() || 'none'})`);
   assert(checkAbapRules(`
     DATA(v) = z2ui5_cl_ai_xml=>factory( ).
     v->leaf( \`Page\` )->a( n = \`id\` v = |page{ idx }| ).
@@ -677,6 +682,13 @@ ENDCLASS.`;
   assert(checkAbapRules(fs.readFileSync(f('wire.clas.abap'), 'utf8'))
     .filter((x) => x.type === 'frontend-action-unknown-id').length === 0,
     'frontend-action-unknown-id: a class whose views declare no id at all is not judged');
+
+  assert(checkAbapRules('DATA(vn) = client->get( )-viewname.')
+    .some((x) => x.type === 'get-viewname-removed'),
+    'get-viewname-removed: a read of the removed ty_s_get component is reported');
+  assert(!checkAbapRules('DATA(ev) = client->get( )-event.')
+    .some((x) => x.type === 'get-viewname-removed'),
+    'get-viewname-removed: the surviving components are left alone');
 
   // --- date/time model types over a JSON model ------------------------------
   const dates = checkAbapSource(fs.readFileSync(f('datetype.clas.abap'), 'utf8'));
@@ -804,6 +816,77 @@ ENDCLASS.`;
   assert(!checkAbapRules('view->leaf( `Input` )->a( n = `change` v = client->_event( `DONE` ) ).')
     .some((x) => x.type === 'live-event-roundtrip'),
     'live-event-roundtrip: the final-value event is the correct form and not reported');
+
+  const flag = `CLASS zcl_f DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA check_initialized TYPE abap_bool.
+    DATA cache_loaded TYPE abap_bool.
+ENDCLASS.
+CLASS zcl_f IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF check_initialized = abap_false.
+      check_initialized = abap_true.
+      client->view_display( render( ) ).
+    ENDIF.
+    IF cache_loaded IS INITIAL.
+      cache_loaded = abap_true.
+      load_cache( ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.`;
+  const flags = checkAbapRules(flag);
+  assert(flags.some((x) => x.type === 'manual-init-flag' && x.member === 'check_initialized'),
+    'manual-init-flag: a boolean gating the first render is reported');
+  assert(!flags.some((x) => x.type === 'manual-init-flag' && x.member === 'cache_loaded'),
+    'manual-init-flag: a lazy-load guard that displays nothing is left alone');
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      client->view_display( render( ) ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === 'manual-init-flag'),
+    'manual-init-flag: check_on_init( ) is the correct form and not reported');
+
+  const refs = checkAbapRules(`CLASS zcl_r DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mt_data TYPE REF TO data.
+    DATA t_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_r IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data ) ).
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data->* ) ).
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( t_rows ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(refs.filter((x) => x.type === 'binding-to-reference').length === 1,
+    'binding-to-reference: the undereferenced REF TO bind is reported, ref->* and a data attribute are not');
+
+  const disabled = checkAbapSource(`CLASS zcl_d DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA can_save TYPE abap_bool.
+ENDCLASS.
+CLASS zcl_d IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Button\`
+            )->a( n = \`press\`   v = client->_event( \`DEAD\` )
+            )->a( n = \`enabled\` v = \`false\`
+        )->leaf( \`Button\`
+            )->a( n = \`press\`   v = client->_event( \`LIVE\` )
+            )->a( n = \`enabled\` v = client->_bind( can_save )
+        )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  const dead = disabled.findings.filter((x) => x.type === 'event-on-disabled-control');
+  assert(dead.length === 1 && dead[0].member === 'press',
+    'event-on-disabled-control: the literal-disabled button is reported, the bound one is not');
 }
 
 // --------------------------------------------------------- lifecycle rules ----

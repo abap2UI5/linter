@@ -91,6 +91,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-to-nonpublic' — default severity: error"
         },
+        "binding-to-reference": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'binding-to-reference' — default severity: error"
+        },
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-type-mismatch' — default severity: warning"
@@ -163,6 +167,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'event-for-property' — default severity: error"
         },
+        "event-on-disabled-control": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'event-on-disabled-control' — default severity: hint"
+        },
         "event-parameter-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'event-parameter-too-new' — default severity: warning"
@@ -178,6 +186,10 @@
         "frontend-action-unknown-id": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'frontend-action-unknown-id' — default severity: error"
+        },
+        "get-viewname-removed": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'get-viewname-removed' — default severity: error"
         },
         "hardcoded-binding-path": {
           "$ref": "#/definitions/rule",
@@ -207,6 +219,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'live-event-roundtrip' — default severity: hint"
         },
+        "manual-init-flag": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'manual-init-flag' — default severity: warning"
+        },
         "member-deprecated": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'member-deprecated' — default severity: warning"
@@ -230,6 +246,10 @@
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'obsolete-binder' — default severity: warning"
+        },
+        "popover-anchor-unknown-id": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'popover-anchor-unknown-id' — default severity: error"
         },
         "popover-display-val": {
           "$ref": "#/definitions/rule",

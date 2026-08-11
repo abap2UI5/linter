@@ -65,8 +65,8 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `duplicate-for-iterator`, `denied-control-method` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `missing-accessibility` |
+| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed` |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -270,6 +270,73 @@ conventional prefixes, `--format sarif`, the adoption **baseline**
 clock divides accordingly), and `scripts/check-upstream.mjs` +
 `upstream-sync.yml`, the weekly drift gate for the two hand-maintained
 knowledge files below.
+
+The 2026-08-11 round mined the SAMPLES repo's ~1000-commit history and the
+framework's frontend JS for silent-failure boundaries the earlier rounds had
+not touched:
+
+| Origin | Rule |
+| --- | --- |
+| the framework gained `_bind` parameters the reconstructor did not know — an `omit_initial_paths`/`json` bind DROPPED its attribute from the reconstructed view, blinding every gate to it | `bindingOf` now parses named args; shape-neutral params (`omit_initial`, `omit_initial_paths`, `json`, `view`) reconstruct as the plain binding, shape-CHANGING ones (`tab`, `custom_mapper`, `switch_default_model`) still stay unresolved on purpose |
+| ai-demokit porting guide: round-trips are serialized, an event in flight DROPS the ones behind it (measured on app 280) | `live-event-roundtrip` — a `liveChange` wired to `client->_event( )`; hint, 5 deliberate demo wires on the corpus, all advisory |
+| samples history: one sweep replaced hand-rolled init flags in 111 classes (`7b210d1`), and the antipattern kept reappearing for years | `manual-init-flag` — only the unambiguous shape (flag-gated branch that BOTH sets the flag AND displays a view); a lazy-load guard that displays nothing is left alone |
+| samples history: `_bind( )` on a `TYPE REF TO` attribute throws at runtime, found twice by users hitting the exception (`ca9d86d`, `8d477fe`) | `binding-to-reference` — `ref->*` and plain data attributes stay silent |
+| samples history: handlers wired next to a literal `enabled="false"` (`ec1efe0`) | `event-on-disabled-control` — hint (a 1:1 port of a disabled-state demo legitimately carries the handler); 5 corpus hits, all exactly that |
+| framework: `SET_FOCUS`/`SCROLL_TO`/`SCROLL_INTO_VIEW`/`KEYBOARD_SET_MODE` resolve their id and `return` on a miss WITHOUT EVEN A LOG — quieter than CONTROL_BY_ID | `frontend-action-unknown-id` now covers them (`ID_ADDRESSED_ACTIONS` in `lib/frontend-actions.mjs`), same viewIds trust condition |
+| framework: a bad `popover_display( by_id = … )` loads the fragment, finds no anchor and DESTROYS it again — nothing opens, nothing renders red | `popover-anchor-unknown-id` |
+| framework changelog: `VIEWNAME` removed from `ty_s_get` — the read no longer compiles, invisibly in a systemless pipeline (the `popover-display-val` blindness) | `get-viewname-removed` |
+
+Also in that round: `check-upstream.mjs` now gates **`BINDING_METHODS`** too —
+it was the one mirror in `frontend-actions.mjs` the drift gate did not
+compare, which is exactly how a mirror rots.
+
+Rollout note for that round: ai-demokit's **advisory ratchet**
+(`ADVISORY_BUDGET` in its `view-gates.mjs`, budget 0 for unknown types) makes
+the downstream corpus job red until its next pin-bump PR adds
+`'live-event-roundtrip': 5` and `'event-on-disabled-control': 5` — all ten
+findings are deliberate 1:1 demo wires, so the budget, not the corpus, is the
+right side to move. That is the ratchet working as designed ("the debt
+decision belongs at the bump PR"), not a defect in either repo.
+
+**Known candidate backlog** (mined 2026-08-11 from the frontend's remaining
+closed sets, each a logs-or-silent boundary; kept here so the next round
+starts from evidence, not from scratch):
+
+- The frontend's top-level `handlers` dispatch table (36 action names) misses
+  with **no log at all** — a literal action name outside it is swallowed
+  whole. Related: the ABAP-side rules currently key on a `cs_event-` token
+  (`abap-rules.mjs`), so an action spelled as a string literal skips the
+  whole `invalid-frontend-action` family today. One rule (mirror + gate)
+  would close both.
+- `FILTER_OPERATORS` (14, case-sensitive) — a `BINDING_CALL filter` with
+  `contains` instead of `Contains` logs and leaves the binding untouched.
+  Fits `ACTION_ARGS` mechanically; the compound-group JSON form (param
+  starting `[`) carries rows of `[path, op, v1, v2]`.
+- More id slots for `frontend-action-unknown-id`: `WIZARD_SET_NEXT_STEP`,
+  the variant-init pairs, `BINDING_CALL` id@0, CONTROL_BY_ID **argument**
+  ids (`openBy`/`toggleBy` anchors, `setSelectedSection`, …), and the
+  aggregation-item form `id/agg/index` (agg + 0..n checkable against the
+  snapshot).
+- Literal `view` slot params outside {MAIN, NEST, NEST2, POPUP, POPOVER} — a
+  wrong slot SUPPRESSES the global id fallback, so the wire dies although
+  the id exists (and `NESTED` is exactly the guess a hand-written literal
+  makes).
+- `_bind( json = abap_true )` is OUTBOUND-only (`main_json_to_attri` skips
+  `check_json` attributes on the way back) — wired into a user-editable
+  property, every edit is silently discarded. `bindingOf` already carries
+  the `json` flag; what is missing is a defensible "user-editable property"
+  set.
+- CONTROL_METHODS `object`-kind payloads (`setSticky`, `setHiddenInPopin`,
+  `setP13nData`): a non-JSON literal silently becomes `{}`, and for the
+  first two the payload is an array of enum keys the snapshot knows.
+- **A second AI-facing builder exists**: `z2ui5_cl_ui5_view_builder`
+  (upstream 43452e8, 2026-08-06 — `new/ele/tag/att/end`, created because
+  `a( )`'s last-child-or-self target rule was a design flaw). `collectFiles`
+  keys on the literal `z2ui5_cl_ai_xml=>factory`, so classes on the new
+  builder are **silently invisible** — the `z2ui5_cl_xml_view` situation
+  again, except this one is the designated successor, not a frozen legacy.
+  Supporting it is a reconstructor project, not a rule; decide it
+  deliberately.
 
 New candidates go here as they are found. Two rules of the trade the last
 rounds established, before anything is added:
