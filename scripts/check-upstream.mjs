@@ -27,8 +27,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
 import {
-  GLOBAL_TARGETS, CSS_PROPERTIES,
+  GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
+  FRONTEND_EVENTS, VIEW_SLOTS, FILTER_OPERATORS, URLHELPER_ACTIONS,
+  CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS,
+  SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
@@ -115,6 +118,79 @@ export function parseDenyList(abapSrc, name) {
   return [...body.matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
 }
 
+/** The BINDING_CALL method map of FrontendAction.js: the function-valued
+ *  entries of `const BINDING_METHODS = { … }`. Every one of them takes the
+ *  binding as its first parameter, which is what the parse keys on — an
+ *  indent change upstream must not silently empty this list. */
+export function parseBindingMethods(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const BINDING_METHODS = {');
+  if (at === -1) return [];
+  const body = braceRegion(js, js.indexOf('{', at));
+  // shorthand-method DEFINITIONS only (`filter(binding, …) {`) — a helper
+  // CALLED with the binding (`buildFilterGroups(binding, path);`) is not an
+  // entry, and the `) {` tail is what tells the two apart
+  return [...body.matchAll(/(\w+)\s*\(\s*binding\b[^)]*\)\s*\{/g)].map((m) => m[1]);
+}
+
+/** The top-level dispatch table: the keys of `const handlers = { … }`. */
+export function parseHandlers(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const handlers = {');
+  if (at === -1) return [];
+  const body = braceRegion(js, js.indexOf('{', at));
+  return [...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
+}
+
+/** A `const NAME = new Set([ … ])` / `const NAME = [ … ]` of quoted strings. */
+export function parseStringList(abapSrc, name) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf(`const ${name} = `);
+  if (at === -1) return [];
+  const end = js.indexOf(']', at);
+  if (end === -1) return [];
+  return [...js.slice(at, end).matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+}
+
+/** URLHELPER's `actions` map keys, scoped to evUrlHelper so an `actions`
+ *  variable elsewhere never leaks in. */
+export function parseUrlHelperActions(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const fn = js.indexOf('function evUrlHelper');
+  if (fn === -1) return [];
+  const body = braceRegion(js, js.indexOf('{', fn));
+  const at = body.indexOf('actions = {');
+  if (at === -1) return [];
+  const map = braceRegion(body, body.indexOf('{', at));
+  return [...map.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
+}
+
+/** CONTROL_METHODS with its arg kinds: name -> [kinds]. The two mirrors that
+ *  derive from it (id-arg methods, object-payload methods) are compared
+ *  against THIS parse, so a kind change upstream surfaces here. */
+export function parseControlMethodKinds(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const CONTROL_METHODS = {');
+  if (at === -1) return {};
+  const body = braceRegion(js, js.indexOf('{', at));
+  const out = {};
+  for (const m of body.matchAll(/^\s*(\w+)\s*:\s*\[([^\]]*)\]/gm)) {
+    out[m[1]] = [...m[2].matchAll(/["'`]([^"'`]+)["'`]/g)].map((x) => x[1]);
+  }
+  return out;
+}
+
+/** SHORTCUT_ALIASES: alias -> canonical spelling. */
+export function parseShortcutAliases(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const SHORTCUT_ALIASES = {');
+  if (at === -1) return {};
+  const body = braceRegion(js, js.indexOf('{', at));
+  const out = {};
+  for (const m of body.matchAll(/(\w+)\s*:\s*["'`]([^"'`]*)["'`]/g)) out[m[1]] = m[2];
+  return out;
+}
+
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
 async function fetchText(url) {
@@ -196,6 +272,70 @@ if (invokedDirectly) {
     if (upstreamTargets[name]) {
       report(`CONTROL_GLOBAL ${name} methods`, GLOBAL_TARGETS[name], upstreamTargets[name]);
     }
+  }
+  /* BINDING_CALL's method map is the fourth closed set in the same file —
+   * it was the one mirror check-upstream did NOT compare, which is exactly
+   * how a mirror rots. */
+  {
+    const theirs = parseBindingMethods(actionSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find BINDING_METHODS in the frontendaction class — the embedding changed, update parseBindingMethods');
+      process.exit(2);
+    }
+    report('BINDING_CALL methods (lib/frontend-actions.mjs)', [...BINDING_METHODS], theirs);
+  }
+  /* The 2026-08-11 round mirrored the REMAINING closed sets — each gated
+   * here the moment it was added, so none of them can rot the way
+   * BINDING_METHODS almost did. FRONTEND_EVENT_ALIASES is the one deliberate
+   * exception: the five *_NAV_CONTAINER_TO names live in the SERVER's remap
+   * (z2ui5_cl_core_srv_event), not in the frontend source this script
+   * fetches, and are marked obsolete upstream. */
+  {
+    const theirs = parseHandlers(actionSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find the handlers dispatch table — the embedding changed, update parseHandlers');
+      process.exit(2);
+    }
+    report('frontend action dispatch table (lib/frontend-actions.mjs)', [...FRONTEND_EVENTS], theirs);
+  }
+  {
+    const theirs = parseStringList(actionSrc, 'FILTER_OPERATORS');
+    if (!theirs.length) {
+      console.error('check-upstream: could not find FILTER_OPERATORS — the embedding changed, update parseStringList');
+      process.exit(2);
+    }
+    report('BINDING_CALL filter operators (lib/frontend-actions.mjs)', [...FILTER_OPERATORS], theirs);
+  }
+  {
+    const theirs = parseStringList(actionSrc, 'SHORTCUT_SLOTS');
+    if (theirs.length) report('view slots (lib/frontend-actions.mjs)', [...VIEW_SLOTS], theirs);
+    const mods = parseStringList(actionSrc, 'SHORTCUT_MODIFIERS');
+    if (mods.length) report('shortcut modifiers (lib/frontend-actions.mjs)', [...SHORTCUT_MODIFIERS], mods);
+    const aliases = parseShortcutAliases(actionSrc);
+    if (Object.keys(aliases).length) {
+      report('shortcut aliases (lib/frontend-actions.mjs)',
+        Object.entries(SHORTCUT_ALIASES).map(([k, v]) => `${k}>${v}`),
+        Object.entries(aliases).map(([k, v]) => `${k}>${v}`));
+    }
+  }
+  {
+    const theirs = parseUrlHelperActions(actionSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find evUrlHelper\'s actions map — the embedding changed, update parseUrlHelperActions');
+      process.exit(2);
+    }
+    report('URLHELPER actions (lib/frontend-actions.mjs)', [...URLHELPER_ACTIONS], theirs);
+  }
+  {
+    const kinds = parseControlMethodKinds(actionSrc);
+    if (!Object.keys(kinds).length) {
+      console.error('check-upstream: could not find CONTROL_METHODS — the embedding changed, update parseControlMethodKinds');
+      process.exit(2);
+    }
+    const idArg = Object.keys(kinds).filter((k) => ['controlId', 'anchor', 'controlIdOrNull'].includes(kinds[k][0]));
+    report('CONTROL_BY_ID id-argument methods (lib/frontend-actions.mjs)', [...CONTROL_METHOD_ID_ARG], idArg);
+    const objArg = Object.keys(kinds).filter((k) => kinds[k][0] === 'object');
+    report('CONTROL_BY_ID object-payload methods (lib/frontend-actions.mjs)', Object.keys(OBJECT_ARG_METHODS), objArg);
   }
 
   if (drift) {

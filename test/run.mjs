@@ -252,6 +252,68 @@ ENDCLASS.`);
     'model: an unseeded table is empty for the renderer and a declared row in the shape');
 }
 
+// _bind with shape-neutral named parameters: omit_initial/omit_initial_paths
+// and json change the SERIALIZATION around the binding, not what it addresses,
+// so the attribute must reconstruct instead of being dropped as unresolved
+{
+  const wrap = (v) => `CLASS zcl_b DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA manifest TYPE string.
+ENDCLASS.
+CLASS zcl_b IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(x) = z2ui5_cl_ai_xml=>factory( ).
+    x->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Text\` )->a( n = \`text\` v = ${v}
+        )->shut( ).
+    client->view_display( x->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const json = prepareAbap(wrap('client->_bind( val = manifest json = abap_true )'));
+  assert(json.docs[0]?.includes('text="{/MANIFEST}"') && json.notes.length === 0,
+    '_bind( json = abap_true ) reconstructs as the plain binding');
+  const omit = prepareAbap(wrap('client->_bind( val = manifest omit_initial_paths = VALUE #( ( `A` ) ( `B` ) ) )'));
+  assert(omit.docs[0]?.includes('text="{/MANIFEST}"') && omit.notes.length === 0,
+    '_bind( omit_initial_paths = VALUE #( … ) ) reconstructs as the plain binding');
+  const mapper = prepareAbap(wrap('client->_bind( val = manifest custom_mapper = mapper )'));
+  assert(!mapper.docs[0]?.includes('{/MANIFEST}')
+    && mapper.notes.some((n) => n.includes('unresolved value expression')),
+    '_bind with a custom mapper stays unresolved — the serialized names are not ours to guess');
+}
+
+// omit_initial_paths in the RENDER model: the runtime does not serialize an
+// initial value of a listed field, so the mock must not either — the seeded
+// '' used to reach strict mode as an empty enum and kill the render
+{
+  const om = prepareAbap(`CLASS zcl_o DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s, text TYPE string, state TYPE string, END OF ty_s.
+    DATA t_rows TYPE STANDARD TABLE OF ty_s WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_o IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    t_rows = VALUE #( ( text = \`a\` state = \`\` ) ( text = \`b\` state = \`Success\` ) ).
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->open( \`List\`
+            )->a( n = \`items\` v = client->_bind( val = t_rows omit_initial_paths = VALUE #( ( \`STATE\` ) ) )
+            )->open( \`items\`
+                )->leaf( \`ObjectListItem\` )->a( n = \`title\` v = \`{TEXT}\` )->a( n = \`intro\` v = \`{STATE}\` )
+        )->shut( )->shut( )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(!('STATE' in (om.model.T_ROWS?.[0] ?? { STATE: 1 })) && om.model.T_ROWS?.[1]?.STATE === 'Success',
+    'omit_initial_paths: the initial value is dropped from the render model, the filled one kept');
+  assert('STATE' in (om.modelShape.T_ROWS?.[0] ?? {}),
+    'omit_initial_paths: the shape keeps the field, so binding paths stay judgeable');
+}
+
 // no row shape, no verdict: a table of a type the class does not declare
 // could have any field, so nothing there is reported
 const opaque = `CLASS zcl_x DEFINITION PUBLIC.
@@ -629,12 +691,17 @@ ENDCLASS.`;
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
 
   // --- CONTROL_BY_ID against the ids the class actually declares ------------
-  const ids = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'))
-    .filter((x) => x.type === 'frontend-action-unknown-id');
-  assert(ids.length === 1 && ids[0].value === 'messageview',
-    `frontend-action-unknown-id: only the miscased id is reported (got ${ids.map((x) => x.value).join() || 'none'})`);
+  const actionFindings = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'));
+  const ids = actionFindings.filter((x) => x.type === 'frontend-action-unknown-id');
+  assert(ids.length === 2 && ids.map((x) => x.value).sort().join() === 'messageview,msgView',
+    `frontend-action-unknown-id: the miscased CONTROL_BY_ID and the unknown SET_FOCUS id are reported (got ${ids.map((x) => x.value).join() || 'none'})`);
+  assert(ids.find((x) => x.value === 'msgView')?.control === 'SET_FOCUS',
+    'frontend-action-unknown-id: the id-addressed action names itself in the finding');
   assert(ids[0].allowed.sort().join() === 'mainPage,messageView',
     `frontend-action-unknown-id: the finding carries the declared ids (got ${ids[0].allowed.join()})`);
+  const anchors = actionFindings.filter((x) => x.type === 'popover-anchor-unknown-id');
+  assert(anchors.length === 1 && anchors[0].value === 'mainpage',
+    `popover-anchor-unknown-id: only the miscased anchor is reported (got ${anchors.map((x) => x.value).join() || 'none'})`);
   assert(checkAbapRules(`
     DATA(v) = z2ui5_cl_ai_xml=>factory( ).
     v->leaf( \`Page\` )->a( n = \`id\` v = |page{ idx }| ).
@@ -645,6 +712,180 @@ ENDCLASS.`;
   assert(checkAbapRules(fs.readFileSync(f('wire.clas.abap'), 'utf8'))
     .filter((x) => x.type === 'frontend-action-unknown-id').length === 0,
     'frontend-action-unknown-id: a class whose views declare no id at all is not judged');
+
+  assert(checkAbapRules('DATA(vn) = client->get( )-viewname.')
+    .some((x) => x.type === 'get-viewname-removed'),
+    'get-viewname-removed: a read of the removed ty_s_get component is reported');
+  assert(!checkAbapRules('DATA(ev) = client->get( )-event.')
+    .some((x) => x.type === 'get-viewname-removed'),
+    'get-viewname-removed: the surviving components are left alone');
+
+  // --- the frontend's remaining closed sets --------------------------------
+  const act = (call) => checkAbapRules(`
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` ).
+    ${call}
+    client->view_display( v->stringify( ) ).`);
+
+  assert(act('client->follow_up_action( val = `SET_TITEL` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action' && x.value === 'SET_TITEL'),
+    'unknown-frontend-action: a literal name outside the dispatch table is reported');
+  assert(act('client->follow_up_action( val = `set_title` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: the dispatch table is case-sensitive, so a lower-cased name is reported');
+  assert(!act('client->follow_up_action( val = `SET_TITLE` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: a known literal name is fine');
+  assert(!act('client->follow_up_action( val = `NAV_CONTAINER_TO` t_arg = VALUE #( ( `nav` ) ( `p2` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: a server-remapped alias is fine');
+  assert(!act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: the raw-JavaScript escape hatch is not an unknown ACTION');
+  assert(act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.member === 'follow_up_action'),
+    'raw-javascript-to-frontend: the escape hatch ships code, and code does not belong on the wire');
+  assert(act('client->_event_client( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: _event_client has no raw-JS path — a non-name literal can never dispatch');
+  assert(!act('client->follow_up_action( val = lv_dynamic ).')
+    .some((x) => x.type === 'raw-javascript-to-frontend' || x.type === 'unknown-frontend-action'),
+    'raw-javascript-to-frontend: a runtime value is not statically knowable and not judged');
+
+  assert(act('client->_event_client( val = client->cs_event-control_by_id view = `NESTED` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot' && x.value === 'NESTED'),
+    'unknown-view-slot: NESTED is not a slot (cs_view-nested is NEST)');
+  assert(!act('client->_event_client( val = client->cs_event-control_by_id view = `NEST` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot'),
+    'unknown-view-slot: the real slot keys are fine');
+  assert(act('client->follow_up_action( val = client->cs_event-set_size_limit t_arg = VALUE #( ( `200` ) ( `SIDEBAR` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot' && x.value === 'SIDEBAR'),
+    'unknown-view-slot: SET_SIZE_LIMIT\'s view key is judged too');
+
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) ) ).')
+    .some((x) => x.type === 'invalid-keyboard-shortcut'),
+    'invalid-keyboard-shortcut: a modifiers-only combo binds nothing');
+  const shortcutOk = act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Cmd+Return` ) ( `SAVE` ) ) ). client->check_on_event( `SAVE` ).');
+  assert(!shortcutOk.some((x) => x.type === 'invalid-keyboard-shortcut'),
+    'invalid-keyboard-shortcut: aliases resolve, Cmd+Return names a key');
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ) ).')
+    .some((x) => x.type === 'event-without-handler' && x.value === 'SAVE'),
+    'event-without-handler: a shortcut\'s backend event with no branch is a dead wire');
+  assert(!shortcutOk.some((x) => x.type === 'event-without-handler'),
+    'event-without-handler: a handled shortcut event is fine');
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `sidePanel` ) ) ). client->check_on_event( `SAVE` ).')
+    .some((x) => x.type === 'frontend-action-unknown-id' && x.member === 'scope'),
+    'frontend-action-unknown-id: a shortcut scope that is neither a slot nor a declared id');
+  assert(!act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `POPUP` ) ) ). client->check_on_event( `SAVE` ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a slot-key scope is fine');
+
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `contains` ) ( `x` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator' && x.value === 'contains'),
+    'invalid-frontend-action: the filter operator whitelist is case-sensitive');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `Contains` ) ( `x` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action'),
+    'invalid-frontend-action: a whitelisted operator is fine');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `contains` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator'),
+    'invalid-frontend-action: with no value slot the runtime clears before reading the operator — inert, not judged');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","contains","x"]]]` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator'),
+    'invalid-frontend-action: compound filter-group rows are judged too');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[["NAME","Contains","x"]]` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' && x.member === 'filter row'),
+    'invalid-action-payload: a group of strings is a missing nesting level — upstream logs "bad filter row"');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","Contains","x"],["NAME","EQ","y"]]]` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' || x.type === 'invalid-frontend-action'),
+    'compound filter groups: the correct nested form is fine');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[oops` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' && x.control === 'BINDING_CALL'),
+    'invalid-action-payload: malformed filter-groups JSON is rejected with a log upstream');
+
+  assert(act('client->follow_up_action( val = client->cs_event-wizard_set_next_step t_arg = VALUE #( ( `wiz` ) ( `step1` ) ( `step2` ) ) ).')
+    .filter((x) => x.type === 'frontend-action-unknown-id').length === 3,
+    'frontend-action-unknown-id: every id slot of WIZARD_SET_NEXT_STEP is judged');
+  assert(!act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl/items/0` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: the aggregation-item form judges only its id segment');
+  assert(act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `openBy` ) ( `anchor1` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id' && x.member === 'openBy'),
+    'frontend-action-unknown-id: an anchor argument naming an undeclared id');
+  assert(!act('client->_event_client( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `openBy` ) ( `$event.oSource.sId` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a $-prefixed anchor is resolved client-side, not a static id (corpus shape)');
+  assert(!act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `setActivePage` ) ( |tbl/pages/{ idx }| ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a template with an interpolation is composed at runtime, never a literal (corpus shape)');
+
+  // --- object payloads (enum values need the snapshot) ----------------------
+  const payloadClass = (payload) => checkAbapSource(`CLASS zcl_p DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+CLASS zcl_p IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` )->shut( ).
+    client->follow_up_action( val = client->cs_event-control_by_id
+                              t_arg = VALUE #( ( \`tbl\` ) ( \`setSticky\` ) ( \`${payload}\` ) ) ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`).findings;
+  assert(payloadClass('ColumnHeaders').some((x) => x.type === 'invalid-action-payload'),
+    'invalid-action-payload: a bare enum key is not JSON — castArg turns it into {}');
+  assert(!payloadClass('["ColumnHeaders"]').some((x) => x.type === 'invalid-action-payload'),
+    'invalid-action-payload: a JSON array of known enum keys is the correct form');
+  assert(payloadClass('["ColumnHeader"]').some((x) => x.type === 'invalid-action-payload' && x.value === 'ColumnHeader'),
+    'invalid-action-payload: an unknown sap.m.Sticky key is dropped by UI5 silently');
+
+  // --- json = abap_true on a scalar-typed property --------------------------
+  const jsonBind = (leaf) => checkAbapSource(`CLASS zcl_j DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA manifest TYPE string.
+ENDCLASS.
+CLASS zcl_j IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->a( n = \`xmlns:w\` v = \`sap.ui.integration.widgets\`
+        )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
+        ${leaf}
+        )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`).findings;
+  assert(jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( val = manifest json = abap_true )')
+    .some((x) => x.type === 'json-bind-on-scalar-property' && x.member === 'text'),
+    'json-bind-on-scalar-property: a json splice on a string property');
+  assert(!jsonBind(')->leaf( n = `Card` ns = `w` )->a( n = `manifest` v = client->_bind( val = manifest json = abap_true )')
+    .some((x) => x.type === 'json-bind-on-scalar-property'),
+    'json-bind-on-scalar-property: an object/any-typed property is what json is FOR');
+  assert(!jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( manifest )')
+    .some((x) => x.type === 'json-bind-on-scalar-property'),
+    'json-bind-on-scalar-property: a plain bind of the same attribute is fine');
+
+  // --- JavaScript through the VIEW ------------------------------------------
+  assert(jsonBind(')->leaf( `Button` )->a( n = `press` v = `z2ui5.oView.doSomething()` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.member === 'press'),
+    'raw-javascript-to-frontend: a hand-written handler string on an event attribute');
+  assert(!jsonBind(')->leaf( `Button` )->a( n = `press` v = client->_event( `SAVE` ) )')
+    .some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: the client->_event( ) wire is the correct form');
+  assert(jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<script>alert(1)</script>` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend' && x.value === 'script tag'),
+    'raw-javascript-to-frontend: a <script> tag through core:HTML content');
+  assert(!jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
+    .some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: a stylesheet is not code and stays fine');
+  const { checkXmlSource } = await import('../lib/index.mjs');
+  assert(!checkXmlSource('<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><Button press=".onPress"/></mvc:View>')
+    .findings.some((x) => x.type === 'raw-javascript-to-frontend'),
+    'raw-javascript-to-frontend: a raw view.xml has a controller — handler names belong there');
 
   // --- date/time model types over a JSON model ------------------------------
   const dates = checkAbapSource(fs.readFileSync(f('datetype.clas.abap'), 'utf8'));
@@ -762,6 +1003,87 @@ ENDCLASS.`;
     + ' METHOD b. y = VALUE #( FOR i = 1 UNTIL i > 2 ( ) ). ENDMETHOD.')
     .some((x) => x.type === 'duplicate-for-iterator'),
     'duplicate-for-iterator: the same name in two different methods is fine');
+
+  assert(checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event( `LIVE` ) ).')
+    .some((x) => x.type === 'live-event-roundtrip' && x.member === 'liveChange'),
+    'live-event-roundtrip: a liveChange wired to a backend round-trip is reported');
+  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event_client( `X` t_arg = VALUE #( ( `A` ) ) ) ).')
+    .some((x) => x.type === 'live-event-roundtrip'),
+    'live-event-roundtrip: a frontend-only _event_client wire is not judged');
+  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `change` v = client->_event( `DONE` ) ).')
+    .some((x) => x.type === 'live-event-roundtrip'),
+    'live-event-roundtrip: the final-value event is the correct form and not reported');
+
+  const flag = `CLASS zcl_f DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA check_initialized TYPE abap_bool.
+    DATA cache_loaded TYPE abap_bool.
+ENDCLASS.
+CLASS zcl_f IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF check_initialized = abap_false.
+      check_initialized = abap_true.
+      client->view_display( render( ) ).
+    ENDIF.
+    IF cache_loaded IS INITIAL.
+      cache_loaded = abap_true.
+      load_cache( ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.`;
+  const flags = checkAbapRules(flag);
+  assert(flags.some((x) => x.type === 'manual-init-flag' && x.member === 'check_initialized'),
+    'manual-init-flag: a boolean gating the first render is reported');
+  assert(!flags.some((x) => x.type === 'manual-init-flag' && x.member === 'cache_loaded'),
+    'manual-init-flag: a lazy-load guard that displays nothing is left alone');
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      client->view_display( render( ) ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === 'manual-init-flag'),
+    'manual-init-flag: check_on_init( ) is the correct form and not reported');
+
+  const refs = checkAbapRules(`CLASS zcl_r DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mt_data TYPE REF TO data.
+    DATA t_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_r IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data ) ).
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data->* ) ).
+    view->open( \`List\` )->a( n = \`items\` v = client->_bind( t_rows ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(refs.filter((x) => x.type === 'binding-to-reference').length === 1,
+    'binding-to-reference: the undereferenced REF TO bind is reported, ref->* and a data attribute are not');
+
+  const disabled = checkAbapSource(`CLASS zcl_d DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA can_save TYPE abap_bool.
+ENDCLASS.
+CLASS zcl_d IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Button\`
+            )->a( n = \`press\`   v = client->_event( \`DEAD\` )
+            )->a( n = \`enabled\` v = \`false\`
+        )->leaf( \`Button\`
+            )->a( n = \`press\`   v = client->_event( \`LIVE\` )
+            )->a( n = \`enabled\` v = client->_bind( can_save )
+        )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  const dead = disabled.findings.filter((x) => x.type === 'event-on-disabled-control');
+  assert(dead.length === 1 && dead[0].member === 'press',
+    'event-on-disabled-control: the literal-disabled button is reported, the bound one is not');
 }
 
 // --------------------------------------------------------- lifecycle rules ----

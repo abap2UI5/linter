@@ -44,7 +44,7 @@ Two gates:
    | `collection-bound-to-property` | a table/structure bound to a scalar property |
    | `settable-property-via-action` | a `CONTROL_BY_ID` `set…( )` on a control that has a bindable property of that name — bind it two-way instead |
    | `relative-binding-without-context` | a relative `{FIELD}` on a control outside any bound aggregation — it resolves against nothing and the control renders empty |
-   | `frontend-action-unknown-id` | a `CONTROL_BY_ID` wire whose literal id no view of the class declares — the frontend finds nothing and the wire silently does nothing |
+   | `frontend-action-unknown-id` | an id-addressed wire (`CONTROL_BY_ID`, `SET_FOCUS`, `SCROLL_TO`, `SCROLL_INTO_VIEW`, `KEYBOARD_SET_MODE`) whose literal id no view of the class declares — the frontend finds nothing and the wire silently does nothing |
    | `denied-control-method` | a `CONTROL_BY_ID` wire naming a method the frontend denylist refuses (`destroy`, `setModel`, `bindProperty`, the generic reflection mutators) — the dispatch logs and returns, the control is never touched |
    | `binding-on-association` | a binding written into an *association* attribute — the XML parser takes the value as a control ID, never as a binding, so the association stays empty |
    | `unknown-model` | a `{name>…}` binding against a model the app does not have — abap2UI5 serves one default model plus `device>`/`message>`, and an unknown prefix leaves the property unset |
@@ -67,11 +67,23 @@ Two gates:
    | `obsolete-binder` | `client->_bind_edit( )` — superseded by `client->_bind( )` |
    | `unconverted-abap-boolean` | an ABAP boolean written straight into the view: it arrives as `'X'`/`' '`, and UI5 reads any non-empty string as true — so `visible = abap_false` makes the control **visible**. Wrap it in `z2ui5_cl_ai_xml=>as_bool( )` |
    | `binding-to-local` | a local variable bound: the instance is serialized across the roundtrip, the method stack is not, so the value is lost |
+   | `binding-to-reference` | a `TYPE REF TO` attribute bound without dereferencing — the serializer walks DATA, not references, so the bind throws at runtime; write `client->_bind( ref->* )` |
+   | `manual-init-flag` | a boolean attribute gating the first render — `client->check_on_init( )` already says whether this is the first run, without shipping a flag to the browser on every roundtrip |
+   | `event-on-disabled-control` | an event handler on a control with a literal `enabled="false"` — the control can never fire, so the handler is dead (a hint: a 1:1 port of a disabled-state demo legitimately carries the original's handler) |
    | `binding-to-nonpublic` | a PROTECTED/PRIVATE attribute bound — only PUBLIC attributes are serialized into the model, so the first roundtrip fails with `BINDING_ERROR`; move it to the `PUBLIC SECTION` |
    | `ui5-internal-access` | `mProperties` & friends read from a wire or binding — private UI5 internals with no API contract, they change across UI5 patches without notice |
    | `commercial-ui5-host` | a URL pinned to `ui5.sap.com` / `*.hana.ondemand.com` — use `sdk.openui5.org`, or the app breaks on an OpenUI5-only landscape |
    | `view-never-displayed` | a view is built but never handed to the client — an empty page, no error |
    | `event-without-handler` | an event nothing reacts to — a dead control, *unless* the roundtrip alone is intended (so: a hint, never an error) |
+   | `live-event-roundtrip` | a `liveChange` wired to `client->_event( )` — round-trips are serialized and an event fired while one is in flight is **dropped**, so the bound value lags under fast input; prefer a two-way binding or the final-value event (a hint: the wire converges when input pauses, and sometimes every keystroke genuinely must reach ABAP) |
+   | `popover-anchor-unknown-id` | `popover_display( by_id = … )` naming an id no view declares — the fragment loads, finds no anchor and is destroyed again; nothing opens, nothing renders red |
+   | `unknown-frontend-action` | a literal action name outside the frontend dispatch table (case-sensitive) — `execute` looks it up and does **nothing at all** on a miss, not even a console line. The `cs_event-` constants are compile-checked; this covers the literal spelling |
+   | `unknown-view-slot` | a literal view slot outside `MAIN`/`NEST`/`NEST2`/`POPUP`/`POPOVER` (case-sensitive — `cs_view-nested` is `NEST`, not `NESTED`) — the wire addresses no view, and for `CONTROL_BY_ID` a wrong slot even suppresses the global id fallback |
+   | `invalid-keyboard-shortcut` | a shortcut combo naming no non-modifier key (`Ctrl+Shift`) — logged once, never registered, every later keydown does nothing |
+   | `invalid-action-payload` | a JSON payload the runtime silently downgrades: an `object`-kind method argument (`setSticky`, `setHiddenInPopin`, `setP13nData`) that is not valid JSON becomes `{}`, an unknown enum key in it is dropped by UI5, and a malformed `BINDING_CALL` filter-groups payload (or one missing its nesting level) is rejected with only a console line |
+   | `json-bind-on-scalar-property` | `_bind( json = abap_true )` landing on a `string`/`int`/`float`/`boolean` property — the spliced JSON node is the wrong type there, and the splice is outbound-only, so an edit through a two-way binding is silently discarded; json is for `object`-typed properties |
+   | `raw-javascript-to-frontend` | raw JavaScript shipped to the browser — `follow_up_action`'s escape hatch (a non-name `val` is inserted verbatim as `custom_js`), a hand-written handler string on an event attribute, or a `<script>` tag in an attribute value. The frontend is a renderer: behaviour travels as data (`cs_event-` actions, bindings), never as code |
+   | `get-viewname-removed` | a read of `client->get( )-viewname`, removed from `ty_s_get` — no longer compiles, and nothing in a systemless pipeline says so before activation |
    | `invalid-frontend-action` | a frontend-action `t_arg` outside the set the runtime accepts — an unknown `CONTROL_GLOBAL` object or method, a `BINDING_CALL` method that is not `filter`/`sort`, or `CONTROL_BY_ID`'s obsolete empty view slot. The browser logs and does nothing |
    | `unescaped-brace-in-style` | literal CSS braces in a `<style>` block — the XMLView parser reads them as bindings and the view dies; write `\{` and `\}` |
    | `collapsed-brace-in-style` | the same escape written inside a `\|…\|` template — the template collapses `\{` to `{` before the builder sees it, so the view dies anyway; use a backtick literal |

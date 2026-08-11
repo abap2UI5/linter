@@ -91,6 +91,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-to-nonpublic' — default severity: error"
         },
+        "binding-to-reference": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'binding-to-reference' — default severity: error"
+        },
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-type-mismatch' — default severity: warning"
@@ -163,6 +167,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'event-for-property' — default severity: error"
         },
+        "event-on-disabled-control": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'event-on-disabled-control' — default severity: hint"
+        },
         "event-parameter-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'event-parameter-too-new' — default severity: warning"
@@ -179,9 +187,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'frontend-action-unknown-id' — default severity: error"
         },
+        "get-viewname-removed": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'get-viewname-removed' — default severity: error"
+        },
         "hardcoded-binding-path": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'hardcoded-binding-path' — default severity: warning"
+        },
+        "invalid-action-payload": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'invalid-action-payload' — default severity: error"
         },
         "invalid-aggregation-child": {
           "$ref": "#/definitions/rule",
@@ -195,13 +211,29 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-frontend-action' — default severity: error"
         },
+        "invalid-keyboard-shortcut": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'invalid-keyboard-shortcut' — default severity: error"
+        },
         "invalid-property-value": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-property-value' — default severity: error"
         },
+        "json-bind-on-scalar-property": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'json-bind-on-scalar-property' — default severity: warning"
+        },
         "json-literal-in-attribute": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'json-literal-in-attribute' — default severity: error"
+        },
+        "live-event-roundtrip": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'live-event-roundtrip' — default severity: hint"
+        },
+        "manual-init-flag": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'manual-init-flag' — default severity: warning"
         },
         "member-deprecated": {
           "$ref": "#/definitions/rule",
@@ -227,9 +259,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'obsolete-binder' — default severity: warning"
         },
+        "popover-anchor-unknown-id": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'popover-anchor-unknown-id' — default severity: error"
+        },
         "popover-display-val": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'popover-display-val' — default severity: error"
+        },
+        "raw-javascript-to-frontend": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'raw-javascript-to-frontend' — default severity: warning"
         },
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
@@ -291,6 +331,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-event-parameter' — default severity: hint"
         },
+        "unknown-frontend-action": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-frontend-action' — default severity: error"
+        },
         "unknown-model": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-model' — default severity: error"
@@ -298,6 +342,10 @@
         "unknown-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-property' — default severity: error"
+        },
+        "unknown-view-slot": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-view-slot' — default severity: error"
         },
         "unused-public-attribute": {
           "$ref": "#/definitions/rule",
