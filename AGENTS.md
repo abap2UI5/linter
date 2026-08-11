@@ -298,37 +298,30 @@ findings are deliberate 1:1 demo wires, so the budget, not the corpus, is the
 right side to move. That is the ratchet working as designed ("the debt
 decision belongs at the bump PR"), not a defect in either repo.
 
-**Known candidate backlog** (mined 2026-08-11 from the frontend's remaining
-closed sets, each a logs-or-silent boundary; kept here so the next round
-starts from evidence, not from scratch):
+The second 2026-08-11 round worked that backlog off — the frontend's
+remaining closed sets, each mirrored in `lib/frontend-actions.mjs` AND gated
+by `check-upstream.mjs` in the same change (the BINDING_METHODS lesson):
 
-- The frontend's top-level `handlers` dispatch table (36 action names) misses
-  with **no log at all** — a literal action name outside it is swallowed
-  whole. Related: the ABAP-side rules currently key on a `cs_event-` token
-  (`abap-rules.mjs`), so an action spelled as a string literal skips the
-  whole `invalid-frontend-action` family today. One rule (mirror + gate)
-  would close both.
-- `FILTER_OPERATORS` (14, case-sensitive) — a `BINDING_CALL filter` with
-  `contains` instead of `Contains` logs and leaves the binding untouched.
-  Fits `ACTION_ARGS` mechanically; the compound-group JSON form (param
-  starting `[`) carries rows of `[path, op, v1, v2]`.
-- More id slots for `frontend-action-unknown-id`: `WIZARD_SET_NEXT_STEP`,
-  the variant-init pairs, `BINDING_CALL` id@0, CONTROL_BY_ID **argument**
-  ids (`openBy`/`toggleBy` anchors, `setSelectedSection`, …), and the
-  aggregation-item form `id/agg/index` (agg + 0..n checkable against the
-  snapshot).
-- Literal `view` slot params outside {MAIN, NEST, NEST2, POPUP, POPOVER} — a
-  wrong slot SUPPRESSES the global id fallback, so the wire dies although
-  the id exists (and `NESTED` is exactly the guess a hand-written literal
-  makes).
-- `_bind( json = abap_true )` is OUTBOUND-only (`main_json_to_attri` skips
-  `check_json` attributes on the way back) — wired into a user-editable
-  property, every edit is silently discarded. `bindingOf` already carries
-  the `json` flag; what is missing is a defensible "user-editable property"
-  set.
-- CONTROL_METHODS `object`-kind payloads (`setSticky`, `setHiddenInPopin`,
-  `setP13nData`): a non-JSON literal silently becomes `{}`, and for the
-  first two the payload is an array of enum keys the snapshot knows.
+| Origin | Rule |
+| --- | --- |
+| the `handlers` dispatch table (35 names) misses with NO log at all, and a literal action name skipped the whole rule family (everything keyed on a `cs_event-` token) | `unknown-frontend-action` + the loop now resolves literal action names; `FRONTEND_EVENTS` / `FRONTEND_EVENT_ALIASES` (the five server-remapped `*_NAV_CONTAINER_TO` names — deliberately ungated, they live in the server, not the frontend source) |
+| `FILTER_OPERATORS` (14, case-sensitive): `contains` logs and leaves the binding untouched; the compound form is `[[["path","Op","v"]]]` — groups of ROWS, and a missing nesting level is "bad filter row" upstream | the `binding_call` `ACTION_ARGS` slot (inert without a value slot — the runtime clears first) + the compound-groups walk (`invalid-action-payload` for shape, `invalid-frontend-action` for a row operator) |
+| a wrong `view` slot literal SUPPRESSES CONTROL_BY_ID's global id fallback; `cs_view-nested` is `NEST`, not `NESTED` | `unknown-view-slot` (the `view` parameter + `SET_SIZE_LIMIT`'s view key) |
+| URLHELPER's action map misses as `if (fn) fn()` — silent no-op | `urlhelper` in `ACTION_ARGS` |
+| the `object`-kind CONTROL_METHODS payloads: not-JSON silently becomes `{}` (castArg), unknown enum keys are dropped by UI5 | `invalid-action-payload` + `OBJECT_ARG_METHODS` (sap.m.Sticky / sap.ui.core.Priority values judged against the snapshot's enums) |
+| a modifiers-only shortcut combo is logged once and never registered; its scope is a slot or a declared id; its EVENT (and START_TIMER's callback) is a backend event like any other | `invalid-keyboard-shortcut` + shortcut/timer events feed `event-without-handler` |
+| every remaining id-bearing arg: wizard/variant-init/BINDING_CALL ids, CONTROL_BY_ID *argument* ids (the `controlId`/`anchor` kinds, re-derived from CONTROL_METHODS by the gate) | `ACTION_ID_SLOTS` / `CONTROL_METHOD_ID_ARG`, all through `frontend-action-unknown-id` |
+| `_bind( json = abap_true )` is OUTBOUND-only and splices a JSON node — wrong on any scalar-typed property, correct on `object`/`any` | `json-bind-on-scalar-property`, via `prepareAbap`'s new `jsonPaths` |
+| the mock model handed the renderer seeded `''` values that `omit_initial_paths` never serializes | `applyOmit` in the reconstructor — the render model now drops initial values of omitted fields, the SHAPE keeps them (the unseeded-tables split again) |
+
+The corpus run for that round caught two false-positive shapes before they
+shipped (the doctrine working): `$event.oSource.sId` anchors are resolved
+CLIENT-side (any `$`-prefixed value is not a static id), and
+`literalElements` used to hand a |…| template's RAW text to the rules — a
+template with an interpolation is now `null` like any other runtime value.
+
+**Known candidate backlog:**
+
 - **A second AI-facing builder exists**: `z2ui5_cl_ui5_view_builder`
   (upstream 43452e8, 2026-08-06 — `new/ele/tag/att/end`, created because
   `a( )`'s last-child-or-self target rule was a design flaw). `collectFiles`

@@ -284,6 +284,36 @@ ENDCLASS.`;
     '_bind with a custom mapper stays unresolved — the serialized names are not ours to guess');
 }
 
+// omit_initial_paths in the RENDER model: the runtime does not serialize an
+// initial value of a listed field, so the mock must not either — the seeded
+// '' used to reach strict mode as an empty enum and kill the render
+{
+  const om = prepareAbap(`CLASS zcl_o DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s, text TYPE string, state TYPE string, END OF ty_s.
+    DATA t_rows TYPE STANDARD TABLE OF ty_s WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_o IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    t_rows = VALUE #( ( text = \`a\` state = \`\` ) ( text = \`b\` state = \`Success\` ) ).
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->open( \`List\`
+            )->a( n = \`items\` v = client->_bind( val = t_rows omit_initial_paths = VALUE #( ( \`STATE\` ) ) )
+            )->open( \`items\`
+                )->leaf( \`ObjectListItem\` )->a( n = \`title\` v = \`{TEXT}\` )->a( n = \`intro\` v = \`{STATE}\` )
+        )->shut( )->shut( )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(!('STATE' in (om.model.T_ROWS?.[0] ?? { STATE: 1 })) && om.model.T_ROWS?.[1]?.STATE === 'Success',
+    'omit_initial_paths: the initial value is dropped from the render model, the filled one kept');
+  assert('STATE' in (om.modelShape.T_ROWS?.[0] ?? {}),
+    'omit_initial_paths: the shape keeps the field, so binding paths stay judgeable');
+}
+
 // no row shape, no verdict: a table of a type the class does not declare
 // could have any field, so nothing there is reported
 const opaque = `CLASS zcl_x DEFINITION PUBLIC.
@@ -689,6 +719,145 @@ ENDCLASS.`;
   assert(!checkAbapRules('DATA(ev) = client->get( )-event.')
     .some((x) => x.type === 'get-viewname-removed'),
     'get-viewname-removed: the surviving components are left alone');
+
+  // --- the frontend's remaining closed sets --------------------------------
+  const act = (call) => checkAbapRules(`
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` ).
+    ${call}
+    client->view_display( v->stringify( ) ).`);
+
+  assert(act('client->follow_up_action( val = `SET_TITEL` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action' && x.value === 'SET_TITEL'),
+    'unknown-frontend-action: a literal name outside the dispatch table is reported');
+  assert(act('client->follow_up_action( val = `set_title` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: the dispatch table is case-sensitive, so a lower-cased name is reported');
+  assert(!act('client->follow_up_action( val = `SET_TITLE` t_arg = VALUE #( ( `Hi` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: a known literal name is fine');
+  assert(!act('client->follow_up_action( val = `NAV_CONTAINER_TO` t_arg = VALUE #( ( `nav` ) ( `p2` ) ) ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: a server-remapped alias is fine');
+  assert(!act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
+    .some((x) => x.type === 'unknown-frontend-action'),
+    'unknown-frontend-action: the raw-JavaScript escape hatch is not judged');
+
+  assert(act('client->_event_client( val = client->cs_event-control_by_id view = `NESTED` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot' && x.value === 'NESTED'),
+    'unknown-view-slot: NESTED is not a slot (cs_view-nested is NEST)');
+  assert(!act('client->_event_client( val = client->cs_event-control_by_id view = `NEST` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot'),
+    'unknown-view-slot: the real slot keys are fine');
+  assert(act('client->follow_up_action( val = client->cs_event-set_size_limit t_arg = VALUE #( ( `200` ) ( `SIDEBAR` ) ) ).')
+    .some((x) => x.type === 'unknown-view-slot' && x.value === 'SIDEBAR'),
+    'unknown-view-slot: SET_SIZE_LIMIT\'s view key is judged too');
+
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) ) ).')
+    .some((x) => x.type === 'invalid-keyboard-shortcut'),
+    'invalid-keyboard-shortcut: a modifiers-only combo binds nothing');
+  const shortcutOk = act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Cmd+Return` ) ( `SAVE` ) ) ). client->check_on_event( `SAVE` ).');
+  assert(!shortcutOk.some((x) => x.type === 'invalid-keyboard-shortcut'),
+    'invalid-keyboard-shortcut: aliases resolve, Cmd+Return names a key');
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ) ).')
+    .some((x) => x.type === 'event-without-handler' && x.value === 'SAVE'),
+    'event-without-handler: a shortcut\'s backend event with no branch is a dead wire');
+  assert(!shortcutOk.some((x) => x.type === 'event-without-handler'),
+    'event-without-handler: a handled shortcut event is fine');
+  assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `sidePanel` ) ) ). client->check_on_event( `SAVE` ).')
+    .some((x) => x.type === 'frontend-action-unknown-id' && x.member === 'scope'),
+    'frontend-action-unknown-id: a shortcut scope that is neither a slot nor a declared id');
+  assert(!act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `POPUP` ) ) ). client->check_on_event( `SAVE` ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a slot-key scope is fine');
+
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `contains` ) ( `x` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator' && x.value === 'contains'),
+    'invalid-frontend-action: the filter operator whitelist is case-sensitive');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `Contains` ) ( `x` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action'),
+    'invalid-frontend-action: a whitelisted operator is fine');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `contains` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator'),
+    'invalid-frontend-action: with no value slot the runtime clears before reading the operator — inert, not judged');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","contains","x"]]]` ) ) ).')
+    .some((x) => x.type === 'invalid-frontend-action' && x.member === 'filter operator'),
+    'invalid-frontend-action: compound filter-group rows are judged too');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[["NAME","Contains","x"]]` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' && x.member === 'filter row'),
+    'invalid-action-payload: a group of strings is a missing nesting level — upstream logs "bad filter row"');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","Contains","x"],["NAME","EQ","y"]]]` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' || x.type === 'invalid-frontend-action'),
+    'compound filter groups: the correct nested form is fine');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[oops` ) ) ).')
+    .some((x) => x.type === 'invalid-action-payload' && x.control === 'BINDING_CALL'),
+    'invalid-action-payload: malformed filter-groups JSON is rejected with a log upstream');
+
+  assert(act('client->follow_up_action( val = client->cs_event-wizard_set_next_step t_arg = VALUE #( ( `wiz` ) ( `step1` ) ( `step2` ) ) ).')
+    .filter((x) => x.type === 'frontend-action-unknown-id').length === 3,
+    'frontend-action-unknown-id: every id slot of WIZARD_SET_NEXT_STEP is judged');
+  assert(!act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl/items/0` ) ( `focus` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: the aggregation-item form judges only its id segment');
+  assert(act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `openBy` ) ( `anchor1` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id' && x.member === 'openBy'),
+    'frontend-action-unknown-id: an anchor argument naming an undeclared id');
+  assert(!act('client->_event_client( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `openBy` ) ( `$event.oSource.sId` ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a $-prefixed anchor is resolved client-side, not a static id (corpus shape)');
+  assert(!act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl` ) ( `setActivePage` ) ( |tbl/pages/{ idx }| ) ) ).')
+    .some((x) => x.type === 'frontend-action-unknown-id'),
+    'frontend-action-unknown-id: a template with an interpolation is composed at runtime, never a literal (corpus shape)');
+
+  // --- object payloads (enum values need the snapshot) ----------------------
+  const payloadClass = (payload) => checkAbapSource(`CLASS zcl_p DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+CLASS zcl_p IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` )->shut( ).
+    client->follow_up_action( val = client->cs_event-control_by_id
+                              t_arg = VALUE #( ( \`tbl\` ) ( \`setSticky\` ) ( \`${payload}\` ) ) ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`).findings;
+  assert(payloadClass('ColumnHeaders').some((x) => x.type === 'invalid-action-payload'),
+    'invalid-action-payload: a bare enum key is not JSON — castArg turns it into {}');
+  assert(!payloadClass('["ColumnHeaders"]').some((x) => x.type === 'invalid-action-payload'),
+    'invalid-action-payload: a JSON array of known enum keys is the correct form');
+  assert(payloadClass('["ColumnHeader"]').some((x) => x.type === 'invalid-action-payload' && x.value === 'ColumnHeader'),
+    'invalid-action-payload: an unknown sap.m.Sticky key is dropped by UI5 silently');
+
+  // --- json = abap_true on a scalar-typed property --------------------------
+  const jsonBind = (leaf) => checkAbapSource(`CLASS zcl_j DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA manifest TYPE string.
+ENDCLASS.
+CLASS zcl_j IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+    v->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->a( n = \`xmlns:w\` v = \`sap.ui.integration.widgets\`
+        ${leaf}
+        )->shut( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`).findings;
+  assert(jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( val = manifest json = abap_true )')
+    .some((x) => x.type === 'json-bind-on-scalar-property' && x.member === 'text'),
+    'json-bind-on-scalar-property: a json splice on a string property');
+  assert(!jsonBind(')->leaf( n = `Card` ns = `w` )->a( n = `manifest` v = client->_bind( val = manifest json = abap_true )')
+    .some((x) => x.type === 'json-bind-on-scalar-property'),
+    'json-bind-on-scalar-property: an object/any-typed property is what json is FOR');
+  assert(!jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( manifest )')
+    .some((x) => x.type === 'json-bind-on-scalar-property'),
+    'json-bind-on-scalar-property: a plain bind of the same attribute is fine');
 
   // --- date/time model types over a JSON model ------------------------------
   const dates = checkAbapSource(fs.readFileSync(f('datetype.clas.abap'), 'utf8'));

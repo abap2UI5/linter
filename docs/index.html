@@ -72,12 +72,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">40 error</span>
-      <span class="badge warning">19 warning</span>
+      <span class="badge error">44 error</span>
+      <span class="badge warning">20 warning</span>
       <span class="badge hint">7 hint</span>
       <span class="badge fix">5 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 66 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 71 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -445,6 +445,15 @@ a( n = `items` v = |\{ path: '{ p }' \}| )       " correct in a template</code><
         <pre><code>a( n = `title` v = `{/TITLE}` )                        " breaks on rename
 a( n = `title` v = client-&gt;_bind( title ) )            " moves with the variable</code></pre>
       </article>
+      <article class="rule" id="invalid-action-payload" data-search="invalid-action-payload a json action payload the runtime silently downgrades the object-kind control methods (setsticky, sethiddeninpopin, setp13ndata) run their argument through castarg, whose catch turns a literal that does not parse as json into {} — a setsticky with a typo'd payload then un-sticks everything instead of failing. for the enum-array payloads the values are judged too: an unknown sap.m.sticky / sap.ui.core.priority key is dropped by ui5 with the same silence. binding_call's compound filter-groups json is judged the same way, including each row's operator. error">
+        <h3><a href="#invalid-action-payload">invalid-action-payload</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a JSON action payload the runtime silently downgrades</p>
+        <p class="detail">The <code>object</code>-kind control methods (<code>setSticky</code>, <code>setHiddenInPopin</code>, <code>setP13nData</code>) run their argument through <code>castArg</code>, whose catch turns a literal that does not parse as JSON into <code>{}</code> — a <code>setSticky</code> with a typo'd payload then *un-sticks* everything instead of failing. For the enum-array payloads the values are judged too: an unknown <code>sap.m.Sticky</code> / <code>sap.ui.core.Priority</code> key is dropped by UI5 with the same silence. <code>BINDING_CALL</code>'s compound filter-groups JSON is judged the same way, including each row's operator.</p>
+        <pre><code>t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `ColumnHeaders` ) )      " not JSON -&gt; {}
+t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `["ColumnHeaders"]` ) )</code></pre>
+      </article>
       <article class="rule" id="invalid-frontend-action" data-search="invalid-frontend-action a frontend-action t_arg outside the set the runtime accepts a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: frontendaction logs to the console and the control does nothing when pressed. judged only for literal arguments and only where the runtime's set is closed — the control_global object and its method, the binding_call method, and control_by_id's obsolete empty view slot (which shifts the method out of position). control_by_id's method list is open by design and is never judged. error">
         <h3><a href="#invalid-frontend-action">invalid-frontend-action</a>
           <span class="badge error">error</span>
@@ -453,6 +462,24 @@ a( n = `title` v = client-&gt;_bind( title ) )            " moves with the varia
         <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: FrontendAction logs to the console and the control does nothing when pressed. Judged only for literal arguments and only where the runtime's set is closed — the <code>CONTROL_GLOBAL</code> object and its method, the <code>BINDING_CALL</code> method, and <code>CONTROL_BY_ID</code>'s obsolete empty view slot (which shifts the method out of position). <code>CONTROL_BY_ID</code>'s method list is open by design and is never judged.</p>
         <pre><code>client-&gt;_event_client( val   = client-&gt;cs_event-control_global
                        t_arg = VALUE #( ( `MESSAGE_TOASTER` ) ( `show` ) ( `hi` ) ) )</code></pre>
+      </article>
+      <article class="rule" id="invalid-keyboard-shortcut" data-search="invalid-keyboard-shortcut a shortcut combo that names no key the registration normalizes the combo (ctrl+shift+s → ctrl+shift+s, aliases like cmd/return included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. the scope argument is judged separately: a slot key or a declared control id (via frontend-action-unknown-id). error">
+        <h3><a href="#invalid-keyboard-shortcut">invalid-keyboard-shortcut</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a shortcut combo that names no key</p>
+        <p class="detail">The registration normalizes the combo (<code>Ctrl+Shift+S</code> → <code>ctrl+shift+s</code>, aliases like <code>cmd</code>/<code>return</code> included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. The scope argument is judged separately: a slot key or a declared control id (via <code>frontend-action-unknown-id</code>).</p>
+        <pre><code>t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) )   " modifiers only — binds nothing
+t_arg = VALUE #( ( `Ctrl+Shift+S` ) ( `SAVE` ) )</code></pre>
+      </article>
+      <article class="rule" id="json-bind-on-scalar-property" data-search="json-bind-on-scalar-property a json = abap_true bind on a scalar-typed property _bind( json = abap_true ) splices the bound string into the model as a json node — built for properties typed object/any (an integration card's manifest), which no typed abap value can be. on a string/int/float/boolean property the spliced node arrives as the wrong json type — strict mode and ui5 2.x reject it — and the splice is outbound-only: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. bind the plain attribute instead; json is for objects. warning">
+        <h3><a href="#json-bind-on-scalar-property">json-bind-on-scalar-property</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a <code>json = abap_true</code> bind on a scalar-typed property</p>
+        <p class="detail"><code>_bind( json = abap_true )</code> splices the bound string into the model as a JSON <strong>node</strong> — built for properties typed <code>object</code>/<code>any</code> (an integration Card's manifest), which no typed ABAP value can be. On a <code>string</code>/<code>int</code>/<code>float</code>/<code>boolean</code> property the spliced node arrives as the wrong JSON type — strict mode and UI5 2.x reject it — and the splice is <strong>outbound-only</strong>: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. Bind the plain attribute instead; json is for objects.</p>
+        <pre><code>DATA manifest TYPE string.   " contains JSON
+)-&gt;a( n = `value` v = client-&gt;_bind( val = manifest json = abap_true )   " Input.value is string-typed</code></pre>
       </article>
       <article class="rule" id="json-literal-in-attribute" data-search="json-literal-in-attribute a raw json literal written into a view attribute ui5 parses an attribute value starting with { as a binding, so a json object literal ({"sap.card":…) is read as a binding path and the attribute ends up empty — the classic way to lose an integration card's manifest. keep the json in the model and bind it: client-&gt;_bind( manifest ). error">
         <h3><a href="#json-literal-in-attribute">json-literal-in-attribute</a>
@@ -587,6 +614,16 @@ ENDIF.</code></pre>
         <p class="summary">a hand-written <code>{/TYPO}</code> the derived model has no path for</p>
         <p class="detail">The field just stays empty — no error, anywhere. Inside a bound aggregation a relative <code>{TYPO}</code> is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's <code>TYPES</code>. Never guessed.</p>
       </article>
+      <article class="rule" id="unknown-frontend-action" data-search="unknown-frontend-action a literal action name outside the frontend dispatch table a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) naming its action as a string literal is dispatched exactly like the cs_event- constant — but the constant is compile-checked and the literal is not, and frontendaction.execute looks the name up in its handler table and does nothing at all on a miss: no exception, not even a console line. case matters — the runtime never upper-cases, so set_title misses where set_title works. anything not name-shaped is follow_up_action's raw-javascript escape hatch and is not judged. error">
+        <h3><a href="#unknown-frontend-action">unknown-frontend-action</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a literal action name outside the frontend dispatch table</p>
+        <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> naming its action as a string literal is dispatched exactly like the <code>cs_event-</code> constant — but the constant is compile-checked and the literal is not, and <code>FrontendAction.execute</code> looks the name up in its handler table and does <strong>nothing at all</strong> on a miss: no exception, not even a console line. Case matters — the runtime never upper-cases, so <code>set_title</code> misses where <code>SET_TITLE</code> works. Anything not name-shaped is <code>follow_up_action</code>'s raw-JavaScript escape hatch and is not judged.</p>
+        <pre><code>client-&gt;follow_up_action( val = `SET_TITEL` t_arg = VALUE #( ( `Hi` ) ) ).   " swallowed silently
+" instead:
+client-&gt;follow_up_action( val = client-&gt;cs_event-set_title t_arg = VALUE #( ( `Hi` ) ) ).</code></pre>
+      </article>
       <article class="rule" id="unknown-model" data-search="unknown-model a name&gt; binding against a model the app does not have abap2ui5 serves exactly one data model per view slot — the default one, serialized from the class's public attributes — plus the framework's own device&gt; and message&gt; (and http&gt; on a switched path). a prefix outside that set resolves to no model at all, and ui5 leaves the property unset without a word. it is the most common leftover of a ported demo-kit sample, whose original names its models freely ({ui&gt;/rowmode}, {i18n&gt;key}): the fix is to fold the field into the default model with client-&gt;_bind( ), not to add a model — and there is no i18n model by design, because translation is a backend concern. a model registered by a set_odata_model wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all. error">
         <h3><a href="#unknown-model">unknown-model</a>
           <span class="badge error">error</span>
@@ -595,6 +632,16 @@ ENDIF.</code></pre>
         <p class="detail">abap2UI5 serves exactly <strong>one</strong> data model per view slot — the default one, serialized from the class's PUBLIC attributes — plus the framework's own <code>device&gt;</code> and <code>message&gt;</code> (and <code>http&gt;</code> on a switched path). A prefix outside that set resolves to no model at all, and UI5 leaves the property unset without a word. It is the most common leftover of a ported demo-kit sample, whose original names its models freely (<code>{ui&gt;/rowMode}</code>, <code>{i18n&gt;KEY}</code>): the fix is to fold the field into the default model with <code>client-&gt;_bind( )</code>, not to add a model — and there is no i18n model by design, because translation is a backend concern. A model registered by a <code>SET_ODATA_MODEL</code> wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all.</p>
         <pre><code>a( n = `text` v = `{i18n&gt;title}` )
 a( n = `text` v = client-&gt;_bind( title ) )</code></pre>
+      </article>
+      <article class="rule" id="unknown-view-slot" data-search="unknown-view-slot a literal view slot outside main / nest / nest2 / popup / popover the view parameter (and set_size_limit's view key) names one of the five slots, case-sensitively: the server compares it as an abap string and the browser uses it as an object key. the natural guesses all miss — main (lower case), and nested for cs_view-nested, whose value is nest. for control_by_id a wrong slot is worse than none: a named slot suppresses the global id fallback, so the wire dies although the id exists in an open view. error">
+        <h3><a href="#unknown-view-slot">unknown-view-slot</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a literal view slot outside MAIN / NEST / NEST2 / POPUP / POPOVER</p>
+        <p class="detail">The <code>view</code> parameter (and <code>SET_SIZE_LIMIT</code>'s view key) names one of the five slots, case-sensitively: the server compares it as an ABAP string and the browser uses it as an object key. The natural guesses all miss — <code>main</code> (lower case), and <code>NESTED</code> for <code>cs_view-nested</code>, whose VALUE is <code>NEST</code>. For <code>CONTROL_BY_ID</code> a wrong slot is worse than none: a named slot <strong>suppresses the global id fallback</strong>, so the wire dies although the id exists in an open view.</p>
+        <pre><code>client-&gt;_event_client( val = client-&gt;cs_event-control_by_id
+                       view = `NESTED`   " cs_view-nested is NEST
+                       t_arg = VALUE #( ( `table1` ) ( `focus` ) ) ).</code></pre>
       </article>
       <article class="rule" id="unused-public-attribute" data-search="unused-public-attribute a public attribute nothing in the class ever touches only public attributes are serialized into the model (z2ui5_cl_core_srv_model filters on visibility), so every one of them is shipped to the browser on every roundtrip. one that is never bound, never read and never written is pure transport weight. deliberately narrower than "not bound in any view": an attribute used only in abap code is not dead, it is state — public is precisely how a value survives the roundtrip. only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see. hint">
         <h3><a href="#unused-public-attribute">unused-public-attribute</a>

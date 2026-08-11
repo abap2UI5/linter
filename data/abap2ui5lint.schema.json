@@ -195,6 +195,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'hardcoded-binding-path' — default severity: warning"
         },
+        "invalid-action-payload": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'invalid-action-payload' — default severity: error"
+        },
         "invalid-aggregation-child": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-aggregation-child' — default severity: error"
@@ -207,9 +211,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-frontend-action' — default severity: error"
         },
+        "invalid-keyboard-shortcut": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'invalid-keyboard-shortcut' — default severity: error"
+        },
         "invalid-property-value": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-property-value' — default severity: error"
+        },
+        "json-bind-on-scalar-property": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'json-bind-on-scalar-property' — default severity: warning"
         },
         "json-literal-in-attribute": {
           "$ref": "#/definitions/rule",
@@ -315,6 +327,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-event-parameter' — default severity: hint"
         },
+        "unknown-frontend-action": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-frontend-action' — default severity: error"
+        },
         "unknown-model": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-model' — default severity: error"
@@ -322,6 +338,10 @@
         "unknown-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-property' — default severity: error"
+        },
+        "unknown-view-slot": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-view-slot' — default severity: error"
         },
         "unused-public-attribute": {
           "$ref": "#/definitions/rule",
