@@ -72,6 +72,7 @@ Two gates:
    | `commercial-ui5-host` | a URL pinned to `ui5.sap.com` / `*.hana.ondemand.com` — use `sdk.openui5.org`, or the app breaks on an OpenUI5-only landscape |
    | `view-never-displayed` | a view is built but never handed to the client — an empty page, no error |
    | `event-without-handler` | an event nothing reacts to — a dead control, *unless* the roundtrip alone is intended (so: a hint, never an error) |
+   | `live-event-roundtrip` | a `liveChange` wired to `client->_event( )` — round-trips are serialized and an event fired while one is in flight is **dropped**, so the bound value lags under fast input; prefer a two-way binding or the final-value event (a hint: the wire converges when input pauses, and sometimes every keystroke genuinely must reach ABAP) |
    | `invalid-frontend-action` | a frontend-action `t_arg` outside the set the runtime accepts — an unknown `CONTROL_GLOBAL` object or method, a `BINDING_CALL` method that is not `filter`/`sort`, or `CONTROL_BY_ID`'s obsolete empty view slot. The browser logs and does nothing |
    | `unescaped-brace-in-style` | literal CSS braces in a `<style>` block — the XMLView parser reads them as bindings and the view dies; write `\{` and `\}` |
    | `collapsed-brace-in-style` | the same escape written inside a `\|…\|` template — the template collapses `\{` to `{` before the builder sees it, so the view dies anyway; use a backtick literal |

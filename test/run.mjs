@@ -252,6 +252,38 @@ ENDCLASS.`);
     'model: an unseeded table is empty for the renderer and a declared row in the shape');
 }
 
+// _bind with shape-neutral named parameters: omit_initial/omit_initial_paths
+// and json change the SERIALIZATION around the binding, not what it addresses,
+// so the attribute must reconstruct instead of being dropped as unresolved
+{
+  const wrap = (v) => `CLASS zcl_b DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA manifest TYPE string.
+ENDCLASS.
+CLASS zcl_b IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(x) = z2ui5_cl_ai_xml=>factory( ).
+    x->open( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->leaf( \`Text\` )->a( n = \`text\` v = ${v}
+        )->shut( ).
+    client->view_display( x->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const json = prepareAbap(wrap('client->_bind( val = manifest json = abap_true )'));
+  assert(json.docs[0]?.includes('text="{/MANIFEST}"') && json.notes.length === 0,
+    '_bind( json = abap_true ) reconstructs as the plain binding');
+  const omit = prepareAbap(wrap('client->_bind( val = manifest omit_initial_paths = VALUE #( ( `A` ) ( `B` ) ) )'));
+  assert(omit.docs[0]?.includes('text="{/MANIFEST}"') && omit.notes.length === 0,
+    '_bind( omit_initial_paths = VALUE #( … ) ) reconstructs as the plain binding');
+  const mapper = prepareAbap(wrap('client->_bind( val = manifest custom_mapper = mapper )'));
+  assert(!mapper.docs[0]?.includes('{/MANIFEST}')
+    && mapper.notes.some((n) => n.includes('unresolved value expression')),
+    '_bind with a custom mapper stays unresolved — the serialized names are not ours to guess');
+}
+
 // no row shape, no verdict: a table of a type the class does not declare
 // could have any field, so nothing there is reported
 const opaque = `CLASS zcl_x DEFINITION PUBLIC.
@@ -762,6 +794,16 @@ ENDCLASS.`;
     + ' METHOD b. y = VALUE #( FOR i = 1 UNTIL i > 2 ( ) ). ENDMETHOD.')
     .some((x) => x.type === 'duplicate-for-iterator'),
     'duplicate-for-iterator: the same name in two different methods is fine');
+
+  assert(checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event( `LIVE` ) ).')
+    .some((x) => x.type === 'live-event-roundtrip' && x.member === 'liveChange'),
+    'live-event-roundtrip: a liveChange wired to a backend round-trip is reported');
+  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event_client( `X` t_arg = VALUE #( ( `A` ) ) ) ).')
+    .some((x) => x.type === 'live-event-roundtrip'),
+    'live-event-roundtrip: a frontend-only _event_client wire is not judged');
+  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `change` v = client->_event( `DONE` ) ).')
+    .some((x) => x.type === 'live-event-roundtrip'),
+    'live-event-roundtrip: the final-value event is the correct form and not reported');
 }
 
 // --------------------------------------------------------- lifecycle rules ----

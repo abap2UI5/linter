@@ -74,10 +74,10 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <div class="counts">
       <span class="badge error">37 error</span>
       <span class="badge warning">18 warning</span>
-      <span class="badge hint">5 hint</span>
+      <span class="badge hint">6 hint</span>
       <span class="badge fix">5 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 60 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 61 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -431,6 +431,17 @@ a( n = `title` v = client-&gt;_bind( title ) )            " moves with the varia
         </h3>
         <p class="summary">a raw JSON literal written into a view attribute</p>
         <p class="detail">UI5 parses an attribute value starting with <code>{</code> as a binding, so a JSON object literal (<code>{"sap.card":…</code>) is read as a binding path and the attribute ends up empty — the classic way to lose an integration Card's manifest. Keep the JSON in the model and bind it: <code>client-&gt;_bind( manifest )</code>.</p>
+      </article>
+      <article class="rule" id="live-event-roundtrip" data-search="live-event-roundtrip a livechange wire that round-trips per keystroke abap2ui5 serializes round-trips: an event fired while one is in flight is dropped, not queued. a livechange wired to client-&gt;_event( ) therefore sees the value of the last completed trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. prefer a two-way binding (the model updates without any event) or the control's final-value event (change/search/submit); keep the live wire only when every intermediate value genuinely must reach abap. _event_client and follow_up_action are frontend-only and are not judged. hint">
+        <h3><a href="#live-event-roundtrip">live-event-roundtrip</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a <code>liveChange</code> wire that round-trips per keystroke</p>
+        <p class="detail">abap2UI5 serializes round-trips: an event fired while one is in flight is <strong>dropped</strong>, not queued. A <code>liveChange</code> wired to <code>client-&gt;_event( )</code> therefore sees the value of the last *completed* trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. Prefer a two-way binding (the model updates without any event) or the control's final-value event (<code>change</code>/<code>search</code>/<code>submit</code>); keep the live wire only when every intermediate value genuinely must reach ABAP. <code>_event_client</code> and <code>follow_up_action</code> are frontend-only and are not judged.</p>
+        <pre><code>)-&gt;a( n = `liveChange` v = client-&gt;_event( `SEARCH` )   " lossy under fast typing
+" instead: bind two-way and react to the final-value event
+)-&gt;a( n = `value`  v = client-&gt;_bind( search_term )
+)-&gt;a( n = `change` v = client-&gt;_event( `SEARCH` )</code></pre>
       </article>
       <article class="rule" id="missing-view-display-on-navigated" data-search="missing-view-display-on-navigated a check_on_navigated( ) branch that never re-displays the view when a called app leaves, the browser still shows that app's view — returning control alone changes nothing on screen. the check_on_navigated( ) branch has to hand a view back: client-&gt;view_display( ), or view_model_update( ) when the view instance survives. a branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. error">
         <h3><a href="#missing-view-display-on-navigated">missing-view-display-on-navigated</a>

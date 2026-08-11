@@ -203,6 +203,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'json-literal-in-attribute' — default severity: error"
         },
+        "live-event-roundtrip": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'live-event-roundtrip' — default severity: hint"
+        },
         "member-deprecated": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'member-deprecated' — default severity: warning"
