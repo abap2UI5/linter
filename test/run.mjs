@@ -92,12 +92,19 @@ const rules = (await checkFiles([f('abaprules.clas.abap')], { render: false }))[
 const hasR = (t, pred = () => true) => rules.findings.some((x) => x.type === t && pred(x));
 assert(hasR('obsolete-binder', (x) => x.member === '_bind_edit'),
   'abap rules: _bind_edit reported as obsolete (use _bind)');
-// ... except where z2ui5_if_client itself says to keep using it: _bind has
-// no custom_mapper_back/custom_filter_back
-assert(!checkAbapSource(
-  'client->_bind_edit( val = name custom_mapper_back = mapper )', { render: false }
-).findings.some((x) => x.type === 'obsolete-binder'),
-'abap rules: _bind_edit is not obsolete where it carries custom_mapper_back');
+// ... including where it carries custom_mapper_back/custom_filter_back: those
+// are accepted for source compatibility but no longer EVALUATED, so the call
+// is a leftover like any other - only the autofix stays away from it
+{
+  // checkAbapRules, not checkAbapSource: a snippet without a builder chain
+  // never reaches the ABAP rules at all, so the negative form this assertion
+  // used to have was green for the wrong reason
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const back = checkAbapRules('client->_bind_edit( val = name custom_mapper_back = mapper )')
+    .find((x) => x.type === 'obsolete-binder');
+  assert(back?.value === 'custom_mapper_back' && !back.fixes,
+    'abap rules: _bind_edit carrying custom_mapper_back is reported too, but never autofixed');
+}
 assert(hasR('binding-to-local', (x) => x.member === 'lv_local'),
   'abap rules: a local variable bound - lost after the roundtrip');
 assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
@@ -1084,6 +1091,55 @@ ENDCLASS.`);
   const dead = disabled.findings.filter((x) => x.type === 'event-on-disabled-control');
   assert(dead.length === 1 && dead[0].member === 'press',
     'event-on-disabled-control: the literal-disabled button is reported, the bound one is not');
+}
+
+// ------------------------------------------- obsolete z2ui5_if_client members ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { applyFixes } = await import('../lib/fix.mjs');
+  const source = fs.readFileSync(f('obsolete.clas.abap'), 'utf8');
+  const found = checkAbapRules(source);
+  const of = (t, pred = () => true) => found.filter((x) => x.type === t && pred(x));
+
+  const updates = of('obsolete-model-update');
+  assert(updates.length === 5
+    && ['view_model_update', 'nest_view_model_update', 'nest2_view_model_update',
+      'popup_model_update', 'popover_model_update'].every(
+      (m) => updates.some((x) => x.member === m)),
+  `obsolete-model-update: all five empty push methods are reported (${updates.map((x) => x.member).join(', ')})`);
+
+  assert(of('obsolete-frontend-event', (x) => x.member === '_event_frontend').length === 1,
+    'obsolete-frontend-event: _event_frontend reported, follow_up_action is the current name');
+
+  const fixed = applyFixes(source, found).output;
+  assert(!/model_update/.test(fixed) && !/_event_frontend/.test(fixed),
+    'obsolete: --fix deletes every model update and renames the frontend event');
+  assert(/client->follow_up_action\( val   = client->cs_event-set_title/.test(fixed),
+    'obsolete: the renamed call keeps its arguments untouched');
+  assert(!/\n[ \t]*\n[ \t]*\n/.test(fixed),
+    'obsolete: a deleted call takes its whole line with it, leaving no blank run behind');
+  assert(!checkAbapRules(fixed).some(
+    (x) => x.type === 'obsolete-model-update' || x.type === 'obsolete-frontend-event'),
+  'obsolete: the fixed source reports neither rule again');
+
+  // a call that shares its line, or carries a trailing comment, keeps the
+  // line: deleting a comment nobody asked about is a guess
+  const shared = 'IF x = 1. client->view_model_update( ). ENDIF.';
+  assert(applyFixes(shared, checkAbapRules(shared)).output === 'IF x = 1.  ENDIF.',
+    'obsolete-model-update: on a shared line only the statement is cut');
+  const commented = '    client->popup_model_update( ). " refresh\n';
+  assert(applyFixes(commented, checkAbapRules(commented)).output === '     " refresh\n',
+    'obsolete-model-update: a trailing comment survives the deletion');
+
+  // the automatic push reaches the MAIN slot, which after a navigation still
+  // holds the CALLED app's view - so this is no longer a re-display
+  const navigated = `METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      client->view_model_update( ).
+    ENDIF.
+  ENDMETHOD.`;
+  assert(checkAbapRules(navigated).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
 // --------------------------------------------------------- lifecycle rules ----
