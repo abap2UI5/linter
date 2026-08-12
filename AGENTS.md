@@ -338,10 +338,10 @@ ABAP Doc — the cheapest knowledge source of all, and the one nothing had mined
 | Origin | Rule |
 | --- | --- |
 | "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_core_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
-| `_event_frontend( )` → `follow_up_action( )` — the same call under its current name, and only the current name is judged by the frontend-action rules | `obsolete-frontend-event`, with a rename `--fix` |
+| `_event_client( )` → `follow_up_action( )` — since upstream gave `follow_up_action` a `RETURNING` parameter, its `IF result IS SUPPLIED` branch runs `mo_srv_event->get_event_client( )`, which is `_event_client`'s entire body: one method both schedules a frontend action and wires one | `obsolete-frontend-event`, with a rename `--fix` |
 | `_bind_edit`'s `custom_mapper_back`/`custom_filter_back` exemption expired: upstream still ACCEPTS them for source compatibility but no longer evaluates them ("per-direction mapping is gone") | `obsolete-binder` now reports those calls too — **without** the fix, because the arguments have to go with the rename and dropping an argument is not one |
 
-Two consequences worth keeping in mind if any of this is revisited:
+Three consequences worth keeping in mind if any of this is revisited:
 
 - **`missing-view-display-on-navigated` lost `view_model_update( )` as an
   accepted re-display** in the same change. It had to: the call is a no-op
@@ -354,10 +354,27 @@ Two consequences worth keeping in mind if any of this is revisited:
   statement when anything else shares it — including a trailing comment,
   measured on the ORIGINAL source where a comment is still visible. Removing
   a comment nobody asked about is exactly the guess `fix.mjs` forbids.
+- **`raw-javascript-to-frontend` splits by POSITION now, not by method name.**
+  The raw-JS escape hatch is `follow_up_action` *queued as a statement*
+  (`queue_app_event` → `custom_js`); where its result is consumed it takes the
+  same `get_event_client( )` path `_event_client` always took, which has no
+  `custom_js` at all. Without that split the rename fix would have turned an
+  `unknown-frontend-action` on a wired `_event_client` into a
+  `raw-javascript-to-frontend` on the identical wire. The `--fix` is what
+  forced the precision; the imprecision arrived with the upstream
+  `RETURNING` parameter.
+
+Note what `obsolete-frontend-event` does NOT do: `_event_client` is still a
+live method that the wire rules must keep judging, so the whole frontend-action
+family keeps matching **both** names (`/client->(_event_client|follow_up_action)/`).
+Only the deprecation rule is one-sided. And unlike the other two, this
+deprecation is not (yet) stated in `z2ui5_if_client`'s own ABAP Doc — it comes
+from the framework's implementation and from an explicit project decision.
 
 Measured in place of the ai-demokit corpus (not checked out in that session):
-abap2UI5's own 9 builder classes, **1 finding** — two dead
-`view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap`, both real.
+abap2UI5's own 9 builder classes, **2 findings** — two dead
+`view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
+`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
 
 **Known candidate backlog:**
 

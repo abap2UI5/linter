@@ -755,6 +755,15 @@ ENDCLASS.`;
   assert(act('client->_event_client( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
     .some((x) => x.type === 'unknown-frontend-action'),
     'unknown-frontend-action: _event_client has no raw-JS path — a non-name literal can never dispatch');
+  // and neither has follow_up_action where its RESULT is consumed: that is
+  // the `IF result IS SUPPLIED` branch, which goes to get_event_client( ) —
+  // _event_client's own body — and never near custom_js
+  {
+    const wired = act(')->a( n = `press` v = client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ) )');
+    assert(!wired.some((x) => x.type === 'raw-javascript-to-frontend')
+      && wired.some((x) => x.type === 'unknown-frontend-action'),
+    'raw-javascript-to-frontend: the escape hatch is the STATEMENT form — a wired follow_up_action is an unknown action, like _event_client');
+  }
   assert(!act('client->follow_up_action( val = lv_dynamic ).')
     .some((x) => x.type === 'raw-javascript-to-frontend' || x.type === 'unknown-frontend-action'),
     'raw-javascript-to-frontend: a runtime value is not statically knowable and not judged');
@@ -1108,14 +1117,14 @@ ENDCLASS.`);
       (m) => updates.some((x) => x.member === m)),
   `obsolete-model-update: all five empty push methods are reported (${updates.map((x) => x.member).join(', ')})`);
 
-  assert(of('obsolete-frontend-event', (x) => x.member === '_event_frontend').length === 1,
-    'obsolete-frontend-event: _event_frontend reported, follow_up_action is the current name');
+  assert(of('obsolete-frontend-event', (x) => x.member === '_event_client').length === 1,
+    'obsolete-frontend-event: _event_client reported — follow_up_action reaches the same get_event_client');
 
   const fixed = applyFixes(source, found).output;
-  assert(!/model_update/.test(fixed) && !/_event_frontend/.test(fixed),
+  assert(!/model_update/.test(fixed) && !/_event_client/.test(fixed),
     'obsolete: --fix deletes every model update and renames the frontend event');
-  assert(/client->follow_up_action\( val   = client->cs_event-set_title/.test(fixed),
-    'obsolete: the renamed call keeps its arguments untouched');
+  assert(/v = client->follow_up_action\( val = client->cs_event-popup_close \)/.test(fixed),
+    'obsolete: the renamed call keeps its arguments untouched, in the view-attribute position');
   assert(!/\n[ \t]*\n[ \t]*\n/.test(fixed),
     'obsolete: a deleted call takes its whole line with it, leaving no blank run behind');
   assert(!checkAbapRules(fixed).some(
@@ -1508,19 +1517,22 @@ ENDCLASS.`;
   };
 
   const dry = run({ ABAP2UI5LINT_FIX_DRY_RUN: 'true' });
-  assert(/would fix 3 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
+  assert(/would fix 4 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
     'fix: the dry run reports what it would do and leaves the file alone');
 
   const out = run();
   const fixed = fs.readFileSync(target, 'utf8');
-  assert(/fixed 3 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the three mechanical corrections are applied');
+  assert(/fixed 4 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the four mechanical corrections are applied');
   assert(/client->_bind\( name \)/.test(fixed) && !/_bind_edit/.test(fixed),
     'fix: obsolete-binder becomes client->_bind( )');
+  assert(/client->follow_up_action\( val   = client->cs_event-urlhelper/.test(fixed)
+    && !/_event_client/.test(fixed),
+  'fix: obsolete-frontend-event becomes client->follow_up_action( )');
   assert(/z2ui5_cl_ai_xml=>as_bool\( abap_true \)/.test(fixed),
     'fix: unconverted-abap-boolean is wrapped, the token kept verbatim');
   assert(/`\$\{BARE_BRACE\}`/.test(fixed) && /`\$\{RESOLVED\}`/.test(fixed) && /`\{0\} selected`/.test(fixed),
     'fix: event-arg-unresolved gains its $, the already-correct and quoted forms untouched');
-  assert(!/obsolete-binder|unconverted-abap-boolean|event-arg-unresolved/.test(out),
+  assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved/.test(out),
     'fix: what was fixed is gone from the report of the same run');
   assert(/binding-to-local/.test(out), 'fix: a finding without a mechanical correction survives');
 

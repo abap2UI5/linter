@@ -16,7 +16,10 @@ CLASS zcl_fixture_obsolete IMPLEMENTATION.
           )->leaf( `Input`
             )->a( n = `value` v = client->_bind_edit( name )
           )->leaf( `Input`
-            )->a( n = `value` v = client->_bind_edit( val = name custom_mapper_back = mapper ) ).
+            )->a( n = `value` v = client->_bind_edit( val = name custom_mapper_back = mapper )
+          )->leaf( `Button`
+            )->a( n = `text`  v = `Close`
+            )->a( n = `press` v = client->_event_client( val = client->cs_event-popup_close ) ) ).
 
     client->view_display( view->stringify( ) ).
 
@@ -26,9 +29,6 @@ CLASS zcl_fixture_obsolete IMPLEMENTATION.
     client->nest2_view_model_update( ).
     client->popup_model_update( ).
     client->popover_model_update( ).
-
-    client->_event_frontend( val   = client->cs_event-set_title
-                             t_arg = VALUE #( ( `Title` ) ) ).
 
   ENDMETHOD.
 ENDCLASS.
