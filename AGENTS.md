@@ -66,7 +66,7 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
+| `lib/abap-rules.mjs` | `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -331,6 +331,51 @@ that completed the `binding-for-event` / `event-for-property` matrix), and a
 has a controller whose handler names belong there (`fromAbap` in
 `checkNodes`). A `_event_client` with a non-name literal is different: it has
 no raw-JS path, so that is an `unknown-frontend-action` instead.
+
+The 2026-08-12 round read the deprecations `z2ui5_if_client` states in its own
+ABAP Doc — the cheapest knowledge source of all, and the one nothing had mined:
+
+| Origin | Rule |
+| --- | --- |
+| "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_core_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
+| `_event_client( )` → `follow_up_action( )` — since upstream gave `follow_up_action` a `RETURNING` parameter, its `IF result IS SUPPLIED` branch runs `mo_srv_event->get_event_client( )`, which is `_event_client`'s entire body: one method both schedules a frontend action and wires one | `obsolete-frontend-event`, with a rename `--fix` |
+| `_bind_edit`'s `custom_mapper_back`/`custom_filter_back` exemption expired: upstream still ACCEPTS them for source compatibility but no longer evaluates them ("per-direction mapping is gone") | `obsolete-binder` now reports those calls too — **without** the fix, because the arguments have to go with the rename and dropping an argument is not one |
+
+Three consequences worth keeping in mind if any of this is revisited:
+
+- **`missing-view-display-on-navigated` lost `view_model_update( )` as an
+  accepted re-display** in the same change. It had to: the call is a no-op
+  now, and the automatic push that replaced it reaches the MAIN *slot* —
+  which after a navigation still holds the CALLED app's view. Leaving it in
+  would have made `--fix` turn a green branch red by deleting the very call
+  that excused it.
+- **A deleting fix is a new shape** (`statementSpan` in `abap-rules.mjs`): it
+  takes the whole line when the call has that line to itself, and only the
+  statement when anything else shares it — including a trailing comment,
+  measured on the ORIGINAL source where a comment is still visible. Removing
+  a comment nobody asked about is exactly the guess `fix.mjs` forbids.
+- **`raw-javascript-to-frontend` splits by POSITION now, not by method name.**
+  The raw-JS escape hatch is `follow_up_action` *queued as a statement*
+  (`queue_app_event` → `custom_js`); where its result is consumed it takes the
+  same `get_event_client( )` path `_event_client` always took, which has no
+  `custom_js` at all. Without that split the rename fix would have turned an
+  `unknown-frontend-action` on a wired `_event_client` into a
+  `raw-javascript-to-frontend` on the identical wire. The `--fix` is what
+  forced the precision; the imprecision arrived with the upstream
+  `RETURNING` parameter.
+
+Note what `obsolete-frontend-event` does NOT do: `_event_client` is still a
+live method that the wire rules must keep judging, so the whole frontend-action
+family keeps matching **both** names (`/client->(_event_client|follow_up_action)/`).
+Only the deprecation rule is one-sided. This one was read out of the
+framework's *implementation* rather than its ABAP Doc, which is the reverse of
+the other two — the interface caught up in abap2UI5 the same day
+(`52eb4b9f`), so `z2ui5_if_client` states all three now.
+
+Measured in place of the ai-demokit corpus (not checked out in that session):
+abap2UI5's own 9 builder classes, **2 findings** — two dead
+`view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
+`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
 
 **Known candidate backlog:**
 

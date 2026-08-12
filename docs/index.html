@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">44 error</span>
-      <span class="badge warning">21 warning</span>
+      <span class="badge warning">23 warning</span>
       <span class="badge hint">7 hint</span>
-      <span class="badge fix">5 autofixable</span>
+      <span class="badge fix">7 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 72 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 74 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -514,24 +514,46 @@ IF client-&gt;check_on_init( ).
   client-&gt;view_display( render( ) ).
 ENDIF.</code></pre>
       </article>
-      <article class="rule" id="missing-view-display-on-navigated" data-search="missing-view-display-on-navigated a check_on_navigated( ) branch that never re-displays the view when a called app leaves, the browser still shows that app's view — returning control alone changes nothing on screen. the check_on_navigated( ) branch has to hand a view back: client-&gt;view_display( ), or view_model_update( ) when the view instance survives. a branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. error">
+      <article class="rule" id="missing-view-display-on-navigated" data-search="missing-view-display-on-navigated a check_on_navigated( ) branch that never re-displays the view when a called app leaves, the browser still shows that app's view — returning control alone changes nothing on screen. the check_on_navigated( ) branch has to hand a view back with client-&gt;view_display( ). a branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. view_model_update( ) used to count as a re-display here and no longer does: it is an empty method now (obsolete-model-update), and the automatic model push that replaced it reaches the main slot — which is still holding the called app's view. error">
         <h3><a href="#missing-view-display-on-navigated">missing-view-display-on-navigated</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">a <code>check_on_navigated( )</code> branch that never re-displays the view</p>
-        <p class="detail">When a called app leaves, the browser still shows THAT app's view — returning control alone changes nothing on screen. The <code>check_on_navigated( )</code> branch has to hand a view back: <code>client-&gt;view_display( )</code>, or <code>view_model_update( )</code> when the view instance survives. A branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere.</p>
+        <p class="detail">When a called app leaves, the browser still shows THAT app's view — returning control alone changes nothing on screen. The <code>check_on_navigated( )</code> branch has to hand a view back with <code>client-&gt;view_display( )</code>. A branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. <code>view_model_update( )</code> used to count as a re-display here and no longer does: it is an empty method now (<code>obsolete-model-update</code>), and the automatic model push that replaced it reaches the MAIN slot — which is still holding the called app's view.</p>
         <pre><code>ELSEIF client-&gt;check_on_navigated( ).
   result = client-&gt;get_app( client-&gt;get( )-s_draft-id ).
   client-&gt;view_display( render_view( ) ).  " without this: the sub-app stays on screen</code></pre>
       </article>
-      <article class="rule" id="obsolete-binder" data-search="obsolete-binder client-&gt;_bind_edit( ) — superseded by client-&gt;_bind( ) _bind is two-way as well. the one documented exception is a call passing custom_mapper_back or custom_filter_back, which _bind has no parameters for — such a call is not reported. warning">
+      <article class="rule" id="obsolete-binder" data-search="obsolete-binder client-&gt;_bind_edit( ) — superseded by client-&gt;_bind( ) _bind is two-way as well, and _bind_edit is a pure alias for it. a call passing custom_mapper_back or custom_filter_back used to be exempt, because _bind has no such parameters — that exemption is gone with the parameters' meaning: they are still accepted for source compatibility but no longer evaluated, per-direction mapping does not exist any more. such a call is reported like every other, but without the autofix: the arguments have to go with the rename, and dropping an argument is not a rename. warning">
         <h3><a href="#obsolete-binder">obsolete-binder</a>
           <span class="badge warning">warning</span>
           <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>client-&gt;_bind_edit( )</code> — superseded by <code>client-&gt;_bind( )</code></p>
-        <p class="detail"><code>_bind</code> is two-way as well. The one documented exception is a call passing <code>custom_mapper_back</code> or <code>custom_filter_back</code>, which <code>_bind</code> has no parameters for — such a call is not reported.</p>
-        <p class="fixnote"><strong>--fix:</strong> Rewritten to <code>client-&gt;_bind( )</code>, the arguments untouched.</p>
+        <p class="detail"><code>_bind</code> is two-way as well, and <code>_bind_edit</code> is a pure alias for it. A call passing <code>custom_mapper_back</code> or <code>custom_filter_back</code> used to be exempt, because <code>_bind</code> has no such parameters — that exemption is gone with the parameters' meaning: they are still accepted for source compatibility but no longer evaluated, per-direction mapping does not exist any more. Such a call is reported like every other, but without the autofix: the arguments have to go with the rename, and dropping an argument is not a rename.</p>
+        <p class="fixnote"><strong>--fix:</strong> Rewritten to <code>client-&gt;_bind( )</code>, the arguments untouched — except where the call passes <code>custom_mapper_back</code>/<code>custom_filter_back</code>, which is reported without a fix.</p>
+        <pre><code>a( n = `value` v = client-&gt;_bind_edit( name ) )   " → client-&gt;_bind( name )</code></pre>
+      </article>
+      <article class="rule" id="obsolete-frontend-event" data-search="obsolete-frontend-event client-&gt;_event_client( ) — superseded by client-&gt;follow_up_action( ) the same call, with the same val / view / t_arg. since follow_up_action( ) gained a returning parameter it is the same call in the same position too: where its result is consumed — the view-attribute form v = client-&gt;_event_client( … ) — it takes the if result is supplied branch straight to mo_srv_event-&gt;get_event_client( ), which is _event_client( )'s entire body. one method now both schedules a frontend action and wires one, so the second name is a leftover. the one non-equivalence is follow_up_action( )'s case, which intercepts cs_event-set_nav_routing / set_push_state / set_app_state_active before that branch: those three are backend-side navigation options, not frontend handlers, so a view attribute wired to one of them never dispatched anyway. warning">
+        <h3><a href="#obsolete-frontend-event">obsolete-frontend-event</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary"><code>client-&gt;_event_client( )</code> — superseded by <code>client-&gt;follow_up_action( )</code></p>
+        <p class="detail">The same call, with the same <code>val</code> / <code>view</code> / <code>t_arg</code>. Since <code>follow_up_action( )</code> gained a <code>RETURNING</code> parameter it is the same call in the same *position* too: where its result is consumed — the view-attribute form <code>v = client-&gt;_event_client( … )</code> — it takes the <code>IF result IS SUPPLIED</code> branch straight to <code>mo_srv_event-&gt;get_event_client( )</code>, which is <code>_event_client( )</code>'s entire body. One method now both schedules a frontend action and wires one, so the second name is a leftover. The one non-equivalence is <code>follow_up_action( )</code>'s <code>CASE</code>, which intercepts <code>cs_event-set_nav_routing</code> / <code>set_push_state</code> / <code>set_app_state_active</code> before that branch: those three are backend-side navigation options, not frontend handlers, so a view attribute wired to one of them never dispatched anyway.</p>
+        <p class="fixnote"><strong>--fix:</strong> Rewritten to <code>client-&gt;follow_up_action( )</code>, the arguments untouched.</p>
+        <pre><code>a( n = `press` v = client-&gt;_event_client( val = client-&gt;cs_event-popup_close ) )
+a( n = `press` v = client-&gt;follow_up_action( val = client-&gt;cs_event-popup_close ) )</code></pre>
+      </article>
+      <article class="rule" id="obsolete-model-update" data-search="obsolete-model-update view_model_update( ) &amp; friends — empty methods, the model is pushed automatically the framework compares the model state before main( ) with the state after it returned and, when they differ, sends it to every open view slot by itself. view_model_update( ), nest_view_model_update( ), nest2_view_model_update( ), popup_model_update( ) and popover_model_update( ) are therefore deliberately empty methods, kept in z2ui5_if_client only so existing apps keep compiling. a leftover call is not merely dead weight — it reads as "the model is pushed here" at a place where nothing at all happens. delete it. the one thing that went with them is the ability to force an unchanged model back onto the client (a control that wrote a bound property without sending it back): rebuild the view with view_display( ) for that. warning">
+        <h3><a href="#obsolete-model-update">obsolete-model-update</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary"><code>view_model_update( )</code> &amp; friends — empty methods, the model is pushed automatically</p>
+        <p class="detail">The framework compares the model state before <code>main( )</code> with the state after it returned and, when they differ, sends it to every open view slot by itself. <code>view_model_update( )</code>, <code>nest_view_model_update( )</code>, <code>nest2_view_model_update( )</code>, <code>popup_model_update( )</code> and <code>popover_model_update( )</code> are therefore deliberately <strong>empty</strong> methods, kept in <code>z2ui5_if_client</code> only so existing apps keep compiling. A leftover call is not merely dead weight — it reads as "the model is pushed here" at a place where nothing at all happens. Delete it. The one thing that went with them is the ability to force an *unchanged* model back onto the client (a control that wrote a bound property without sending it back): rebuild the view with <code>view_display( )</code> for that.</p>
+        <p class="fixnote"><strong>--fix:</strong> The call is deleted, together with the line when it has that line to itself; a line shared with other code or a trailing comment keeps everything but the call.</p>
+        <pre><code>client-&gt;popup_model_update( ).   " does nothing — delete it</code></pre>
       </article>
       <article class="rule" id="popover-anchor-unknown-id" data-search="popover-anchor-unknown-id popover_display( by_id = … ) anchored to an id no view declares a popover opens by a control — by_id names its anchor. with a literal id no view of the class declares, the fragment loads, displaypopover finds no openby control, logs it and destroys the fragment again: nothing opens, nothing renders red, and the property gate saw a perfectly valid fragment. judged under the same trust condition as frontend-action-unknown-id — only when every id attribute of the class is a literal. error">
         <h3><a href="#popover-anchor-unknown-id">popover-anchor-unknown-id</a>

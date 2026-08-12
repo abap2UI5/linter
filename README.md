@@ -64,7 +64,9 @@ Two gates:
    | --- | --- |
    | `unknown-binding-path` | a hand-written `{/TYPO}` the derived model has no path for — the field just stays empty. Also judged inside complex binding infos (`path: '/TYPO'`) and expression bindings (`${/TYPO}`); a numeric segment steps into the bound table's row (`/T_ITEMS/9/TEXT`). Inside a bound aggregation a relative `{TYPO}` is resolved against the **row**, so a misspelled column field is caught too — but only where the row's shape is known from the class's `TYPES`, never guessed |
    | `binding-for-event` / `event-for-property` | `_bind( )` on an event (dead control) or `_event( )` on a property |
-   | `obsolete-binder` | `client->_bind_edit( )` — superseded by `client->_bind( )` |
+   | `obsolete-binder` | `client->_bind_edit( )` — superseded by `client->_bind( )`, which is two-way as well. A call carrying `custom_mapper_back`/`custom_filter_back` is reported too (they are accepted for source compatibility but no longer evaluated), only without the autofix |
+   | `obsolete-model-update` | `view_model_update( )`, `nest_view_model_update( )`, `nest2_view_model_update( )`, `popup_model_update( )`, `popover_model_update( )` — **empty methods**: the framework compares the model before and after `main( )` and pushes it to every open slot by itself. The call reads as "the model is pushed here" where nothing happens; delete it |
+   | `obsolete-frontend-event` | `client->_event_client( )` — superseded by `client->follow_up_action( )`. Since it gained a `RETURNING` parameter it reaches the same `get_event_client( )` wherever its result is consumed, so one method both schedules a frontend action and wires one |
    | `unconverted-abap-boolean` | an ABAP boolean written straight into the view: it arrives as `'X'`/`' '`, and UI5 reads any non-empty string as true — so `visible = abap_false` makes the control **visible**. Wrap it in `z2ui5_cl_ai_xml=>as_bool( )` |
    | `binding-to-local` | a local variable bound: the instance is serialized across the roundtrip, the method stack is not, so the value is lost |
    | `binding-to-reference` | a `TYPE REF TO` attribute bound without dereferencing — the serializer walks DATA, not references, so the bind throws at runtime; write `client->_bind( ref->* )` |
@@ -183,13 +185,15 @@ GitHub Actions every finding is additionally emitted as a workflow command
 
 ## `--fix`
 
-Five rules carry an exact correction and are rewritten in place; the run
+Seven rules carry an exact correction and are rewritten in place; the run
 then reports what is left, so `--fix` can go in front of any other flag
 (`--fix-dry-run` reports what it would change without writing a file).
 
 | Rule | What `--fix` writes |
 | --- | --- |
-| `obsolete-binder` | `client->_bind_edit( … )` → `client->_bind( … )`, arguments untouched |
+| `obsolete-binder` | `client->_bind_edit( … )` → `client->_bind( … )`, arguments untouched — except a call carrying `custom_mapper_back`/`custom_filter_back`, which is reported without a fix (the arguments have to go too, and dropping one is not a rename) |
+| `obsolete-model-update` | the call is deleted, with its line when it has that line to itself; a shared line or a trailing comment keeps everything but the call |
+| `obsolete-frontend-event` | `client->_event_client( … )` → `client->follow_up_action( … )`, arguments untouched |
 | `unconverted-abap-boolean` | a bare token wrapped in `z2ui5_cl_ai_xml=>as_bool( … )` — an expression is left alone |
 | `event-arg-unresolved` | the missing `$` inserted (`` `{COL}` `` → `` `${COL}` ``), a `\|…\|` template left alone |
 | `popover-display-val` | `popover_display( val = … )` → `popover_display( xml = … )`, the argument untouched |

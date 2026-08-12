@@ -259,6 +259,14 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'obsolete-binder' — default severity: warning"
         },
+        "obsolete-frontend-event": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'obsolete-frontend-event' — default severity: warning"
+        },
+        "obsolete-model-update": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'obsolete-model-update' — default severity: warning"
+        },
         "popover-anchor-unknown-id": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'popover-anchor-unknown-id' — default severity: error"
