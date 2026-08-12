@@ -367,9 +367,10 @@ Three consequences worth keeping in mind if any of this is revisited:
 Note what `obsolete-frontend-event` does NOT do: `_event_client` is still a
 live method that the wire rules must keep judging, so the whole frontend-action
 family keeps matching **both** names (`/client->(_event_client|follow_up_action)/`).
-Only the deprecation rule is one-sided. And unlike the other two, this
-deprecation is not (yet) stated in `z2ui5_if_client`'s own ABAP Doc — it comes
-from the framework's implementation and from an explicit project decision.
+Only the deprecation rule is one-sided. This one was read out of the
+framework's *implementation* rather than its ABAP Doc, which is the reverse of
+the other two — the interface caught up in abap2UI5 the same day
+(`52eb4b9f`), so `z2ui5_if_client` states all three now.
 
 Measured in place of the ai-demokit corpus (not checked out in that session):
 abap2UI5's own 9 builder classes, **2 findings** — two dead
