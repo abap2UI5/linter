@@ -718,6 +718,12 @@ ENDCLASS.`;
     `inline structure: every path through one resolves (got ${inlineStruct.findings.map((x) => `${x.type}:${x.value || ''}`).join() || 'none'})`);
   assert(Object.hasOwn(inlineStruct.model, 'MESSAGE') && Object.hasOwn(inlineStruct.model, 'ERROR'),
     'inline structure: both spellings (one-line DATA: BEGIN OF, and READ-ONLY on the next line) reach the model');
+  // the same declaration read by the VISIBILITY scan: a comma split saw
+  // `BEGIN OF message` and registered the fields in the attribute's place, so
+  // every binding through a PUBLIC inline structure reported as non-public
+  assert(!checkAbapRules(fs.readFileSync(f('inlinestruct.clas.abap'), 'utf8'))
+    .some((x) => x.type === 'binding-to-nonpublic'),
+    'inline structure: one declared in the PUBLIC SECTION is public');
 
   // --- CONTROL_BY_ID against the ids the class actually declares ------------
   const actionFindings = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'));
