@@ -100,6 +100,8 @@ Two gates:
    | `uncurated-formatter` | a `formatter: 'Formatter.…'` naming a function the framework's curated module does not export — UI5 resolves the string at binding time and an unknown name silently yields **no value**; compute it in ABAP and bind the finished field |
    | `hardcoded-binding-path` | an absolute binding path written as text (`{/PATH}`, `path: '/PATH'`) — derive it from `client->_bind( var )` so it moves with a variable rename; an OData entity path in a class that switches its default model is exempt |
    | `missing-view-display-on-navigated` | a `check_on_navigated( )` branch that never re-displays — after returning from a called app the browser keeps showing *that* app's view |
+   | `chain-indentation` | a builder call whose indentation contradicts the tree it builds — a sibling at a different column than its siblings, or a call written left of the element it belongs to. A chain is the one thing nothing else formats (abaplint's `indentation` is off for exactly this reason), and the ABAP indentation is the only picture of the view's tree there is. The indent STEP is not judged, only that the chain keeps its own |
+   | `chain-call-per-line` | several builder calls on one line of a multi-line chain — one call per line, or the indentation stops showing the tree (closing calls and one-line chains are exempt) |
    | `separate-lifecycle-ifs` | lifecycle checks in separate `IF` blocks instead of one `IF`/`ELSEIF` chain — separate blocks can run more than one branch per roundtrip (a guard block that `RETURN`s is exclusive and fine) |
    | `duplicate-for-iterator` | the same `FOR` iterator name twice in one method — a 7.02 downport materializes each as `DATA <name> TYPE i` and fails activation |
 

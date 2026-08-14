@@ -74,10 +74,10 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <div class="counts">
       <span class="badge error">44 error</span>
       <span class="badge warning">24 warning</span>
-      <span class="badge hint">7 hint</span>
+      <span class="badge hint">9 hint</span>
       <span class="badge fix">7 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 75 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 77 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -341,6 +341,24 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
 " …
 )-&gt;a( n = `items` v = client-&gt;_bind( mt_data )      " throws
 )-&gt;a( n = `items` v = client-&gt;_bind( mt_data-&gt;* )   " binds the table</code></pre>
+      </article>
+      <article class="rule" id="chain-call-per-line" data-search="chain-call-per-line several builder calls on one line of a multi-line chain one call per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. reported only for a chain that is already written across several lines, so the compact one-liner form stays available; and closing calls do not count, because )-&gt;shut( )-&gt;shut( ). as a chain's last line is an established ending, not the readability problem this rule is about. a hint, like its neighbour. hint">
+        <h3><a href="#chain-call-per-line">chain-call-per-line</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">several builder calls on one line of a multi-line chain</p>
+        <p class="detail">One call per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. Reported only for a chain that is already written across several lines, so the compact one-liner form stays available; and closing calls do not count, because <code>)-&gt;shut( )-&gt;shut( ).</code> as a chain's last line is an established ending, not the readability problem this rule is about. A hint, like its neighbour.</p>
+        <pre><code>)-&gt;leaf( `Text` )-&gt;a( n = `text` v = `{TITLE}` )   " two calls, one line</code></pre>
+      </article>
+      <article class="rule" id="chain-indentation" data-search="chain-indentation a builder call whose indentation contradicts the tree it builds a builder chain is the one part of an abap2ui5 class that nothing else formats: abaplint has indentation and in_statement_indentation switched off (a chain is a single statement spanning fifty lines), so neither abaplint --fix nor the auto-format workflow ever touches its inner lines. and the reader has no other picture of the view — the xml the builder emits is one long line by construction, so the abap indentation is the view's structure. when it drifts, the tree in the file stops matching the tree in the browser. what is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the left of the element it belongs to. the size of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. neither is the column of shut( )/end( ) (the hanging close is established), nor v = alignment, nor line length, nor a chain written entirely on one line. a hint: the view renders identically either way. hint">
+        <h3><a href="#chain-indentation">chain-indentation</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a builder call whose indentation contradicts the tree it builds</p>
+        <p class="detail">A builder chain is the one part of an abap2UI5 class that nothing else formats: abaplint has <code>indentation</code> and <code>in_statement_indentation</code> switched off (a chain is a single statement spanning fifty lines), so neither <code>abaplint --fix</code> nor the auto-format workflow ever touches its inner lines. And the reader has no other picture of the view — the XML the builder emits is one long line by construction, so <strong>the ABAP indentation IS the view's structure</strong>. When it drifts, the tree in the file stops matching the tree in the browser. What is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the LEFT of the element it belongs to. The SIZE of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. Neither is the column of <code>shut( )</code>/<code>end( )</code> (the hanging close is established), nor <code>v =</code> alignment, nor line length, nor a chain written entirely on one line. A hint: the view renders identically either way.</p>
+        <pre><code>)-&gt;open( `Page`
+    )-&gt;leaf( `Input`
+  )-&gt;leaf( `Button`   " a sibling of Input, written a level out</code></pre>
       </article>
       <article class="rule" id="collapsed-brace-in-style" data-search="collapsed-brace-in-style an escaped css brace written inside a |…| template an escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. inside an abap string template the backslash is the template's own escape: \{ collapses to a bare { before the builder ever sees it, and the view dies exactly as if nothing had been escaped. write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (\\\{). invisible to unescaped-brace-in-style, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart. error">
         <h3><a href="#collapsed-brace-in-style">collapsed-brace-in-style</a>

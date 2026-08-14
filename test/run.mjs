@@ -1166,6 +1166,42 @@ ENDCLASS.`);
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
+// ------------------------------------------------- builder chain layout ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { annotate } = await import('../lib/findings.mjs');
+  const source = fs.readFileSync(f('chainlayout.clas.abap'), 'utf8');
+  const found = annotate(checkAbapRules(source).filter((x) => x.type.startsWith('chain-')), source);
+  const of = (shape) => found.find((x) => x.shape === shape);
+
+  assert(of('siblings') && of('siblings').value === '10' && of('siblings').count === 12,
+    'chain-indentation: a sibling written a level out of line with its siblings is reported');
+  assert(of('outdented') && of('outdented').member === 'att',
+    'chain-indentation: an attribute written LEFT of the control it belongs to is reported');
+  const crammed = found.find((x) => x.type === 'chain-call-per-line');
+  assert(crammed && crammed.count === 3,
+    'chain-call-per-line: three controls on one line of a multi-line chain, counted');
+  // one finding per chain per rule: a shifted block makes everything below it
+  // look wrong too, and forty findings for one mistake is not a report
+  assert(found.filter((x) => x.type === 'chain-indentation').length === 2,
+    `chain-indentation: one finding per chain (${found.length} in a fixture with two broken chains)`);
+  // the fixture's fourth method keeps a TWO-space step throughout - the size
+  // of the step is not what the rule is about, so it stays silent
+  assert(!found.some((x) => x.line > 66),
+    `chain layout: a chain that keeps its own two-space rhythm is never reported (${found.map((x) => x.line).join(', ')})`);
+
+  // …and the canonical fixtures, in both dialects, carry nothing
+  for (const clean of ['good.clas.abap', 'viewbuilder.clas.abap']) {
+    const src = fs.readFileSync(f(clean), 'utf8');
+    assert(!checkAbapRules(src).some((x) => x.type.startsWith('chain-')),
+      `chain layout: ${clean} is laid out the way the app guide writes it`);
+  }
+  // a chain on ONE line is a deliberate compact form, not a layout to judge
+  const oneLiner = 'DATA(v) = z2ui5_cl_ai_xml=>factory( )->open( `View` )->a( n = `x` v = `y` )->leaf( `Text` ).';
+  assert(!checkAbapRules(oneLiner).some((x) => x.type.startsWith('chain-')),
+    'chain layout: a single-line chain has no layout to be inconsistent with');
+}
+
 // --------------------------- the successor builder (z2ui5_cl_ui5_view_builder) ----
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');
