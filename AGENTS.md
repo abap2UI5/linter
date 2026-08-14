@@ -14,7 +14,7 @@ SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, ~255 assertions
+npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: docs/index.html, the published reference
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
@@ -78,7 +78,7 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
-| `lib/chain-layout.mjs` | `chain-indentation`, `chain-call-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
+| `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
 | `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
@@ -113,7 +113,7 @@ map from the abap2UI5 sources and fails on any difference — so an upstream
 change becomes an issue here instead of a silent false positive at some
 user's desk. On `lib/frontend-actions.mjs` in detail:
 the closed whitelists `invalid-frontend-action` judges against. Its source of
-truth is abap2UI5's `z2ui5_cl_app_frontendaction_js` — a JavaScript module
+truth is abap2UI5's `z2ui5_cl_ui5f_frontact_js` — a JavaScript module
 embedded in an ABAP string concatenation, which is not worth parsing, and
 that repo is not a dependency here. Refresh it by reading `GLOBAL_TARGETS`
 and `BINDING_METHODS` there. Kept in step 2026-08-02 with abap2UI5's new
@@ -339,7 +339,7 @@ Same round, by explicit project decision: **`raw-javascript-to-frontend`**
 (warning) — the frontend is a renderer, behaviour travels as data, never as
 code. Three shapes, one rule id: `follow_up_action`'s raw-JS escape hatch (a
 non-name literal `val` is inserted verbatim as `custom_js` —
-`z2ui5_cl_core_client~follow_up_action`), a hand-written handler string on an
+`z2ui5_cl_ui5_client~follow_up_action`), a hand-written handler string on an
 event attribute (UI5 evaluates it as JavaScript; the literal-on-event cell
 that completed the `binding-for-event` / `event-for-property` matrix), and a
 `<script>` tag in an attribute value. ABAP classes only — a raw `.view.xml`
@@ -352,7 +352,7 @@ ABAP Doc — the cheapest knowledge source of all, and the one nothing had mined
 
 | Origin | Rule |
 | --- | --- |
-| "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_core_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
+| "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_ui5_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
 | `_event_client( )` → `follow_up_action( )` — since upstream gave `follow_up_action` a `RETURNING` parameter, its `IF result IS SUPPLIED` branch runs `mo_srv_event->get_event_client( )`, which is `_event_client`'s entire body: one method both schedules a frontend action and wires one | `obsolete-frontend-event`, with a rename `--fix` |
 | `_bind_edit`'s `custom_mapper_back`/`custom_filter_back` exemption expired: upstream still ACCEPTS them for source compatibility but no longer evaluates them ("per-direction mapping is gone") | `obsolete-binder` now reports those calls too — **without** the fix, because the arguments have to go with the rename and dropping an argument is not one |
 
@@ -390,7 +390,7 @@ the other two — the interface caught up in abap2UI5 the same day
 Measured in place of the ai-demokit corpus (not checked out in that session):
 abap2UI5's own 9 builder classes, **2 findings** — two dead
 `view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
-`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
+`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_ui5_app_start`, all real.
 
 The 2026-08-14 round asked the one question no rule had asked yet — not
 *how* an app uses the framework, but **what of it it is allowed to name at
@@ -478,7 +478,7 @@ has nothing to do with the view it produces — **how it is WRITTEN**:
 
 | Origin | Rule |
 | --- | --- |
-| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-call-per-line` + `lib/chain-layout.mjs` |
+| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-element-per-line` + `lib/chain-layout.mjs` |
 
 The argument for the family, and the reason it is not taste: the XML a
 builder emits is ONE line by construction (`render( )` concatenates without
@@ -499,13 +499,16 @@ to, and only two things are reported — a sibling out of line with its
 siblings, and a call left of the element it belongs to. A chain that keeps its
 own two-space rhythm is silent.
 
-After the rewrite: **0 findings on abap2UI5's app classes** except three
-genuine `chain-call-per-line` lines in `z2ui5_cl_ui5_app_start` (the compact
-`tag( \`Label\` )->att( \`text\` )` form of a form block), and 1 on the
-fixtures — the same shape, also real. Coverage, the other half of the
-doctrine: 67 multi-line chains and 536 line-leading calls are compared in
-silence across those 35 files, and the three defect shapes are pinned by
-`chainlayout.clas.abap`.
+The SAME lesson then repeated on the second rule, one round later. Counting
+BUILDER CALLS per line reported four lines across the corpus and all four were
+the compact `tag( \`Label\` )->att( n = \`text\` … )` idiom — a control with its
+own attribute, which hides no level of anything. What hides a level is a
+second CONTROL on the line, so the rule counts ELEMENTS now and was renamed
+`chain-element-per-line` while it was still unreleased. After both rewrites
+the family reports **nothing** on abap2UI5's app classes, its test apps and 28
+of this repo's 29 fixtures — only the one written to carry each defect on
+purpose. Coverage, the other half of the doctrine: 67 multi-line chains and
+536 line-leading calls are compared in silence across those 35 files.
 
 Both are **hints**, deliberately: the view renders identically either way, and
 this family has no business failing a build. `"chain-indentation": "warning"`
@@ -520,7 +523,7 @@ in a repo's config is the one line that changes that.
   turn out to be a real part of anybody's corpus.
 
 - **The FrontendAction mirror lost its source file.** `db10b13` renamed
-  `z2ui5_cl_app_frontendaction_js` to `z2ui5_cl_ui5f_frontact_js` **and split
+  `z2ui5_cl_ui5f_frontact_js` to `z2ui5_cl_ui5f_frontact_js` **and split
   the JS across modules** — `GLOBAL_TARGETS` now lives in
   `z2ui5_cl_ui5f_ctrlcall_js` / `Slots.js`, not in the class
   `check-upstream` reads. `ACTION_PATH` follows the rename already, so the

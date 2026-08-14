@@ -1166,6 +1166,138 @@ ENDCLASS.`);
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
+// ------------------------------------------ source positions and declarations ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { annotate } = await import('../lib/findings.mjs');
+
+  /* A finding has to point at the line it is about. publicAttributes measured
+   * its offsets in the SECTION BODY but added the offset of the `PUBLIC
+   * SECTION.` keyword, so every unused-public-attribute landed one line
+   * early — invisible in a test that only checks the member name. */
+  const attrs = `CLASS zcl_x DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA used TYPE string.
+    DATA ballast TYPE string.
+ENDCLASS.
+CLASS zcl_x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    used = \`x\`.
+  ENDMETHOD.
+ENDCLASS.`;
+  const dead = annotate(checkAbapRules(attrs).filter((x) => x.type === 'unused-public-attribute'), attrs);
+  assert(dead.length === 1 && dead[0].member === 'ballast' && dead[0].line === 5,
+    `unused-public-attribute: reported on the line it is declared on (line ${dead[0]?.line}, DATA ballast is line 5)`);
+
+  /* A CHAINED declaration declares more than one name. Only the first was
+   * collected, so the second boolean reached the view unreported while its
+   * neighbour on the line above was caught. */
+  const chained = `CLASS x DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    DATA: first  TYPE abap_bool,
+          second TYPE abap_bool.
+ENDCLASS.
+CLASS x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    view->open( n = \`View\` ns = \`mvc\`
+        )->leaf( \`Button\`
+            )->a( n = \`visible\` v = first
+            )->a( n = \`enabled\` v = second ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const bools = checkAbapRules(chained).filter((x) => x.type === 'unconverted-abap-boolean');
+  assert(bools.length === 2 && bools.some((x) => x.value === 'second'),
+    `unconverted-abap-boolean: every name of a chained DATA: declaration is a known boolean (${bools.map((x) => x.value).join(', ')})`);
+}
+
+// ------------------------------------------------------- accessibility ----
+{
+  const view = (leaf) => `CLASS x DEFINITION PUBLIC.
+ENDCLASS.
+CLASS x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
+        )->att( n = \`xmlns\` v = \`sap.m\`
+        )->att( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+${leaf}.
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const a11y = (leaf) => checkAbapSource(view(leaf), { render: false })
+    .findings.filter((x) => x.type === 'missing-accessibility');
+
+  /* sap.m.Image.decorative DEFAULTS TO TRUE, and UI5 then ignores `alt`
+   * outright — so demanding one from an image without `decorative` asked for
+   * an attribute the framework drops, on nearly every image in a corpus. */
+  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )').length,
+    'missing-accessibility: an image without `decorative` is decorative by default and needs no alt');
+  assert(a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )').length === 1,
+    'missing-accessibility: an image declared MEANINGFUL and left without alt is the defect');
+  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )->att( n = \`alt\` v = \`Logo\` )').length,
+    'missing-accessibility: …and an alt on it settles the matter');
+
+  // three ways to name an icon-only button, not two
+  assert(a11y('        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )').length === 1,
+    'missing-accessibility: an icon-only button with no name at all is reported');
+  for (const named of ['text', 'tooltip', 'ariaLabelledBy']) {
+    assert(!a11y(`        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )->att( n = \`${named}\` v = \`x\` )`).length,
+      `missing-accessibility: an icon button named through ${named} has an accessible name`);
+  }
+}
+
+// ----------------------------------------------- a broken install answers ----
+{
+  const { loadSnapshot, snapshotVersion } = await import('../lib/properties.mjs');
+  /* The snapshot is the property gate's whole knowledge. A `--snapshot`
+   * pointing at nothing, or an install that lost data/properties.json, used
+   * to come out as a bare ENOENT stack trace — while the render gate's
+   * missing dependencies have always answered with one actionable line. */
+  let thrown = null;
+  try { loadSnapshot('/nope/properties.json'); } catch (e) { thrown = e; }
+  assert(thrown?.code === 'ERR_SNAPSHOT_MISSING' && /properties\.json/.test(thrown.message)
+    && /--no-properties/.test(thrown.message),
+  `snapshot: a missing snapshot is one actionable line, not a stack trace (${thrown?.code})`);
+  assert(snapshotVersion('/nope/properties.json') === '',
+    'snapshot: snapshotVersion returns the empty string it promises when the file is unreadable');
+}
+
+// ------------------------------------------------------- file collection ----
+{
+  const { collectFiles } = await import('../lib/index.mjs');
+  const os = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5lint-collect-'));
+  const named = path.join(dir, 'my_app.abap');           // not abapGit's spelling
+  fs.copyFileSync(f('viewbuilder.clas.abap'), named);
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'z.testclasses.abap'));
+
+  // a path the caller NAMED is meant - dropping it silently is the worst
+  // answer a linter can give
+  assert(collectFiles([named]).length === 1,
+    'collectFiles: an explicitly named .abap file carrying a builder chain is checked');
+  // …but a directory WALK keeps to the naming convention, which is what tells
+  // an app class from an include or a generated artefact
+  assert(collectFiles([dir]).length === 0,
+    `collectFiles: a directory scan stays on .clas.abap (${collectFiles([dir]).join(', ')})`);
+  assert(collectFiles([path.join(dir, 'z.testclasses.abap')]).length === 0,
+    'collectFiles: a test include is never checked, not even when named');
+
+  // the same file reached twice - `cli.mjs src src`, or a directory named
+  // next to one of its own files - was checked, reported and COUNTED twice
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'app.clas.abap'));
+  const twice = collectFiles([dir, dir, path.join(dir, 'app.clas.abap')]);
+  assert(twice.length === 1, `collectFiles: a file reached twice is checked once (${twice.join(', ')})`);
+  // …and it comes back spelled the way it was reached: result.file travels
+  // into --json and into the baseline keys, so the string is a contract
+  const abs = collectFiles([path.resolve(f('good.clas.abap'))]);
+  assert(abs.length === 1 && path.isAbsolute(abs[0]),
+    `collectFiles: an absolute path stays absolute (${abs[0]})`);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // ------------------------------------------------- builder chain layout ----
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');
@@ -1178,9 +1310,17 @@ ENDCLASS.`);
     'chain-indentation: a sibling written a level out of line with its siblings is reported');
   assert(of('outdented') && of('outdented').member === 'att',
     'chain-indentation: an attribute written LEFT of the control it belongs to is reported');
-  const crammed = found.find((x) => x.type === 'chain-call-per-line');
+  const crammed = found.find((x) => x.type === 'chain-element-per-line');
   assert(crammed && crammed.count === 3,
-    'chain-call-per-line: three controls on one line of a multi-line chain, counted');
+    'chain-element-per-line: three controls on one line of a multi-line chain, counted');
+  /* An attribute sharing its control's line hides no level of the tree —
+   * the compact form of half the samples, and every hit the first version
+   * of this rule produced on the corpus. */
+  const compact = `v->ele( n = \`View\` ns = \`mvc\`
+      )->tag( \`Text\` )->att( n = \`text\` v = \`a\`
+      )->tag( \`Text\` )->att( n = \`text\` v = \`b\` ).`;
+  assert(!checkAbapRules(compact).some((x) => x.type === 'chain-element-per-line'),
+    'chain-element-per-line: a control and its own attributes may share a line');
   // one finding per chain per rule: a shifted block makes everything below it
   // look wrong too, and forty findings for one mistake is not a report
   assert(found.filter((x) => x.type === 'chain-indentation').length === 2,
@@ -1569,6 +1709,24 @@ ENDCLASS.`;
     .findings.find((x) => x.type === 'undeclared-namespace');
   assert(vrNs && !vrNs.fixes,
     'undeclared-namespace: an unconventional prefix could mean any library and gets no fix');
+
+  /* The anchor is searched in the SCRUBBED source: a commented-out builder
+   * line — a previous root kept for reference — comes before the live one
+   * often enough, and the declaration used to land INSIDE that comment,
+   * leaving the view unfixed and the comment mangled. */
+  const commented = `
+  DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+  " )->a( n = \`xmlns\` v = \`sap.ui.core\`   the old root, kept for reference
+  v->open( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->leaf( n = \`Icon\` ns = \`core\` ).
+  client->view_display( v->stringify( ) ).`;
+  const commentedFix = applyFixes(commented, checkAbapSource(commented).findings).output;
+  assert(/" \)->a\( n = `xmlns` v = `sap\.ui\.core`   the old root/.test(commentedFix),
+    'undeclared-namespace: the fix never lands in a commented-out builder line');
+  assert(!checkAbapSource(commentedFix).findings.some((x) => x.type === 'undeclared-namespace'),
+    'undeclared-namespace: …and the declaration it inserted instead really fixes the view');
 }
 
 // ------------------------------------------------ sarif + baseline + cli ----

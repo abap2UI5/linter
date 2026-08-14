@@ -128,6 +128,18 @@ declare module "@abap2ui5/linter/properties" {
     library?: string;
     /** unknown-binding-path: the aggregation binding the row context came from */
     context?: string;
+    /** non-released-api: which package the object lives in, what that package
+     *  is, and whether it is the frozen one — `member` carries the path. */
+    what?: string;
+    frozen?: boolean;
+    /** non-released-api: the object (or project) that took its place, if any. */
+    replacement?: string;
+    /** chain-indentation: which way the layout contradicts the tree
+     *  ('siblings' | 'attributes' | 'outdented'). */
+    shape?: string;
+    /** unconverted-abap-boolean: the correction that belongs to the builder
+     *  this call is on — the two have different ones. */
+    fixHint?: string;
     /** Character offset into the checked file - set by every gate that can
      *  place its finding; absent for view parts inlined from helper
      *  methods, which map back to no position at all. */
