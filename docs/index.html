@@ -72,12 +72,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">44 error</span>
-      <span class="badge warning">24 warning</span>
+      <span class="badge error">47 error</span>
+      <span class="badge warning">27 warning</span>
       <span class="badge hint">9 hint</span>
       <span class="badge fix">7 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 77 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 83 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -224,6 +224,13 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary">unbalanced braces or parens in <code>{= … }</code></p>
         <p class="detail">The expression binding cannot be parsed. UI5 reports a parse error and the attribute stays unbound.</p>
       </article>
+      <article class="rule" id="source-line-too-long" data-search="source-line-too-long a source line over 255 characters — the class does not import abap holds 255 characters per source line, and over it the defect is not a lint finding but a failed import: abapgit reports "literals across more than one line are not allowed" for the object and carries on with the next one, so what stays behind in the system is an empty class stub. the tree looks imported and the app is gone. nothing else sees it — every check runs against the files, where the line is merely long. split the literal into &amp;&amp; chunks; when the file is generated, fix the generator, or the next generation restores the line. error">
+        <h3><a href="#source-line-too-long">source-line-too-long</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a source line over 255 characters — the class does not import</p>
+        <p class="detail">ABAP holds 255 characters per source line, and over it the defect is not a lint finding but a failed <strong>import</strong>: abapGit reports "Literals across more than one line are not allowed" for the object and carries on with the next one, so what stays behind in the system is an <strong>empty class stub</strong>. The tree looks imported and the app is gone. Nothing else sees it — every check runs against the files, where the line is merely long. Split the literal into <code>&amp;&amp;</code> chunks; when the file is generated, fix the generator, or the next generation restores the line.</p>
+      </article>
       <article class="rule" id="undeclared-namespace" data-search="undeclared-namespace ns = 'form' without an xmlns:form the prefix is used but never declared on the view root, so the parser cannot resolve the control at all. error">
         <h3><a href="#undeclared-namespace">undeclared-namespace</a>
           <span class="badge error">error</span>
@@ -237,6 +244,14 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <section class="cat" id="cat-version">
       <h2>Version and deprecation</h2>
       <p class="blurb">Portability against the UI5 version your system actually runs (--ui5, default 1.71) and the distribution it serves (--distribution).</p>
+      <article class="rule" id="aggregation-too-new" data-search="aggregation-too-new an aggregation tag introduced after your target version the same mistake as member-too-new, with a far worse blast radius, which is why it is its own rule and an error. a post-floor property is dropped silently and the control still renders; a post-floor aggregation is a lowercase tag the release does not know, so ui5 falls back to resolving it as a control class and 404s on sap/&lt;lib&gt;/&lt;name&gt;.js — the whole view fails to load, not just the part below the tag. &lt;footer&gt; on a sap.m.dialog is the recurring case: the public footer aggregation is ~1.110, so on 1.71 ui5 requests sap/m/footer.js. use buttons (1.21.1); ui5 lays them out in an overflow toolbar by itself. error">
+        <h3><a href="#aggregation-too-new">aggregation-too-new</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">an aggregation TAG introduced after your target version</p>
+        <p class="detail">The same mistake as <code>member-too-new</code>, with a far worse blast radius, which is why it is its own rule and an error. A post-floor <strong>property</strong> is dropped silently and the control still renders; a post-floor <strong>aggregation</strong> is a lowercase tag the release does not know, so UI5 falls back to resolving it as a control class and 404s on <code>sap/&lt;lib&gt;/&lt;name&gt;.js</code> — the whole view fails to load, not just the part below the tag. <code>&lt;footer&gt;</code> on a <code>sap.m.Dialog</code> is the recurring case: the public <code>footer</code> aggregation is ~1.110, so on 1.71 UI5 requests <code>sap/m/footer.js</code>. Use <code>buttons</code> (1.21.1); UI5 lays them out in an overflow toolbar by itself.</p>
+        <pre><code>view-&gt;ele( `Dialog` )-&gt;_generic( name = `footer` )  " @since 1.110 on a 1.71 target</code></pre>
+      </article>
       <article class="rule" id="commercial-ui5-host" data-search="commercial-ui5-host a url pinned to the commercial sapui5 host the same portability family as sapui5-only-control: sdk.openui5.org serves the open distribution, ui5.sap.com / .hana.ondemand.com serve sapui5. an app whose assets or bootstrap point at the commercial host breaks the moment it runs against an openui5-only landscape. warning">
         <h3><a href="#commercial-ui5-host">commercial-ui5-host</a>
           <span class="badge warning">warning</span>
@@ -273,6 +288,21 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary">a <code>${$parameters&gt;/name}</code> the event only gained later</p>
         <p class="detail">An event parameter read back in a <code>t_arg</code> that the event did not carry yet at your floor. Resolved per event, not per parameter name, so an identically named parameter on another event does not mask it.</p>
       </article>
+      <article class="rule" id="icon-removed" data-search="icon-removed an icon that left the font again the font is nearly, but not quite, additive. binary arrived in 1.104 and is spelled non-binary from 1.120 on — the same codepoint, a renamed glyph — so a view written against a release in between renders no icon on every release after it. since a target version is a floor, the app also runs on the releases where the name is gone, which is why this is reported independently of the target. warning">
+        <h3><a href="#icon-removed">icon-removed</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an icon that left the font again</p>
+        <p class="detail">The font is nearly, but not quite, additive. <code>binary</code> arrived in 1.104 and is spelled <code>non-binary</code> from 1.120 on — the same codepoint, a renamed glyph — so a view written against a release in between renders no icon on every release after it. Since a target version is a <strong>floor</strong>, the app also runs on the releases where the name is gone, which is why this is reported independently of the target.</p>
+      </article>
+      <article class="rule" id="icon-too-new" data-search="icon-too-new an icon that reached the font after your target version the same silence as unknown-icon, one release boundary later: the glyph exists today and did not exist on the release you target, so the control renders without an icon there and nowhere else. information arrived in 1.80 (use message-information) and clear-all in 1.86 (use eraser) — both shipped past a green ci and were found by a user on 1.71. the registry's floor is 1.71, so a name already present there is recorded as "at or before" and a target below 1.71 is never judged. warning">
+        <h3><a href="#icon-too-new">icon-too-new</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an icon that reached the font after your target version</p>
+        <p class="detail">The same silence as <code>unknown-icon</code>, one release boundary later: the glyph exists today and did not exist on the release you target, so the control renders without an icon there and nowhere else. <code>information</code> arrived in 1.80 (use <code>message-information</code>) and <code>clear-all</code> in 1.86 (use <code>eraser</code>) — both shipped past a green CI and were found by a user on 1.71. The registry's floor is 1.71, so a name already present there is recorded as "at or before" and a target below 1.71 is never judged.</p>
+        <pre><code>view-&gt;leaf( `Button` )-&gt;a( n = `icon` v = `sap-icon://information` )  " @since 1.80 on a 1.71 target</code></pre>
+      </article>
       <article class="rule" id="member-deprecated" data-search="member-deprecated property or event already deprecated at your target version as control-deprecated, per member. the replacement is usually named in the deprecation text the finding quotes. warning">
         <h3><a href="#member-deprecated">member-deprecated</a>
           <span class="badge warning">warning</span>
@@ -293,6 +323,22 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">needs SAPUI5, absent from OpenUI5</p>
         <p class="detail">Only with <code>--distribution openui5</code>. SAPUI5 ships libraries OpenUI5 does not — <code>sap.ui.comp</code> (Smart controls), <code>sap.suite.*</code>, <code>sap.ushell</code>, <code>sap.fe</code>, <code>sap.viz</code> — so a SmartTable is fine on SAPUI5 and a guaranteed runtime error on OpenUI5.</p>
+      </article>
+      <article class="rule" id="toolbar-control-in-bar" data-search="toolbar-control-in-bar toolbarspacer/toolbarseparator inside a sap.m.bar the nastiest kind of version defect: every control and every property in the view exists on the target release, and it still renders wrong — only the css changed. toolbarspacer and toolbarseparator render a &lt;div&gt; and are laid out as intended only inside a sap.m.toolbar, which is a flex container. sap.m.bar is not, before 1.76: .sapmbarleft/.sapmbarright were position: absolute + text-align with the children in normal flow, where a block-level child starts a new line — and .sapmbarcontainer { overflow: hidden } at the bar's 3rem height cuts away everything from that line on. so a separator between two groups of icons does not draw a rule: it deletes every icon after it, without a word. and a bar is rarely written on purpose — sap.m.page headercontent is forwarded into the internal bar's contentright, which is how this reached three overview headers at once. the fix is not a different separator, it is no separator: put only inline controls in a bar and express the grouping with a margin class (sapuimediummarginbegin on the first control of the next group). reported only for a target below 1.76. warning">
+        <h3><a href="#toolbar-control-in-bar">toolbar-control-in-bar</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary"><code>ToolbarSpacer</code>/<code>ToolbarSeparator</code> inside a <code>sap.m.Bar</code></p>
+        <p class="detail">The nastiest kind of version defect: every control and every property in the view exists on the target release, and it still renders wrong — only the CSS changed. <code>ToolbarSpacer</code> and <code>ToolbarSeparator</code> render a <code>&lt;div&gt;</code> and are laid out as intended only inside a <code>sap.m.Toolbar</code>, which is a flex container. <code>sap.m.Bar</code> is not, before 1.76: <code>.sapMBarLeft</code>/<code>.sapMBarRight</code> were <code>position: absolute</code> + <code>text-align</code> with the children in normal flow, where a block-level child <strong>starts a new line</strong> — and <code>.sapMBarContainer { overflow: hidden }</code> at the bar's 3rem height cuts away everything from that line on. So a separator between two groups of icons does not draw a rule: it <strong>deletes every icon after it</strong>, without a word. And a <code>Bar</code> is rarely written on purpose — <code>sap.m.Page</code> <code>headerContent</code> is forwarded into the internal Bar's <code>contentRight</code>, which is how this reached three overview headers at once. The fix is not a different separator, it is no separator: put only inline controls in a bar and express the grouping with a margin class (<code>sapUiMediumMarginBegin</code> on the first control of the next group). Reported only for a target below 1.76.</p>
+        <pre><code>view-&gt;_generic( name = `headerContent` )-&gt;leaf( `ToolbarSeparator` )</code></pre>
+      </article>
+      <article class="rule" id="unknown-icon" data-search="unknown-icon sap-icon://textformatting — a glyph the font has in no release an unknown icon name is not an error anywhere: iconpool resolves it at render time, finds nothing, and the control renders with no icon at all. nothing is logged — not in the browser console, not in ui5lint, not in abaplint — so it ships and surfaces months later as "not all icons are shown". case matters and not in the way it looks: iconpool.geticoninfo parses the uri and reads parts.hostname, which is lower-cased, so textformatting is not "nearly right" — it matches nothing, in every release, forever. the name is text-formatting. judged against data/icons.json, the icon registry of every openui5 minor from 1.71 up; a collection-qualified name (sap-icon://tnt/actor) belongs to a custom font and is never judged. error">
+        <h3><a href="#unknown-icon">unknown-icon</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>sap-icon://textFormatting</code> — a glyph the font has in no release</p>
+        <p class="detail">An unknown icon name is not an error anywhere: <code>IconPool</code> resolves it at render time, finds nothing, and the control renders with <strong>no icon at all</strong>. Nothing is logged — not in the browser console, not in ui5lint, not in abaplint — so it ships and surfaces months later as "not all icons are shown". Case matters and not in the way it looks: <code>IconPool.getIconInfo</code> parses the URI and reads <code>parts.hostname</code>, which is lower-cased, so <code>textFormatting</code> is not "nearly right" — it matches nothing, in every release, forever. The name is <code>text-formatting</code>. Judged against <code>data/icons.json</code>, the icon registry of every OpenUI5 minor from 1.71 up; a collection-qualified name (<code>sap-icon://tnt/actor</code>) belongs to a custom font and is never judged.</p>
+        <pre><code>view-&gt;leaf( `Button` )-&gt;a( n = `icon` v = `sap-icon://textFormatting` )</code></pre>
       </article>
     </section>
     <section class="cat" id="cat-abap2ui5">
@@ -321,12 +367,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary">a local variable bound</p>
         <p class="detail">The instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. Bind an instance attribute.</p>
       </article>
-      <article class="rule" id="binding-to-nonpublic" data-search="binding-to-nonpublic a protected/private attribute bound only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so binding one from another section fails the first roundtrip with binding_error — no class attribute for binding found. move the attribute to the public section. judged by the root of the bound name (a structure component travels with its root), and only when the class declares a public section to compare against. found live: an ai-demokit port bound expanded from its protected section and had never worked in a running system — its live_test deviation was telling the truth the whole time. error">
+      <article class="rule" id="binding-to-nonpublic" data-search="binding-to-nonpublic a protected/private attribute bound only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so binding one from another section fails the first roundtrip with binding_error — no class attribute for binding found. move the attribute to the public section. judged by the root of the bound name (a structure component travels with its root), and only when the class declares a public section to compare against. found live: an samples-controls port bound expanded from its protected section and had never worked in a running system — its live_test deviation was telling the truth the whole time. error">
         <h3><a href="#binding-to-nonpublic">binding-to-nonpublic</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">a PROTECTED/PRIVATE attribute bound</p>
-        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so binding one from another section fails the <strong>first roundtrip</strong> with <code>BINDING_ERROR — No class attribute for binding found</code>. Move the attribute to the <code>PUBLIC SECTION</code>. Judged by the root of the bound name (a structure component travels with its root), and only when the class declares a <code>PUBLIC SECTION</code> to compare against. Found live: an ai-demokit port bound <code>expanded</code> from its PROTECTED section and had never worked in a running system — its <code>LIVE_TEST</code> deviation was telling the truth the whole time.</p>
+        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so binding one from another section fails the <strong>first roundtrip</strong> with <code>BINDING_ERROR — No class attribute for binding found</code>. Move the attribute to the <code>PUBLIC SECTION</code>. Judged by the root of the bound name (a structure component travels with its root), and only when the class declares a <code>PUBLIC SECTION</code> to compare against. Found live: an samples-controls port bound <code>expanded</code> from its PROTECTED section and had never worked in a running system — its <code>LIVE_TEST</code> deviation was telling the truth the whole time.</p>
         <pre><code>PROTECTED SECTION.
   DATA expanded TYPE abap_bool.   " BINDING_ERROR on the first roundtrip
 " … )-&gt;a( n = `expanded` v = client-&gt;_bind( expanded ) )</code></pre>

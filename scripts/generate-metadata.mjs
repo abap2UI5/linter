@@ -38,7 +38,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /* --out lets a CONSUMER generate a snapshot of its own, with this one
  * generator, at whatever OpenUI5 version its own work is pinned to. That is
  * why this script is published with the package (see files[] in package.json):
- * ai-demokit builds the sample universe from an OpenUI5 checkout that can be
+ * samples-controls builds the sample universe from an OpenUI5 checkout that can be
  * newer than the @openui5 packages this repo pins, and its scope docs need a
  * snapshot at THAT version. One generator, several invocations - never a
  * second parser. */

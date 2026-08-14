@@ -1644,6 +1644,93 @@ ENDCLASS.`;
     .findings.some((x) => x.type === 'enum-value-too-new'),
     'enum-value-too-new: a value that predates version tracking is never reported');
 
+  // --- the SAP icon font ----------------------------------------------------
+  const icons = (value, minUi5 = '1.71') => checkAbapSource(
+    view(`  )->tag( \`Button\` )->a( n = \`icon\` v = \`sap-icon://${value}\` )`), { minUi5 },
+  ).findings.filter((x) => x.type.startsWith('icon-') || x.type === 'unknown-icon');
+
+  assert(icons('message-information').length === 0,
+    'unknown-icon: a glyph that is in the font at 1.71 is silent');
+  assert(icons('information')[0]?.type === 'icon-too-new' && icons('information')[0].since === '1.80',
+    `icon-too-new: information reached the font in 1.80 (got ${icons('information')[0]?.since || 'nothing'})`);
+  assert(icons('clear-all')[0]?.type === 'icon-too-new',
+    'icon-too-new: clear-all (1.86) is reported on a 1.71 target — the eraser case');
+  assert(icons('information', '1.120').length === 0,
+    'icon-too-new: the same glyph is fine once the target reaches the release it arrived in');
+  assert(icons('nosuchglyph')[0]?.type === 'unknown-icon',
+    'unknown-icon: a name in no release is reported whatever the target');
+  assert(icons('nosuchglyph', '1.150')[0]?.type === 'unknown-icon',
+    'unknown-icon: ...including on the newest target');
+  /* The one that looks like a typo and is not: IconPool reads the name as a
+   * URI hostname, which is lower-cased, so a camelCase name matches nothing
+   * in any release — and a correctly-cased name must still resolve. */
+  assert(icons('textFormatting')[0]?.type === 'unknown-icon',
+    'unknown-icon: a camelCase name matches no glyph — icon names are effectively lower-case');
+  assert(icons('text-formatting').length === 0,
+    'unknown-icon: ...and the hyphenated spelling of the same glyph is fine');
+  assert(icons('binary')[0]?.type === 'icon-removed',
+    'icon-removed: a glyph that left the font again (binary -> non-binary) is reported');
+  assert(icons('tnt/actor').length === 0,
+    'unknown-icon: a collection-qualified name belongs to a custom font and is never judged');
+  /* An icon name travels as DATA at least as often as as an attribute - a
+   * status column of a bound table never reaches the view tree. */
+  assert(checkAbapRules('ls_row-icon = `sap-icon://information`.')
+    .some((x) => x.type === 'icon-too-new'),
+    'icon-too-new: a name in a data literal is judged too, not just a view attribute');
+  assert(!checkAbapRules('" the sap-icon://information glyph arrived in 1.80\nx = 1.')
+    .some((x) => x.type.includes('icon')),
+    'icon rules: a name in a COMMENT is prose, not a use');
+
+  // --- toolbar-only controls in a sap.m.Bar ---------------------------------
+  const inBar = (inner, minUi5 = '1.71') => checkAbapSource(view(inner), { minUi5 })
+    .findings.filter((x) => x.type === 'toolbar-control-in-bar');
+
+  assert(inBar('  )->ele( `Bar` )->ele( `contentRight` )->tag( `ToolbarSeparator` )').length === 1,
+    'toolbar-control-in-bar: a separator inside a Bar is reported');
+  assert(inBar('  )->ele( `Bar` )->ele( `contentRight` )->tag( `ToolbarSpacer` )').length === 1,
+    'toolbar-control-in-bar: ...and so is a spacer');
+  /* The half nobody writes on purpose: Page headerContent is FORWARDED into
+   * the internal Bar's contentRight, so the view never mentions a Bar. */
+  assert(inBar('  )->ele( `Page` )->ele( `headerContent` )->tag( `ToolbarSeparator` )').length === 1,
+    'toolbar-control-in-bar: Page headerContent is forwarded into the internal Bar and counts');
+  assert(inBar('  )->ele( `Toolbar` )->tag( `ToolbarSeparator` )').length === 0,
+    'toolbar-control-in-bar: a Toolbar IS a flex container — the whole point, never reported');
+  assert(inBar('  )->ele( `Page` )->ele( `content` )->tag( `ToolbarSeparator` )').length === 0,
+    'toolbar-control-in-bar: a Page content child is not in a bar');
+  assert(inBar('  )->ele( `Bar` )->ele( `contentRight` )->tag( `ToolbarSeparator` )', '1.76').length === 0,
+    'toolbar-control-in-bar: from 1.76 the Bar is a flex container and the rule is silent');
+  assert(inBar('  )->ele( `Bar` )->ele( `contentRight` )->tag( `Button` )').length === 0,
+    'toolbar-control-in-bar: an inline control in a bar is exactly what belongs there');
+
+  // --- an aggregation TAG the release does not have -------------------------
+  const aggTooNew = (minUi5) => checkAbapSource(
+    view('  )->ele( `Dialog` )->ele( `footer` )->tag( `Button` )'), { minUi5 },
+  ).findings.filter((x) => x.type === 'aggregation-too-new');
+  assert(aggTooNew('1.71').length === 1,
+    'aggregation-too-new: Dialog footer (~1.110) on a 1.71 target is reported');
+  assert(severityOf(aggTooNew('1.71')[0]) === 'error',
+    'aggregation-too-new: an ERROR, not a warning — UI5 resolves the tag as a class and the view never loads');
+  assert(!aggTooNew('1.120').length,
+    'aggregation-too-new: fine once the target has the aggregation');
+  assert(!checkAbapSource(view('  )->ele( `Dialog` )->ele( `buttons` )->tag( `Button` )'), { minUi5: '1.71' })
+    .findings.some((x) => x.type === 'aggregation-too-new'),
+    'aggregation-too-new: buttons (1.21.1) is the 1.71 way to do the same thing');
+
+  // --- a source line the system cannot import -------------------------------
+  const longLine = `    lv_x = \`${'a'.repeat(260)}\`.`;
+  const tooLong = checkAbapRules(`CLASS x IMPLEMENTATION.\n${longLine}\n  y = 1.\nENDCLASS.`)
+    .filter((x) => x.type === 'source-line-too-long');
+  assert(tooLong.length === 1 && tooLong[0].value === longLine.length,
+    `source-line-too-long: a line over 255 characters is reported (got ${tooLong.map((x) => x.value).join() || 'nothing'})`);
+  assert(severityOf(tooLong[0]) === 'error',
+    'source-line-too-long: an ERROR — the object does not import, it leaves an empty stub behind');
+  assert(!checkAbapRules(`CLASS x IMPLEMENTATION.\n    lv_x = \`${'a'.repeat(200)}\`.\nENDCLASS.`)
+    .some((x) => x.type === 'source-line-too-long'),
+    'source-line-too-long: a line within the limit is silent');
+  assert(checkAbapRules(`  a = 1.\n${longLine}\n${longLine.replace('lv_x', 'lv_y')}\n`)
+    .filter((x) => x.type === 'source-line-too-long').length === 2,
+    'source-line-too-long: every over-long line is its own finding — each needs its own split');
+
   // --- absolute paths inside complex bindings and expressions ---------------
   const complexSrc = (value) => `CLASS zcl_x DEFINITION PUBLIC.
   PUBLIC SECTION.
@@ -1796,6 +1883,36 @@ ENDCLASS.`;
     cp.execFileSync('node', [path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs'), '--check'], { encoding: 'utf8' });
   } catch (e) { ok = false; msg = (e.stderr || e.stdout || '').trim(); }
   assert(ok, `metadata: data/properties.json is in sync — npm run generate-metadata (${msg})`);
+}
+
+// --------------------------------------------------- icon data integrity ----
+/* The icon snapshot cannot have a drift gate like properties.json: it is built
+ * by packing 79 OpenUI5 releases from the registry, so --check would need
+ * network on every test run. The committed file IS the contract, and what is
+ * checkable offline is that it says what the rules assume it says. */
+{
+  const icons = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'data', 'icons.json'), 'utf8'));
+  const names = Object.keys(icons.icons);
+  assert(icons.floor === '1.71',
+    `icons: the data's floor is the release the rules treat as "at or before" (got ${icons.floor})`);
+  assert(names.length > 650, `icons: the registry is populated (${names.length} names)`);
+  assert(names.every((n) => n === n.toLowerCase()),
+    'icons: every name is stored lower-cased — IconPool reads the name as a URI hostname, so comparisons are case-insensitive');
+  const floorCount = names.filter((n) => icons.icons[n] === '1.71').length;
+  assert(floorCount > 600, `icons: most glyphs predate the floor (${floorCount} at 1.71)`);
+  assert(names.some((n) => icons.icons[n] !== '1.71'),
+    'icons: the scan covers releases ABOVE the floor — otherwise icon-too-new can never fire');
+  /* The three glyphs the rules' documentation names by hand. If a regeneration
+   * moves one of these, the README, the rules page and the ui5-check entry all
+   * became wrong in the same moment. */
+  assert(icons.icons.information === '1.80' && icons.icons['clear-all'] === '1.86',
+    `icons: the documented arrivals hold (information ${icons.icons.information}, clear-all ${icons.icons['clear-all']})`);
+  assert(icons.icons['message-information'] === '1.71' && icons.icons.eraser === '1.71',
+    'icons: ...and so do the 1.71 replacements the messages point at');
+  assert(!('textformatting' in icons.icons),
+    'icons: a camelCase name resolves to no glyph in any release — the unknown-icon case');
+  assert(Object.keys(icons.removed).every((n) => n in icons.icons),
+    'icons: a removed glyph is still a name that once existed, so it carries a since as well');
 }
 
 // ------------------------------------------------------------------- fix ----

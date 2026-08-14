@@ -2,7 +2,7 @@
 
 **Validate abap2UI5 app classes without an SAP system** — a CLI, library, and
 GitHub Action extracted from the CI gates of
-[ai-demokit](https://github.com/abap2UI5/ai-demokit), where they guard 276
+[samples-controls](https://github.com/abap2UI5/samples-controls), where they guard 416
 generated ports of the official UI5 demo kit samples.
 
 It checks a **whole app class**, not just the XML it emits: the ABAP source
@@ -27,7 +27,12 @@ Two gates:
    | `invalid-aggregation-child` | a control the aggregation's type does not accept |
    | `control-too-new` / `member-too-new` | introduced after your target UI5 version (default **1.71**) |
    | `enum-value-too-new` | the property is old, the VALUE is not — `GenericTile frameType="OneByHalf"` is @since 1.83 on a 1.71 target; the snapshot keeps the per-value `@since` from the enum's JSDoc |
+   | `aggregation-too-new` | an aggregation **tag** introduced after your target — `<footer>` on a `Dialog` is ~1.110, and unlike a too-new property it does not get dropped: UI5 resolves the lowercase tag as a control class and the 404 on `sap/m/footer.js` takes the **whole view** down. Use `buttons` (1.21.1) |
    | `event-parameter-too-new` | a `${$parameters>/name}` read back in a `t_arg` that the event only gained later — resolved per event, not per name |
+   | `unknown-icon` | `sap-icon://textFormatting` — a glyph the font has in **no** release. `IconPool` reads the name as a URI hostname, which is lower-cased, so a camelCase name is not "nearly right": it matches nothing, forever (the name is `text-formatting`) |
+   | `icon-too-new` | the glyph reached the font after your target — `information` in 1.80 (use `message-information`), `clear-all` in 1.86 (use `eraser`). An unknown icon is **not** an error in UI5: the control simply renders with no icon and nothing is logged |
+   | `icon-removed` | the glyph left the font again — `binary` (1.104) is `non-binary` from 1.120 on, same codepoint, renamed |
+   | `toolbar-control-in-bar` | a `ToolbarSpacer`/`ToolbarSeparator` inside a `sap.m.Bar` — before 1.76 a Bar lays its children out in normal flow, so the block-level child starts a new line and the bar's `overflow: hidden` **deletes every sibling after it**. Includes `Page headerContent`, which is forwarded into the internal Bar |
    | `unknown-event-parameter` | a `${$parameters>/typo}` the event does not declare — the value usually arrives **empty**. Judged only against an event the control declares itself; a hint, because a control can fire more than its metadata declares |
    | `control-deprecated` / `member-deprecated` | control or property already deprecated at your target version |
    | `duplicate-aggregation` | the same aggregation opened twice under one control — the second tag replaces the first |
@@ -35,6 +40,7 @@ Two gates:
    | `excess-shut` | one `shut( )` more than the builder tree is deep — asserts at runtime |
    | `duplicate-property` | the same attribute written twice on one control — the view builder asserts on it |
    | `attribute-without-element` | `a( )` on the bare factory root — nothing to attach it to, asserts too |
+   | `source-line-too-long` | a source line over **255** characters — the class does not fail to lint, it fails to *import*: abapGit reports the error for that object and carries on, so an **empty class stub** stays behind in the system. Split the literal into `&&` chunks (and fix the generator, if the file is generated) |
    | `duplicate-id` | the same `id` twice — duplicate-ID error at runtime |
    | `undeclared-namespace` | `ns = 'form'` without an `xmlns:form` |
    | `display-root-mismatch` | a `mvc:View` handed to `popup_display( )`, or a `core:FragmentDefinition` to `view_display( )` — the slot decides whether the client uses `XMLView.create` or `Fragment.load` |
@@ -431,7 +437,7 @@ npm run generate-rules-page  # docs/index.html — the published rule reference
 
 The reconstruction, mock-model derivation, render harness and property gate
 were built and battle-tested in
-[ai-demokit](https://github.com/abap2UI5/ai-demokit) (`scripts/render-smoke.mjs`,
+[samples-controls](https://github.com/abap2UI5/samples-controls) (`scripts/render-smoke.mjs`,
 `scripts/property-check.mjs`, `scripts/generate-properties.mjs`) against the
 official UI5 demo kit corpus. This package is the corpus-independent
 extraction.
