@@ -8,16 +8,16 @@ ENDCLASS.
 CLASS zcl_fixture_obsolete IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Page`
-          )->leaf( `Input`
+        )->ele( `Page`
+          )->tag( `Input`
             )->a( n = `value` v = client->_bind_edit( name )
-          )->leaf( `Input`
+          )->tag( `Input`
             )->a( n = `value` v = client->_bind_edit( val = name custom_mapper_back = mapper )
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Close`
             )->a( n = `press` v = client->_event_client( val = client->cs_event-popup_close ) ) ).
 

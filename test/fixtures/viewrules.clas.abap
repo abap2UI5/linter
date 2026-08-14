@@ -8,34 +8,34 @@ ENDCLASS.
 CLASS zcl_fixture_viewrules IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Page`
-          )->leaf( `Button`
+        )->ele( `Page`
+          )->tag( `Button`
             )->a( n = `id`    v = `twice`
             )->a( n = `text`  v = `A`
             )->a( n = `press` v = client->_bind( name )
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `id`   v = `twice`
             )->a( n = `icon` v = `sap-icon://add`
-          )->leaf( `Text`
+          )->tag( `Text`
             )->a( n = `text` v = `{= ${/NAME} === 'x' ? 'yes' : 'no' }`
-          )->leaf( `Text`
+          )->tag( `Text`
             )->a( n = `tooltip` v = client->_event( `WRONG_SLOT` )
-          )->leaf( n = `Title` ns = `undeclared`
-        )->shut(
-        )->open( `content`
-          )->leaf( `Text`
+          )->tag( n = `Title` ns = `undeclared`
+        )->end(
+        )->ele( `content`
+          )->tag( `Text`
             )->a( n = `text` v = `first`
-        )->shut(
-        )->open( `content`
-          )->leaf( `Text`
+        )->end(
+        )->ele( `content`
+          )->tag( `Text`
             )->a( n = `text` v = `second`
-          )->leaf( `Bar`
+          )->tag( `Bar`
             )->a( n = `translucent` v = `true`
-          )->open( `Table`
+          )->ele( `Table`
             )->a( n = `items` v = client->_bind( tab )
             )->a( n = `headerText` v = client->_bind( tab ) ).
 

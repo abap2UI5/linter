@@ -9,12 +9,12 @@ CLASS zcl_fixture_nodisplay IMPLEMENTATION.
 
     " builds a view and never hands it to the client - renders nothing,
     " and nothing anywhere reports an error
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Page`
-          )->leaf( `Text`
+        )->ele( `Page`
+          )->tag( `Text`
             )->a( n = `text` v = client->_bind( name ) ).
 
   ENDMETHOD.

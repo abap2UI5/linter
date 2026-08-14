@@ -44,19 +44,19 @@ CLASS zcl_fixture_actionid IMPLEMENTATION.
 
     ENDCASE.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
           )->a( n = `id` v = `mainPage`
 
-          )->leaf( `Input`
+          )->tag( `Input`
             )->a( n = `id`    v = `messageView`
             )->a( n = `value` v = client->_bind( name )
 
-        )->shut( ).
+        )->end( ).
 
     client->view_display( view->stringify( ) ).
 

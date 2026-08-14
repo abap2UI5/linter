@@ -26,20 +26,20 @@ CLASS zcl_fixture_broken IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Broken`
 
-            )->open( `content`
-                )->leaf( `Button`
+            )->ele( `content`
+                )->tag( `Button`
                     )->a( n = `textt` v = `typo property`
-                )->leaf( `NoSuchControl`
-                    )->a( n = `text` v = `unknown control` )->shut( )->shut( ).
+                )->tag( `NoSuchControl`
+                    )->a( n = `text` v = `unknown control` )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 

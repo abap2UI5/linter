@@ -37,30 +37,30 @@ CLASS zcl_fixture_wires IMPLEMENTATION.
 
     ENDCASE.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:mvc`  v = `sap.ui.core.mvc`
         )->a( n = `xmlns:uxap` v = `sap.uxap`
 
-        )->open( `Panel`
+        )->ele( `Panel`
           )->a( n = `id` v = `panel`
 
           " reported - i18n> is no model of this app
-          )->leaf( `Text` )->a( n = `text` v = `{i18n>welcome}`
+          )->tag( `Text` )->a( n = `text` v = `{i18n>welcome}`
           " reported - the sample's own named model, left behind by the port
-          )->leaf( `Text` )->a( n = `text` v = `{ui>/rowMode}`
+          )->tag( `Text` )->a( n = `text` v = `{ui>/rowMode}`
           " NOT reported - device> and message> are framework models, and srv>
           " is registered by this class's SET_ODATA_MODEL wire above
-          )->leaf( `Text` )->a( n = `text` v = `{device>/system/phone}`
-          )->leaf( `Text` )->a( n = `text` v = `{message>/length}`
-          )->leaf( `Text` )->a( n = `text` v = `{srv>/Products(1)/Name}`
+          )->tag( `Text` )->a( n = `text` v = `{device>/system/phone}`
+          )->tag( `Text` )->a( n = `text` v = `{message>/length}`
+          )->tag( `Text` )->a( n = `text` v = `{srv>/Products(1)/Name}`
           " NOT reported - the default model, which is what a bind produces
-          )->leaf( `Text` )->a( n = `text` v = client->_bind( title )
+          )->tag( `Text` )->a( n = `text` v = client->_bind( title )
 
-        )->shut(
+        )->end(
 
-        )->leaf( n = `ObjectPageLayout` ns = `uxap`
+        )->tag( n = `ObjectPageLayout` ns = `uxap`
             )->a( n = `id` v = `objectPage`
             " reported - selectedSection is an ASSOCIATION, never a binding
             )->a( n = `selectedSection` v = client->_bind( section ) ).

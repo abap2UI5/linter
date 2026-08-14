@@ -8,23 +8,23 @@ CLASS zcl_fixture_roots IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
 
     " a full view handed to the popup slot - Fragment.load, and a view has no open( )
-    DATA(popup) = z2ui5_cl_ai_xml=>factory( ).
-    popup->open( n = `View` ns = `mvc`
+    DATA(popup) = z2ui5_cl_ui5_view_builder=>factory( ).
+    popup->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Dialog`
+        )->ele( `Dialog`
           )->a( n = `title` v = `Wrong slot`
-        )->shut( ).
+        )->end( ).
     client->popup_display( popup->stringify( ) ).
 
     " and a fragment handed to the view slot - XMLView.create needs a mvc:View
-    DATA(main) = z2ui5_cl_ai_xml=>factory( ).
-    main->open( n = `FragmentDefinition` ns = `core`
+    DATA(main) = z2ui5_cl_ui5_view_builder=>factory( ).
+    main->ele( n = `FragmentDefinition` ns = `core`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:core` v = `sap.ui.core`
-        )->open( `Page`
+        )->ele( `Page`
           )->a( n = `title` v = `Wrong slot too`
-        )->shut( ).
+        )->end( ).
     client->view_display( main->stringify( ) ).
 
   ENDMETHOD.

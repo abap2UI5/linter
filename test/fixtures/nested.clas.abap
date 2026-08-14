@@ -37,36 +37,36 @@ CLASS zcl_fixture_nested IMPLEMENTATION.
     " aggregation binding - here in the complex form the templates use -
     " moves the row context DOWN: {LABEL} below it is a field of
     " ty_s_element, not of ty_s_row
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Nested`
 
-            )->open( `List`
+            )->ele( `List`
                 )->a( n = `items` v = client->_bind( t_rows )
 
-                )->open( `items`
-                    )->open( `CustomListItem`
-                        )->leaf( `Text`
+                )->ele( `items`
+                    )->ele( `CustomListItem`
+                        )->tag( `Text`
                             )->a( n = `text` v = `{AMOUNT/SIZE}`
-                        )->leaf( `Text`
+                        )->tag( `Text`
                             )->a( n = `text` v = `{AMOUNT/CURRENCY}`
-                        )->open( `List`
+                        )->ele( `List`
                             )->a( n = `items` v = `{path: 'ELEMENTS', templateShareable: true}`
-                            )->open( `items`
-                                )->leaf( `StandardListItem`
+                            )->ele( `items`
+                                )->tag( `StandardListItem`
                                     )->a( n = `title`       v = `{LABEL}`
                                     )->a( n = `description` v = `{EXPENSE}`
-                            )->shut(
-                        )->shut(
-                    )->shut(
-                )->shut(
-            )->shut(
-        )->shut( )->shut( ).
+                            )->end(
+                        )->end(
+                    )->end(
+                )->end(
+            )->end(
+        )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 

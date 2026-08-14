@@ -32,21 +32,21 @@ CLASS zcl_fixture_setters IMPLEMENTATION.
 
     ENDCASE.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`       v = `sap.m`
         )->a( n = `xmlns:mvc`   v = `sap.ui.core.mvc`
         )->a( n = `xmlns:uxap`  v = `sap.uxap`
 
-        )->open( `Panel`
+        )->ele( `Panel`
           )->a( n = `id` v = `panel`
 
-          )->leaf( `MessagePopover`
+          )->tag( `MessagePopover`
             )->a( n = `id` v = `msgPopover`
 
-        )->shut(
+        )->end(
 
-        )->leaf( n = `ObjectPageLayout` ns = `uxap`
+        )->tag( n = `ObjectPageLayout` ns = `uxap`
             )->a( n = `id` v = `objectPage` ).
 
     client->view_display( view->stringify( ) ).

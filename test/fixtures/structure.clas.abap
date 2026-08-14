@@ -19,28 +19,28 @@ CLASS zcl_fixture_structure IMPLEMENTATION.
     "   contentt           - aggregation that does not exist on Page
     "   two children in Page/customHeader - a 0..1 aggregation
     "   the trailing shut( ) chain runs past the root
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Structure`
 
-            )->open( `customHeader`
-                )->leaf( `Bar`
-                )->leaf( `Bar`
-            )->shut(
+            )->ele( `customHeader`
+                )->tag( `Bar`
+                )->tag( `Bar`
+            )->end(
 
-            )->open( `contentt`
-                )->leaf( `Buton`
-                )->leaf( `Button`
+            )->ele( `contentt`
+                )->tag( `Buton`
+                )->tag( `Button`
                     )->a( n = `typ`  v = `wrong`
                     )->a( n = `type` v = `Emphasised`
-                )->leaf( `ProgressIndicator`
+                )->tag( `ProgressIndicator`
                     )->a( n = `percentValue` v = `42%`
-            )->shut( )->shut( )->shut( )->shut( ).
+            )->end( )->end( )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 

@@ -32,24 +32,24 @@ CLASS zcl_fixture_good IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Fixture`
 
-            )->open( `content`
-                )->leaf( `Input`
+            )->ele( `content`
+                )->tag( `Input`
                     )->a( n = `value` v = client->_bind( name )
-                )->leaf( `Button`
+                )->tag( `Button`
                     )->a( n = `text`  v = `Go`
                     )->a( n = `press` v = client->_event( `GO` )
 
-            )->shut(
-        )->shut( ).
+            )->end(
+        )->end( ).
 
     client->view_display( view->stringify( ) ).
 

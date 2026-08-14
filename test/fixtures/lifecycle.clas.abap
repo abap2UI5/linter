@@ -8,15 +8,15 @@ CLASS zcl_fixture_lifecycle IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
 
     IF client->check_on_init( ).
-      DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-      view->open( n = `View` ns = `mvc`
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+      view->ele( n = `View` ns = `mvc`
           )->a( n = `xmlns`     v = `sap.m`
           )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-          )->open( `Page`
-            )->leaf( `Button`
+          )->ele( `Page`
+            )->tag( `Button`
               )->a( n = `text`  v = `Call sub app`
               )->a( n = `press` v = client->_event( `CALL` )
-          )->shut( ).
+          )->end( ).
       client->view_display( view->stringify( ) ).
     ENDIF.
 

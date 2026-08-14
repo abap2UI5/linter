@@ -44,16 +44,16 @@ CLASS zcl_fixture_viewbuilder IMPLEMENTATION.
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
     DATA(content) = view->ele( n = `View` ns = `mvc`
-        )->att( n = `xmlns`     v = `sap.m`
-        )->att( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )->a( n = `xmlns`     v = `sap.m`
+        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
         )->ele( `Page`
-            )->att( n = `title` v = `Fixture`
+            )->a( n = `title` v = `Fixture`
 
             )->ele( `content`
                 )->tag( `Input`
-                    )->att( n = `value`    v = client->_bind( name )
-                    )->att( n = `editable` b = editable ).
+                    )->a( n = `value`    v = client->_bind( name )
+                    )->a( n = `editable` b = editable ).
 
     render_button( content ).
 
@@ -65,8 +65,8 @@ CLASS zcl_fixture_viewbuilder IMPLEMENTATION.
   METHOD render_button.
 
     result = box->tag( `Button`
-        )->att( n = `text`  v = `Go`
-        )->att( n = `press` v = client->_event( `GO` ) ).
+        )->a( n = `text`  v = `Go`
+        )->a( n = `press` v = client->_event( `GO` ) ).
 
   ENDMETHOD.
 

@@ -24,31 +24,31 @@ CLASS zcl_fixture_orphanbind IMPLEMENTATION.
     supplier = `Very Best Screens`.
     t_rows   = VALUE #( ( productid = `HT-1000` ) ).
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
 
             " reported - no binding context, NAME is a root field: renders empty
-            )->leaf( `Text`
+            )->tag( `Text`
                 )->a( n = `text` v = `{NAME}`
 
             " correct - the same field bound absolutely
-            )->leaf( `Text`
+            )->tag( `Text`
                 )->a( n = `text` v = client->_bind( supplier )
 
             " not judged - inside a bound aggregation the row is the context
-            )->open( `List`
+            )->ele( `List`
                 )->a( n = `items` v = client->_bind( t_rows )
 
-                )->open( `items`
-                    )->leaf( `StandardListItem`
+                )->ele( `items`
+                    )->tag( `StandardListItem`
                         )->a( n = `title` v = `{PRODUCTID}`
-                )->shut(
-            )->shut( ).
+                )->end(
+            )->end( ).
 
     client->view_display( view->stringify( ) ).
 

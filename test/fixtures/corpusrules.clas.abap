@@ -16,29 +16,29 @@ CLASS zcl_fixture_corpus IMPLEMENTATION.
 
     model_init( ).
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:mvc`  v = `sap.ui.core.mvc`
         )->a( n = `xmlns:core` v = `sap.ui.core`
         )->a( n = `core:require` v = `{Formatter: 'z2ui5/model/formatter'}`
-        )->open( `Page`
+        )->ele( `Page`
           )->a( n = `title` v = `{/TITLE}`
-          )->open( `List`
+          )->ele( `List`
             )->a( n = `items` v = client->_bind( t_rows )
-            )->open( `items`
-              )->leaf( `ObjectListItem`
+            )->ele( `items`
+              )->tag( `ObjectListItem`
                 )->a( n = `title`  v = `{DESCR}`
                 )->a( n = `number` v = |\{ path: 'PRICE', formatter: 'Formatter.round2DP' \}|
                 )->a( n = `intro`  v = |\{ path: 'DATE', formatter: 'Formatter.DateCreateObject' \}|
-        )->shut( )->shut( )->shut( ).
+        )->end( )->end( )->end( ).
     client->view_display( view->stringify( ) ).
 
-    DATA(popover) = z2ui5_cl_ai_xml=>factory( ).
-    popover->open( n = `FragmentDefinition` ns = `core`
+    DATA(popover) = z2ui5_cl_ui5_view_builder=>factory( ).
+    popover->ele( n = `FragmentDefinition` ns = `core`
         )->a( n = `xmlns:core` v = `sap.ui.core`
         )->a( n = `xmlns`      v = `sap.m`
-        )->leaf( `Text`
+        )->tag( `Text`
           )->a( n = `text` v = `Details` ).
     client->popover_display( val = popover->stringify( ) ).
 

@@ -15,23 +15,23 @@ CLASS zcl_fixture_dumps IMPLEMENTATION.
     " the two ways a builder chain dumps although the XML would look fine:
     "   a( ) on the bare factory root - there is no element to carry it
     "   the same attribute name twice on one control
-    " z2ui5_cl_ai_xml ASSERTs on both, so the app never reaches the browser
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    " z2ui5_cl_ui5_view_builder ASSERTs on both, so the app never reaches the browser
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
     view->a( n = `title` v = `no element yet` ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Dumps`
 
-            )->leaf( `Button`
+            )->tag( `Button`
                 )->a( n = `text` v = `Save`
                 )->a( n = `text` v = `Save and close`
 
-        )->shut( )->shut( ).
+        )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 
