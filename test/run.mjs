@@ -708,6 +708,45 @@ ENDCLASS.`;
     .findings.some((x) => x.type === 'relative-binding-without-context'),
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
 
+  // --- a value the reconstruction had to guess at is not judged ------------
+  // ids and binding paths built inside a LOOP from the loop variable: the
+  // reconstruction cannot compute them, so every row collapses to the same
+  // string. Reporting that reports the reconstruction, not the app.
+  const looped = checkAbapSource(`
+CLASS zcl_l DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA t_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_l IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    DATA(box) = view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\` )->ele( \`VBox\` ).
+    DO 3 TIMES.
+      DATA(i) = sy-index.
+      box->tag( \`Input\`
+          )->a( n = \`id\`    v = |FIELD_{ i }|
+          )->a( n = \`value\` v = |\\{/T_ROWS/{ i }/NAME\\}|
+          )->tag( \`CheckBox\`
+          )->a( n = \`id\`       v = |FLAG_{ i }|
+          )->a( n = \`selected\` v = |\\{/T_ROWS/{ i }/FLAG\\}| ).
+    ENDDO.
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(!looped.findings.some((x) => x.type === 'duplicate-id'),
+    `guessed value: a loop-built id is not a duplicate (got ${looped.findings.filter((x) => x.type === 'duplicate-id').length})`);
+  assert(!looped.findings.some((x) => x.type === 'unknown-binding-path'),
+    `guessed value: a loop-built binding path is not judged (got ${looped.findings.filter((x) => x.type === 'unknown-binding-path').map((x) => x.value).join()})`);
+  // and the DOCUMENT stays renderable: UI5 refuses a duplicate id outright, so
+  // two loop-built ids collapsing to one string would kill the render of a view
+  // that is fine at runtime
+  const loopIds = [...looped.docs[0].matchAll(/ id="([^"]*)"/g)].map((x) => x[1]);
+  assert(loopIds.length > 1 && new Set(loopIds).size === loopIds.length,
+    `guessed value: each loop-built id reconstructs uniquely (got ${loopIds.join()})`);
+
   // --- an INLINE structure is a structure ----------------------------------
   // `DATA: BEGIN OF message, … END OF message.` names no type of its own, and
   // an unresolved one turns every path through it into unknown-binding-path
