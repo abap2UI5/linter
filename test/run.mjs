@@ -2205,27 +2205,28 @@ ENDCLASS.`;
   const clean = run([...two, '--badge', badgeFile]);
   const badge = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
   assert(clean.code === 0 && badge.schemaVersion === 1 && badge.color === '4c1'
-    && /^2 apps · 2 views · \d+ controls · clean$/.test(badge.message),
-    `badge: a clean corpus writes a green endpoint naming how far the check reached (${badge.message})`);
-  assert(badge.namedLogo === 'sap' && badge.labelColor === '0a6ed1'
-    && Object.keys(badge).every((k) => ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'namedLogo', 'logoColor', 'cacheSeconds'].includes(k)),
+    && /^abap2UI5-linter 2 apps · 2 views · \d+ controls$/.test(badge.label) && badge.message === 'clean',
+    `badge: the reach sits in the grey label, the verdict alone in the coloured half (${badge.label} | ${badge.message})`);
+  assert(badge.labelColor === '555' && badge.namedLogo === undefined
+    && Object.keys(badge).every((k) => ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'cacheSeconds'].includes(k)),
     'badge: only keys the shields endpoint schema defines - an extra one renders as "invalid"');
 
   const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile]);
   const red = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(dirty.code === 1 && red.color === 'e05d44' && /^2 apps · .* · \d+ errors$/.test(red.message),
-    `badge: the failing run - the one whose badge matters - is written too (${red.message})`);
+  assert(dirty.code === 1 && red.color === 'e05d44' && /^\d+ errors$/.test(red.message)
+    && /^abap2UI5-linter 2 apps/.test(red.label),
+    `badge: the failing run - the one whose badge matters - is written too (${red.label} | ${red.message})`);
 
   const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge', badgeFile]);
   const xml = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(xmlOnly.code === 0 && /^1 view · \d+ controls · clean$/.test(xml.message),
-    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.message})`);
+  assert(xmlOnly.code === 0 && /^abap2UI5-linter 1 view · \d+ controls$/.test(xml.label) && xml.message === 'clean',
+    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.label})`);
 
   const nothing = path.join(dir, 'nothing');
   fs.mkdirSync(nothing);
   run([nothing, '--no-render', '--badge', badgeFile]);
   const grey = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f',
+  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f' && grey.label === 'abap2UI5-linter',
     `badge: a run that finds NOTHING to check says so instead of leaving the last good badge standing (${grey.message})`);
 
   // the config form: the badge belongs to the repo, not to the command line

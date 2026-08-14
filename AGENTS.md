@@ -178,7 +178,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badge** — a shields.io endpoint JSON (`148 apps · 172 views · 2,176 controls · clean`) | the file `--badge` / config `badge` names | off |
+| **badge** — a shields.io endpoint JSON (`abap2UI5-linter 148 apps · 172 views · 2,176 controls` grey \| `clean` green) | the file `--badge` / config `badge` names | off |
 
 Rules that hold for all three:
 
@@ -192,6 +192,9 @@ Rules that hold for all three:
   baseline nor the `rules` block has spoken, so a fully baselined corpus
   would log hundreds of findings and then report none. The report is the
   record; the log is only where the run currently is.
+- **The badge splits along meaning**: the grey label carries the name and
+  the reach, the coloured half carries the verdict alone. Reach in the
+  coloured half makes the colour a bar to read rather than a word to see.
 - **The badge writes only keys the shields endpoint schema defines** — an
   extra key makes shields render "invalid" in the README of everyone who
   sees it — and it is written before the exit code is decided, because the

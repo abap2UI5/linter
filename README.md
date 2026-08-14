@@ -260,12 +260,10 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 ```json
 {
   "schemaVersion": 1,
-  "label": "abap2UI5-linter",
-  "message": "148 apps · 172 views · 2,176 controls · clean",
+  "label": "abap2UI5-linter 148 apps · 172 views · 2,176 controls",
+  "message": "clean",
   "color": "4c1",
-  "labelColor": "0a6ed1",
-  "namedLogo": "sap",
-  "logoColor": "white",
+  "labelColor": "555",
   "cacheSeconds": 3600
 }
 ```
@@ -274,11 +272,13 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 [![abap2UI5-linter](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/abap2ui5lint.json)](https://github.com/abap2UI5/linter)
 ```
 
-The message carries how far the check reached — classes read, views those
-built, controls those were made of — and the outcome (`clean`, `3 problems`,
-`7 errors`); the colour follows the outcome. A segment with nothing to say is
-left out rather than printed as a zero, so a corpus of raw
-`*.view.xml` reads `12 views · 340 controls · clean`. It is written on every run — a failing one
+The two halves split along what they mean. The grey left half is factual —
+the linter's name and how far the check reached: classes read, views those
+built, controls those were made of. The coloured right half carries the
+verdict alone (`clean`, `3 problems`, `7 errors`), so at badge size it is one
+green or red word against a neutral sentence. A segment with nothing to say is
+left out rather than printed as a zero, so a corpus of raw `*.view.xml` reads
+`abap2UI5-linter 12 views · 340 controls | clean`. It is written on every run — a failing one
 included, which is the run whose badge matters, and the run that finds
 **nothing checkable**, which turns the badge grey and says so instead of
 leaving the last good one standing. Commit the file from the job that lints the pull request (that is
@@ -286,9 +286,10 @@ where the corpus changes) and the badge on the default branch updates when
 that pull request merges; nothing needs to run on a schedule and no service
 sees your repository.
 
-`label`, `logo` (a [simple-icons] name, or `null` for none) and `labelColor`
-are settable through the config's `badge` block, which is also where the file
-belongs when every run should refresh it:
+`label` (the name in front of the counts), `labelColor` and `logo` (a
+[simple-icons] name — there is none by default, a logo next to a
+sentence-long label only crowds it) are settable through the config's `badge`
+block, which is also where the file belongs when every run should refresh it:
 
 ```jsonc
 "badge": { "file": ".github/badges/abap2ui5lint.json", "label": "samples" }
