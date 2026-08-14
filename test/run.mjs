@@ -2216,6 +2216,13 @@ ENDCLASS.`;
   assert(dirty.code === 1 && red.color === 'e05d44' && /errors$/.test(red.message),
     `badge: the failing run - the one whose badge matters - is written too (${red.message})`);
 
+  const nothing = path.join(dir, 'nothing');
+  fs.mkdirSync(nothing);
+  run([nothing, '--no-render', '--badge', badgeFile]);
+  const grey = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f',
+    `badge: a run that finds NOTHING to check says so instead of leaving the last good badge standing (${grey.message})`);
+
   // the config form: the badge belongs to the repo, not to the command line
   const { loadConfig } = await import('../lib/config.mjs');
   const cfgFile = path.join(dir, 'abap2ui5lint.jsonc');

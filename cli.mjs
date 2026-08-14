@@ -203,14 +203,35 @@ try {
   // a mistyped path is bad usage, not a crash - exit 2 with one clean line
   die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
 }
+/* The badge: a shields.io endpoint file, so the README of a checked repo can
+ * carry the state of its corpus. Written on every run that got as far as a
+ * verdict - including a failing one and including the one below that found
+ * NOTHING, which is the state a stale "148 apps · clean" badge would hide
+ * longest - and always before the exit code is decided. */
+const emitBadge = (summary, stats) => {
+  if (!opt.badge) return;
+  const badge = typeof opt.badge === 'string' ? { file: opt.badge } : opt.badge;
+  try {
+    fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
+    fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, minUi5: opt.minUi5 }), null, 2)}\n`);
+  } catch (e) {
+    die(`could not write the badge file ${badge.file}: ${e.message}`);
+  }
+  if (opt.format === 'stylish' && !opt.quiet) {
+    console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+  }
+};
+
 if (!files.length) {
+  const empty = { ...summarize([]), failing: 0 };
   if (opt.format === 'json') {
     // the same shape a real run prints - built by the one formatter, so the
     // frozen --json contract cannot drift between the two paths
-    console.log(formatJson([], { ...summarize([]), failing: 0 }, opt));
+    console.log(formatJson([], empty, opt));
   } else {
     console.log(`abap2ui5-linter: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
   }
+  emitBadge(empty, runStats([]));
   process.exit(0);
 }
 
@@ -321,22 +342,7 @@ else if (opt.format === 'sarif') console.log(formatSarif(results));
 else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
 else console.log(formatStylish(results, summary, reportOpt));
 
-/* The badge: a shields.io endpoint file, so the README of a checked repo can
- * carry the state of its corpus. Written on every run - including a failing
- * one, which is the run whose badge matters - and before the exit code is
- * decided below. */
-if (opt.badge) {
-  const badge = typeof opt.badge === 'string' ? { file: opt.badge } : opt.badge;
-  try {
-    fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
-    fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, minUi5: opt.minUi5 }), null, 2)}\n`);
-  } catch (e) {
-    die(`could not write the badge file ${badge.file}: ${e.message}`);
-  }
-  if (opt.format === 'stylish' && !opt.quiet) {
-    console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
-  }
-}
+emitBadge(summary, stats);
 
 /* Baseline prose rides alongside the HUMAN report only — `--json`/`--sarif`
  * exist to be piped, and a prose line after the document breaks the parse

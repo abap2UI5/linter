@@ -277,8 +277,9 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 The message carries the size of the checked corpus, the UI5 floor it was
 checked against, and the outcome (`clean`, `3 problems`, `7 errors`); the
 colour follows the outcome. It is written on every run — a failing one
-included, which is the run whose badge matters — before the exit code is
-decided. Commit the file from the job that lints the pull request (that is
+included, which is the run whose badge matters, and the run that finds
+**nothing checkable**, which turns the badge grey and says so instead of
+leaving the last good one standing. Commit the file from the job that lints the pull request (that is
 where the corpus changes) and the badge on the default branch updates when
 that pull request merges; nothing needs to run on a schedule and no service
 sees your repository.
