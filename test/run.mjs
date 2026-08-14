@@ -1166,6 +1166,75 @@ ENDCLASS.`);
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
+// ------------------------------------------ source positions and declarations ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { annotate } = await import('../lib/findings.mjs');
+
+  /* A finding has to point at the line it is about. publicAttributes measured
+   * its offsets in the SECTION BODY but added the offset of the `PUBLIC
+   * SECTION.` keyword, so every unused-public-attribute landed one line
+   * early — invisible in a test that only checks the member name. */
+  const attrs = `CLASS zcl_x DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA used TYPE string.
+    DATA ballast TYPE string.
+ENDCLASS.
+CLASS zcl_x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    used = \`x\`.
+  ENDMETHOD.
+ENDCLASS.`;
+  const dead = annotate(checkAbapRules(attrs).filter((x) => x.type === 'unused-public-attribute'), attrs);
+  assert(dead.length === 1 && dead[0].member === 'ballast' && dead[0].line === 5,
+    `unused-public-attribute: reported on the line it is declared on (line ${dead[0]?.line}, DATA ballast is line 5)`);
+
+  /* A CHAINED declaration declares more than one name. Only the first was
+   * collected, so the second boolean reached the view unreported while its
+   * neighbour on the line above was caught. */
+  const chained = `CLASS x DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    DATA: first  TYPE abap_bool,
+          second TYPE abap_bool.
+ENDCLASS.
+CLASS x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    view->open( n = \`View\` ns = \`mvc\`
+        )->leaf( \`Button\`
+            )->a( n = \`visible\` v = first
+            )->a( n = \`enabled\` v = second ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const bools = checkAbapRules(chained).filter((x) => x.type === 'unconverted-abap-boolean');
+  assert(bools.length === 2 && bools.some((x) => x.value === 'second'),
+    `unconverted-abap-boolean: every name of a chained DATA: declaration is a known boolean (${bools.map((x) => x.value).join(', ')})`);
+}
+
+// ------------------------------------------------------- file collection ----
+{
+  const { collectFiles } = await import('../lib/index.mjs');
+  const os = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5lint-collect-'));
+  const named = path.join(dir, 'my_app.abap');           // not abapGit's spelling
+  fs.copyFileSync(f('viewbuilder.clas.abap'), named);
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'z.testclasses.abap'));
+
+  // a path the caller NAMED is meant - dropping it silently is the worst
+  // answer a linter can give
+  assert(collectFiles([named]).length === 1,
+    'collectFiles: an explicitly named .abap file carrying a builder chain is checked');
+  // …but a directory WALK keeps to the naming convention, which is what tells
+  // an app class from an include or a generated artefact
+  assert(collectFiles([dir]).length === 0,
+    `collectFiles: a directory scan stays on .clas.abap (${collectFiles([dir]).join(', ')})`);
+  assert(collectFiles([path.join(dir, 'z.testclasses.abap')]).length === 0,
+    'collectFiles: a test include is never checked, not even when named');
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // ------------------------------------------------- builder chain layout ----
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');

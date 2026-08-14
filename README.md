@@ -155,6 +155,10 @@ Input can be:
   so once, by `non-released-api`.
 - **Raw `*.view.xml` / `*.fragment.xml`** files.
 
+  A directory is scanned by the abapGit naming convention (`*.clas.abap`,
+  `*.view.xml`, `*.fragment.xml`); a file you NAME on the command line is
+  checked whatever it is called, as long as it carries a builder chain.
+
 ## CLI
 
 ```sh

@@ -14,7 +14,7 @@ SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, ~255 assertions
+npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: docs/index.html, the published reference
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
@@ -113,7 +113,7 @@ map from the abap2UI5 sources and fails on any difference — so an upstream
 change becomes an issue here instead of a silent false positive at some
 user's desk. On `lib/frontend-actions.mjs` in detail:
 the closed whitelists `invalid-frontend-action` judges against. Its source of
-truth is abap2UI5's `z2ui5_cl_app_frontendaction_js` — a JavaScript module
+truth is abap2UI5's `z2ui5_cl_ui5f_frontact_js` — a JavaScript module
 embedded in an ABAP string concatenation, which is not worth parsing, and
 that repo is not a dependency here. Refresh it by reading `GLOBAL_TARGETS`
 and `BINDING_METHODS` there. Kept in step 2026-08-02 with abap2UI5's new
@@ -339,7 +339,7 @@ Same round, by explicit project decision: **`raw-javascript-to-frontend`**
 (warning) — the frontend is a renderer, behaviour travels as data, never as
 code. Three shapes, one rule id: `follow_up_action`'s raw-JS escape hatch (a
 non-name literal `val` is inserted verbatim as `custom_js` —
-`z2ui5_cl_core_client~follow_up_action`), a hand-written handler string on an
+`z2ui5_cl_ui5_client~follow_up_action`), a hand-written handler string on an
 event attribute (UI5 evaluates it as JavaScript; the literal-on-event cell
 that completed the `binding-for-event` / `event-for-property` matrix), and a
 `<script>` tag in an attribute value. ABAP classes only — a raw `.view.xml`
@@ -352,7 +352,7 @@ ABAP Doc — the cheapest knowledge source of all, and the one nothing had mined
 
 | Origin | Rule |
 | --- | --- |
-| "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_core_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
+| "the model is pushed AUTOMATICALLY … the manual push methods are obsolete" — `view_model_update`, `nest_view_model_update`, `nest2_view_model_update`, `popup_model_update`, `popover_model_update` are **empty methods** in `z2ui5_cl_ui5_client`, kept only so existing apps compile | `obsolete-model-update`, with a `--fix` that DELETES the call |
 | `_event_client( )` → `follow_up_action( )` — since upstream gave `follow_up_action` a `RETURNING` parameter, its `IF result IS SUPPLIED` branch runs `mo_srv_event->get_event_client( )`, which is `_event_client`'s entire body: one method both schedules a frontend action and wires one | `obsolete-frontend-event`, with a rename `--fix` |
 | `_bind_edit`'s `custom_mapper_back`/`custom_filter_back` exemption expired: upstream still ACCEPTS them for source compatibility but no longer evaluates them ("per-direction mapping is gone") | `obsolete-binder` now reports those calls too — **without** the fix, because the arguments have to go with the rename and dropping an argument is not one |
 
@@ -390,7 +390,7 @@ the other two — the interface caught up in abap2UI5 the same day
 Measured in place of the ai-demokit corpus (not checked out in that session):
 abap2UI5's own 9 builder classes, **2 findings** — two dead
 `view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
-`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
+`_event_client( cs_event-open_new_tab )` in `z2ui5_cl_ui5_app_start`, all real.
 
 The 2026-08-14 round asked the one question no rule had asked yet — not
 *how* an app uses the framework, but **what of it it is allowed to name at
@@ -520,7 +520,7 @@ in a repo's config is the one line that changes that.
   turn out to be a real part of anybody's corpus.
 
 - **The FrontendAction mirror lost its source file.** `db10b13` renamed
-  `z2ui5_cl_app_frontendaction_js` to `z2ui5_cl_ui5f_frontact_js` **and split
+  `z2ui5_cl_ui5f_frontact_js` to `z2ui5_cl_ui5f_frontact_js` **and split
   the JS across modules** — `GLOBAL_TARGETS` now lives in
   `z2ui5_cl_ui5f_ctrlcall_js` / `Slots.js`, not in the class
   `check-upstream` reads. `ACTION_PATH` follows the rename already, so the

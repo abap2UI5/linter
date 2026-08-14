@@ -5,7 +5,7 @@
  * Two files in lib/ mirror closed sets that live in the abap2UI5 repo:
  *
  *   lib/formatters.mjs        <- app/webapp/model/formatter.js
- *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap
+ *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
  *   lib/released-api.mjs      <- the abapGit object layout of src/
@@ -43,7 +43,7 @@ const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
 // renamed upstream with the z2ui5_cl_ui5f_* sweep (was
-// src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap)
+// src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap)
 const ACTION_PATH = 'src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap';
 
 /** The abapGit file name of an object -> the object name, or null for
@@ -392,7 +392,7 @@ if (invokedDirectly) {
    * here the moment it was added, so none of them can rot the way
    * BINDING_METHODS almost did. FRONTEND_EVENT_ALIASES is the one deliberate
    * exception: the five *_NAV_CONTAINER_TO names live in the SERVER's remap
-   * (z2ui5_cl_core_srv_event), not in the frontend source this script
+   * (z2ui5_cl_ui5_srv_event), not in the frontend source this script
    * fetches, and are marked obsolete upstream. */
   {
     const theirs = parseHandlers(actionSrc);
