@@ -1,9 +1,10 @@
 # AGENTS.md — abap2UI5-linter
 
 Single source of truth for agents working on the **abap2UI5 view linter** —
-the standalone property + render gates for abap2UI5 views (`z2ui5_cl_ai_xml`
-builder classes and `*.view.xml`/`*.fragment.xml`), usable as CLI, library
-and GitHub Action, no SAP system required.
+the standalone property + render gates for abap2UI5 views (classes built with
+`z2ui5_cl_ui5_view_builder` or the frozen `z2ui5_cl_ai_xml`, and
+`*.view.xml`/`*.fragment.xml`), usable as CLI, library and GitHub Action, no
+SAP system required.
 
 > This entire project is in **English**. Plain ESM JavaScript, Node >= 22,
 > no TypeScript, no build step, no formatter — do not add any of those.
@@ -36,15 +37,26 @@ every PR, and the same thing runs locally against sibling checkouts:
 
 ## Scope — what the linter can and cannot see
 
-- Input is **`z2ui5_cl_ai_xml` builder classes** (`collectFiles` picks ABAP
-  files containing the literal `z2ui5_cl_ai_xml=>factory`) plus raw
-  `*.view.xml` / `*.fragment.xml`. Classes built with the frozen
-  `z2ui5_cl_xml_view` fluent builder are **silently skipped** — a design
-  boundary, not a bug to fix in passing: the class is on its way out, and
-  support for it was deliberately added and reverted once already. The way
-  in for such a repo is to migrate it (as
-  [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did), not to
-  teach the reconstructor a second builder.
+- Input is **generic-builder classes** — `z2ui5_cl_ui5_view_builder`
+  (`ele`/`tag`/`att`/`end`, the released one) and `z2ui5_cl_ai_xml`
+  (`open`/`leaf`/`a`/`shut`, frozen in `src/99` since upstream `db10b13`);
+  `collectFiles` picks ABAP files containing either `<class>=>factory` — plus
+  raw `*.view.xml` / `*.fragment.xml`. **`lib/builders.mjs` owns the two
+  vocabularies and nothing else may hard-code a verb**: the reconstructor
+  works on a verb's ROLE (`open`/`leaf`/`att`/`shut`), and every rule that
+  reads a builder call out of the source text builds its regex from
+  `dialectOf(source)`. The two are the same tree walk — the attribute target
+  rule is identical (`IF t_child IS INITIAL` / last-child-or-self) — which is
+  what makes one reconstructor enough; a fixture pair (`good.clas.abap`,
+  `viewbuilder.clas.abap`) pins that they rebuild the SAME document.
+- Classes built with the **`z2ui5_cl_xml_view` fluent builder** (the
+  per-control wrapper API, also frozen) are still **silently skipped** — that
+  design boundary stands, and it is a different thing from the two generic
+  builders above: it has one method per UI5 control, so reading it is not a
+  vocabulary mapping but a second reconstructor. Support for it was
+  deliberately added and reverted once already. The way in for such a repo is
+  to migrate it (as
+  [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did).
 - The knowledge bound is the committed metadata snapshot (see below): the
   gate cannot know about anything newer than its `ui5Version`.
 - **One builder chain per document.** The reconstructor reads a chain as one
@@ -66,7 +78,8 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
+| `lib/chain-layout.mjs` | `chain-indentation`, `chain-call-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -90,8 +103,10 @@ npm run generate-schema      # data/abap2ui5lint.schema.json
 npm run generate-rules-page  # docs/index.html
 ```
 
-`lib/frontend-actions.mjs` and `lib/formatters.mjs` are the two
-**hand-maintained** knowledge files, and both are watched by
+`lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
+are the **hand-maintained** knowledge files (`lib/builders.mjs` is a fourth
+mirror of upstream, but of two class INTERFACES rather than of a closed set —
+it changes only when a builder does), and all three are watched by
 `scripts/check-upstream.mjs` (weekly via `upstream-sync.yml`, on drift an
 issue): it re-derives the curated formatter exports and the `GLOBAL_TARGETS`
 map from the abap2UI5 sources and fails on any difference — so an upstream
@@ -377,16 +392,143 @@ abap2UI5's own 9 builder classes, **2 findings** — two dead
 `view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
 `_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
 
+The 2026-08-14 round asked the one question no rule had asked yet — not
+*how* an app uses the framework, but **what of it it is allowed to name at
+all**:
+
+| Origin | Rule |
+| --- | --- |
+| abap2UI5 releases exactly ONE package, and says so in the package descriptions themselves: `src/02` is "released APIs", `src/01` is "internal use only", `src/99` is "FROZEN legacy code … ships solely so existing downstream installations keep compiling" | `non-released-api` + `lib/released-api.mjs`, the third hand-maintained mirror, gated by `check-upstream` |
+
+Everything about that rule follows from one property of the boundary it
+guards: **neither side announces a change.** Upstream commit `db10b13`
+(the same day the rule was written) renamed the whole core layer
+`z2ui5_cl_core_*` → `z2ui5_cl_ui5_*` AND moved `z2ui5_cl_ai_xml`,
+`z2ui5_cl_http_handler` and `z2ui5_if_types` into the frozen package — one
+commit, no deprecation, nothing a compiler sees until the object is already
+gone. That is the same silence `get-viewname-removed` covers, one layer up.
+
+Three decisions worth keeping if it is revisited:
+
+- **It judges a closed WHITELIST plus known families, never "unknown".** The
+  released five are silent, the frozen package is listed by name, the
+  internal packages are matched by the prefixes upstream reserves
+  (`z2ui5_cl_ui5_*`, `z2ui5_cl_ui5f_*`, the ajson/srtti/util copies) — and
+  anything else beginning `z2ui5_` is **somebody else's class**: the samples
+  are `z2ui5_cl_demo_app_*`. Under-reporting a family this file has not
+  learned yet is the tolerable direction; reporting an app's own class is
+  not. `check-upstream` closes that gap from the other end — it fails when an
+  upstream object outside `src/02`/`src/99` matches no family.
+- **One frozen object is deliberately tolerated**: `z2ui5_if_types`, because
+  the RELEASED `z2ui5_if_client~get( )` returns `z2ui5_if_types=>ty_s_get` —
+  an app cannot avoid the name, and is not the one to fix that.
+  `z2ui5_cl_ai_xml` was tolerated too for one release-day, on the grounds
+  that it was the only builder the reconstructor could read; that exemption
+  died the same session it was written, when the successor landed (below).
+- **Measured** (the ai-demokit corpus was not checked out): 0 findings on
+  abap2UI5's own 5 builder classes and its 5 test apps — modern app code
+  already obeys the rule — and, as the "check it can see anything at all"
+  half, **49 distinct internal objects across the framework's own 118
+  classes** (`z2ui5_cl_ui5_util_context` 28×, `z2ui5_cl_xml_view` 18×), in
+  279 ms. Framework code naming its own internals is not what the rule is
+  for; that run only proves the scan reaches real ABAP at scale.
+
+Rollout note, the same shape as the `live-event-roundtrip` round: this rule
+will light up an app corpus that grew up with `z2ui5_cl_util` and the
+built-in popups. Those findings are **real** (both packages are frozen), so
+the corpus, not the rule, is the side that moves — but the debt decision
+belongs at ai-demokit's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
+
+Immediately after, in the same session, the **successor builder** was taught
+to the reconstructor — the backlog entry this round had just written, and the
+condition its own `z2ui5_cl_ai_xml` exemption was waiting on:
+
+- **`lib/builders.mjs` is the only place that knows a verb name.** A dialect
+  is `{ factory, verbs, open/leaf/att/shut, handleType, boolParam, kindOf }`
+  built from the builders a source actually names (three combinations, cached),
+  and `reconstruct.mjs` switches on the ROLE `kindOf( )` returns. That is why
+  the diff is small: `ele`/`tag`/`att`/`end` needed no new tree logic at all,
+  because the ATTRIBUTE TARGET RULE of the two classes is the same one
+  (`IF t_child IS INITIAL` → self, else last child — `applyToken` had it
+  already). Anything that still hard-codes `open`/`a` is a bug.
+- **The two real differences** are both in `att( )`: it takes `b = <abap_bool>`
+  and renders `true`/`false` itself (reconstructed as `true`, like
+  `as_bool( )`), and `ele( )`/`tag( )` have no up-front `a = VALUE #( )`
+  attribute table. So `unconverted-abap-boolean` now carries the correction of
+  the builder the CALL is on — `builderOfVerb( )` decides per match, not per
+  file, so a class mid-migration is judged call by call: `att( v = flag )`
+  becomes `att( b = flag )`, `a( v = flag )` still gets `as_bool( )`.
+- **Proof is a fixture PAIR.** `good.clas.abap` (old) and
+  `viewbuilder.clas.abap` (new) build the same view, and the test asserts the
+  reconstructed documents are byte-identical apart from the one attribute only
+  the new builder can express. Both go through the render gate. Everything
+  else — the id set behind `frontend-action-unknown-id`, the
+  `undeclared-namespace` fix (which now inserts `)->att( ` or `)->a( `, in the
+  class's own dialect), the boolean fix — is asserted in the new dialect too.
+- **Consequence, and it is a loud one**: `good.clas.abap` is no longer a
+  finding-free fixture. A class on the old builder now reports exactly one
+  `non-released-api` warning, and the CLI/report tests that needed a clean
+  file or an exact problem count moved to the successor fixture (`dumps` keeps
+  the old dialect deliberately and says so with a source directive). Every
+  real app corpus will see the same one-warning-per-file, which is the correct
+  verdict — the class IS frozen — and now an actionable one.
+
+And the same session's third round asked the one question about a chain that
+has nothing to do with the view it produces — **how it is WRITTEN**:
+
+| Origin | Rule |
+| --- | --- |
+| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-call-per-line` + `lib/chain-layout.mjs` |
+
+The argument for the family, and the reason it is not taste: the XML a
+builder emits is ONE line by construction (`render( )` concatenates without
+whitespace), so **the ABAP indentation is the only picture of the view's tree
+that exists**. When it drifts, the tree in the file stops matching the tree in
+the browser and every review after that reads a wrong diagram.
+
+The first cut demanded the four-space step the app guide and every sample are
+written in. It reported abap2UI5's own app classes, all four of its test apps
+and **15 of this repo's own 26 fixtures** — on three shapes that are style,
+not defect: a two-space step below the first level, a pass-through container
+written at its parent's column (`)->open( \`Shell\` )` then
+`)->open( \`Page\` )` — the standard app skeleton), and a hanging
+`)->end( ).`. That is the corpus doctrine below firing in advance, so the rule
+was rewritten to judge the layout against the TREE instead of against a
+number: the first child under a node defines the column its siblings are held
+to, and only two things are reported — a sibling out of line with its
+siblings, and a call left of the element it belongs to. A chain that keeps its
+own two-space rhythm is silent.
+
+After the rewrite: **0 findings on abap2UI5's app classes** except three
+genuine `chain-call-per-line` lines in `z2ui5_cl_ui5_app_start` (the compact
+`tag( \`Label\` )->att( \`text\` )` form of a form block), and 1 on the
+fixtures — the same shape, also real. Coverage, the other half of the
+doctrine: 67 multi-line chains and 536 line-leading calls are compared in
+silence across those 35 files, and the three defect shapes are pinned by
+`chainlayout.clas.abap`.
+
+Both are **hints**, deliberately: the view renders identically either way, and
+this family has no business failing a build. `"chain-indentation": "warning"`
+in a repo's config is the one line that changes that.
+
 **Known candidate backlog:**
 
-- **A second AI-facing builder exists**: `z2ui5_cl_ui5_view_builder`
-  (upstream 43452e8, 2026-08-06 — `new/ele/tag/att/end`, created because
-  `a( )`'s last-child-or-self target rule was a design flaw). `collectFiles`
-  keys on the literal `z2ui5_cl_ai_xml=>factory`, so classes on the new
-  builder are **silently invisible** — the `z2ui5_cl_xml_view` situation
-  again, except this one is the designated successor, not a frozen legacy.
-  Supporting it is a reconstructor project, not a rule; decide it
-  deliberately.
+- **Raw `*.view.xml` files get no layout check.** The two rules read a builder
+  CHAIN; a hand-written view file has an indentation of its own that nothing
+  here judges. Doing it needs a different reader (the XML parser's node
+  positions, not the ABAP statement splitter) — worth it only if such files
+  turn out to be a real part of anybody's corpus.
+
+- **The FrontendAction mirror lost its source file.** `db10b13` renamed
+  `z2ui5_cl_app_frontendaction_js` to `z2ui5_cl_ui5f_frontact_js` **and split
+  the JS across modules** — `GLOBAL_TARGETS` now lives in
+  `z2ui5_cl_ui5f_ctrlcall_js` / `Slots.js`, not in the class
+  `check-upstream` reads. `ACTION_PATH` follows the rename already, so the
+  script gets as far as saying "the embedding changed" instead of "sources
+  unreachable", and the three `released-api` comparisons (which run first,
+  deliberately) still report. Re-pointing the `parse*` helpers at the split
+  modules — and dealing with whatever content drift that then reveals in
+  `lib/frontend-actions.mjs` — is a change of its own.
 
 New candidates go here as they are found. Two rules of the trade the last
 rounds established, before anything is added:

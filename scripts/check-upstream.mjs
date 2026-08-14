@@ -8,6 +8,10 @@
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
+ *   lib/released-api.mjs      <- the abapGit object layout of src/
+ *                                (the released package src/02, the frozen
+ *                                package src/99, and the prefix families
+ *                                everything else has to fall into)
  *
  * Upstream is not a dependency here, so a change there is a SILENT breaking
  * change: a new CONTROL_GLOBAL target makes the linter report correct new
@@ -33,10 +37,38 @@ import {
   CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS,
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
+import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
+const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
-const ACTION_PATH = 'src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap';
+// renamed upstream with the z2ui5_cl_ui5f_* sweep (was
+// src/01/03/z2ui5_cl_app_frontendaction_js.clas.abap)
+const ACTION_PATH = 'src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap';
+
+/** The abapGit file name of an object -> the object name, or null for
+ *  anything that is not one (a `package.devc.xml`, a test include, a sidecar
+ *  of an object its own `.clas.abap`/`.intf.abap` already names). */
+export function objectNameOf(file) {
+  if (file.includes('.testclasses.')) return null;
+  const m = file.match(/^(z2ui5_\w+)\.(?:clas|intf)\.abap$/)
+    || file.match(/^(z2ui5_\w+)\.(?:tabl|dtel|doma|ddls|enqu)\.xml$/);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** Every abap2UI5 object under `src/`, as `package path -> [object names]`.
+ *  `paths` is the repository-relative file list. */
+export function objectsByPackage(paths) {
+  const out = {};
+  for (const p of paths) {
+    if (!p.startsWith('src/')) continue;
+    const at = p.lastIndexOf('/');
+    const name = objectNameOf(p.slice(at + 1));
+    if (!name) continue;
+    (out[p.slice(0, at)] ??= []).push(name);
+  }
+  return out;
+}
 
 /** Export surface of the curated formatter module: the top-level method
  *  names of its returned object literal (4-space indent, `Name(args) {`). */
@@ -199,6 +231,30 @@ async function fetchText(url) {
   return res.text();
 }
 
+/** The repository's file list. Over the network that is the git tree API
+ *  (one request for the whole repo); a token is used when the environment
+ *  offers one, purely for the rate limit — the repository is public. */
+async function fetchTree(url) {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const res = await fetch(url, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  const body = await res.json();
+  if (body.truncated) throw new Error(`${url}: the tree came back truncated`);
+  return (body.tree || []).filter((e) => e.type === 'blob').map((e) => e.path);
+}
+
+/** The same list from a checkout: every file under `dir`, repo-relative. */
+function walkFiles(dir, base = '') {
+  const out = [];
+  for (const e of fs.readdirSync(path.join(dir, base), { withFileTypes: true })) {
+    if (e.name === '.git' || e.name === 'node_modules') continue;
+    const rel = base ? `${base}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push(...walkFiles(dir, rel));
+    else out.push(rel);
+  }
+  return out;
+}
+
 const invokedDirectly = process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   const localAt = process.argv.indexOf('--local');
@@ -210,14 +266,17 @@ if (invokedDirectly) {
 
   let formatterSrc;
   let actionSrc;
+  let srcPaths;
   try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
       actionSrc = fs.readFileSync(path.join(LOCAL, ACTION_PATH), 'utf8');
+      srcPaths = walkFiles(LOCAL);
     } else {
-      [formatterSrc, actionSrc] = await Promise.all([
+      [formatterSrc, actionSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
         fetchText(`${RAW}/${ACTION_PATH}`),
+        fetchTree(TREE),
       ]);
     }
   } catch (e) {
@@ -241,6 +300,51 @@ if (invokedDirectly) {
   };
 
   report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
+
+  /* The object layout of `src/` — the third mirror, and the one that decides
+   * what `non-released-api` calls a violation. Three separate questions:
+   * does the RELEASED list still match src/02 (a stale entry reports correct
+   * code, a missing one lets a new released object be reported), does the
+   * FROZEN list still match src/99 and its sub-packages, and does every
+   * REMAINING object still fall into one of the internal prefix families
+   * (one that does not is silently allowed, which is how a rule stops
+   * seeing the layer it was written for). */
+  {
+    const packages = objectsByPackage(srcPaths);
+    const inPackages = Object.entries(packages);
+    if (!inPackages.length) {
+      console.error('check-upstream: no abapGit objects found under src/ — the layout changed, update objectNameOf/objectsByPackage');
+      process.exit(2);
+    }
+    report('released API objects (lib/released-api.mjs)', [...RELEASED_OBJECTS], packages['src/02'] ?? []);
+
+    const frozenPackages = inPackages.filter(([p]) => p === 'src/99' || p.startsWith('src/99/'));
+    report('frozen package objects (lib/released-api.mjs)',
+      Object.keys(FROZEN_OBJECTS),
+      frozenPackages.flatMap(([, names]) => names));
+    // …and WHERE each of them sits: an object moving between 99/01 and 99/02
+    // does not change the verdict but does change the advice the finding gives
+    report('frozen package layout (lib/released-api.mjs)',
+      Object.entries(FROZEN_OBJECTS).map(([n, o]) => `${n}@${o.area}`),
+      frozenPackages.flatMap(([p, names]) => names.map((n) => `${n}@${p}`)));
+
+    const strays = [];
+    let classified = 0;
+    for (const [pkg, names] of inPackages) {
+      if (pkg === 'src/02' || pkg === 'src/99' || pkg.startsWith('src/99/')) continue;
+      for (const name of names) {
+        if (apiVerdict(name)) classified++;
+        else strays.push(`${name} (${pkg})`);
+      }
+    }
+    if (strays.length) {
+      drift++;
+      console.log('DRIFT internal object prefixes (lib/released-api.mjs):');
+      for (const s of strays) console.log(`  ? '${s}' matches no internal prefix family — an app naming it is NOT reported`);
+    } else {
+      console.log(`ok    internal object prefixes: every internal object is classified (${classified} objects)`);
+    }
+  }
 
   const upstreamTargets = parseGlobalTargets(actionSrc);
   if (!Object.keys(upstreamTargets).length) {

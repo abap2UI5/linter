@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">44 error</span>
-      <span class="badge warning">23 warning</span>
-      <span class="badge hint">7 hint</span>
+      <span class="badge warning">24 warning</span>
+      <span class="badge hint">9 hint</span>
       <span class="badge fix">7 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 74 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 77 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -166,7 +166,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     </section>
     <section class="cat" id="cat-structure">
       <h2>View structure</h2>
-      <p class="blurb">Defects in the shape of the document itself — several of them make z2ui5_cl_ai_xml assert before a view is ever produced.</p>
+      <p class="blurb">Defects in the shape of the document itself — several of them make the view builder assert before a view is ever produced.</p>
       <article class="rule" id="aggregation-in-aggregation" data-search="aggregation-in-aggregation an aggregation directly inside another one invalid xml, and the signature of a missing shut( ): ui5 goes looking for a control class by that aggregation name and fails. error">
         <h3><a href="#aggregation-in-aggregation">aggregation-in-aggregation</a>
           <span class="badge error">error</span>
@@ -174,11 +174,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary">an aggregation directly inside another one</p>
         <p class="detail">Invalid XML, and the signature of a missing <code>shut( )</code>: UI5 goes looking for a control class by that aggregation name and fails.</p>
       </article>
-      <article class="rule" id="attribute-without-element" data-search="attribute-without-element a( ) on the bare factory root — nothing to attach it to an attribute call before any element was opened. there is no element to carry it, and the builder asserts. error">
+      <article class="rule" id="attribute-without-element" data-search="attribute-without-element a( ) / att( ) on the bare factory root — nothing to attach it to an attribute call before any element was opened. there is no element to carry it, and the builder asserts. error">
         <h3><a href="#attribute-without-element">attribute-without-element</a>
           <span class="badge error">error</span>
         </h3>
-        <p class="summary"><code>a( )</code> on the bare factory root — nothing to attach it to</p>
+        <p class="summary"><code>a( )</code> / <code>att( )</code> on the bare factory root — nothing to attach it to</p>
         <p class="detail">An attribute call before any element was opened. There is no element to carry it, and the builder asserts.</p>
       </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
@@ -203,19 +203,19 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary">the same <code>id</code> twice</p>
         <p class="detail">A duplicate-ID error at runtime — UI5 IDs are unique per view.</p>
       </article>
-      <article class="rule" id="duplicate-property" data-search="duplicate-property the same attribute written twice on one control z2ui5_cl_ai_xml asserts on a repeated attribute rather than letting the second value win silently. error">
+      <article class="rule" id="duplicate-property" data-search="duplicate-property the same attribute written twice on one control the view builder asserts on a repeated attribute rather than letting the second value win silently. error">
         <h3><a href="#duplicate-property">duplicate-property</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">the same attribute written twice on one control</p>
-        <p class="detail">z2ui5_cl_ai_xml asserts on a repeated attribute rather than letting the second value win silently.</p>
+        <p class="detail">The view builder asserts on a repeated attribute rather than letting the second value win silently.</p>
       </article>
-      <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root. z2ui5_cl_ai_xml asserts on it, so the app dumps before it renders. error">
+      <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root — one shut( ) / end( ) too many. both builders assert on it (parent is bound), so the app dumps before it renders. error">
         <h3><a href="#excess-shut">excess-shut</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">one <code>shut( )</code> more than the builder tree is deep</p>
-        <p class="detail">The builder ascends past the root. z2ui5_cl_ai_xml asserts on it, so the app dumps before it renders.</p>
+        <p class="detail">The builder ascends past the root — one <code>shut( )</code> / <code>end( )</code> too many. Both builders assert on it (<code>parent IS BOUND</code>), so the app dumps before it renders.</p>
       </article>
       <article class="rule" id="invalid-expression-binding" data-search="invalid-expression-binding unbalanced braces or parens in {= … } the expression binding cannot be parsed. ui5 reports a parse error and the attribute stays unbound. error">
         <h3><a href="#invalid-expression-binding">invalid-expression-binding</a>
@@ -341,6 +341,24 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
 " …
 )-&gt;a( n = `items` v = client-&gt;_bind( mt_data )      " throws
 )-&gt;a( n = `items` v = client-&gt;_bind( mt_data-&gt;* )   " binds the table</code></pre>
+      </article>
+      <article class="rule" id="chain-call-per-line" data-search="chain-call-per-line several builder calls on one line of a multi-line chain one call per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. reported only for a chain that is already written across several lines, so the compact one-liner form stays available; and closing calls do not count, because )-&gt;shut( )-&gt;shut( ). as a chain's last line is an established ending, not the readability problem this rule is about. a hint, like its neighbour. hint">
+        <h3><a href="#chain-call-per-line">chain-call-per-line</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">several builder calls on one line of a multi-line chain</p>
+        <p class="detail">One call per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. Reported only for a chain that is already written across several lines, so the compact one-liner form stays available; and closing calls do not count, because <code>)-&gt;shut( )-&gt;shut( ).</code> as a chain's last line is an established ending, not the readability problem this rule is about. A hint, like its neighbour.</p>
+        <pre><code>)-&gt;leaf( `Text` )-&gt;a( n = `text` v = `{TITLE}` )   " two calls, one line</code></pre>
+      </article>
+      <article class="rule" id="chain-indentation" data-search="chain-indentation a builder call whose indentation contradicts the tree it builds a builder chain is the one part of an abap2ui5 class that nothing else formats: abaplint has indentation and in_statement_indentation switched off (a chain is a single statement spanning fifty lines), so neither abaplint --fix nor the auto-format workflow ever touches its inner lines. and the reader has no other picture of the view — the xml the builder emits is one long line by construction, so the abap indentation is the view's structure. when it drifts, the tree in the file stops matching the tree in the browser. what is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the left of the element it belongs to. the size of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. neither is the column of shut( )/end( ) (the hanging close is established), nor v = alignment, nor line length, nor a chain written entirely on one line. a hint: the view renders identically either way. hint">
+        <h3><a href="#chain-indentation">chain-indentation</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a builder call whose indentation contradicts the tree it builds</p>
+        <p class="detail">A builder chain is the one part of an abap2UI5 class that nothing else formats: abaplint has <code>indentation</code> and <code>in_statement_indentation</code> switched off (a chain is a single statement spanning fifty lines), so neither <code>abaplint --fix</code> nor the auto-format workflow ever touches its inner lines. And the reader has no other picture of the view — the XML the builder emits is one long line by construction, so <strong>the ABAP indentation IS the view's structure</strong>. When it drifts, the tree in the file stops matching the tree in the browser. What is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the LEFT of the element it belongs to. The SIZE of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. Neither is the column of <code>shut( )</code>/<code>end( )</code> (the hanging close is established), nor <code>v =</code> alignment, nor line length, nor a chain written entirely on one line. A hint: the view renders identically either way.</p>
+        <pre><code>)-&gt;open( `Page`
+    )-&gt;leaf( `Input`
+  )-&gt;leaf( `Button`   " a sibling of Input, written a level out</code></pre>
       </article>
       <article class="rule" id="collapsed-brace-in-style" data-search="collapsed-brace-in-style an escaped css brace written inside a |…| template an escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. inside an abap string template the backslash is the template's own escape: \{ collapses to a bare { before the builder ever sees it, and the view dies exactly as if nothing had been escaped. write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (\\\{). invisible to unescaped-brace-in-style, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart. error">
         <h3><a href="#collapsed-brace-in-style">collapsed-brace-in-style</a>
@@ -524,6 +542,16 @@ ENDIF.</code></pre>
   result = client-&gt;get_app( client-&gt;get( )-s_draft-id ).
   client-&gt;view_display( render_view( ) ).  " without this: the sub-app stays on screen</code></pre>
       </article>
+      <article class="rule" id="non-released-api" data-search="non-released-api an abap2ui5 object outside the released src/02 package abap2ui5 releases exactly one package — src/02, five objects: z2ui5_if_app, z2ui5_if_client, z2ui5_if_exit, z2ui5_cl_ui5_http_handler, z2ui5_cl_ui5_view_builder. everything else the repository ships says in its own package description that it is not for consumers: src/01 is "abap2ui5 — internal use only", src/99 is frozen legacy that "ships solely so existing downstream installations keep compiling", and src/00 holds renamed copies of ajson, s-rtti and abap-util. none of them carries a compatibility promise or announces a change: one upstream commit renamed the entire core layer (z2ui5_cl_core_ → z2ui5_cl_ui5_) and moved the old view builder and http handler into the frozen package on the same day. an app that names one of those compiles today and fails to activate after the next abapgit pull, with no deprecation in between — and nothing in a systemless pipeline says so beforehand. judged only against names the linter knows are framework objects (the frozen package by name, the internal packages by the prefixes upstream reserves), so your own z2ui5_-prefixed classes are never reported. one frozen object is deliberately tolerated: z2ui5_if_types, because the released z2ui5_if_client~get( ) still returns z2ui5_if_types=&gt;ty_s_get, so an app that declares a variable of that type cannot avoid the name. the frozen view builder z2ui5_cl_ai_xml is reported — the linter reads its successor z2ui5_cl_ui5_view_builder just as well, so the advice the finding gives costs no coverage. warning">
+        <h3><a href="#non-released-api">non-released-api</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an abap2UI5 object outside the released <code>src/02</code> package</p>
+        <p class="detail">abap2UI5 releases exactly one package — <code>src/02</code>, five objects: <code>z2ui5_if_app</code>, <code>z2ui5_if_client</code>, <code>z2ui5_if_exit</code>, <code>z2ui5_cl_ui5_http_handler</code>, <code>z2ui5_cl_ui5_view_builder</code>. Everything else the repository ships says in its own package description that it is not for consumers: <code>src/01</code> is "abap2UI5 — internal use only", <code>src/99</code> is frozen legacy that "ships solely so existing downstream installations keep compiling", and <code>src/00</code> holds renamed copies of AJSON, S-RTTI and abap-util. None of them carries a compatibility promise or announces a change: one upstream commit renamed the entire core layer (<code>z2ui5_cl_core_*</code> → <code>z2ui5_cl_ui5_*</code>) and moved the old view builder and HTTP handler into the frozen package on the same day. An app that names one of those compiles today and fails to activate after the next <code>abapGit</code> pull, with no deprecation in between — and nothing in a systemless pipeline says so beforehand. Judged only against names the linter knows are framework objects (the frozen package by name, the internal packages by the prefixes upstream reserves), so your own <code>z2ui5_</code>-prefixed classes are never reported. One frozen object is deliberately tolerated: <code>z2ui5_if_types</code>, because the released <code>z2ui5_if_client~get( )</code> still returns <code>z2ui5_if_types=&gt;ty_s_get</code>, so an app that declares a variable of that type cannot avoid the name. The frozen view builder <code>z2ui5_cl_ai_xml</code> IS reported — the linter reads its successor <code>z2ui5_cl_ui5_view_builder</code> just as well, so the advice the finding gives costs no coverage.</p>
+        <pre><code>DATA(json) = z2ui5_cl_ajson=&gt;create_empty( ).      " vendored copy, renamed on the next sync
+z2ui5_cl_pop_to_confirm=&gt;factory( ).                " frozen — use the popups addon
+DATA(html) = z2ui5_cl_util=&gt;xml_stringify( data ).  " retired utility class</code></pre>
+      </article>
       <article class="rule" id="obsolete-binder" data-search="obsolete-binder client-&gt;_bind_edit( ) — superseded by client-&gt;_bind( ) _bind is two-way as well, and _bind_edit is a pure alias for it. a call passing custom_mapper_back or custom_filter_back used to be exempt, because _bind has no such parameters — that exemption is gone with the parameters' meaning: they are still accepted for source compatibility but no longer evaluated, per-direction mapping does not exist any more. such a call is reported like every other, but without the autofix: the arguments have to go with the rename, and dropping an argument is not a rename. warning">
         <h3><a href="#obsolete-binder">obsolete-binder</a>
           <span class="badge warning">warning</span>
@@ -623,14 +651,14 @@ ENDIF.</code></pre>
         <p class="summary"><code>mProperties</code> &amp; friends — private UI5 internals</p>
         <p class="detail">The <code>mProperties</code>/<code>mAggregations</code>/<code>mBindingInfos</code>/<code>mEventRegistry</code> member tables are UI5 implementation details with no API contract — they are renamed or restructured across UI5 patches without notice, so a wire or expression that reads them works on the version it was written against and breaks silently on the next one. Restructure to a two-way binding or a public parameter.</p>
       </article>
-      <article class="rule" id="unconverted-abap-boolean" data-search="unconverted-abap-boolean an abap boolean written straight into the view it arrives as 'x' or ' ', and ui5 reads any non-empty string as true — so visible = abap_false makes the control visible. the classic silent inversion. wrap it in z2ui5_cl_ai_xml=&gt;as_bool( ). error">
+      <article class="rule" id="unconverted-abap-boolean" data-search="unconverted-abap-boolean an abap boolean written straight into the view it arrives as 'x' or ' ', and ui5 reads any non-empty string as true — so visible = abap_false makes the control visible. the classic silent inversion. each builder has its own way out, and the finding names the one that belongs to the call it found: z2ui5_cl_ai_xml wraps the flag in as_bool( ), z2ui5_cl_ui5_view_builder takes it through att( b = … ), which renders true/false itself. error">
         <h3><a href="#unconverted-abap-boolean">unconverted-abap-boolean</a>
           <span class="badge error">error</span>
           <span class="badge fix">--fix</span>
         </h3>
         <p class="summary">an ABAP boolean written straight into the view</p>
-        <p class="detail">It arrives as <code>'X'</code> or <code>' '</code>, and UI5 reads any non-empty string as true — so <code>visible = abap_false</code> makes the control <strong>visible</strong>. The classic silent inversion. Wrap it in <code>z2ui5_cl_ai_xml=&gt;as_bool( )</code>.</p>
-        <p class="fixnote"><strong>--fix:</strong> A bare token is wrapped in <code>z2ui5_cl_ai_xml=&gt;as_bool( )</code>; an expression is left alone.</p>
+        <p class="detail">It arrives as <code>'X'</code> or <code>' '</code>, and UI5 reads any non-empty string as true — so <code>visible = abap_false</code> makes the control <strong>visible</strong>. The classic silent inversion. Each builder has its own way out, and the finding names the one that belongs to the call it found: <code>z2ui5_cl_ai_xml</code> wraps the flag in <code>as_bool( )</code>, <code>z2ui5_cl_ui5_view_builder</code> takes it through <code>att( b = … )</code>, which renders <code>true</code>/<code>false</code> itself.</p>
+        <p class="fixnote"><strong>--fix:</strong> A bare token is converted in the dialect of the call — <code>att( v = flag )</code> becomes <code>att( b = flag )</code>, <code>a( v = flag )</code> becomes <code>a( v = z2ui5_cl_ai_xml=&gt;as_bool( flag ) )</code>; an expression is left alone.</p>
       </article>
       <article class="rule" id="unescaped-brace-in-style" data-search="unescaped-brace-in-style literal css braces in a &lt;style&gt; block ui5's xmlview parser reads an unescaped { in an attribute value as the start of a binding, so a stylesheet injected through a core:html content attribute takes the whole view down with a binding parse error. write every brace as \{ and \}. judged between &lt;style&gt; and &lt;/style&gt;, so a {0} toast template or a ${$parameters&gt;/…} wire elsewhere in the same builder chain is never mistaken for css. error">
         <h3><a href="#unescaped-brace-in-style">unescaped-brace-in-style</a>

@@ -5,7 +5,8 @@
  *   npx abap2ui5-linter [paths...] [options]        (alias: abap2ui5lint)
  *
  * Paths are files or directories (default: ./src). Checked are ABAP classes
- * building views with z2ui5_cl_ai_xml, plus raw *.view.xml / *.fragment.xml.
+ * building views with either view builder (z2ui5_cl_ui5_view_builder or the
+ * frozen z2ui5_cl_ai_xml), plus raw *.view.xml / *.fragment.xml.
  *
  * Gates:
  *   properties  every control/member written in the view against the UI5
@@ -177,7 +178,7 @@ if (!files.length) {
     // frozen --json contract cannot drift between the two paths
     console.log(formatJson([], { ...summarize([]), failing: 0 }, opt));
   } else {
-    console.log(`abap2ui5-linter: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ai_xml, or *.view.xml / *.fragment.xml)`);
+    console.log(`abap2ui5-linter: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder or z2ui5_cl_ai_xml, or *.view.xml / *.fragment.xml)`);
   }
   process.exit(0);
 }

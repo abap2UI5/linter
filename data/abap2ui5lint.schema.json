@@ -99,6 +99,14 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-type-mismatch' — default severity: warning"
         },
+        "chain-call-per-line": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'chain-call-per-line' — default severity: hint"
+        },
+        "chain-indentation": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'chain-indentation' — default severity: hint"
+        },
         "collapsed-brace-in-style": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'collapsed-brace-in-style' — default severity: error"
@@ -254,6 +262,10 @@
         "missing-view-display-on-navigated": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'missing-view-display-on-navigated' — default severity: error"
+        },
+        "non-released-api": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'non-released-api' — default severity: warning"
         },
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
