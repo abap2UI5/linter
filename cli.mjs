@@ -35,7 +35,18 @@
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
  *                      reports what it would change without touching a file.
- *   --quiet            report errors only - the counts still show everything
+ *   --quiet            report errors only - the counts still show everything,
+ *                      and the run summary and progress go quiet too
+ *   --stats            print the run summary: what was checked (files, views,
+ *                      controls, bindings, icons), which gates ran, what the
+ *                      baseline swallowed and how long it took. On by default
+ *                      for more than one file, --no-stats switches it off
+ *   --progress         report the gates while they run, on stderr (stdout stays
+ *                      pipeable). Default: on a terminal and inside GitHub
+ *                      Actions, where it becomes one collapsed log group
+ *   --badge <file>     write a shields.io endpoint JSON for the run, so a repo
+ *                      can show its corpus state ("148 apps · UI5 1.71 · clean")
+ *                      in the README. Also settable as "badge" in the config
  *   --annotate         emit GitHub workflow commands so findings show up on
  *                      the pull request diff (default inside GitHub Actions;
  *                      --no-annotate switches it off). Alongside the stylish
@@ -65,13 +76,14 @@ import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations } from './lib/report.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5-linter [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
-  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
-  + '[--quiet] [--annotate|--no-annotate] [--no-render] [--no-properties] [--advisory] [--verbose] '
+  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] [--badge <file>] '
+  + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
+  + '[--annotate|--no-annotate] [--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
 
 const die = (message) => {
@@ -87,6 +99,12 @@ const opt = {
   // inside a workflow the annotations are the point of running the linter at
   // all: they put a finding on the diff instead of into a collapsed log
   annotate: process.env.GITHUB_ACTIONS === 'true',
+  // stats: null means "decide by corpus size" - a single file needs no summary
+  stats: null,
+  // progress is worth its noise where someone is waiting for the run (a
+  // terminal) or where the log IS the record (a workflow). Piped into a file
+  // it would only be noise, so there it stays off unless asked for
+  progress: process.stderr.isTTY === true || process.env.GITHUB_ACTIONS === 'true',
 };
 const seen = new Set(); // options the CLI set explicitly - they beat the config
 const paths = [];
@@ -117,6 +135,11 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
+  else if (a === '--stats') opt.stats = true;
+  else if (a === '--no-stats') opt.stats = false;
+  else if (a === '--progress') opt.progress = true;
+  else if (a === '--no-progress') opt.progress = false;
+  else if (a === '--badge') { opt.badge = value(); seen.add('badge'); }
   else if (a === '--json') opt.format = 'json';
   else if (a === '--format') {
     const format = value().toLowerCase();
@@ -160,6 +183,10 @@ if (!noConfig) {
     // a baseline named in the config lives next to the config, not the cwd
     if (!seen.has('baseline') && cfg.baseline) {
       opt.baseline = path.resolve(path.dirname(configFile), cfg.baseline);
+    }
+    // ditto the badge file: the config says where in the REPO it belongs
+    if (!seen.has('badge') && cfg.badge) {
+      opt.badge = { ...cfg.badge, file: path.resolve(path.dirname(configFile), cfg.badge.file) };
     }
   }
 }
@@ -206,10 +233,22 @@ if (opt.fix) {
   }
 }
 
+/* The gates report themselves while they run — on stderr, so a `--json` run
+ * piped into something stays exactly as parseable as before. The reporter
+ * keeps the phase timings either way: the run summary wants them even when
+ * nothing was printed. */
+const progress = createProgress({
+  enabled: opt.progress && !opt.quiet,
+  github: process.env.GITHUB_ACTIONS === 'true',
+});
+opt.onProgress = (ev) => progress.update(ev);
+
 let results;
 try {
   results = await checkFiles(files, opt);
+  progress.finish();
 } catch (e) {
+  progress.finish();
   // the render gate's optional deps and the metadata snapshot are both
   // environment problems worth one actionable line, not a stack trace
   if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
@@ -233,11 +272,13 @@ if (updateBaseline) {
 }
 let baselineNote = null;
 let baselineStale = [];
+let baselineStats = null;
 if (opt.baseline && fs.existsSync(opt.baseline)) {
   let map;
   try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-  const { suppressed, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
+  const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
   baselineStale = stale;
+  baselineStats = { suppressed, byRule, stale: stale.length, file: path.relative(process.cwd(), opt.baseline) };
   baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
     + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
 } else if (opt.baseline && !updateBaseline) {
@@ -256,18 +297,50 @@ const failsBuild = (r) =>
 const summary = summarize(results);
 summary.failing = results.filter(failsBuild).length;
 const context = contextLine(opt, summary, snapshotVersion());
+const stats = runStats(results);
 
-if (opt.format === 'json') console.log(formatJson(results, summary, opt));
+/* The run summary answers what the findings cannot: WHAT was checked. A clean
+ * corpus is otherwise three lines that read the same whether four thousand
+ * controls were judged or the reconstruction produced nothing at all. One
+ * file needs none of that, so the default is by corpus size. */
+const showStats = (opt.stats ?? files.length > 1) && !opt.quiet;
+const reportOpt = {
+  ...opt,
+  context,
+  stats: showStats ? stats : null,
+  times: progress.times,
+  baseline: baselineStats,
+};
+
+if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
 else if (opt.format === 'sarif') console.log(formatSarif(results));
-else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, { ...opt, context }));
-else console.log(formatStylish(results, summary, { ...opt, context }));
+else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
+else console.log(formatStylish(results, summary, reportOpt));
+
+/* The badge: a shields.io endpoint file, so the README of a checked repo can
+ * carry the state of its corpus. Written on every run - including a failing
+ * one, which is the run whose badge matters - and before the exit code is
+ * decided below. */
+if (opt.badge) {
+  const badge = typeof opt.badge === 'string' ? { file: opt.badge } : opt.badge;
+  try {
+    fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
+    fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, minUi5: opt.minUi5 }), null, 2)}\n`);
+  } catch (e) {
+    die(`could not write the badge file ${badge.file}: ${e.message}`);
+  }
+  if (opt.format === 'stylish' && !opt.quiet) {
+    console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+  }
+}
 
 /* Baseline prose rides alongside the HUMAN report only — `--json`/`--sarif`
  * exist to be piped, and a prose line after the document breaks the parse
  * (the same rule the annotations follow). The stale entries still decide
- * the exit code in every format. */
+ * the exit code in every format. The note itself is redundant once the run
+ * summary carries the same count, so there it shrinks to the stale entries. */
 if (baselineNote && opt.format === 'stylish') {
-  console.log(baselineNote);
+  if (!showStats) console.log(baselineNote);
   for (const s of baselineStale) console.log(`  ! stale: ${s.key} (${s.count})`);
 }
 

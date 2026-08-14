@@ -156,13 +156,49 @@ theirs on purpose and a change that drifts from it needs a reason:
 
 Known deliberate divergences: severities are `error/warning/hint` (not
 abaplint's `Error/Warning/Info` — `hint` is already load-bearing across
-consumers), and rule ids are kebab-case like ui5lint's rather than abaplint's
-snake_case.
+consumers), rule ids are kebab-case like ui5lint's rather than abaplint's
+snake_case, and a corpus run adds the run summary below — neither reference
+linter has one, because neither is usually pointed at a few hundred files
+whose findings are all baselined.
 
 The former test-coverage debt (`invalid-aggregation-child`,
 `sapui5-only-control`, `open-levels`) is worked off — every rule now has an
 assertion, and the README finding tables (place 5 above) are gated by a
 test that checks every rule id appears in them.
+
+## What a run says about itself — summary, progress, badge
+
+A finding list is a report on what is WRONG, and a corpus with a baseline is
+by construction a corpus with no findings: `samples` prints three lines for
+148 classes, and those same three lines are what a run prints when the
+reconstruction produces nothing at all. The gate cannot be trusted from its
+own silence, so three things describe the run instead of its findings:
+
+| | Where | Default |
+| --- | --- | --- |
+| **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
+| **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
+| **badge** — a shields.io endpoint JSON (`148 apps · UI5 1.71 · clean`) | the file `--badge` / config `badge` names | off |
+
+Rules that hold for all three:
+
+- **The numbers come from the walk the gate already did** (`profileTree` in
+  properties.mjs, aggregated per result into `result.stats`). Nothing is
+  re-parsed for the summary and nothing in it can fail a run.
+- **`emptyViews` is the point, not a detail.** "7 classes produced none" is
+  the only thing in a green report that can say the gate is not seeing the
+  corpus. Never drop it to shorten the block.
+- **The progress log carries no finding counts.** At that moment neither the
+  baseline nor the `rules` block has spoken, so a fully baselined corpus
+  would log hundreds of findings and then report none. The report is the
+  record; the log is only where the run currently is.
+- **The badge writes only keys the shields endpoint schema defines** — an
+  extra key makes shields render "invalid" in the README of everyone who
+  sees it — and it is written before the exit code is decided, because the
+  failing run is the one whose badge matters.
+- **stdout stays the report.** Progress goes to stderr, and the summary joins
+  the machine formats as data (`stats`), never as prose — the same rule the
+  annotations and the baseline note follow.
 
 ## Static-check roadmap — app knowledge that can still move into the gate
 

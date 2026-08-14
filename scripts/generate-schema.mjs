@@ -75,6 +75,23 @@ export function buildSchema() {
         type: 'string',
         description: 'Path (relative to this config) of the baseline file: findings frozen at adoption time are suppressed, new findings fail, a stale entry fails too. Create/refresh it with --update-baseline.',
       },
+      badge: {
+        anyOf: [
+          { type: 'string', description: 'Path (relative to this config) of the shields.io endpoint JSON to write.' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['file'],
+            properties: {
+              file: { type: 'string', description: 'Path (relative to this config) of the endpoint JSON to write.' },
+              label: { type: 'string', description: 'Left half of the badge. Default: "abap2UI5-linter".' },
+              logo: { type: ['string', 'null'], description: 'simple-icons logo name, or null for none. Default: "sap".' },
+              labelColor: { type: 'string', description: 'Colour of the left half. Default: SAP blue "0a6ed1".' },
+            },
+          },
+        ],
+        description: 'Write a shields.io endpoint JSON for every run, so the README can show the state of the corpus: how much was checked, against which UI5 floor, and whether it is clean.',
+      },
       rules: {
         type: 'object',
         additionalProperties: false,

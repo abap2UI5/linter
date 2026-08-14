@@ -177,6 +177,9 @@ node cli.mjs src --fix                    # correct what is mechanical, report t
 node cli.mjs src --quiet                  # errors only (the counts stay complete)
 node cli.mjs src --format json            # machine-readable output (for tools)
 node cli.mjs src --format markdown        # for a PR comment or a job summary
+node cli.mjs src --badge badge.json       # a shields.io endpoint for the README
+node cli.mjs src --no-stats               # drop the run summary under the report
+node cli.mjs src --no-progress            # and the live gate log on stderr
 node cli.mjs --version                    # version and script location
 ```
 
@@ -196,6 +199,100 @@ and findings land in the Security tab and as native PR annotations. Inside
 GitHub Actions every finding is additionally emitted as a workflow command
 (alongside `stylish` only, so the machine formats stay parseable) —
 `--no-annotate` turns that off, `--annotate` forces it on elsewhere.
+
+## What a run says about itself
+
+A finding list describes what is wrong. On a corpus that is clean — the state
+a repo with a baseline lives in — it describes nothing at all, and "148 files,
+no findings" reads identically whether two thousand controls were judged or
+the reconstruction quietly produced empty views. So a run over more than one
+file closes with what it **looked at**:
+
+```
+Success! No findings detected.
+
+sources    148 app classes
+views      172 documents reconstructed, nested 11 deep, 7 classes produced none
+judged     2,176 controls of 106 types, 548 bindings, 69 icons, 4,164 attributes
+most used  sap.m.Text 250, sap.m.Label 208, sap.m.Button 205, sap.m.Input 189, +102 more
+gates      properties 148 files, render 172 documents
+findings   none
+baselined  476 findings suppressed by abap2ui5lint-baseline.json (chain-element-per-line 339, …)
+time       properties 0.5s, render 13.0s, total 13.5s
+abap2ui5-linter: 148 files, 0 failing, 0 skipped (target OpenUI5 1.71, metadata from 1.151.0, failing on warning)
+```
+
+`7 classes produced none` and a `judged` line of zeroes are the two readings
+that say the gate is not seeing the corpus — the failure mode a green run
+otherwise hides. `--stats` forces the block for a single file, `--no-stats`
+drops it, `--format json` carries the same numbers under `stats` (per file
+too, minus the control histogram), and `--format markdown` renders it as the
+job summary a workflow writes into `$GITHUB_STEP_SUMMARY`.
+
+While the run is still going, the gates report on **stderr** — stdout stays
+the report, so `--json | jq` is unaffected. On a terminal that is one
+rewriting line; inside GitHub Actions it is one line per file inside a
+collapsed group per gate, with the timing line outside it:
+
+```
+::group::abap2ui5-linter: render gate, 141 files on 4 browser pages
+  [  1/141] src/01/z2ui5_cl_smp_app_004.clas.abap
+  [  2/141] src/01/z2ui5_cl_smp_app_006.clas.abap — render skipped (built in helper methods)
+::endgroup::
+abap2ui5-linter: render gate — 141 files in 13.0s
+```
+
+Deliberately no finding counts in that log: at that moment the baseline and
+the `rules` block have not had their say, so a fully baselined corpus would
+log hundreds of findings and then report none. `--progress` / `--no-progress`
+override where it is on (default: a terminal, and GitHub Actions).
+
+## The badge
+
+`--badge <file>` writes a [shields.io endpoint][endpoint] object for the run,
+so a repository can show the state of its **corpus** in the README instead of
+only whether some workflow exited zero:
+
+```sh
+node cli.mjs src --badge .github/badges/abap2ui5lint.json
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "label": "abap2UI5-linter",
+  "message": "148 apps · UI5 1.71 · clean",
+  "color": "4c1",
+  "labelColor": "0a6ed1",
+  "namedLogo": "sap",
+  "logoColor": "white",
+  "cacheSeconds": 3600
+}
+```
+
+```md
+[![abap2UI5-linter](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/abap2ui5lint.json)](https://github.com/abap2UI5/linter)
+```
+
+The message carries the size of the checked corpus, the UI5 floor it was
+checked against, and the outcome (`clean`, `3 problems`, `7 errors`); the
+colour follows the outcome. It is written on every run — a failing one
+included, which is the run whose badge matters — before the exit code is
+decided. Commit the file from the job that lints the pull request (that is
+where the corpus changes) and the badge on the default branch updates when
+that pull request merges; nothing needs to run on a schedule and no service
+sees your repository.
+
+`label`, `logo` (a [simple-icons] name, or `null` for none) and `labelColor`
+are settable through the config's `badge` block, which is also where the file
+belongs when every run should refresh it:
+
+```jsonc
+"badge": { "file": ".github/badges/abap2ui5lint.json", "label": "samples" }
+```
+
+[endpoint]: https://shields.io/badges/endpoint-badge
+[simple-icons]: https://simpleicons.org
 
 ## `--fix`
 
@@ -314,6 +411,7 @@ Precedence per option: explicit CLI flag > config file > built-in default
   "render": true,            // false = skip the render gate (--no-render)
   "allow": [],               // e.g. ["sap.m.Avatar.displaySize"]
   "baseline": "abap2ui5lint-baseline.json",  // adoption-time debt, see above
+  "badge": ".github/badges/abap2ui5lint.json",  // shields endpoint, see above
   "rules": {
     "missing-accessibility": false,        // off
     "member-deprecated": "hint",           // another severity
@@ -349,11 +447,14 @@ jobs:
           paths: src
           min-ui5: '1.71'
           fail-on: warning
+          badge: .github/badges/abap2ui5lint.json
           flags: '--allow sap.m.GenericTile.systemInfo'
 ```
 
 Findings are annotated onto the pull request diff by default; set
-`annotations: false` to keep the log plain.
+`annotations: false` to keep the log plain. `badge` only writes the endpoint
+file — committing it is the workflow's job, and the pull request that changes
+the corpus is the right place to do it.
 
 ## Library
 
@@ -383,9 +484,20 @@ findings = applyDirectives(findings, source);     // abap2ui5lint-disable-* comm
 
 `RULES` is the full rule-id registry. The `report` subpath holds the
 formatters (`formatStylish`, `formatJson`, `formatMarkdown`,
-`githubAnnotations`, `summarize`) if you want the same output elsewhere.
+`githubAnnotations`, `summarize`) if you want the same output elsewhere, plus
+the run-summary and badge builders (`runStats`, `statsRows`, `formatStats`,
+`badgeEndpoint`) and `createProgress`, the reporter behind the `onProgress`
+callback `checkFiles` calls while it runs:
+
+```js
+const results = await checkFiles(files, {
+  onProgress: ({ phase, done, total, file }) => { /* 'properties' | 'render' */ },
+});
+```
+
 `--json` output carries the annotated findings plus a `totals` count per
-severity and a `problems` total.
+severity, a `problems` total, and `stats` — what the run looked at (documents,
+controls, bindings, icons, the control histogram), per file as well.
 
 Consumers: the [ai-mcp](https://github.com/abap2UI5/ai-mcp) server exposes
 these gates as MCP tools for AI coding agents; the
