@@ -255,6 +255,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'missing-view-display-on-navigated' — default severity: error"
         },
+        "non-released-api": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'non-released-api' — default severity: warning"
+        },
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'obsolete-binder' — default severity: warning"

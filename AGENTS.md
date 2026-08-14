@@ -66,7 +66,7 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
-| `lib/abap-rules.mjs` | `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
@@ -90,8 +90,8 @@ npm run generate-schema      # data/abap2ui5lint.schema.json
 npm run generate-rules-page  # docs/index.html
 ```
 
-`lib/frontend-actions.mjs` and `lib/formatters.mjs` are the two
-**hand-maintained** knowledge files, and both are watched by
+`lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
+are the **hand-maintained** knowledge files, and all three are watched by
 `scripts/check-upstream.mjs` (weekly via `upstream-sync.yml`, on drift an
 issue): it re-derives the curated formatter exports and the `GLOBAL_TARGETS`
 map from the abap2UI5 sources and fails on any difference — so an upstream
@@ -377,16 +377,79 @@ abap2UI5's own 9 builder classes, **2 findings** — two dead
 `view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
 `_event_client( cs_event-open_new_tab )` in `z2ui5_cl_app_startup`, all real.
 
+The 2026-08-14 round asked the one question no rule had asked yet — not
+*how* an app uses the framework, but **what of it it is allowed to name at
+all**:
+
+| Origin | Rule |
+| --- | --- |
+| abap2UI5 releases exactly ONE package, and says so in the package descriptions themselves: `src/02` is "released APIs", `src/01` is "internal use only", `src/99` is "FROZEN legacy code … ships solely so existing downstream installations keep compiling" | `non-released-api` + `lib/released-api.mjs`, the third hand-maintained mirror, gated by `check-upstream` |
+
+Everything about that rule follows from one property of the boundary it
+guards: **neither side announces a change.** Upstream commit `db10b13`
+(the same day the rule was written) renamed the whole core layer
+`z2ui5_cl_core_*` → `z2ui5_cl_ui5_*` AND moved `z2ui5_cl_ai_xml`,
+`z2ui5_cl_http_handler` and `z2ui5_if_types` into the frozen package — one
+commit, no deprecation, nothing a compiler sees until the object is already
+gone. That is the same silence `get-viewname-removed` covers, one layer up.
+
+Three decisions worth keeping if it is revisited:
+
+- **It judges a closed WHITELIST plus known families, never "unknown".** The
+  released five are silent, the frozen package is listed by name, the
+  internal packages are matched by the prefixes upstream reserves
+  (`z2ui5_cl_ui5_*`, `z2ui5_cl_ui5f_*`, the ajson/srtti/util copies) — and
+  anything else beginning `z2ui5_` is **somebody else's class**: the samples
+  are `z2ui5_cl_demo_app_*`. Under-reporting a family this file has not
+  learned yet is the tolerable direction; reporting an app's own class is
+  not. `check-upstream` closes that gap from the other end — it fails when an
+  upstream object outside `src/02`/`src/99` matches no family.
+- **Two frozen objects are deliberately tolerated**, both for reasons that
+  have nothing to do with them being good code. `z2ui5_if_types`, because
+  the RELEASED `z2ui5_if_client~get( )` returns `z2ui5_if_types=>ty_s_get` —
+  an app cannot avoid the name, and is not the one to fix that. And
+  `z2ui5_cl_ai_xml`, because it is the builder **this linter reads**:
+  `collectFiles` keys on `z2ui5_cl_ai_xml=>factory`, so reporting it would
+  put one warning on 100% of every corpus and point the author at a builder
+  the reconstructor cannot read. Drop that flag the day the backlog entry
+  below lands; it is its whole reason for existing.
+- **Measured** (the ai-demokit corpus was not checked out): 0 findings on
+  abap2UI5's own 5 builder classes and its 5 test apps — modern app code
+  already obeys the rule — and, as the "check it can see anything at all"
+  half, **49 distinct internal objects across the framework's own 118
+  classes** (`z2ui5_cl_ui5_util_context` 28×, `z2ui5_cl_xml_view` 18×), in
+  279 ms. Framework code naming its own internals is not what the rule is
+  for; that run only proves the scan reaches real ABAP at scale.
+
+Rollout note, the same shape as the `live-event-roundtrip` round: this rule
+will light up an app corpus that grew up with `z2ui5_cl_util` and the
+built-in popups. Those findings are **real** (both packages are frozen), so
+the corpus, not the rule, is the side that moves — but the debt decision
+belongs at ai-demokit's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
+
 **Known candidate backlog:**
 
-- **A second AI-facing builder exists**: `z2ui5_cl_ui5_view_builder`
-  (upstream 43452e8, 2026-08-06 — `new/ele/tag/att/end`, created because
-  `a( )`'s last-child-or-self target rule was a design flaw). `collectFiles`
-  keys on the literal `z2ui5_cl_ai_xml=>factory`, so classes on the new
-  builder are **silently invisible** — the `z2ui5_cl_xml_view` situation
-  again, except this one is the designated successor, not a frozen legacy.
-  Supporting it is a reconstructor project, not a rule; decide it
-  deliberately.
+- **The designated builder is now the FROZEN one.** `z2ui5_cl_ui5_view_builder`
+  (upstream 43452e8, 2026-08-06 — `factory/ele/tag/att/end`, created because
+  `a( )`'s last-child-or-self target rule was a design flaw) replaced
+  `z2ui5_cl_ai_xml`, which `db10b13` then moved into `src/99` and the README
+  stopped naming. `collectFiles` keys on the literal
+  `z2ui5_cl_ai_xml=>factory`, so classes on the new builder are **silently
+  invisible** — the `z2ui5_cl_xml_view` situation again, except this time the
+  linter is pinned to the legacy side of it. Supporting it is a reconstructor
+  project, not a rule; it is also what unblocks the `non-released-api`
+  exemption above and would make `unconverted-abap-boolean`'s
+  `z2ui5_cl_ai_xml=>as_bool( )` fix point at a frozen class.
+- **The FrontendAction mirror lost its source file.** `db10b13` renamed
+  `z2ui5_cl_app_frontendaction_js` to `z2ui5_cl_ui5f_frontact_js` **and split
+  the JS across modules** — `GLOBAL_TARGETS` now lives in
+  `z2ui5_cl_ui5f_ctrlcall_js` / `Slots.js`, not in the class
+  `check-upstream` reads. `ACTION_PATH` follows the rename already, so the
+  script gets as far as saying "the embedding changed" instead of "sources
+  unreachable", and the three `released-api` comparisons (which run first,
+  deliberately) still report. Re-pointing the `parse*` helpers at the split
+  modules — and dealing with whatever content drift that then reveals in
+  `lib/frontend-actions.mjs` — is a change of its own.
 
 New candidates go here as they are found. Two rules of the trade the last
 rounds established, before anything is added:

@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">44 error</span>
-      <span class="badge warning">23 warning</span>
+      <span class="badge warning">24 warning</span>
       <span class="badge hint">7 hint</span>
       <span class="badge fix">7 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 74 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 75 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -523,6 +523,16 @@ ENDIF.</code></pre>
         <pre><code>ELSEIF client-&gt;check_on_navigated( ).
   result = client-&gt;get_app( client-&gt;get( )-s_draft-id ).
   client-&gt;view_display( render_view( ) ).  " without this: the sub-app stays on screen</code></pre>
+      </article>
+      <article class="rule" id="non-released-api" data-search="non-released-api an abap2ui5 object outside the released src/02 package abap2ui5 releases exactly one package — src/02, five objects: z2ui5_if_app, z2ui5_if_client, z2ui5_if_exit, z2ui5_cl_ui5_http_handler, z2ui5_cl_ui5_view_builder. everything else the repository ships says in its own package description that it is not for consumers: src/01 is "abap2ui5 — internal use only", src/99 is frozen legacy that "ships solely so existing downstream installations keep compiling", and src/00 holds renamed copies of ajson, s-rtti and abap-util. none of them carries a compatibility promise or announces a change: one upstream commit renamed the entire core layer (z2ui5_cl_core_ → z2ui5_cl_ui5_) and moved the old view builder and http handler into the frozen package on the same day. an app that names one of those compiles today and fails to activate after the next abapgit pull, with no deprecation in between — and nothing in a systemless pipeline says so beforehand. judged only against names the linter knows are framework objects (the frozen package by name, the internal packages by the prefixes upstream reserves), so your own z2ui5_-prefixed classes are never reported. two frozen objects are deliberately tolerated: z2ui5_if_types, because the released z2ui5_if_client~get( ) still returns z2ui5_if_types=&gt;ty_s_get, and z2ui5_cl_ai_xml, because it is the builder this linter reads. warning">
+        <h3><a href="#non-released-api">non-released-api</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an abap2UI5 object outside the released <code>src/02</code> package</p>
+        <p class="detail">abap2UI5 releases exactly one package — <code>src/02</code>, five objects: <code>z2ui5_if_app</code>, <code>z2ui5_if_client</code>, <code>z2ui5_if_exit</code>, <code>z2ui5_cl_ui5_http_handler</code>, <code>z2ui5_cl_ui5_view_builder</code>. Everything else the repository ships says in its own package description that it is not for consumers: <code>src/01</code> is "abap2UI5 — internal use only", <code>src/99</code> is frozen legacy that "ships solely so existing downstream installations keep compiling", and <code>src/00</code> holds renamed copies of AJSON, S-RTTI and abap-util. None of them carries a compatibility promise or announces a change: one upstream commit renamed the entire core layer (<code>z2ui5_cl_core_*</code> → <code>z2ui5_cl_ui5_*</code>) and moved the old view builder and HTTP handler into the frozen package on the same day. An app that names one of those compiles today and fails to activate after the next <code>abapGit</code> pull, with no deprecation in between — and nothing in a systemless pipeline says so beforehand. Judged only against names the linter knows are framework objects (the frozen package by name, the internal packages by the prefixes upstream reserves), so your own <code>z2ui5_</code>-prefixed classes are never reported. Two frozen objects are deliberately tolerated: <code>z2ui5_if_types</code>, because the released <code>z2ui5_if_client~get( )</code> still returns <code>z2ui5_if_types=&gt;ty_s_get</code>, and <code>z2ui5_cl_ai_xml</code>, because it is the builder this linter reads.</p>
+        <pre><code>DATA(json) = z2ui5_cl_ajson=&gt;create_empty( ).      " vendored copy, renamed on the next sync
+z2ui5_cl_pop_to_confirm=&gt;factory( ).                " frozen — use the popups addon
+DATA(html) = z2ui5_cl_util=&gt;xml_stringify( data ).  " retired utility class</code></pre>
       </article>
       <article class="rule" id="obsolete-binder" data-search="obsolete-binder client-&gt;_bind_edit( ) — superseded by client-&gt;_bind( ) _bind is two-way as well, and _bind_edit is a pure alias for it. a call passing custom_mapper_back or custom_filter_back used to be exempt, because _bind has no such parameters — that exemption is gone with the parameters' meaning: they are still accepted for source compatibility but no longer evaluated, per-direction mapping does not exist any more. such a call is reported like every other, but without the autofix: the arguments have to go with the rename, and dropping an argument is not a rename. warning">
         <h3><a href="#obsolete-binder">obsolete-binder</a>

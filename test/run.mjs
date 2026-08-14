@@ -1151,6 +1151,54 @@ ENDCLASS.`);
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
+// ------------------------------------------ the released API surface (src/02) ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { apiVerdict, RELEASED_OBJECTS } = await import('../lib/released-api.mjs');
+  const source = fs.readFileSync(f('releasedapi.clas.abap'), 'utf8');
+  const named = checkAbapRules(source)
+    .filter((x) => x.type === 'non-released-api').map((x) => x.value);
+
+  for (const [name, area] of [
+    ['z2ui5_cl_util', 'src/99/01'],          // retired utility class
+    ['z2ui5_cl_pop_to_confirm', 'src/99/02'], // built-in popup, replaced by the addon
+    ['z2ui5_cl_ajson', 'src/00/01'],          // vendored copy, renamed on every sync
+    ['z2ui5_if_ajson', 'src/00/01'],          // …in a declaration, not only a call
+    ['z2ui5_cl_ui5_client', 'src/01'],        // the core engine
+  ]) {
+    assert(named.includes(name) && apiVerdict(name).area === area,
+      `non-released-api: ${name} is reported, and placed in ${area}`);
+  }
+
+  for (const name of RELEASED_OBJECTS) {
+    assert(apiVerdict(name) === null, `non-released-api: the released ${name} is never reported`);
+  }
+  // the two deliberate exemptions, each for a reason of its own (see released-api.mjs)
+  assert(!named.includes('z2ui5_if_types'),
+    'non-released-api: z2ui5_if_types is tolerated — the released client->get( ) returns it');
+  assert(!named.includes('z2ui5_cl_ai_xml'),
+    'non-released-api: z2ui5_cl_ai_xml is tolerated — it is the builder the linter reads');
+  // an app\'s own z2ui5_-prefixed class matches no framework family
+  assert(!named.includes('z2ui5_cl_demo_app_042'),
+    'non-released-api: a name outside every framework prefix family is somebody else\'s class');
+  // a legacy name inside a `…` literal is text, not a reference
+  assert(!named.includes('z2ui5_cl_util_log'),
+    'non-released-api: a framework name inside a string literal is not a use of it');
+
+  const own = `CLASS z2ui5_cl_ui5_app_start DEFINITION PUBLIC.
+ENDCLASS.
+CLASS z2ui5_cl_ui5_app_start IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_xml_view=>factory( ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const inOwn = checkAbapRules(own).filter((x) => x.type === 'non-released-api');
+  assert(inOwn.length === 1 && inOwn[0].value === 'z2ui5_cl_xml_view',
+    'non-released-api: a class does not use ITSELF — only the frozen builder it names is reported');
+  assert(inOwn[0].replacement === 'z2ui5_cl_ui5_view_builder',
+    'non-released-api: the frozen view builder points at its successor');
+}
+
 // --------------------------------------------------------- lifecycle rules ----
 {
   const lc = checkAbapSource(fs.readFileSync(f('lifecycle.clas.abap'), 'utf8'));
