@@ -1128,6 +1128,34 @@ ENDCLASS.`);
   const dead = disabled.findings.filter((x) => x.type === 'event-on-disabled-control');
   assert(dead.length === 1 && dead[0].member === 'press',
     'event-on-disabled-control: the literal-disabled button is reported, the bound one is not');
+
+  /* The same button wired with follow_up_action( ), the name the corpora moved
+   * to. The reconstructor knew _event/_event_client only, so such a handler
+   * resolved to nothing and was DROPPED from the view - and every rule that
+   * judges an event wire stopped seeing it. A dropped wire is silent: the port
+   * looks clean instead of being judged. */
+  const followUp = checkAbapSource(`
+CLASS zcl_f DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+CLASS zcl_f IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Button\`
+            )->a( n = \`press\`   v = client->follow_up_action( val = client->cs_event-popup_close )
+            )->a( n = \`enabled\` v = \`false\`
+        )->end( ).
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(followUp.docs[0]?.includes('press='),
+    'follow_up_action: the wire reaches the reconstructed view instead of being dropped');
+  assert(followUp.findings.some((x) => x.type === 'event-on-disabled-control'),
+    'follow_up_action: a wire written with it is judged like an _event_client one');
 }
 
 // ------------------------------------------- obsolete z2ui5_if_client members ----
