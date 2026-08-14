@@ -708,6 +708,17 @@ ENDCLASS.`;
     .findings.some((x) => x.type === 'relative-binding-without-context'),
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
 
+  // --- an INLINE structure is a structure ----------------------------------
+  // `DATA: BEGIN OF message, … END OF message.` names no type of its own, and
+  // an unresolved one turns every path through it into unknown-binding-path
+  // plus a '' in the render model, which then fails strict property validation
+  // on the first enum or boolean field
+  const inlineStruct = checkAbapSource(fs.readFileSync(f('inlinestruct.clas.abap'), 'utf8'));
+  assert(inlineStruct.findings.length === 0,
+    `inline structure: every path through one resolves (got ${inlineStruct.findings.map((x) => `${x.type}:${x.value || ''}`).join() || 'none'})`);
+  assert(Object.hasOwn(inlineStruct.model, 'MESSAGE') && Object.hasOwn(inlineStruct.model, 'ERROR'),
+    'inline structure: both spellings (one-line DATA: BEGIN OF, and READ-ONLY on the next line) reach the model');
+
   // --- CONTROL_BY_ID against the ids the class actually declares ------------
   const actionFindings = checkAbapRules(fs.readFileSync(f('actionid.clas.abap'), 'utf8'));
   const ids = actionFindings.filter((x) => x.type === 'frontend-action-unknown-id');
