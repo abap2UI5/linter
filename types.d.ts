@@ -33,6 +33,33 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** Called while checkFiles runs — the only thing the library says about a
+     *  run in progress. `done === 0` opens a phase. */
+    onProgress?: (event: {
+      phase: "properties" | "render";
+      done: number;
+      total: number;
+      file?: string;
+      pages?: number;
+      skipped?: boolean;
+    }) => void;
+  }
+
+  /** What a result contributed to the corpus — the numbers behind the run
+   *  summary, counted while the gate walked the tree. */
+  export interface ResultStats {
+    documents: number;
+    controls: number;
+    aggregations: number;
+    attributes: number;
+    bindings: number;
+    icons: number;
+    /** Deepest nesting of any of this result's documents. */
+    depth: number;
+    /** Documents the render gate actually loaded. */
+    rendered: number;
+    /** Control name -> occurrences, e.g. { "sap.m.Button": 4 }. */
+    types: Record<string, number>;
   }
 
   export interface CheckResult {
@@ -52,6 +79,8 @@ declare module "@abap2ui5/linter" {
     skippedRender: boolean;
     /** Set when rules['render-error'] re-weighs render failures. */
     renderSeverity?: Severity;
+    /** The structural profile of what was checked here. */
+    stats?: ResultStats;
   }
 
   export function checkAbapSource(source: string, opts?: CheckOptions): CheckResult;
@@ -165,6 +194,19 @@ declare module "@abap2ui5/linter/properties" {
   /** id -> resolved control name for every literal id of a view tree - the
    *  ABAP-side rules judge CONTROL_BY_ID wires against it. */
   export function collectControlIds(root: ViewNode): Record<string, string>;
+
+  /** A structural profile of one view tree: what the run looked at. No
+   *  metadata is consulted, so it costs one walk and cannot fail. */
+  export function profileTree(root: ViewNode): {
+    controls: number;
+    aggregations: number;
+    attributes: number;
+    bindings: number;
+    icons: number;
+    depth: number;
+    /** Control name -> occurrences. */
+    types: Record<string, number>;
+  };
 
   /** The metadata entry of one property of one control (or undefined). */
   export function propertyDecl(data: unknown, control: string, member: string): unknown;
@@ -423,6 +465,62 @@ declare module "@abap2ui5/linter/report" {
 
   /** GitHub workflow-command lines that annotate findings onto the diff. */
   export function githubAnnotations(results: CheckResult[], opt?: FormatOptions): string[];
+
+  /** What the run looked at, aggregated from the per-result profiles. */
+  export interface RunStats {
+    abap: number;
+    xml: number;
+    /** ABAP files that actually build a view. */
+    builder: number;
+    /** Builder classes whose reconstruction produced no document at all. */
+    emptyViews: number;
+    documents: number;
+    controls: number;
+    aggregations: number;
+    attributes: number;
+    bindings: number;
+    icons: number;
+    depth: number;
+    rendered: number;
+    renderSkipped: number;
+    /** Control name -> occurrences. */
+    types: Map<string, number>;
+    /** Rule id -> reported problems. */
+    rules: Map<string, number>;
+  }
+
+  export function runStats(results: CheckResult[]): RunStats;
+
+  /** `a 12, b 7, +3 more` — the head of a count map, longest first. */
+  export function topOf(map: Map<string, number>, limit?: number): string;
+
+  /** The run summary as [label, value] rows. */
+  export function statsRows(stats: RunStats, summary: Summary, opt?: FormatOptions): [string, string][];
+  /** The same rows, dim and aligned, for the terminal. */
+  export function formatStats(stats: RunStats, summary: Summary, opt?: FormatOptions): string[];
+
+  export interface Progress {
+    /** Milliseconds per phase, filled whether or not anything was printed. */
+    times: Record<string, number>;
+    update(event: { phase: string; done: number; total: number; file?: string; pages?: number; skipped?: boolean }): void;
+    finish(): void;
+  }
+
+  /** Live gate progress on stderr — a rewriting line, or one collapsed log
+   *  group per gate inside GitHub Actions. */
+  export function createProgress(opt?: {
+    enabled?: boolean;
+    stream?: { write(text: string): unknown; isTTY?: boolean };
+    github?: boolean;
+  }): Progress;
+
+  /** A shields.io endpoint object for the run — nothing but the keys that
+   *  schema defines, or shields renders the badge as "invalid". */
+  export function badgeEndpoint(
+    summary: Summary,
+    stats: RunStats,
+    opt?: { label?: string; logo?: string | null; labelColor?: string; minUi5?: string }
+  ): Record<string, unknown>;
 }
 
 declare module "@abap2ui5/linter/formatters" {

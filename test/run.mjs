@@ -2119,6 +2119,136 @@ ENDCLASS.`;
     'report: a mistyped path is one clean line and exit 2, not a stack trace');
 }
 
+// ---------------------------------------- run summary, progress and badge ----
+// What a CLEAN corpus run says about itself. Without these three, a run over
+// a few hundred classes prints "148 files, no findings" and a reader cannot
+// tell a gate that judged thousands of controls from one that judged nothing
+{
+  const cp = await import('node:child_process');
+  const os = await import('node:os');
+  const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+  const run = (args, env = {}) => {
+    try {
+      return { out: cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '', ...env } }), code: 0 };
+    } catch (e) { return { out: e.stdout ?? '', code: e.status }; }
+  };
+  const one = [f('good.clas.abap'), '--no-render'];
+  // two fixtures that are clean on both gates - a corpus summary must be
+  // readable exactly where there is no finding list to read instead
+  const two = [f('good.clas.abap'), f('viewbuilder.clas.abap'), '--no-render'];
+
+  const corpus = run(two).out;
+  assert(/^sources +2 app classes$/m.test(corpus) && /^views +\d+ documents reconstructed, nested \d+ deep/m.test(corpus),
+    'stats: the run summary names what was read and what was rebuilt from it');
+  assert(/^judged +\d+ controls of \d+ types, \d+ bindings, \d+ icons, \d+ attributes$/m.test(corpus),
+    'stats: and what the gate actually judged - the half no finding list can show');
+  assert(/^most used +sap\.m\./m.test(corpus) && /^gates +properties 2 files, render off$/m.test(corpus),
+    'stats: the control histogram and which gates ran');
+  assert(/^time +properties \d+\.\d+s, total \d+\.\d+s$/m.test(corpus),
+    'stats: with the phase timings the progress reporter collected');
+
+  assert(!/^sources/m.test(run(one).out), 'stats: one file gets no run summary - it is the report');
+  assert(/^sources +1 app class$/m.test(run([...one, '--stats']).out), 'stats: --stats asks for it anyway');
+  assert(!/^sources/m.test(run([...two, '--no-stats']).out), 'stats: --no-stats switches it off');
+  assert(!/^sources/m.test(run([...two, '--quiet']).out), 'stats: --quiet means quiet here too');
+
+  const md = run([...two, '--format', 'markdown']).out;
+  assert(/^### Run summary$/m.test(md) && /^- \*\*judged\*\* — \d+ controls/m.test(md),
+    'stats: the markdown report carries the same summary (that is the $GITHUB_STEP_SUMMARY shape)');
+
+  const json = JSON.parse(run([...two, '--json']).out);
+  assert(json.stats.controls > 0 && json.stats.types['sap.m.Button'] > 0 && json.stats.documents >= 2,
+    'stats: --json carries the aggregate, control histogram included');
+  assert(json.results.every((r) => r.stats.documents >= 0) && json.results[0].stats.types === undefined,
+    'stats: per result the counts, without repeating the histogram for every file');
+
+  // --- progress -------------------------------------------------------------
+  const { createProgress } = await import('../lib/report.mjs');
+  const spy = () => { const lines = []; return { lines, write: (s) => lines.push(s) }; };
+  const inActions = spy();
+  const p = createProgress({ enabled: true, stream: inActions, github: true });
+  p.update({ phase: 'properties', done: 0, total: 2 });
+  p.update({ phase: 'properties', done: 1, total: 2, file: 'a.clas.abap' });
+  p.update({ phase: 'render', done: 0, total: 2, pages: 4 });
+  p.update({ phase: 'render', done: 1, total: 2, file: 'b.clas.abap', skipped: true });
+  p.finish();
+  const log = inActions.lines.join('');
+  assert(/::group::abap2ui5-linter: properties gate, 2 files\n/.test(log)
+    && /\[1\/2\] a\.clas\.abap\n/.test(log) && /::group::abap2ui5-linter: render gate, 2 files on 4 browser pages/.test(log),
+    'progress: inside Actions every file is logged, wrapped in a collapsed group per gate');
+  assert((log.match(/::group::/g) || []).length === (log.match(/::endgroup::/g) || []).length
+    && /::endgroup::\nabap2ui5-linter: properties gate — 2 files in \d/.test(log),
+    'progress: the groups are balanced and the timing line stays outside, visible while collapsed');
+  assert(/render skipped \(built in helper methods\)/.test(log),
+    'progress: a file the render gate steps over says so where it happens');
+  assert(typeof p.times.properties === 'number' && typeof p.times.render === 'number',
+    'progress: both phases are timed');
+
+  const single = spy();
+  const p2 = createProgress({ enabled: true, stream: single, github: true });
+  p2.update({ phase: 'properties', done: 0, total: 1 });
+  p2.update({ phase: 'properties', done: 1, total: 1, file: 'a.clas.abap' });
+  p2.finish();
+  assert(!single.lines.length && typeof p2.times.properties === 'number',
+    'progress: a one-file run reports nothing and is still timed');
+
+  const off = spy();
+  const p3 = createProgress({ enabled: false, stream: off, github: true });
+  p3.update({ phase: 'properties', done: 0, total: 9 });
+  p3.finish();
+  assert(!off.lines.length && typeof p3.times.properties === 'number',
+    'progress: --no-progress prints nothing and keeps the timings');
+
+  // --- badge ----------------------------------------------------------------
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5badge-'));
+  const badgeFile = path.join(dir, 'badges', 'abap2ui5lint.json');
+  const clean = run([...two, '--badge', badgeFile]);
+  const badge = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  assert(clean.code === 0 && badge.schemaVersion === 1 && badge.color === '4c1'
+    && /^2 apps · 2 views · \d+ controls · clean$/.test(badge.message),
+    `badge: a clean corpus writes a green endpoint naming how far the check reached (${badge.message})`);
+  assert(badge.namedLogo === 'sap' && badge.labelColor === '0a6ed1'
+    && Object.keys(badge).every((k) => ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'namedLogo', 'logoColor', 'cacheSeconds'].includes(k)),
+    'badge: only keys the shields endpoint schema defines - an extra one renders as "invalid"');
+
+  const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile]);
+  const red = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  assert(dirty.code === 1 && red.color === 'e05d44' && /^2 apps · .* · \d+ errors$/.test(red.message),
+    `badge: the failing run - the one whose badge matters - is written too (${red.message})`);
+
+  const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge', badgeFile]);
+  const xml = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  assert(xmlOnly.code === 0 && /^1 view · \d+ controls · clean$/.test(xml.message),
+    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.message})`);
+
+  const nothing = path.join(dir, 'nothing');
+  fs.mkdirSync(nothing);
+  run([nothing, '--no-render', '--badge', badgeFile]);
+  const grey = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f',
+    `badge: a run that finds NOTHING to check says so instead of leaving the last good badge standing (${grey.message})`);
+
+  // the config form: the badge belongs to the repo, not to the command line
+  const { loadConfig } = await import('../lib/config.mjs');
+  const cfgFile = path.join(dir, 'abap2ui5lint.jsonc');
+  fs.writeFileSync(cfgFile, '{ "badge": "badges/from-config.json" }');
+  assert(loadConfig(cfgFile).badge.file === 'badges/from-config.json', 'badge: a plain path in the config is the file');
+  fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
+  run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
+  assert(fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
+    'badge: written relative to the config file, not to whatever cwd the run had');
+  fs.rmSync(path.join(dir, 'badges', 'from-config.json'));
+  run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile, '--no-badge']);
+  assert(!fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
+    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badge');
+
+  fs.writeFileSync(cfgFile, '{ "badge": { "file": "b.json", "colour": "green" } }');
+  let threw = '';
+  try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
+  assert(/unknown key 'colour'/.test(threw), 'badge: a typo in the badge block fails loudly, like every other config key');
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // --------------------------------------------------------------- typings ----
 // types.d.ts is the typed contract of the exports map: hand-written (the
 // implementation has no TypeScript build step by design), gated here so it

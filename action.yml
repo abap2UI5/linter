@@ -20,6 +20,10 @@ inputs:
     description: 'Annotate the findings on the pull request diff (GitHub workflow commands). Set to false to keep the log plain'
     required: false
     default: 'true'
+  badge:
+    description: 'Write a shields.io endpoint JSON for the run to this path, e.g. .github/badges/abap2ui5lint.json. Unset: the repo''s abap2ui5lint.jsonc "badge", or no badge at all. Committing the file is the workflow''s job'
+    required: false
+    default: ''
   flags:
     description: 'Extra CLI flags, e.g. "--no-render --allow sap.m.Avatar.displaySize"'
     required: false
@@ -53,12 +57,15 @@ runs:
         LINT_MIN_UI5: ${{ inputs['min-ui5'] }}
         LINT_FAIL_ON: ${{ inputs['fail-on'] }}
         LINT_ANNOTATIONS: ${{ inputs.annotations }}
+        LINT_BADGE: ${{ inputs.badge }}
         LINT_FLAGS: ${{ inputs.flags }}
       run: |
         ARGS=()
         if [ -n "$LINT_MIN_UI5" ]; then ARGS+=(--min-ui5 "$LINT_MIN_UI5"); fi
         if [ -n "$LINT_FAIL_ON" ]; then ARGS+=(--fail-on "$LINT_FAIL_ON"); fi
         if [ "$LINT_ANNOTATIONS" = "false" ]; then ARGS+=(--no-annotate); fi
+        # one path, quoted - a badge file name is not a list, unlike paths/flags
+        if [ -n "$LINT_BADGE" ]; then ARGS+=(--badge "$LINT_BADGE"); fi
         # paths and flags are documented as space-separated lists, so they are
         # split on whitespace DELIBERATELY - via read -a into argv words, which
         # word-splits without re-parsing quotes, globs or metacharacters
