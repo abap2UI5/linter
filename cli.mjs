@@ -45,9 +45,10 @@
  *                      pipeable). Default: on a terminal and inside GitHub
  *                      Actions, where it becomes one collapsed log group
  *   --badge <file>     write a shields.io endpoint JSON for the run, so a repo
- *                      can show how far the check reached ("148 apps ·
- *                      172 views · 2,176 controls · clean")
- *                      in the README. Also settable as "badge" in the config;
+ *                      can show how far the check reached in the README
+ *                      ("abap2UI5-linter 148 apps · 172 views · 2,176
+ *                      controls" grey, "clean" green next to it). Also
+ *                      settable as "badge" in the config;
  *                      --no-badge suppresses the configured one for this run
  *   --annotate         emit GitHub workflow commands so findings show up on
  *                      the pull request diff (default inside GitHub Actions;
