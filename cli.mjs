@@ -210,9 +210,9 @@ let results;
 try {
   results = await checkFiles(files, opt);
 } catch (e) {
-  // the render gate's deps are optional - requested-but-absent is a usage/
-  // environment problem worth one actionable line, not a stack trace
-  if (e.code === 'ERR_RENDER_DEPS_MISSING') die(e.message);
+  // the render gate's optional deps and the metadata snapshot are both
+  // environment problems worth one actionable line, not a stack trace
+  if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
   throw e;
 }
 

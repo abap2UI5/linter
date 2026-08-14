@@ -1213,6 +1213,22 @@ ENDCLASS.`;
     `unconverted-abap-boolean: every name of a chained DATA: declaration is a known boolean (${bools.map((x) => x.value).join(', ')})`);
 }
 
+// ----------------------------------------------- a broken install answers ----
+{
+  const { loadSnapshot, snapshotVersion } = await import('../lib/properties.mjs');
+  /* The snapshot is the property gate's whole knowledge. A `--snapshot`
+   * pointing at nothing, or an install that lost data/properties.json, used
+   * to come out as a bare ENOENT stack trace — while the render gate's
+   * missing dependencies have always answered with one actionable line. */
+  let thrown = null;
+  try { loadSnapshot('/nope/properties.json'); } catch (e) { thrown = e; }
+  assert(thrown?.code === 'ERR_SNAPSHOT_MISSING' && /properties\.json/.test(thrown.message)
+    && /--no-properties/.test(thrown.message),
+  `snapshot: a missing snapshot is one actionable line, not a stack trace (${thrown?.code})`);
+  assert(snapshotVersion('/nope/properties.json') === '',
+    'snapshot: snapshotVersion returns the empty string it promises when the file is unreadable');
+}
+
 // ------------------------------------------------------- file collection ----
 {
   const { collectFiles } = await import('../lib/index.mjs');
@@ -1232,6 +1248,17 @@ ENDCLASS.`;
     `collectFiles: a directory scan stays on .clas.abap (${collectFiles([dir]).join(', ')})`);
   assert(collectFiles([path.join(dir, 'z.testclasses.abap')]).length === 0,
     'collectFiles: a test include is never checked, not even when named');
+
+  // the same file reached twice - `cli.mjs src src`, or a directory named
+  // next to one of its own files - was checked, reported and COUNTED twice
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'app.clas.abap'));
+  const twice = collectFiles([dir, dir, path.join(dir, 'app.clas.abap')]);
+  assert(twice.length === 1, `collectFiles: a file reached twice is checked once (${twice.join(', ')})`);
+  // …and it comes back spelled the way it was reached: result.file travels
+  // into --json and into the baseline keys, so the string is a contract
+  const abs = collectFiles([path.resolve(f('good.clas.abap'))]);
+  assert(abs.length === 1 && path.isAbsolute(abs[0]),
+    `collectFiles: an absolute path stays absolute (${abs[0]})`);
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -1638,6 +1665,24 @@ ENDCLASS.`;
     .findings.find((x) => x.type === 'undeclared-namespace');
   assert(vrNs && !vrNs.fixes,
     'undeclared-namespace: an unconventional prefix could mean any library and gets no fix');
+
+  /* The anchor is searched in the SCRUBBED source: a commented-out builder
+   * line — a previous root kept for reference — comes before the live one
+   * often enough, and the declaration used to land INSIDE that comment,
+   * leaving the view unfixed and the comment mangled. */
+  const commented = `
+  DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+  " )->a( n = \`xmlns\` v = \`sap.ui.core\`   the old root, kept for reference
+  v->open( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->leaf( n = \`Icon\` ns = \`core\` ).
+  client->view_display( v->stringify( ) ).`;
+  const commentedFix = applyFixes(commented, checkAbapSource(commented).findings).output;
+  assert(/" \)->a\( n = `xmlns` v = `sap\.ui\.core`   the old root/.test(commentedFix),
+    'undeclared-namespace: the fix never lands in a commented-out builder line');
+  assert(!checkAbapSource(commentedFix).findings.some((x) => x.type === 'undeclared-namespace'),
+    'undeclared-namespace: …and the declaration it inserted instead really fixes the view');
 }
 
 // ------------------------------------------------ sarif + baseline + cli ----
