@@ -78,7 +78,7 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
-| `lib/chain-layout.mjs` | `chain-indentation`, `chain-call-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
+| `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
 | `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
@@ -478,7 +478,7 @@ has nothing to do with the view it produces — **how it is WRITTEN**:
 
 | Origin | Rule |
 | --- | --- |
-| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-call-per-line` + `lib/chain-layout.mjs` |
+| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-element-per-line` + `lib/chain-layout.mjs` |
 
 The argument for the family, and the reason it is not taste: the XML a
 builder emits is ONE line by construction (`render( )` concatenates without
@@ -499,13 +499,16 @@ to, and only two things are reported — a sibling out of line with its
 siblings, and a call left of the element it belongs to. A chain that keeps its
 own two-space rhythm is silent.
 
-After the rewrite: **0 findings on abap2UI5's app classes** except three
-genuine `chain-call-per-line` lines in `z2ui5_cl_ui5_app_start` (the compact
-`tag( \`Label\` )->att( \`text\` )` form of a form block), and 1 on the
-fixtures — the same shape, also real. Coverage, the other half of the
-doctrine: 67 multi-line chains and 536 line-leading calls are compared in
-silence across those 35 files, and the three defect shapes are pinned by
-`chainlayout.clas.abap`.
+The SAME lesson then repeated on the second rule, one round later. Counting
+BUILDER CALLS per line reported four lines across the corpus and all four were
+the compact `tag( \`Label\` )->att( n = \`text\` … )` idiom — a control with its
+own attribute, which hides no level of anything. What hides a level is a
+second CONTROL on the line, so the rule counts ELEMENTS now and was renamed
+`chain-element-per-line` while it was still unreleased. After both rewrites
+the family reports **nothing** on abap2UI5's app classes, its test apps and 28
+of this repo's 29 fixtures — only the one written to carry each defect on
+purpose. Coverage, the other half of the doctrine: 67 multi-line chains and
+536 line-leading calls are compared in silence across those 35 files.
 
 Both are **hints**, deliberately: the view renders identically either way, and
 this family has no business failing a build. `"chain-indentation": "warning"`

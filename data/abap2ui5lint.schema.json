@@ -99,9 +99,9 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'binding-type-mismatch' — default severity: warning"
         },
-        "chain-call-per-line": {
+        "chain-element-per-line": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'chain-call-per-line' — default severity: hint"
+          "description": "abap2UI5-linter rule 'chain-element-per-line' — default severity: hint"
         },
         "chain-indentation": {
           "$ref": "#/definitions/rule",

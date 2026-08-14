@@ -1213,6 +1213,42 @@ ENDCLASS.`;
     `unconverted-abap-boolean: every name of a chained DATA: declaration is a known boolean (${bools.map((x) => x.value).join(', ')})`);
 }
 
+// ------------------------------------------------------- accessibility ----
+{
+  const view = (leaf) => `CLASS x DEFINITION PUBLIC.
+ENDCLASS.
+CLASS x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
+        )->att( n = \`xmlns\` v = \`sap.m\`
+        )->att( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+${leaf}.
+    client->view_display( v->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const a11y = (leaf) => checkAbapSource(view(leaf), { render: false })
+    .findings.filter((x) => x.type === 'missing-accessibility');
+
+  /* sap.m.Image.decorative DEFAULTS TO TRUE, and UI5 then ignores `alt`
+   * outright — so demanding one from an image without `decorative` asked for
+   * an attribute the framework drops, on nearly every image in a corpus. */
+  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )').length,
+    'missing-accessibility: an image without `decorative` is decorative by default and needs no alt');
+  assert(a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )').length === 1,
+    'missing-accessibility: an image declared MEANINGFUL and left without alt is the defect');
+  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )->att( n = \`alt\` v = \`Logo\` )').length,
+    'missing-accessibility: …and an alt on it settles the matter');
+
+  // three ways to name an icon-only button, not two
+  assert(a11y('        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )').length === 1,
+    'missing-accessibility: an icon-only button with no name at all is reported');
+  for (const named of ['text', 'tooltip', 'ariaLabelledBy']) {
+    assert(!a11y(`        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )->att( n = \`${named}\` v = \`x\` )`).length,
+      `missing-accessibility: an icon button named through ${named} has an accessible name`);
+  }
+}
+
 // ----------------------------------------------- a broken install answers ----
 {
   const { loadSnapshot, snapshotVersion } = await import('../lib/properties.mjs');
@@ -1274,9 +1310,17 @@ ENDCLASS.`;
     'chain-indentation: a sibling written a level out of line with its siblings is reported');
   assert(of('outdented') && of('outdented').member === 'att',
     'chain-indentation: an attribute written LEFT of the control it belongs to is reported');
-  const crammed = found.find((x) => x.type === 'chain-call-per-line');
+  const crammed = found.find((x) => x.type === 'chain-element-per-line');
   assert(crammed && crammed.count === 3,
-    'chain-call-per-line: three controls on one line of a multi-line chain, counted');
+    'chain-element-per-line: three controls on one line of a multi-line chain, counted');
+  /* An attribute sharing its control's line hides no level of the tree —
+   * the compact form of half the samples, and every hit the first version
+   * of this rule produced on the corpus. */
+  const compact = `v->ele( n = \`View\` ns = \`mvc\`
+      )->tag( \`Text\` )->att( n = \`text\` v = \`a\`
+      )->tag( \`Text\` )->att( n = \`text\` v = \`b\` ).`;
+  assert(!checkAbapRules(compact).some((x) => x.type === 'chain-element-per-line'),
+    'chain-element-per-line: a control and its own attributes may share a line');
   // one finding per chain per rule: a shifted block makes everything below it
   // look wrong too, and forty findings for one mistake is not a report
   assert(found.filter((x) => x.type === 'chain-indentation').length === 2,
