@@ -261,7 +261,7 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 {
   "schemaVersion": 1,
   "label": "abap2UI5-linter",
-  "message": "148 apps · UI5 1.71 · clean",
+  "message": "148 apps · 172 views · 2,176 controls · clean",
   "color": "4c1",
   "labelColor": "0a6ed1",
   "namedLogo": "sap",
@@ -274,9 +274,11 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 [![abap2UI5-linter](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/abap2ui5lint.json)](https://github.com/abap2UI5/linter)
 ```
 
-The message carries the size of the checked corpus, the UI5 floor it was
-checked against, and the outcome (`clean`, `3 problems`, `7 errors`); the
-colour follows the outcome. It is written on every run — a failing one
+The message carries how far the check reached — classes read, views those
+built, controls those were made of — and the outcome (`clean`, `3 problems`,
+`7 errors`); the colour follows the outcome. A segment with nothing to say is
+left out rather than printed as a zero, so a corpus of raw
+`*.view.xml` reads `12 views · 340 controls · clean`. It is written on every run — a failing one
 included, which is the run whose badge matters, and the run that finds
 **nothing checkable**, which turns the badge grey and says so instead of
 leaving the last good one standing. Commit the file from the job that lints the pull request (that is

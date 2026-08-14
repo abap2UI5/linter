@@ -45,7 +45,8 @@
  *                      pipeable). Default: on a terminal and inside GitHub
  *                      Actions, where it becomes one collapsed log group
  *   --badge <file>     write a shields.io endpoint JSON for the run, so a repo
- *                      can show its corpus state ("148 apps · UI5 1.71 · clean")
+ *                      can show how far the check reached ("148 apps ·
+ *                      172 views · 2,176 controls · clean")
  *                      in the README. Also settable as "badge" in the config;
  *                      --no-badge suppresses the configured one for this run
  *   --annotate         emit GitHub workflow commands so findings show up on

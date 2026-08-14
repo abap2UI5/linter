@@ -178,7 +178,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badge** — a shields.io endpoint JSON (`148 apps · UI5 1.71 · clean`) | the file `--badge` / config `badge` names | off |
+| **badge** — a shields.io endpoint JSON (`148 apps · 172 views · 2,176 controls · clean`) | the file `--badge` / config `badge` names | off |
 
 Rules that hold for all three:
 
