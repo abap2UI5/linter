@@ -18,25 +18,25 @@ CLASS zcl_fixture_typedbind IMPLEMENTATION.
         DATA(none) = client->get_event_arg( ).
     ENDCASE.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Page`
-          )->leaf( `ProgressIndicator`
+        )->ele( `Page`
+          )->tag( `ProgressIndicator`
             )->a( n = `percentValue` v = client->_bind( percent )
-          )->leaf( `ProgressIndicator`
+          )->tag( `ProgressIndicator`
             )->a( n = `percentValue` v = client->_bind( real_num )
-          )->leaf( `Text`
+          )->tag( `Text`
             )->a( n = `maxLines` v = client->_bind( lines )
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `enabled` v = client->_bind( ok )
             )->a( n = `text`    v = `Pick`
             )->a( n = `press`   v = client->_event( val = `PICK` t_arg = VALUE #( ( `${$source>/id}` ) ) )
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Plain`
             )->a( n = `press` v = client->_event( `PLAIN` )
-        )->shut( ).
+        )->end( ).
 
     client->view_display( view->stringify( ) ).
 

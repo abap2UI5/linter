@@ -20,55 +20,55 @@ CLASS zcl_fixture_wire IMPLEMENTATION.
     " sees it, so the attribute crashes exactly as an unescaped one would
     DATA(css2) = |<style>.a \{color:green\}</style>|.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:mvc`  v = `sap.ui.core.mvc`
         )->a( n = `xmlns:core` v = `sap.ui.core`
-        )->open( `Page`
+        )->ele( `Page`
 
           " bound in the view: transported for a reason
-          )->leaf( `Input`
+          )->tag( `Input`
             )->a( n = `value` v = client->_bind( name )
 
           " correct wires - never reported
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Toast`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-control_global
                                                          t_arg = VALUE #( ( `MESSAGE_TOAST` ) ( `show` ) ( `done` ) ) )
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Busy`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-control_global
                                                          t_arg = VALUE #( ( `BUSY_INDICATOR` ) ( `hide` ) ) )
 
           " a global the runtime does not know
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Typo global`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-control_global
                                                          t_arg = VALUE #( ( `MESSAGE_TOASTER` ) ( `show` ) ( `nope` ) ) )
 
           " a method that global does not offer
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Typo method`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-control_global
                                                          t_arg = VALUE #( ( `MESSAGE_TOAST` ) ( `display` ) ( `nope` ) ) )
 
           " a binding method that is not filter or sort
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Bad binding`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-binding_call
                                                          t_arg = VALUE #( ( `tab` ) ( `items` ) ( `refresh` ) ) )
 
           " the obsolete empty view slot
-          )->leaf( `Button`
+          )->tag( `Button`
             )->a( n = `text`  v = `Shifted`
             )->a( n = `press` v = client->_event_client( val   = client->cs_event-control_by_id
                                                          t_arg = VALUE #( ( `nav` ) ( `` ) ( `to` ) ) )
 
-          )->leaf( n = `HTML` ns = `core`
+          )->tag( n = `HTML` ns = `core`
             )->a( n = `content` v = css
 
-        )->shut( ).
+        )->end( ).
 
     client->view_display( view->stringify( ) ).
 

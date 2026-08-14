@@ -34,7 +34,7 @@ Two gates:
    | `aggregation-in-aggregation` | an aggregation directly inside another one — invalid XML, and the signature of a missing `shut( )`: UI5 then goes looking for a control class by that name |
    | `excess-shut` | one `shut( )` more than the builder tree is deep — asserts at runtime |
    | `duplicate-property` | the same attribute written twice on one control — the view builder asserts on it |
-   | `attribute-without-element` | `a( )` / `att( )` on the bare factory root — nothing to attach it to, asserts too |
+   | `attribute-without-element` | `a( )` on the bare factory root — nothing to attach it to, asserts too |
    | `duplicate-id` | the same `id` twice — duplicate-ID error at runtime |
    | `undeclared-namespace` | `ns = 'form'` without an `xmlns:form` |
    | `display-root-mismatch` | a `mvc:View` handed to `popup_display( )`, or a `core:FragmentDefinition` to `view_display( )` — the slot decides whether the client uses `XMLView.create` or `Fragment.load` |
@@ -68,7 +68,7 @@ Two gates:
    | `obsolete-binder` | `client->_bind_edit( )` — superseded by `client->_bind( )`, which is two-way as well. A call carrying `custom_mapper_back`/`custom_filter_back` is reported too (they are accepted for source compatibility but no longer evaluated), only without the autofix |
    | `obsolete-model-update` | `view_model_update( )`, `nest_view_model_update( )`, `nest2_view_model_update( )`, `popup_model_update( )`, `popover_model_update( )` — **empty methods**: the framework compares the model before and after `main( )` and pushes it to every open slot by itself. The call reads as "the model is pushed here" where nothing happens; delete it |
    | `obsolete-frontend-event` | `client->_event_client( )` — superseded by `client->follow_up_action( )`. Since it gained a `RETURNING` parameter it reaches the same `get_event_client( )` wherever its result is consumed, so one method both schedules a frontend action and wires one |
-   | `unconverted-abap-boolean` | an ABAP boolean written straight into the view: it arrives as `'X'`/`' '`, and UI5 reads any non-empty string as true — so `visible = abap_false` makes the control **visible**. The correction is the one that belongs to the builder the call is on: `att( b = flag )`, or `z2ui5_cl_ai_xml=>as_bool( flag )` |
+   | `unconverted-abap-boolean` | an ABAP boolean written straight into the view: it arrives as `'X'`/`' '`, and UI5 reads any non-empty string as true — so `visible = abap_false` makes the control **visible**. The correction is the builder's own boolean parameter: `a( b = flag )` |
    | `binding-to-local` | a local variable bound: the instance is serialized across the roundtrip, the method stack is not, so the value is lost |
    | `binding-to-reference` | a `TYPE REF TO` attribute bound without dereferencing — the serializer walks DATA, not references, so the bind throws at runtime; write `client->_bind( ref->* )` |
    | `manual-init-flag` | a boolean attribute gating the first render — `client->check_on_init( )` already says whether this is the first run, without shipping a flag to the browser on every roundtrip |
@@ -144,15 +144,11 @@ Files with nothing to report are not printed.
 
 Input can be:
 
-- **ABAP classes** building views with either generic builder —
-  `z2ui5_cl_ui5_view_builder` (`ele`/`tag`/`att`/`end`, the released one) or
-  the frozen `z2ui5_cl_ai_xml` (`open`/`leaf`/`a`/`shut`). The two are the
-  same tree walk under different method names, so both are read by one
-  reconstructor and judged by the same rules; the view XML is statically
-  reconstructed from the builder calls, and a **typed mock model** is derived
-  from the class's `TYPES`/`DATA`/`model_init` seeds, so bindings resolve
-  realistically during the render. A class still on the old builder is told
-  so once, by `non-released-api`.
+- **ABAP classes** building views with the generic builder
+  `z2ui5_cl_ui5_view_builder` (`ele`/`tag`/`a`/`end`). The view XML is
+  statically reconstructed from the builder calls, and a **typed mock model**
+  is derived from the class's `TYPES`/`DATA`/`model_init` seeds, so bindings
+  resolve realistically during the render.
 - **Raw `*.view.xml` / `*.fragment.xml`** files.
 
   A directory is scanned by the abapGit naming convention (`*.clas.abap`,
@@ -206,7 +202,7 @@ then reports what is left, so `--fix` can go in front of any other flag
 | `obsolete-binder` | `client->_bind_edit( … )` → `client->_bind( … )`, arguments untouched — except a call carrying `custom_mapper_back`/`custom_filter_back`, which is reported without a fix (the arguments have to go too, and dropping one is not a rename) |
 | `obsolete-model-update` | the call is deleted, with its line when it has that line to itself; a shared line or a trailing comment keeps everything but the call |
 | `obsolete-frontend-event` | `client->_event_client( … )` → `client->follow_up_action( … )`, arguments untouched |
-| `unconverted-abap-boolean` | a bare token moved onto `att( b = … )`, or wrapped in `z2ui5_cl_ai_xml=>as_bool( … )` on the old builder — an expression is left alone |
+| `unconverted-abap-boolean` | a bare token moved onto `a( b = … )` — an expression is left alone |
 | `event-arg-unresolved` | the missing `$` inserted (`` `{COL}` `` → `` `${COL}` ``), a `\|…\|` template left alone |
 | `popover-display-val` | `popover_display( val = … )` → `popover_display( xml = … )`, the argument untouched |
 | `undeclared-namespace` | the missing `xmlns:` declaration inserted at the view root — for the conventional prefixes (`core`, `mvc`, `l`, `form`, `f`, `table`, `u`, `uxap`, `tnt`, `html`, `cc`) only; any other prefix could mean any library |

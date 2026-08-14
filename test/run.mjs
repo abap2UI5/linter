@@ -3,12 +3,12 @@
  * test/run — fixture-based self-test of the two gates.
  *
  *   good.clas.abap      reconstructs, no findings, renders clean
- *   viewbuilder.clas.abap  the same view on z2ui5_cl_ui5_view_builder
+ *   viewbuilder.clas.abap  the same view, built through a helper handle
  *   post171.clas.abap   property gate: GenericTile.systemInfo @since 1.92
  *   broken.clas.abap    render gate: typo property + unknown control
  *   structure.clas.abap unknown control/property/aggregation, bad enum and
- *                       numeric values, 0..1 overfilled, excess shut( )
- *   dumps.clas.abap     builder calls z2ui5_cl_ai_xml ASSERTs on
+ *                       numeric values, 0..1 overfilled, excess end( )
+ *   dumps.clas.abap     builder calls the view builder ASSERTs on
  *   rowpaths.clas.abap  relative binding paths inside a bound aggregation
  *   nested.clas.abap    nested structures and nested aggregation bindings
  *   sample.view.xml     raw XML path: no findings, renders clean
@@ -38,19 +38,15 @@ const by = (n) => results.find((r) => r.file.endsWith(n));
 const good = by('good.clas.abap');
 assert(good.docs.length === 1, 'good: one view reconstructed');
 assert(good.model.NAME === 'world', 'good: bound scalar seeded from model_init');
-/* Since abap2UI5 moved z2ui5_cl_ai_xml into the frozen src/99 package, a
- * class on the OLD builder carries exactly one finding — the one that says
- * so. Its successor twin (viewbuilder.clas.abap) carries none: the pair is
- * the whole migration story in two fixtures. */
-assert(good.findings.length === 1 && good.findings[0].type === 'non-released-api',
-  `good: clean apart from the frozen-builder warning (${good.findings.map((x) => x.type).join(', ') || 'none'})`);
+assert(good.findings.length === 0,
+  `good: the canonical fixture carries no finding (${good.findings.map((x) => x.type).join(', ') || 'none'})`);
 assert(good.renderErrors.length === 0, `good: renders clean (${good.renderErrors[0] || ''})`);
 
-// the same view on the successor builder: through the render gate as well,
-// which is what proves the reconstruction is not merely plausible XML
+// the same view built through a helper handle: through the render gate as
+// well, which is what proves the reconstruction is not merely plausible XML
 const vbuilder = by('viewbuilder.clas.abap');
 assert(vbuilder.findings.length === 0 && vbuilder.renderErrors.length === 0,
-  `viewbuilder: the ele/tag/att/end fixture renders clean (${vbuilder.renderErrors[0] || vbuilder.findings[0]?.type || ''})`);
+  `viewbuilder: the helper-handle fixture renders clean (${vbuilder.renderErrors[0] || vbuilder.findings[0]?.type || ''})`);
 
 const post = by('post171.clas.abap');
 assert(post.findings.some((x) => x.member === 'systemInfo' && x.type === 'member-too-new'),
@@ -123,7 +119,7 @@ assert(hasR('binding-to-local', (x) => x.member === 'lv_local'),
 assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
   'abap rules: an event nothing handles');
 assert(hasR('unconverted-abap-boolean', (x) => x.member === 'expanded' && x.value === 'abap_true'),
-  'abap rules: an ABAP boolean written into the view without as_bool( )');
+  'abap rules: an ABAP boolean written into the view through v = instead of b =');
 assert(hasR('unknown-binding-path', (x) => x.value === '/TYPOED_PATH'),
   'abap rules: a hand-written binding path the model does not have');
 assert(hasR('event-arg-unresolved', (x) => x.value === '{BARE_BRACE}'),
@@ -175,9 +171,9 @@ assert(!hasV('invalid-expression-binding'),
 const dumps = (await checkFiles([f('dumps.clas.abap')], { render: false }))[0];
 const hasD = (t, pred = () => true) => dumps.findings.some((x) => x.type === t && pred(x));
 assert(hasD('attribute-without-element', (x) => x.member === 'title'),
-  'dumps: a( ) on the bare factory root - z2ui5_cl_ai_xml asserts');
+  'dumps: a( ) on the bare factory root - z2ui5_cl_ui5_view_builder asserts');
 assert(hasD('duplicate-property', (x) => x.member === 'text' && x.control === 'Button'),
-  'dumps: the same attribute set twice on one control - z2ui5_cl_ai_xml asserts');
+  'dumps: the same attribute set twice on one control - z2ui5_cl_ui5_view_builder asserts');
 assert(dumps.docs[0].split('text="').length === 2,
   'dumps: the refused duplicate is not carried into the reconstructed XML');
 
@@ -248,17 +244,17 @@ ENDCLASS.
 CLASS zcl_named IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
     t_rows = VALUE #( ( name = \`Notebook\` ) ).
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\`
         )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->open( \`List\`
+        )->ele( \`List\`
             )->a( n = \`items\` v = client->_bind( t_rows )
-            )->open( \`items\`
-                )->leaf( \`StandardListItem\`
+            )->ele( \`items\`
+                )->tag( \`StandardListItem\`
                     )->a( n = \`title\` v = \`{NAME}\`
-        )->shut( ).
-    v->open( \`List\` )->a( n = \`items\` v = client->_bind( t_late ) ).
+        )->end( ).
+    v->ele( \`List\` )->a( n = \`items\` v = client->_bind( t_late ) ).
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`);
@@ -283,12 +279,12 @@ ENDCLASS.`);
 ENDCLASS.
 CLASS zcl_b IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(x) = z2ui5_cl_ai_xml=>factory( ).
-    x->open( n = \`View\` ns = \`mvc\`
+    DATA(x) = z2ui5_cl_ui5_view_builder=>factory( ).
+    x->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\`
         )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->leaf( \`Text\` )->a( n = \`text\` v = ${v}
-        )->shut( ).
+        )->tag( \`Text\` )->a( n = \`text\` v = ${v}
+        )->end( ).
     client->view_display( x->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`;
@@ -317,14 +313,14 @@ ENDCLASS.
 CLASS zcl_o IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
     t_rows = VALUE #( ( text = \`a\` state = \`\` ) ( text = \`b\` state = \`Success\` ) ).
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->open( \`List\`
+        )->ele( \`List\`
             )->a( n = \`items\` v = client->_bind( val = t_rows omit_initial_paths = VALUE #( ( \`STATE\` ) ) )
-            )->open( \`items\`
-                )->leaf( \`ObjectListItem\` )->a( n = \`title\` v = \`{TEXT}\` )->a( n = \`intro\` v = \`{STATE}\` )
-        )->shut( )->shut( )->shut( ).
+            )->ele( \`items\`
+                )->tag( \`ObjectListItem\` )->a( n = \`title\` v = \`{TEXT}\` )->a( n = \`intro\` v = \`{STATE}\` )
+        )->end( )->end( )->end( ).
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`);
@@ -343,16 +339,16 @@ const opaque = `CLASS zcl_x DEFINITION PUBLIC.
 ENDCLASS.
 CLASS zcl_x IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = \`View\` ns = \`mvc\`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\`     v = \`sap.m\`
         )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->open( \`List\`
+        )->ele( \`List\`
             )->a( n = \`items\` v = client->_bind( t_flights )
-            )->open( \`items\`
-                )->leaf( \`StandardListItem\`
+            )->ele( \`items\`
+                )->tag( \`StandardListItem\`
                     )->a( n = \`title\` v = \`{ANYTHING_AT_ALL}\`
-        )->shut( )->shut( )->shut( ).
+        )->end( )->end( )->end( ).
     client->view_display( view->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`;
@@ -364,11 +360,11 @@ assert(!checkAbapSource(opaque, { render: false }).findings
 // control like any other - and they are resolved PER EVENT, because two
 // events of one control can declare the same name with different histories
 const withEvent = (control, event, param) => checkAbapSource(`
-  DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-  view->open( n = \`View\` ns = \`mvc\`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`     v = \`sap.m\`
       )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->leaf( \`${control}\`
+      )->tag( \`${control}\`
           )->a( n = \`${event}\` v = client->_event( val = \`GO\` t_arg = VALUE #( ( \`\${$parameters>/${param}}\` ) ) ) ).
   client->view_display( view->stringify( ) ).`, { render: false })
   .findings.filter((x) => x.type === 'event-parameter-too-new');
@@ -387,8 +383,8 @@ assert(!withEvent('Menu', 'itemSelected', 'item').length,
 // signature of a missing shut( ) - the port that put <footer> inside <columns>
 // only ever surfaced as "failed to load sap/ui/table/footer.js" in the browser
 const view = (inner) => `
-  DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-  view->open( n = \`View\` ns = \`mvc\`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`     v = \`sap.m\`
       )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
       )->a( n = \`xmlns:my\`  v = \`my.custom.lib\`
@@ -397,32 +393,32 @@ const view = (inner) => `
 const misplaced = (src) => checkAbapSource(src, { render: false })
   .findings.filter((x) => x.type === 'aggregation-in-aggregation');
 
-assert(misplaced(view('  )->open( `Table` )->open( `columns` )->leaf( `Column` )->open( `footer` )'))
+assert(misplaced(view('  )->ele( `Table` )->ele( `columns` )->tag( `Column` )->ele( `footer` )'))
   .some((x) => x.member === 'footer' && x.parentAggregation === 'columns'),
   'missing shut: an aggregation inside an aggregation is reported');
-assert(!misplaced(view('  )->open( `Table` )->open( `columns` )->open( `Column` )->open( `header` )')).length,
+assert(!misplaced(view('  )->ele( `Table` )->ele( `columns` )->ele( `Column` )->ele( `header` )')).length,
   'missing shut: a well-formed aggregation/control/aggregation nesting is not');
-assert(!misplaced(view('  )->open( `Table` )->open( `columns` )->open( n = `Thing` ns = `my` )->open( `content` )')).length,
+assert(!misplaced(view('  )->ele( `Table` )->ele( `columns` )->ele( n = `Thing` ns = `my` )->ele( `content` )')).length,
   'missing shut: a control from an unknown library still counts as a control in between');
 
 // a control the aggregation's type does not accept: UI5 refuses the child and
 // the part of the view below it silently disappears
 const childOf = (inner) => checkAbapSource(view(inner), { render: false })
   .findings.filter((x) => x.type === 'invalid-aggregation-child');
-assert(childOf('  )->open( `Table` )->open( `columns` )->leaf( `Button` )')
+assert(childOf('  )->ele( `Table` )->ele( `columns` )->tag( `Button` )')
   .some((x) => x.control === 'sap.m.Button' && x.parentControl === 'sap.m.Table'
     && x.member === 'columns' && x.expected === 'sap.m.Column'),
   'aggregation child: a Button inside Table columns is reported with the expected type');
-assert(!childOf('  )->open( `Table` )->open( `columns` )->leaf( `Column` )').length,
+assert(!childOf('  )->ele( `Table` )->ele( `columns` )->tag( `Column` )').length,
   'aggregation child: the type the aggregation declares is accepted');
 
 // levels left open at stringify( ) are harmless (render( ) closes the tree) -
 // a note for --verbose, never a finding
 {
-  const open = prepareAbap(view('  )->open( `Page` )->leaf( `Button` )'));
+  const open = prepareAbap(view('  )->ele( `Page` )->tag( `Button` )'));
   assert(open.notes.some((n) => /level\(s\) left open/.test(n)),
     'open levels: an unshut tree at stringify( ) is noted');
-  assert(!checkAbapSource(view('  )->open( `Page` )->leaf( `Button` )'), { render: false })
+  assert(!checkAbapSource(view('  )->ele( `Page` )->tag( `Button` )'), { render: false })
     .findings.some((x) => x.type === 'open-levels'),
     'open levels: the note never becomes a finding');
 }
@@ -430,13 +426,13 @@ assert(!childOf('  )->open( `Table` )->open( `columns` )->leaf( `Column` )').len
 // a tag in a foreign namespace (raw XHTML, a custom-control library) is not
 // a UI5 aggregation of its parent - it is outside what the metadata can judge
 const foreign = checkAbapSource(`
-  DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-  view->open( n = \`View\` ns = \`mvc\`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`      v = \`sap.m\`
       )->a( n = \`xmlns:mvc\`  v = \`sap.ui.core.mvc\`
       )->a( n = \`xmlns:html\` v = \`http://www.w3.org/1999/xhtml\`
-      )->open( \`Panel\`
-          )->leaf( n = \`iframe\` ns = \`html\`
+      )->ele( \`Panel\`
+          )->tag( n = \`iframe\` ns = \`html\`
               )->a( n = \`src\` v = \`https://example.org\` ).
   client->view_display( view->stringify( ) ).`, { render: false });
 assert(!foreign.findings.some((x) => x.type === 'unknown-aggregation'),
@@ -471,8 +467,8 @@ assert(xml.renderErrors.length === 0, `xml: renders clean (${xml.renderErrors[0]
 ENDCLASS.
 CLASS zcl_pop IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(popover) = z2ui5_cl_ai_xml=>factory( ).
-    popover->open( n = \`Popover\` )->a( n = \`xmlns\` v = \`sap.m\` ).
+    DATA(popover) = z2ui5_cl_ui5_view_builder=>factory( ).
+    popover->ele( n = \`Popover\` )->a( n = \`xmlns\` v = \`sap.m\` ).
     client->popover_display( xml = popover->stringify( ) by_id = \`opener\` ).
   ENDMETHOD.
 ENDCLASS.`;
@@ -643,8 +639,8 @@ ENDCLASS.`;
   // the two shapes that were false positives on the corpus
   const foreign = `CLASS x IMPLEMENTATION.
   METHOD main.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->leaf( \`Button\` )->a( n = \`press\` v = client->_event( \`GO\` ) ).
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->tag( \`Button\` )->a( n = \`press\` v = client->_event( \`GO\` ) ).
     CASE client->get_event( ).
       WHEN \`GO\`.
         client->message_box_display( onclose = \`CLOSED\` ).
@@ -725,8 +721,8 @@ ENDCLASS.`;
   assert(anchors.length === 1 && anchors[0].value === 'mainpage',
     `popover-anchor-unknown-id: only the miscased anchor is reported (got ${anchors.map((x) => x.value).join() || 'none'})`);
   assert(checkAbapRules(`
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->leaf( \`Page\` )->a( n = \`id\` v = |page{ idx }| ).
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->tag( \`Page\` )->a( n = \`id\` v = |page{ idx }| ).
     client->follow_up_action( val = client->cs_event-control_by_id
                               t_arg = VALUE #( ( \`page1\` ) ( \`focus\` ) ) ).`)
     .filter((x) => x.type === 'frontend-action-unknown-id').length === 0,
@@ -744,8 +740,8 @@ ENDCLASS.`;
 
   // --- the frontend's remaining closed sets --------------------------------
   const act = (call) => checkAbapRules(`
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` ).
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->tag( \`Table\` )->a( n = \`id\` v = \`tbl\` ).
     ${call}
     client->view_display( v->stringify( ) ).`);
 
@@ -856,10 +852,10 @@ ENDCLASS.`;
 ENDCLASS.
 CLASS zcl_p IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->leaf( \`Table\` )->a( n = \`id\` v = \`tbl\` )->shut( ).
+        )->tag( \`Table\` )->a( n = \`id\` v = \`tbl\` )->end( ).
     client->follow_up_action( val = client->cs_event-control_by_id
                               t_arg = VALUE #( ( \`tbl\` ) ( \`setSticky\` ) ( \`${payload}\` ) ) ).
     client->view_display( v->stringify( ) ).
@@ -880,37 +876,37 @@ ENDCLASS.`).findings;
 ENDCLASS.
 CLASS zcl_j IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
         )->a( n = \`xmlns:w\` v = \`sap.ui.integration.widgets\`
         )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
         ${leaf}
-        )->shut( ).
+        )->end( ).
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`).findings;
-  assert(jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( val = manifest json = abap_true )')
+  assert(jsonBind(')->tag( `Text` )->a( n = `text` v = client->_bind( val = manifest json = abap_true )')
     .some((x) => x.type === 'json-bind-on-scalar-property' && x.member === 'text'),
     'json-bind-on-scalar-property: a json splice on a string property');
-  assert(!jsonBind(')->leaf( n = `Card` ns = `w` )->a( n = `manifest` v = client->_bind( val = manifest json = abap_true )')
+  assert(!jsonBind(')->tag( n = `Card` ns = `w` )->a( n = `manifest` v = client->_bind( val = manifest json = abap_true )')
     .some((x) => x.type === 'json-bind-on-scalar-property'),
     'json-bind-on-scalar-property: an object/any-typed property is what json is FOR');
-  assert(!jsonBind(')->leaf( `Text` )->a( n = `text` v = client->_bind( manifest )')
+  assert(!jsonBind(')->tag( `Text` )->a( n = `text` v = client->_bind( manifest )')
     .some((x) => x.type === 'json-bind-on-scalar-property'),
     'json-bind-on-scalar-property: a plain bind of the same attribute is fine');
 
   // --- JavaScript through the VIEW ------------------------------------------
-  assert(jsonBind(')->leaf( `Button` )->a( n = `press` v = `z2ui5.oView.doSomething()` )')
+  assert(jsonBind(')->tag( `Button` )->a( n = `press` v = `z2ui5.oView.doSomething()` )')
     .some((x) => x.type === 'raw-javascript-to-frontend' && x.member === 'press'),
     'raw-javascript-to-frontend: a hand-written handler string on an event attribute');
-  assert(!jsonBind(')->leaf( `Button` )->a( n = `press` v = client->_event( `SAVE` ) )')
+  assert(!jsonBind(')->tag( `Button` )->a( n = `press` v = client->_event( `SAVE` ) )')
     .some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: the client->_event( ) wire is the correct form');
-  assert(jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<script>alert(1)</script>` )')
+  assert(jsonBind(')->tag( n = `HTML` ns = `core` )->a( n = `content` v = `<script>alert(1)</script>` )')
     .some((x) => x.type === 'raw-javascript-to-frontend' && x.value === 'script tag'),
     'raw-javascript-to-frontend: a <script> tag through core:HTML content');
-  assert(!jsonBind(')->leaf( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
+  assert(!jsonBind(')->tag( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
     .some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: a stylesheet is not code and stays fine');
   const { checkXmlSource } = await import('../lib/index.mjs');
@@ -1005,13 +1001,13 @@ ENDCLASS.`).findings;
   assert(!hasC('uncurated-formatter', (x) => x.value === 'DateCreateObject'),
     'uncurated-formatter: a curated formatter is not');
   const ownModule = checkAbapSource(`
-  DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-  view->open( n = \`View\` ns = \`mvc\`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`      v = \`sap.m\`
       )->a( n = \`xmlns:mvc\`  v = \`sap.ui.core.mvc\`
       )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
       )->a( n = \`core:require\` v = \`{Formatter: 'my/app/formatter'}\`
-      )->leaf( \`Text\` )->a( n = \`text\` v = \`{ path: 'X', formatter: 'Formatter.myOwn' }\` ).
+      )->tag( \`Text\` )->a( n = \`text\` v = \`{ path: 'X', formatter: 'Formatter.myOwn' }\` ).
   client->view_display( view->stringify( ) ).`);
   assert(!ownModule.findings.some((x) => x.type === 'uncurated-formatter'),
     'uncurated-formatter: an alias pointed at the class\'s own module is not judged');
@@ -1021,7 +1017,7 @@ ENDCLASS.`).findings;
   assert(!hasC('hardcoded-binding-path', (x) => x.value.includes('PRICE')),
     'hardcoded-binding-path: a relative complex-binding path is not absolute and not reported');
   assert(!checkAbapRules(`client->switch_default_model_path( ).
-    view->leaf( \`Panel\` )->a( n = \`binding\` v = \`{/Products('4711')}\` ).`)
+    view->tag( \`Panel\` )->a( n = \`binding\` v = \`{/Products('4711')}\` ).`)
     .some((x) => x.type === 'hardcoded-binding-path'),
     'hardcoded-binding-path: an OData entity path with a key predicate is exempt when the class switches its default model');
   assert(!checkAbapRules('DATA(css) = `<style>.a \\{/* keep */color:red\\}</style>`.')
@@ -1035,13 +1031,13 @@ ENDCLASS.`).findings;
     .some((x) => x.type === 'duplicate-for-iterator'),
     'duplicate-for-iterator: the same name in two different methods is fine');
 
-  assert(checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event( `LIVE` ) ).')
+  assert(checkAbapRules('view->tag( `Input` )->a( n = `liveChange` v = client->_event( `LIVE` ) ).')
     .some((x) => x.type === 'live-event-roundtrip' && x.member === 'liveChange'),
     'live-event-roundtrip: a liveChange wired to a backend round-trip is reported');
-  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `liveChange` v = client->_event_client( `X` t_arg = VALUE #( ( `A` ) ) ) ).')
+  assert(!checkAbapRules('view->tag( `Input` )->a( n = `liveChange` v = client->_event_client( `X` t_arg = VALUE #( ( `A` ) ) ) ).')
     .some((x) => x.type === 'live-event-roundtrip'),
     'live-event-roundtrip: a frontend-only _event_client wire is not judged');
-  assert(!checkAbapRules('view->leaf( `Input` )->a( n = `change` v = client->_event( `DONE` ) ).')
+  assert(!checkAbapRules('view->tag( `Input` )->a( n = `change` v = client->_event( `DONE` ) ).')
     .some((x) => x.type === 'live-event-roundtrip'),
     'live-event-roundtrip: the final-value event is the correct form and not reported');
 
@@ -1083,9 +1079,9 @@ ENDCLASS.`;
 ENDCLASS.
 CLASS zcl_r IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data ) ).
-    view->open( \`List\` )->a( n = \`items\` v = client->_bind( mt_data->* ) ).
-    view->open( \`List\` )->a( n = \`items\` v = client->_bind( t_rows ) ).
+    view->ele( \`List\` )->a( n = \`items\` v = client->_bind( mt_data ) ).
+    view->ele( \`List\` )->a( n = \`items\` v = client->_bind( mt_data->* ) ).
+    view->ele( \`List\` )->a( n = \`items\` v = client->_bind( t_rows ) ).
   ENDMETHOD.
 ENDCLASS.`);
   assert(refs.filter((x) => x.type === 'binding-to-reference').length === 1,
@@ -1098,17 +1094,17 @@ ENDCLASS.`);
 ENDCLASS.
 CLASS zcl_d IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\`
         )->a( n = \`xmlns\` v = \`sap.m\`
         )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->leaf( \`Button\`
+        )->tag( \`Button\`
             )->a( n = \`press\`   v = client->_event( \`DEAD\` )
             )->a( n = \`enabled\` v = \`false\`
-        )->leaf( \`Button\`
+        )->tag( \`Button\`
             )->a( n = \`press\`   v = client->_event( \`LIVE\` )
             )->a( n = \`enabled\` v = client->_bind( can_save )
-        )->shut( ).
+        )->end( ).
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`);
@@ -1200,9 +1196,9 @@ ENDCLASS.`;
 ENDCLASS.
 CLASS x IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = \`View\` ns = \`mvc\`
-        )->leaf( \`Button\`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->tag( \`Button\`
             )->a( n = \`visible\` v = first
             )->a( n = \`enabled\` v = second ).
     client->view_display( view->stringify( ) ).
@@ -1221,8 +1217,8 @@ CLASS x IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
     DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
     v->ele( n = \`View\` ns = \`mvc\`
-        )->att( n = \`xmlns\` v = \`sap.m\`
-        )->att( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
 ${leaf}.
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
@@ -1233,18 +1229,18 @@ ENDCLASS.`;
   /* sap.m.Image.decorative DEFAULTS TO TRUE, and UI5 then ignores `alt`
    * outright — so demanding one from an image without `decorative` asked for
    * an attribute the framework drops, on nearly every image in a corpus. */
-  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )').length,
+  assert(!a11y('        )->tag( \`Image\` )->a( n = \`src\` v = \`x.png\` )').length,
     'missing-accessibility: an image without `decorative` is decorative by default and needs no alt');
-  assert(a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )').length === 1,
+  assert(a11y('        )->tag( \`Image\` )->a( n = \`src\` v = \`x.png\` )->a( n = \`decorative\` v = \`false\` )').length === 1,
     'missing-accessibility: an image declared MEANINGFUL and left without alt is the defect');
-  assert(!a11y('        )->tag( \`Image\` )->att( n = \`src\` v = \`x.png\` )->att( n = \`decorative\` v = \`false\` )->att( n = \`alt\` v = \`Logo\` )').length,
+  assert(!a11y('        )->tag( \`Image\` )->a( n = \`src\` v = \`x.png\` )->a( n = \`decorative\` v = \`false\` )->a( n = \`alt\` v = \`Logo\` )').length,
     'missing-accessibility: …and an alt on it settles the matter');
 
   // three ways to name an icon-only button, not two
-  assert(a11y('        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )').length === 1,
+  assert(a11y('        )->tag( \`Button\` )->a( n = \`icon\` v = \`sap-icon://add\` )').length === 1,
     'missing-accessibility: an icon-only button with no name at all is reported');
   for (const named of ['text', 'tooltip', 'ariaLabelledBy']) {
-    assert(!a11y(`        )->tag( \`Button\` )->att( n = \`icon\` v = \`sap-icon://add\` )->att( n = \`${named}\` v = \`x\` )`).length,
+    assert(!a11y(`        )->tag( \`Button\` )->a( n = \`icon\` v = \`sap-icon://add\` )->a( n = \`${named}\` v = \`x\` )`).length,
       `missing-accessibility: an icon button named through ${named} has an accessible name`);
   }
 }
@@ -1317,8 +1313,8 @@ ENDCLASS.`;
    * the compact form of half the samples, and every hit the first version
    * of this rule produced on the corpus. */
   const compact = `v->ele( n = \`View\` ns = \`mvc\`
-      )->tag( \`Text\` )->att( n = \`text\` v = \`a\`
-      )->tag( \`Text\` )->att( n = \`text\` v = \`b\` ).`;
+      )->tag( \`Text\` )->a( n = \`text\` v = \`a\`
+      )->tag( \`Text\` )->a( n = \`text\` v = \`b\` ).`;
   assert(!checkAbapRules(compact).some((x) => x.type === 'chain-element-per-line'),
     'chain-element-per-line: a control and its own attributes may share a line');
   // one finding per chain per rule: a shifted block makes everything below it
@@ -1330,19 +1326,19 @@ ENDCLASS.`;
   assert(!found.some((x) => x.line > 66),
     `chain layout: a chain that keeps its own two-space rhythm is never reported (${found.map((x) => x.line).join(', ')})`);
 
-  // …and the canonical fixtures, in both dialects, carry nothing
+  // …and the canonical fixtures carry nothing
   for (const clean of ['good.clas.abap', 'viewbuilder.clas.abap']) {
     const src = fs.readFileSync(f(clean), 'utf8');
     assert(!checkAbapRules(src).some((x) => x.type.startsWith('chain-')),
       `chain layout: ${clean} is laid out the way the app guide writes it`);
   }
   // a chain on ONE line is a deliberate compact form, not a layout to judge
-  const oneLiner = 'DATA(v) = z2ui5_cl_ai_xml=>factory( )->open( `View` )->a( n = `x` v = `y` )->leaf( `Text` ).';
+  const oneLiner = 'DATA(v) = z2ui5_cl_ui5_view_builder=>factory( )->ele( `View` )->a( n = `x` v = `y` )->tag( `Text` ).';
   assert(!checkAbapRules(oneLiner).some((x) => x.type.startsWith('chain-')),
     'chain layout: a single-line chain has no layout to be inconsistent with');
 }
 
-// --------------------------- the successor builder (z2ui5_cl_ui5_view_builder) ----
+// ------------------------------- the view builder (z2ui5_cl_ui5_view_builder) ----
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
@@ -1352,15 +1348,15 @@ ENDCLASS.`;
   const ai = prepareAbap(fs.readFileSync(f('good.clas.abap'), 'utf8'));
 
   assert(vb.usesBuilder && vb.docs.length === 1,
-    'view builder: an ele/tag/att/end class is recognised and reconstructed');
-  /* The same view in both dialects has to come out as the SAME document —
-   * that is the whole claim of reading them with one reconstructor. The
-   * successor fixture adds one attribute the old builder cannot express
-   * without as_bool( ), and nothing else. */
+    'view builder: an ele/tag/a/end class is recognised and reconstructed');
+  /* The same view written as one flat chain and as a chain that hands a
+   * handle to a helper has to come out as the SAME document — that is the
+   * whole claim of the handle-aware reconstruction. The helper fixture adds
+   * one boolean attribute, and nothing else. */
   assert(vb.docs[0].replace(' editable="true"', '') === ai.docs[0],
-    `view builder: ele/tag/att/end rebuilds the same document as open/leaf/a/shut\n      ${vb.docs[0]}\n      ${ai.docs[0]}`);
+    `view builder: a helper-handle chain rebuilds the same document as a flat one\n      ${vb.docs[0]}\n      ${ai.docs[0]}`);
   assert(vb.docs[0].includes('editable="true"'),
-    'view builder: att( b = flag ) reaches the view as a rendered boolean, like as_bool( )');
+    'view builder: a( b = flag ) reaches the view as a rendered boolean');
   assert(vb.helperTokens === 0,
     'view builder: a helper typed TYPE REF TO z2ui5_cl_ui5_view_builder is followed, not counted as unattributable');
   assert(vb.model.NAME === 'world' && vb.findings.length === 0,
@@ -1375,8 +1371,8 @@ CLASS zcl_x IMPLEMENTATION.
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     view->ele( n = \`View\` ns = \`mvc\`
         )->tag( \`Button\`
-            )->att( n = \`id\`      v = \`btnOk\`
-            )->att( n = \`visible\` v = flag ).
+            )->a( n = \`id\`      v = \`btnOk\`
+            )->a( n = \`visible\` v = flag ).
     client->follow_up_action( val = client->cs_event-control_by_id
                               t_arg = VALUE #( ( \`btnok\` ) ( \`focus\` ) ) ).
     client->view_display( view->stringify( ) ).
@@ -1385,20 +1381,14 @@ ENDCLASS.`;
   const found = checkAbapRules(wired);
   const id = found.find((x) => x.type === 'frontend-action-unknown-id');
   assert(id && id.allowed.includes('btnOk'),
-    'view builder: ids written with att( n = `id` ) are collected, so a wrong wire is still caught');
+    'view builder: ids written with a( n = `id` ) are collected, so a wrong wire is still caught');
   const bool = found.find((x) => x.type === 'unconverted-abap-boolean');
-  assert(bool && /att\( b = /.test(bool.fixHint),
-    'view builder: an unconverted boolean names THIS builder\'s correction, not as_bool( )');
-  assert(/att\( n = `visible` b = flag/.test(applyFixes(wired, found).output),
+  assert(bool && /a\( b = /.test(bool.fixHint),
+    'view builder: an unconverted boolean names the builder\'s own correction');
+  assert(/a\( n = `visible` b = flag/.test(applyFixes(wired, found).output),
     'view builder: --fix moves the flag onto the b parameter instead of wrapping it');
 
-  // a class on the old builder keeps the old correction — the verb decides,
-  // so a mid-migration class carrying both is judged call by call
-  const old = 'x->a( n = `visible` v = flag ). DATA flag TYPE abap_bool.';
-  const oldFix = applyFixes(old, checkAbapRules(old)).output;
-  assert(/z2ui5_cl_ai_xml=>as_bool\( flag \)/.test(oldFix),
-    'view builder: an a( ) call is still fixed with as_bool( ), even next to att( ) calls');
-  assert(dialectOf('z2ui5_cl_ai_xml=>factory( )').verbs === '(open|leaf|shut|a|stringify)',
+  assert(dialectOf('z2ui5_cl_ui5_view_builder=>factory( )').verbs === '(ele|tag|end|a|stringify)',
     'view builder: a source is read in the dialect its factory names');
 }
 
@@ -1427,12 +1417,6 @@ ENDCLASS.`;
   // the two deliberate exemptions, each for a reason of its own (see released-api.mjs)
   assert(!named.includes('z2ui5_if_types'),
     'non-released-api: z2ui5_if_types is tolerated — the released client->get( ) returns it');
-  /* z2ui5_cl_ai_xml is reported like any other frozen object now: it moved
-   * into src/99 upstream, and since the reconstructor reads BOTH dialects the
-   * successor the finding names is one the gates understand. */
-  assert(named.includes('z2ui5_cl_ai_xml')
-    && apiVerdict('z2ui5_cl_ai_xml').replacement === 'z2ui5_cl_ui5_view_builder',
-  'non-released-api: the old builder is reported too, pointing at the successor');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');
@@ -1487,11 +1471,11 @@ ENDCLASS.`;
 // -------------------------------- event-parameter existence + closed gaps ----
 {
   const paramFindings = (control, event, param, type) => checkAbapSource(`
-  DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-  view->open( n = \`View\` ns = \`mvc\`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`     v = \`sap.m\`
       )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->leaf( \`${control}\`
+      )->tag( \`${control}\`
           )->a( n = \`${event}\` v = client->_event( val = \`GO\` t_arg = VALUE #( ( \`\${$parameters>/${param}}\` ) ) ) ).
   client->view_display( view->stringify( ) ).`)
     .findings.filter((x) => x.type === type);
@@ -1512,12 +1496,12 @@ ENDCLASS.`;
     'unknown event param: an event the control does not declare itself is not judged');
 
   // --- the two rules that only had negative/severity assertions -------------
-  const tooNew = checkAbapSource(view('  )->leaf( `IllustratedMessage` )')).findings
+  const tooNew = checkAbapSource(view('  )->tag( `IllustratedMessage` )')).findings
     .filter((x) => x.type === 'control-too-new');
   assert(tooNew.length === 1 && tooNew[0].control === 'sap.m.IllustratedMessage' && tooNew[0].since === '1.98',
     `control-too-new: a control introduced after the floor is reported with its @since (got ${tooNew.map((x) => `${x.control}@${x.since}`).join() || 'none'})`);
 
-  const brokenExpr = checkAbapSource(view('  )->leaf( `Button` )->a( n = `visible` v = `{= ( 1 }` )')).findings
+  const brokenExpr = checkAbapSource(view('  )->tag( `Button` )->a( n = `visible` v = `{= ( 1 }` )')).findings
     .filter((x) => x.type === 'invalid-expression-binding');
   assert(brokenExpr.length === 1 && brokenExpr[0].member === 'visible',
     'invalid-expression-binding: unbalanced parens in {= … } are reported');
@@ -1525,12 +1509,12 @@ ENDCLASS.`;
   // missing-required-aggregation reaches subclasses through the chain — the
   // REQUIRED_WITH table needs no TreeTable row of its own
   const tree = checkAbapSource(`
-  DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-  v->open( n = \`View\` ns = \`mvc\`
+  DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+  v->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`       v = \`sap.m\`
       )->a( n = \`xmlns:mvc\`   v = \`sap.ui.core.mvc\`
       )->a( n = \`xmlns:table\` v = \`sap.ui.table\`
-      )->open( n = \`TreeTable\` ns = \`table\` )->a( n = \`rows\` v = \`{/T_X}\` ).
+      )->ele( n = \`TreeTable\` ns = \`table\` )->a( n = \`rows\` v = \`{/T_X}\` ).
   client->view_display( v->stringify( ) ).`);
   assert(tree.findings.some((x) => x.type === 'missing-required-aggregation' && x.member === 'columns'),
     'missing-required-aggregation: a TreeTable inherits the Table rows→columns rule through the chain');
@@ -1621,9 +1605,9 @@ ENDCLASS.
 CLASS zcl_x IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
     DATA(lv_tmp) = \`x\`.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\` )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->open( \`Panel\`
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\` )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->ele( \`Panel\`
         )->a( n = \`headerText\` v = client->_bind( title )
         )->a( n = \`expanded\`   v = client->_bind( expanded ) ).
     client->view_display( v->stringify( ) ).
@@ -1650,13 +1634,13 @@ ENDCLASS.`;
     'commercial-ui5-host: sdk.openui5.org is the sanctioned host');
 
   // --- enum VALUES carry their own @since now -------------------------------
-  const critical = (minUi5) => checkAbapSource(view('  )->leaf( `Button` )->a( n = `type` v = `Critical` )'), { minUi5 })
+  const critical = (minUi5) => checkAbapSource(view('  )->tag( `Button` )->a( n = `type` v = `Critical` )'), { minUi5 })
     .findings.filter((x) => x.type === 'enum-value-too-new');
   assert(critical('1.71').length === 1 && critical('1.71')[0].since === '1.73',
     `enum-value-too-new: ButtonType.Critical (@1.73) is reported on a 1.71 target (got ${critical('1.71').map((x) => x.since).join() || 'none'})`);
   assert(!critical('1.150').length,
     'enum-value-too-new: the same value is fine once the target reaches its @since');
-  assert(!checkAbapSource(view('  )->leaf( `Button` )->a( n = `type` v = `Emphasized` )'))
+  assert(!checkAbapSource(view('  )->tag( `Button` )->a( n = `type` v = `Emphasized` )'))
     .findings.some((x) => x.type === 'enum-value-too-new'),
     'enum-value-too-new: a value that predates version tracking is never reported');
 
@@ -1672,11 +1656,11 @@ CLASS zcl_x IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
     t_x = VALUE #( ( text = \`a\` ) ).
     name = \`n\`.
-    DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-    v->open( n = \`View\` ns = \`mvc\` )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->open( \`List\` )->a( n = \`items\` v = client->_bind( t_x )
+    DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+    v->ele( n = \`View\` ns = \`mvc\` )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->ele( \`List\` )->a( n = \`items\` v = client->_bind( t_x )
       )->a( n = \`tooltip\` v = client->_bind( name )
-      )->leaf( \`Text\` )->a( n = \`text\` v = ${value} ).
+      )->tag( \`Text\` )->a( n = \`text\` v = ${value} ).
     client->view_display( v->stringify( ) ).
   ENDMETHOD.
 ENDCLASS.`;
@@ -1694,11 +1678,11 @@ ENDCLASS.`;
   // --- undeclared-namespace gained a fix for conventional prefixes ----------
   const { applyFixes } = await import('../lib/fix.mjs');
   const nsSrc = `
-  DATA(v) = z2ui5_cl_ai_xml=>factory( ).
-  v->open( n = \`View\` ns = \`mvc\`
+  DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+  v->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`     v = \`sap.m\`
       )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->leaf( n = \`Icon\` ns = \`core\` )->a( n = \`src\` v = \`sap-icon://add\` ).
+      )->tag( n = \`Icon\` ns = \`core\` )->a( n = \`src\` v = \`sap-icon://add\` ).
   client->view_display( v->stringify( ) ).`;
   const nsFinding = checkAbapSource(nsSrc).findings.find((x) => x.type === 'undeclared-namespace');
   assert(nsFinding?.fixes?.length === 1,
@@ -1715,12 +1699,12 @@ ENDCLASS.`;
    * often enough, and the declaration used to land INSIDE that comment,
    * leaving the view unfixed and the comment mangled. */
   const commented = `
-  DATA(v) = z2ui5_cl_ai_xml=>factory( ).
+  DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
   " )->a( n = \`xmlns\` v = \`sap.ui.core\`   the old root, kept for reference
-  v->open( n = \`View\` ns = \`mvc\`
+  v->ele( n = \`View\` ns = \`mvc\`
       )->a( n = \`xmlns\`     v = \`sap.m\`
       )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-      )->leaf( n = \`Icon\` ns = \`core\` ).
+      )->tag( n = \`Icon\` ns = \`core\` ).
   client->view_display( v->stringify( ) ).`;
   const commentedFix = applyFixes(commented, checkAbapSource(commented).findings).output;
   assert(/" \)->a\( n = `xmlns` v = `sap\.ui\.core`   the old root/.test(commentedFix),
@@ -1849,8 +1833,8 @@ ENDCLASS.`;
   assert(/client->follow_up_action\( val   = client->cs_event-urlhelper/.test(fixed)
     && !/_event_client/.test(fixed),
   'fix: obsolete-frontend-event becomes client->follow_up_action( )');
-  assert(/z2ui5_cl_ai_xml=>as_bool\( abap_true \)/.test(fixed),
-    'fix: unconverted-abap-boolean is wrapped, the token kept verbatim');
+  assert(/b = abap_true/.test(fixed),
+    'fix: unconverted-abap-boolean moves onto b =, the token kept verbatim');
   assert(/`\$\{BARE_BRACE\}`/.test(fixed) && /`\$\{RESOLVED\}`/.test(fixed) && /`\{0\} selected`/.test(fixed),
     'fix: event-arg-unresolved gains its $, the already-correct and quoted forms untouched');
   assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved/.test(out),

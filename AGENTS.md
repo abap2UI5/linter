@@ -2,9 +2,8 @@
 
 Single source of truth for agents working on the **abap2UI5 view linter** —
 the standalone property + render gates for abap2UI5 views (classes built with
-`z2ui5_cl_ui5_view_builder` or the frozen `z2ui5_cl_ai_xml`, and
-`*.view.xml`/`*.fragment.xml`), usable as CLI, library and GitHub Action, no
-SAP system required.
+`z2ui5_cl_ui5_view_builder`, and `*.view.xml`/`*.fragment.xml`), usable as
+CLI, library and GitHub Action, no SAP system required.
 
 > This entire project is in **English**. Plain ESM JavaScript, Node >= 22,
 > no TypeScript, no build step, no formatter — do not add any of those.
@@ -38,11 +37,10 @@ every PR, and the same thing runs locally against sibling checkouts:
 ## Scope — what the linter can and cannot see
 
 - Input is **generic-builder classes** — `z2ui5_cl_ui5_view_builder`
-  (`ele`/`tag`/`att`/`end`, the released one) and `z2ui5_cl_ai_xml`
-  (`open`/`leaf`/`a`/`shut`, frozen in `src/99` since upstream `db10b13`);
-  `collectFiles` picks ABAP files containing either `<class>=>factory` — plus
-  raw `*.view.xml` / `*.fragment.xml`. **`lib/builders.mjs` owns the two
-  vocabularies and nothing else may hard-code a verb**: the reconstructor
+  (`ele`/`tag`/`a`/`end`); `collectFiles` picks ABAP files containing
+  `<class>=>factory` — plus raw `*.view.xml` / `*.fragment.xml`.
+  **`lib/builders.mjs` owns the vocabulary and nothing else may hard-code a
+  verb**: the reconstructor
   works on a verb's ROLE (`open`/`leaf`/`att`/`shut`), and every rule that
   reads a builder call out of the source text builds its regex from
   `dialectOf(source)`. The two are the same tree walk — the attribute target
@@ -403,10 +401,9 @@ all**:
 Everything about that rule follows from one property of the boundary it
 guards: **neither side announces a change.** Upstream commit `db10b13`
 (the same day the rule was written) renamed the whole core layer
-`z2ui5_cl_core_*` → `z2ui5_cl_ui5_*` AND moved `z2ui5_cl_ai_xml`,
-`z2ui5_cl_http_handler` and `z2ui5_if_types` into the frozen package — one
-commit, no deprecation, nothing a compiler sees until the object is already
-gone. That is the same silence `get-viewname-removed` covers, one layer up.
+`z2ui5_cl_core_*` → `z2ui5_cl_ui5_*` AND moved `z2ui5_cl_http_handler` and
+`z2ui5_if_types` into the frozen package — one commit, no deprecation,
+nothing a compiler sees until the object is already gone. That is the same silence `get-viewname-removed` covers, one layer up.
 
 Three decisions worth keeping if it is revisited:
 
@@ -422,9 +419,6 @@ Three decisions worth keeping if it is revisited:
 - **One frozen object is deliberately tolerated**: `z2ui5_if_types`, because
   the RELEASED `z2ui5_if_client~get( )` returns `z2ui5_if_types=>ty_s_get` —
   an app cannot avoid the name, and is not the one to fix that.
-  `z2ui5_cl_ai_xml` was tolerated too for one release-day, on the grounds
-  that it was the only builder the reconstructor could read; that exemption
-  died the same session it was written, when the successor landed (below).
 - **Measured** (the ai-demokit corpus was not checked out): 0 findings on
   abap2UI5's own 5 builder classes and its 5 test apps — modern app code
   already obeys the rule — and, as the "check it can see anything at all"
@@ -439,39 +433,25 @@ built-in popups. Those findings are **real** (both packages are frozen), so
 the corpus, not the rule, is the side that moves — but the debt decision
 belongs at ai-demokit's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
 
-Immediately after, in the same session, the **successor builder** was taught
-to the reconstructor — the backlog entry this round had just written, and the
-condition its own `z2ui5_cl_ai_xml` exemption was waiting on:
+How the builder itself is read:
 
 - **`lib/builders.mjs` is the only place that knows a verb name.** A dialect
   is `{ factory, verbs, open/leaf/att/shut, handleType, boolParam, kindOf }`
-  built from the builders a source actually names (three combinations, cached),
-  and `reconstruct.mjs` switches on the ROLE `kindOf( )` returns. That is why
-  the diff is small: `ele`/`tag`/`att`/`end` needed no new tree logic at all,
-  because the ATTRIBUTE TARGET RULE of the two classes is the same one
-  (`IF t_child IS INITIAL` → self, else last child — `applyToken` had it
-  already). Anything that still hard-codes `open`/`a` is a bug.
-- **The two real differences** are both in `att( )`: it takes `b = <abap_bool>`
-  and renders `true`/`false` itself (reconstructed as `true`, like
-  `as_bool( )`), and `ele( )`/`tag( )` have no up-front `a = VALUE #( )`
-  attribute table. So `unconverted-abap-boolean` now carries the correction of
-  the builder the CALL is on — `builderOfVerb( )` decides per match, not per
-  file, so a class mid-migration is judged call by call: `att( v = flag )`
-  becomes `att( b = flag )`, `a( v = flag )` still gets `as_bool( )`.
-- **Proof is a fixture PAIR.** `good.clas.abap` (old) and
-  `viewbuilder.clas.abap` (new) build the same view, and the test asserts the
-  reconstructed documents are byte-identical apart from the one attribute only
-  the new builder can express. Both go through the render gate. Everything
-  else — the id set behind `frontend-action-unknown-id`, the
-  `undeclared-namespace` fix (which now inserts `)->att( ` or `)->a( `, in the
-  class's own dialect), the boolean fix — is asserted in the new dialect too.
-- **Consequence, and it is a loud one**: `good.clas.abap` is no longer a
-  finding-free fixture. A class on the old builder now reports exactly one
-  `non-released-api` warning, and the CLI/report tests that needed a clean
-  file or an exact problem count moved to the successor fixture (`dumps` keeps
-  the old dialect deliberately and says so with a source directive). Every
-  real app corpus will see the same one-warning-per-file, which is the correct
-  verdict — the class IS frozen — and now an actionable one.
+  built from the builders a source actually names (cached), and
+  `reconstruct.mjs` switches on the ROLE `kindOf( )` returns — never on a
+  spelling. The ATTRIBUTE TARGET RULE is the one thing the tree logic needs
+  (`IF t_child IS INITIAL` → self, else last child — that is `applyToken`).
+  Anything that hard-codes a verb is a bug.
+- **`a( )` takes `b = <abap_bool>`** and renders `true`/`false` itself
+  (reconstructed as `true`), which is what `unconverted-abap-boolean`
+  corrects a `v = flag` to.
+- **Proof is a fixture PAIR.** `good.clas.abap` (one flat chain) and
+  `viewbuilder.clas.abap` (the same view through a helper handle) build the
+  same view, and the test asserts the reconstructed documents are
+  byte-identical apart from the one boolean attribute the helper fixture
+  adds. Both go through the render gate. Everything else — the id set behind
+  `frontend-action-unknown-id`, the `undeclared-namespace` fix (which inserts
+  `)->a( `), the boolean fix — is asserted on them too.
 
 And the same session's third round asked the one question about a chain that
 has nothing to do with the view it produces — **how it is WRITTEN**:
@@ -490,8 +470,8 @@ The first cut demanded the four-space step the app guide and every sample are
 written in. It reported abap2UI5's own app classes, all four of its test apps
 and **15 of this repo's own 26 fixtures** — on three shapes that are style,
 not defect: a two-space step below the first level, a pass-through container
-written at its parent's column (`)->open( \`Shell\` )` then
-`)->open( \`Page\` )` — the standard app skeleton), and a hanging
+written at its parent's column (`)->ele( \`Shell\` )` then
+`)->ele( \`Page\` )` — the standard app skeleton), and a hanging
 `)->end( ).`. That is the corpus doctrine below firing in advance, so the rule
 was rewritten to judge the layout against the TREE instead of against a
 number: the first child under a node defines the column its siblings are held
@@ -501,7 +481,7 @@ own two-space rhythm is silent.
 
 The SAME lesson then repeated on the second rule, one round later. Counting
 BUILDER CALLS per line reported four lines across the corpus and all four were
-the compact `tag( \`Label\` )->att( n = \`text\` … )` idiom — a control with its
+the compact `tag( \`Label\` )->a( n = \`text\` … )` idiom — a control with its
 own attribute, which hides no level of anything. What hides a level is a
 second CONTROL on the line, so the rule counts ELEMENTS now and was renamed
 `chain-element-per-line` while it was still unreleased. After both rewrites
@@ -709,4 +689,4 @@ landing unseen. Two traps worth knowing before reading a result:
 | [ai-demokit](https://github.com/abap2UI5/ai-demokit) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
 | [ai-mcp](https://github.com/abap2UI5/ai-mcp) | `validate_view` imports the linter **through the package exports map** (its `importViewCheck` resolves `.` and the subpaths) — a removed or renamed `exports` entry breaks it; the file layout under `lib/` is free to move as long as `exports` stays intact |
 | [vscode-extension](https://github.com/abap2UI5/vscode-extension) | Consumes the SHA-pinned package (property gate) and the runtime `render-gate-bundle` download |
-| [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ai_xml`, the builder whose chains `lib/reconstruct.mjs` re-executes |
+| [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ui5_view_builder`, the builder whose chains `lib/reconstruct.mjs` re-executes |

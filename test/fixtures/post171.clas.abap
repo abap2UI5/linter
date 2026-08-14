@@ -26,18 +26,18 @@ CLASS zcl_fixture_post171 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
 
-            )->open( `content`
-                )->leaf( `GenericTile`
+            )->ele( `content`
+                )->tag( `GenericTile`
                     )->a( n = `header`     v = `Tile`
-                    )->a( n = `systemInfo` v = `S/4` )->shut( )->shut( ).
+                    )->a( n = `systemInfo` v = `S/4` )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 

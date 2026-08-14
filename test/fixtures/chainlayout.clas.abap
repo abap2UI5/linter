@@ -28,8 +28,8 @@ CLASS zcl_fixture_chainlayout IMPLEMENTATION.
     " it reads as if the Page had closed
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     view->ele( n = `View` ns = `mvc`
-        )->att( n = `xmlns`     v = `sap.m`
-        )->att( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )->a( n = `xmlns`     v = `sap.m`
+        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
         )->ele( `Page`
             )->tag( `Input`
           )->tag( `Button` ).
@@ -41,11 +41,11 @@ CLASS zcl_fixture_chainlayout IMPLEMENTATION.
     " the attribute belongs to the Input and is written left of it
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     view->ele( n = `View` ns = `mvc`
-        )->att( n = `xmlns`     v = `sap.m`
-        )->att( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )->a( n = `xmlns`     v = `sap.m`
+        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
         )->ele( `Page`
             )->tag( `Input`
-    )->att( n = `value` v = `x` ).
+    )->a( n = `value` v = `x` ).
     result = view->stringify( ).
   ENDMETHOD.
 
@@ -54,8 +54,8 @@ CLASS zcl_fixture_chainlayout IMPLEMENTATION.
     " three controls on one line of a chain that is otherwise one per line
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     view->ele( n = `View` ns = `mvc`
-        )->att( n = `xmlns`     v = `sap.m`
-        )->att( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )->a( n = `xmlns`     v = `sap.m`
+        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
         )->ele( `Page`
             )->tag( `Input` )->tag( `Button` )->tag( `Text` ) ).
     result = view->stringify( ).
@@ -67,14 +67,14 @@ CLASS zcl_fixture_chainlayout IMPLEMENTATION.
     " never reported - the step is not what the rule is about
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     view->ele( n = `View` ns = `mvc`
-      )->att( n = `xmlns`     v = `sap.m`
-      )->att( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+      )->a( n = `xmlns`     v = `sap.m`
+      )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
       )->ele( `Page`
-        )->att( n = `title` v = `Fixture`
+        )->a( n = `title` v = `Fixture`
         )->tag( `Input`
-          )->att( n = `value` v = `x`
+          )->a( n = `value` v = `x`
         )->tag( `Button`
-          )->att( n = `text` v = `Go` ).
+          )->a( n = `text` v = `Go` ).
     result = view->stringify( ).
   ENDMETHOD.
 

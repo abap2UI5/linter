@@ -28,37 +28,37 @@ CLASS zcl_fixture_rowpaths IMPLEMENTATION.
     "   {CARID}    - the classic typo: the column just stays empty
     "   {CARRID} under `columns` - not a row context at all, the header of a
     "               column is bound against the view, not against a row
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    view->open( n = `View` ns = `mvc`
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
 
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `title` v = `Rows`
 
-            )->open( `Table`
+            )->ele( `Table`
                 )->a( n = `items` v = client->_bind( t_flights )
 
-                )->open( `columns`
-                    )->open( `Column`
-                        )->leaf( `Text`
+                )->ele( `columns`
+                    )->ele( `Column`
+                        )->tag( `Text`
                             )->a( n = `text` v = `Carrier`
-                    )->shut(
-                )->shut(
+                    )->end(
+                )->end(
 
-                )->open( `items`
-                    )->open( `ColumnListItem`
-                        )->leaf( `Text`
+                )->ele( `items`
+                    )->ele( `ColumnListItem`
+                        )->tag( `Text`
                             )->a( n = `text` v = `{CARRID}`
-                        )->leaf( `Text`
+                        )->tag( `Text`
                             )->a( n = `text` v = `{SEATSMAX}`
-                        )->leaf( `Text`
+                        )->tag( `Text`
                             )->a( n = `text` v = `{CARID}`
-                    )->shut(
-                )->shut(
-            )->shut(
-        )->shut( )->shut( ).
+                    )->end(
+                )->end(
+            )->end(
+        )->end( )->end( ).
 
     client->view_display( view->stringify( ) ).
 

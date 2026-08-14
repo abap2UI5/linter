@@ -26,12 +26,12 @@ CLASS zcl_fixture_releasedapi IMPLEMENTATION.
     ENDIF.
 
     " tolerated: the builder this linter reads
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
-    view->open( n = `View` ns = `mvc`
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`     v = `sap.m`
         )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Page`
-          )->leaf( `Text`
+        )->ele( `Page`
+          )->tag( `Text`
             )->a( n = `text` v = `z2ui5_cl_util_log wrote this line once` ) ).
 
     client->view_display( view->stringify( ) ).
