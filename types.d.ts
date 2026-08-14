@@ -38,7 +38,7 @@ declare module "@abap2ui5/linter" {
   export interface CheckResult {
     file?: string;
     kind: "abap" | "xml";
-    /** ABAP results only: the class builds views with z2ui5_cl_ai_xml. */
+    /** ABAP results only: the class builds views with one of the view builders. */
     usesBuilder?: boolean;
     /** The reconstructed (or given) XML documents. */
     docs: string[];

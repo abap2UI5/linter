@@ -1,9 +1,10 @@
 # AGENTS.md — abap2UI5-linter
 
 Single source of truth for agents working on the **abap2UI5 view linter** —
-the standalone property + render gates for abap2UI5 views (`z2ui5_cl_ai_xml`
-builder classes and `*.view.xml`/`*.fragment.xml`), usable as CLI, library
-and GitHub Action, no SAP system required.
+the standalone property + render gates for abap2UI5 views (classes built with
+`z2ui5_cl_ui5_view_builder` or the frozen `z2ui5_cl_ai_xml`, and
+`*.view.xml`/`*.fragment.xml`), usable as CLI, library and GitHub Action, no
+SAP system required.
 
 > This entire project is in **English**. Plain ESM JavaScript, Node >= 22,
 > no TypeScript, no build step, no formatter — do not add any of those.
@@ -36,15 +37,26 @@ every PR, and the same thing runs locally against sibling checkouts:
 
 ## Scope — what the linter can and cannot see
 
-- Input is **`z2ui5_cl_ai_xml` builder classes** (`collectFiles` picks ABAP
-  files containing the literal `z2ui5_cl_ai_xml=>factory`) plus raw
-  `*.view.xml` / `*.fragment.xml`. Classes built with the frozen
-  `z2ui5_cl_xml_view` fluent builder are **silently skipped** — a design
-  boundary, not a bug to fix in passing: the class is on its way out, and
-  support for it was deliberately added and reverted once already. The way
-  in for such a repo is to migrate it (as
-  [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did), not to
-  teach the reconstructor a second builder.
+- Input is **generic-builder classes** — `z2ui5_cl_ui5_view_builder`
+  (`ele`/`tag`/`att`/`end`, the released one) and `z2ui5_cl_ai_xml`
+  (`open`/`leaf`/`a`/`shut`, frozen in `src/99` since upstream `db10b13`);
+  `collectFiles` picks ABAP files containing either `<class>=>factory` — plus
+  raw `*.view.xml` / `*.fragment.xml`. **`lib/builders.mjs` owns the two
+  vocabularies and nothing else may hard-code a verb**: the reconstructor
+  works on a verb's ROLE (`open`/`leaf`/`att`/`shut`), and every rule that
+  reads a builder call out of the source text builds its regex from
+  `dialectOf(source)`. The two are the same tree walk — the attribute target
+  rule is identical (`IF t_child IS INITIAL` / last-child-or-self) — which is
+  what makes one reconstructor enough; a fixture pair (`good.clas.abap`,
+  `viewbuilder.clas.abap`) pins that they rebuild the SAME document.
+- Classes built with the **`z2ui5_cl_xml_view` fluent builder** (the
+  per-control wrapper API, also frozen) are still **silently skipped** — that
+  design boundary stands, and it is a different thing from the two generic
+  builders above: it has one method per UI5 control, so reading it is not a
+  vocabulary mapping but a second reconstructor. Support for it was
+  deliberately added and reverted once already. The way in for such a repo is
+  to migrate it (as
+  [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did).
 - The knowledge bound is the committed metadata snapshot (see below): the
   gate cannot know about anything newer than its `ui5Version`.
 - **One builder chain per document.** The reconstructor reads a chain as one
@@ -91,7 +103,9 @@ npm run generate-rules-page  # docs/index.html
 ```
 
 `lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
-are the **hand-maintained** knowledge files, and all three are watched by
+are the **hand-maintained** knowledge files (`lib/builders.mjs` is a fourth
+mirror of upstream, but of two class INTERFACES rather than of a closed set —
+it changes only when a builder does), and all three are watched by
 `scripts/check-upstream.mjs` (weekly via `upstream-sync.yml`, on drift an
 issue): it re-derives the curated formatter exports and the `GLOBAL_TARGETS`
 map from the abap2UI5 sources and fails on any difference — so an upstream
@@ -404,15 +418,12 @@ Three decisions worth keeping if it is revisited:
   learned yet is the tolerable direction; reporting an app's own class is
   not. `check-upstream` closes that gap from the other end — it fails when an
   upstream object outside `src/02`/`src/99` matches no family.
-- **Two frozen objects are deliberately tolerated**, both for reasons that
-  have nothing to do with them being good code. `z2ui5_if_types`, because
+- **One frozen object is deliberately tolerated**: `z2ui5_if_types`, because
   the RELEASED `z2ui5_if_client~get( )` returns `z2ui5_if_types=>ty_s_get` —
-  an app cannot avoid the name, and is not the one to fix that. And
-  `z2ui5_cl_ai_xml`, because it is the builder **this linter reads**:
-  `collectFiles` keys on `z2ui5_cl_ai_xml=>factory`, so reporting it would
-  put one warning on 100% of every corpus and point the author at a builder
-  the reconstructor cannot read. Drop that flag the day the backlog entry
-  below lands; it is its whole reason for existing.
+  an app cannot avoid the name, and is not the one to fix that.
+  `z2ui5_cl_ai_xml` was tolerated too for one release-day, on the grounds
+  that it was the only builder the reconstructor could read; that exemption
+  died the same session it was written, when the successor landed (below).
 - **Measured** (the ai-demokit corpus was not checked out): 0 findings on
   abap2UI5's own 5 builder classes and its 5 test apps — modern app code
   already obeys the rule — and, as the "check it can see anything at all"
@@ -427,19 +438,42 @@ built-in popups. Those findings are **real** (both packages are frozen), so
 the corpus, not the rule, is the side that moves — but the debt decision
 belongs at ai-demokit's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
 
+Immediately after, in the same session, the **successor builder** was taught
+to the reconstructor — the backlog entry this round had just written, and the
+condition its own `z2ui5_cl_ai_xml` exemption was waiting on:
+
+- **`lib/builders.mjs` is the only place that knows a verb name.** A dialect
+  is `{ factory, verbs, open/leaf/att/shut, handleType, boolParam, kindOf }`
+  built from the builders a source actually names (three combinations, cached),
+  and `reconstruct.mjs` switches on the ROLE `kindOf( )` returns. That is why
+  the diff is small: `ele`/`tag`/`att`/`end` needed no new tree logic at all,
+  because the ATTRIBUTE TARGET RULE of the two classes is the same one
+  (`IF t_child IS INITIAL` → self, else last child — `applyToken` had it
+  already). Anything that still hard-codes `open`/`a` is a bug.
+- **The two real differences** are both in `att( )`: it takes `b = <abap_bool>`
+  and renders `true`/`false` itself (reconstructed as `true`, like
+  `as_bool( )`), and `ele( )`/`tag( )` have no up-front `a = VALUE #( )`
+  attribute table. So `unconverted-abap-boolean` now carries the correction of
+  the builder the CALL is on — `builderOfVerb( )` decides per match, not per
+  file, so a class mid-migration is judged call by call: `att( v = flag )`
+  becomes `att( b = flag )`, `a( v = flag )` still gets `as_bool( )`.
+- **Proof is a fixture PAIR.** `good.clas.abap` (old) and
+  `viewbuilder.clas.abap` (new) build the same view, and the test asserts the
+  reconstructed documents are byte-identical apart from the one attribute only
+  the new builder can express. Both go through the render gate. Everything
+  else — the id set behind `frontend-action-unknown-id`, the
+  `undeclared-namespace` fix (which now inserts `)->att( ` or `)->a( `, in the
+  class's own dialect), the boolean fix — is asserted in the new dialect too.
+- **Consequence, and it is a loud one**: `good.clas.abap` is no longer a
+  finding-free fixture. A class on the old builder now reports exactly one
+  `non-released-api` warning, and the CLI/report tests that needed a clean
+  file or an exact problem count moved to the successor fixture (`dumps` keeps
+  the old dialect deliberately and says so with a source directive). Every
+  real app corpus will see the same one-warning-per-file, which is the correct
+  verdict — the class IS frozen — and now an actionable one.
+
 **Known candidate backlog:**
 
-- **The designated builder is now the FROZEN one.** `z2ui5_cl_ui5_view_builder`
-  (upstream 43452e8, 2026-08-06 — `factory/ele/tag/att/end`, created because
-  `a( )`'s last-child-or-self target rule was a design flaw) replaced
-  `z2ui5_cl_ai_xml`, which `db10b13` then moved into `src/99` and the README
-  stopped naming. `collectFiles` keys on the literal
-  `z2ui5_cl_ai_xml=>factory`, so classes on the new builder are **silently
-  invisible** — the `z2ui5_cl_xml_view` situation again, except this time the
-  linter is pinned to the legacy side of it. Supporting it is a reconstructor
-  project, not a rule; it is also what unblocks the `non-released-api`
-  exemption above and would make `unconverted-abap-boolean`'s
-  `z2ui5_cl_ai_xml=>as_bool( )` fix point at a frozen class.
 - **The FrontendAction mirror lost its source file.** `db10b13` renamed
   `z2ui5_cl_app_frontendaction_js` to `z2ui5_cl_ui5f_frontact_js` **and split
   the JS across modules** — `GLOBAL_TARGETS` now lives in

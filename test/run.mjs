@@ -3,6 +3,7 @@
  * test/run — fixture-based self-test of the two gates.
  *
  *   good.clas.abap      reconstructs, no findings, renders clean
+ *   viewbuilder.clas.abap  the same view on z2ui5_cl_ui5_view_builder
  *   post171.clas.abap   property gate: GenericTile.systemInfo @since 1.92
  *   broken.clas.abap    render gate: typo property + unknown control
  *   structure.clas.abap unknown control/property/aggregation, bad enum and
@@ -29,15 +30,27 @@ const assert = (cond, msg) => {
 };
 
 const results = await checkFiles(
-  [f('good.clas.abap'), f('post171.clas.abap'), f('broken.clas.abap'), f('structure.clas.abap'), f('sample.view.xml')],
+  [f('good.clas.abap'), f('viewbuilder.clas.abap'), f('post171.clas.abap'), f('broken.clas.abap'),
+    f('structure.clas.abap'), f('sample.view.xml')],
 );
 const by = (n) => results.find((r) => r.file.endsWith(n));
 
 const good = by('good.clas.abap');
 assert(good.docs.length === 1, 'good: one view reconstructed');
 assert(good.model.NAME === 'world', 'good: bound scalar seeded from model_init');
-assert(good.findings.length === 0, 'good: no property findings');
+/* Since abap2UI5 moved z2ui5_cl_ai_xml into the frozen src/99 package, a
+ * class on the OLD builder carries exactly one finding — the one that says
+ * so. Its successor twin (viewbuilder.clas.abap) carries none: the pair is
+ * the whole migration story in two fixtures. */
+assert(good.findings.length === 1 && good.findings[0].type === 'non-released-api',
+  `good: clean apart from the frozen-builder warning (${good.findings.map((x) => x.type).join(', ') || 'none'})`);
 assert(good.renderErrors.length === 0, `good: renders clean (${good.renderErrors[0] || ''})`);
+
+// the same view on the successor builder: through the render gate as well,
+// which is what proves the reconstruction is not merely plausible XML
+const vbuilder = by('viewbuilder.clas.abap');
+assert(vbuilder.findings.length === 0 && vbuilder.renderErrors.length === 0,
+  `viewbuilder: the ele/tag/att/end fixture renders clean (${vbuilder.renderErrors[0] || vbuilder.findings[0]?.type || ''})`);
 
 const post = by('post171.clas.abap');
 assert(post.findings.some((x) => x.member === 'systemInfo' && x.type === 'member-too-new'),
@@ -510,7 +523,9 @@ ENDCLASS.`;
 
   // end-to-end: the CLI picks the config up from the checked path's directory
   // (cwd is this repo, which has no config - discovery must come from the path)
-  fs.copyFileSync(f('good.clas.abap'), path.join(sub, 'good.clas.abap'));
+  // the successor-builder fixture, because this run must exit 0: the old
+  // builder is frozen upstream and reports non-released-api on every file
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(sub, 'good.clas.abap'));
   const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' }; // never inherit the runner's
   const out = cp.execFileSync('node', [CLI, path.join(sub, 'good.clas.abap')], { encoding: 'utf8', env });
   assert(/target SAPUI5 1\.96/.test(out) && /failing on hint/.test(out),
@@ -1151,6 +1166,66 @@ ENDCLASS.`);
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
 }
 
+// --------------------------- the successor builder (z2ui5_cl_ui5_view_builder) ----
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { applyFixes } = await import('../lib/fix.mjs');
+  const { dialectOf } = await import('../lib/builders.mjs');
+  const source = fs.readFileSync(f('viewbuilder.clas.abap'), 'utf8');
+  const vb = checkAbapSource(source, { render: false });
+  const ai = prepareAbap(fs.readFileSync(f('good.clas.abap'), 'utf8'));
+
+  assert(vb.usesBuilder && vb.docs.length === 1,
+    'view builder: an ele/tag/att/end class is recognised and reconstructed');
+  /* The same view in both dialects has to come out as the SAME document —
+   * that is the whole claim of reading them with one reconstructor. The
+   * successor fixture adds one attribute the old builder cannot express
+   * without as_bool( ), and nothing else. */
+  assert(vb.docs[0].replace(' editable="true"', '') === ai.docs[0],
+    `view builder: ele/tag/att/end rebuilds the same document as open/leaf/a/shut\n      ${vb.docs[0]}\n      ${ai.docs[0]}`);
+  assert(vb.docs[0].includes('editable="true"'),
+    'view builder: att( b = flag ) reaches the view as a rendered boolean, like as_bool( )');
+  assert(vb.helperTokens === 0,
+    'view builder: a helper typed TYPE REF TO z2ui5_cl_ui5_view_builder is followed, not counted as unattributable');
+  assert(vb.model.NAME === 'world' && vb.findings.length === 0,
+    `view builder: the model is derived and the fixture is clean (${vb.findings.map((x) => x.type).join(', ')})`);
+
+  // every source-reading rule follows the dialect too — ids, booleans, wires
+  const wired = `CLASS zcl_x DEFINITION PUBLIC.
+ENDCLASS.
+CLASS zcl_x IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA flag TYPE abap_bool.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->tag( \`Button\`
+            )->att( n = \`id\`      v = \`btnOk\`
+            )->att( n = \`visible\` v = flag ).
+    client->follow_up_action( val = client->cs_event-control_by_id
+                              t_arg = VALUE #( ( \`btnok\` ) ( \`focus\` ) ) ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  const found = checkAbapRules(wired);
+  const id = found.find((x) => x.type === 'frontend-action-unknown-id');
+  assert(id && id.allowed.includes('btnOk'),
+    'view builder: ids written with att( n = `id` ) are collected, so a wrong wire is still caught');
+  const bool = found.find((x) => x.type === 'unconverted-abap-boolean');
+  assert(bool && /att\( b = /.test(bool.fixHint),
+    'view builder: an unconverted boolean names THIS builder\'s correction, not as_bool( )');
+  assert(/att\( n = `visible` b = flag/.test(applyFixes(wired, found).output),
+    'view builder: --fix moves the flag onto the b parameter instead of wrapping it');
+
+  // a class on the old builder keeps the old correction — the verb decides,
+  // so a mid-migration class carrying both is judged call by call
+  const old = 'x->a( n = `visible` v = flag ). DATA flag TYPE abap_bool.';
+  const oldFix = applyFixes(old, checkAbapRules(old)).output;
+  assert(/z2ui5_cl_ai_xml=>as_bool\( flag \)/.test(oldFix),
+    'view builder: an a( ) call is still fixed with as_bool( ), even next to att( ) calls');
+  assert(dialectOf('z2ui5_cl_ai_xml=>factory( )').verbs === '(open|leaf|shut|a|stringify)',
+    'view builder: a source is read in the dialect its factory names');
+}
+
 // ------------------------------------------ the released API surface (src/02) ----
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');
@@ -1176,8 +1251,12 @@ ENDCLASS.`);
   // the two deliberate exemptions, each for a reason of its own (see released-api.mjs)
   assert(!named.includes('z2ui5_if_types'),
     'non-released-api: z2ui5_if_types is tolerated — the released client->get( ) returns it');
-  assert(!named.includes('z2ui5_cl_ai_xml'),
-    'non-released-api: z2ui5_cl_ai_xml is tolerated — it is the builder the linter reads');
+  /* z2ui5_cl_ai_xml is reported like any other frozen object now: it moved
+   * into src/99 upstream, and since the reconstructor reads BOTH dialects the
+   * successor the finding names is one the gates understand. */
+  assert(named.includes('z2ui5_cl_ai_xml')
+    && apiVerdict('z2ui5_cl_ai_xml').replacement === 'z2ui5_cl_ui5_view_builder',
+  'non-released-api: the old builder is reported too, pointing at the successor');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');
@@ -1616,8 +1695,8 @@ ENDCLASS.`;
   const stylish = run([dumps, '--no-render']);
   assert(/duplicate-property\s*$/m.test(stylish), 'report: every line ends in its rule id');
   assert(/^2 problems \(2 errors, 0 warnings, 0 hints\)$/m.test(stylish), 'report: the problem count reads like ui5lint');
-  assert(!/\bpass\b/.test(run([f('good.clas.abap'), '--no-render'])) &&
-    /Success! No findings detected\./.test(run([f('good.clas.abap'), '--no-render'])),
+  assert(!/\bpass\b/.test(run([f('viewbuilder.clas.abap'), '--no-render'])) &&
+    /Success! No findings detected\./.test(run([f('viewbuilder.clas.abap'), '--no-render'])),
     'report: a clean file is not printed, only the success line');
 
   const quiet = run([f('viewrules.clas.abap'), '--no-render', '--quiet']);
@@ -1635,7 +1714,7 @@ ENDCLASS.`;
     'report: --format markdown emits a table per file');
 
   const annotated = run([dumps, '--no-render'], { GITHUB_ACTIONS: 'true' });
-  assert(/^::error file=.*dumps\.clas\.abap,line=31,col=18,title=abap2ui5-linter\(duplicate-property\)::/m.test(annotated),
+  assert(/^::error file=.*dumps\.clas\.abap,line=32,col=18,title=abap2ui5-linter\(duplicate-property\)::/m.test(annotated),
     'report: inside GitHub Actions the findings are annotated onto the diff');
   assert(!/^::/m.test(run([dumps, '--no-render', '--no-annotate'], { GITHUB_ACTIONS: 'true' })),
     'report: --no-annotate switches that off again');

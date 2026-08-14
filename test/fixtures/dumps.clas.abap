@@ -1,3 +1,4 @@
+" abap2ui5lint-disable non-released-api -- stays on the old builder on purpose: this fixture is about the ASSERTs both builders raise
 CLASS zcl_fixture_dumps DEFINITION PUBLIC.
 
   PUBLIC SECTION.
