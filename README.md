@@ -291,6 +291,10 @@ belongs when every run should refresh it:
 "badge": { "file": ".github/badges/abap2ui5lint.json", "label": "samples" }
 ```
 
+`--no-badge` suppresses the configured badge for one run — a second pass over
+the same corpus (a `--format markdown` job summary, a piped `--json`) saw
+fewer gates than the real run, and must not overwrite what that run wrote.
+
 [endpoint]: https://shields.io/badges/endpoint-badge
 [simple-icons]: https://simpleicons.org
 

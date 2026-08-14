@@ -46,7 +46,8 @@
  *                      Actions, where it becomes one collapsed log group
  *   --badge <file>     write a shields.io endpoint JSON for the run, so a repo
  *                      can show its corpus state ("148 apps · UI5 1.71 · clean")
- *                      in the README. Also settable as "badge" in the config
+ *                      in the README. Also settable as "badge" in the config;
+ *                      --no-badge suppresses the configured one for this run
  *   --annotate         emit GitHub workflow commands so findings show up on
  *                      the pull request diff (default inside GitHub Actions;
  *                      --no-annotate switches it off). Alongside the stylish
@@ -81,7 +82,7 @@ import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkd
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5-linter [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
-  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] [--badge <file>] '
+  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] [--badge <file>|--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
@@ -140,6 +141,9 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--progress') opt.progress = true;
   else if (a === '--no-progress') opt.progress = false;
   else if (a === '--badge') { opt.badge = value(); seen.add('badge'); }
+  // a second pass over the same corpus (a job summary, a piped --json) must
+  // not overwrite the badge the real run wrote - it saw fewer gates
+  else if (a === '--no-badge') { opt.badge = null; seen.add('badge'); }
   else if (a === '--json') opt.format = 'json';
   else if (a === '--format') {
     const format = value().toLowerCase();

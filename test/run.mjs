@@ -2225,6 +2225,11 @@ ENDCLASS.`;
   run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
   assert(fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
     'badge: written relative to the config file, not to whatever cwd the run had');
+  fs.rmSync(path.join(dir, 'badges', 'from-config.json'));
+  run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile, '--no-badge']);
+  assert(!fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
+    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badge');
+
   fs.writeFileSync(cfgFile, '{ "badge": { "file": "b.json", "colour": "green" } }');
   let threw = '';
   try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
