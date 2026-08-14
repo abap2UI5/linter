@@ -16,6 +16,9 @@ npx playwright install chromium   # BEFORE npm test - the first test uses the re
 npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: docs/index.html, the published reference
+node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
+                                  # OpenUI5 minors), so it is not in npm test:
+                                  # the committed file is the contract
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
 # settings can be pinned in the checked repo's abap2ui5lint.jsonc (lib/config.mjs;
 # CLI flag > config > default; unknown keys and unknown rule ids fail loudly)
@@ -30,8 +33,8 @@ needs the consumers checked — `.github/workflows/downstream.yml` does that on
 every PR, and the same thing runs locally against sibling checkouts:
 
 ```bash
-.github/scripts/substitute-linter.sh . ../ai-demokit
-(cd ../ai-demokit && node scripts/view-gates.mjs --strict --no-render)
+.github/scripts/substitute-linter.sh . ../samples-controls
+(cd ../samples-controls && node scripts/view-gates.mjs --strict --no-render)
 ```
 
 ## Scope — what the linter can and cannot see
@@ -75,13 +78,14 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar` |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
-| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half) |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half), `source-line-too-long` |
+| `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
-| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, ai-demokit `view-gates`, ai-mcp) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
+| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, ai-mcp) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
 
 **A new rule moves five places together** — forgetting one has happened:
@@ -164,7 +168,7 @@ test that checks every rule id appears in them.
 
 The mission is to encode as much app-building knowledge as possible as
 static checks, so an agent learns a rule from a finding instead of a doc.
-**The list distilled from the app guide and the ai-demokit gotchas is now
+**The list distilled from the app guide and the samples-controls gotchas is now
 worked off**; every entry shipped:
 
 | Roadmap entry | Rule |
@@ -186,7 +190,7 @@ ballast — PUBLIC is precisely how a value survives the roundtrip — so only a
 name that appears once in the whole class, its own declaration, is reported.
 Keep that distinction if the rule is ever widened.
 
-The `date-type-without-source` entry came from the ai-demokit port of
+The `date-type-without-source` entry came from the samples-controls port of
 `sap.ui.core.sample.TypeDateAsDate` (app 282): its JSON model holds a JS
 `Date`, which an ABAP-fed model can never carry, so the port has to add
 `formatOptions.source` to every binding. Neither the property gate (the
@@ -202,7 +206,7 @@ attribute of the class is a literal, so a class that builds ids at
 runtime is not judged at all.
 
 `relative-binding-without-context` closes the **flattened-element-binding**
-trap the ai-demokit porting guide could until now only describe as a manual
+trap the samples-controls porting guide could until now only describe as a manual
 audit ("a `_bind`-less `` v = `{FIELD}` `` whose FIELD is a root-level DATA
 scalar") — seven of its ports had shipped the wrong form. It needed a third
 view of the class: the model and the shape only carry BOUND variables, so
@@ -223,7 +227,7 @@ rule simply stays silent. Its whole precision lives in the metadata: an
 rather than reported and excused. It found five real ports on the corpus,
 all five converted to bindings.
 
-The 2026-08 round promoted the corpus-independent half of ai-demokit's
+The 2026-08 round promoted the corpus-independent half of samples-controls's
 `pattern-lint.mjs` into real rules, so every consumer sees them instead of
 one repo's gate script:
 
@@ -243,8 +247,8 @@ The second 2026-08-04 round added, each corpus-measured first:
 
 | Origin | Rule |
 | --- | --- |
-| ai-demokit app 043's live BINDING_ERROR (found by the e2e interaction that closed its LIVE_TEST) | `binding-to-nonpublic` — only PUBLIC attributes are serialized, a bound PROTECTED one fails the first roundtrip |
-| ai-demokit's documented residual gap ("enum values newer than 1.71 are invisible") | `enum-value-too-new` + the generator's `enumSince` map — its first corpus run confirmed the two hand-written POST_171 declarations on app 028 (`GenericTile frameType` OneByHalf/TwoByHalf @1.83) |
+| samples-controls app 043's live BINDING_ERROR (found by the e2e interaction that closed its LIVE_TEST) | `binding-to-nonpublic` — only PUBLIC attributes are serialized, a bound PROTECTED one fails the first roundtrip |
+| samples-controls's documented residual gap ("enum values newer than 1.71 are invisible") | `enum-value-too-new` + the generator's `enumSince` map — its first corpus run confirmed the two hand-written POST_171 declarations on app 028 (`GenericTile frameType` OneByHalf/TwoByHalf @1.83) |
 | the last two generic pattern-lint rules | `ui5-internal-access` (mProperties & friends), `commercial-ui5-host` |
 | `hardcoded-binding-path` said "don't", nothing said "does it exist" | `unknown-binding-path` now also judges `path: '/X'` in complex binding infos and `${/X}` in expressions — the first corpus run found the row-index trap (`/T_ITEMS/9/TEXT` is legal; numeric segments now step into the bound table's row) |
 
@@ -272,7 +276,7 @@ distinguishable, and the rule would have reported working code.
 widen the framework's three models, so `namedModels( )` collects it and a class
 that registers one under a non-literal name is not judged at all — the same
 caution `viewIds` takes. All three measured **0 findings across the 340-file
-ai-demokit corpus**, each with a fixture proving it sees its own defect and
+samples-controls corpus**, each with a fixture proving it sees its own defect and
 leaves the neighbouring legal form (`removeAllContent`, `device>`/`message>`/a
 registered `srv>`) alone.
 
@@ -291,7 +295,7 @@ not touched:
 | Origin | Rule |
 | --- | --- |
 | the framework gained `_bind` parameters the reconstructor did not know — an `omit_initial_paths`/`json` bind DROPPED its attribute from the reconstructed view, blinding every gate to it | `bindingOf` now parses named args; shape-neutral params (`omit_initial`, `omit_initial_paths`, `json`, `view`) reconstruct as the plain binding, shape-CHANGING ones (`tab`, `custom_mapper`, `switch_default_model`) still stay unresolved on purpose |
-| ai-demokit porting guide: round-trips are serialized, an event in flight DROPS the ones behind it (measured on app 280) | `live-event-roundtrip` — a `liveChange` wired to `client->_event( )`; hint, 5 deliberate demo wires on the corpus, all advisory |
+| samples-controls porting guide: round-trips are serialized, an event in flight DROPS the ones behind it (measured on app 280) | `live-event-roundtrip` — a `liveChange` wired to `client->_event( )`; hint, 5 deliberate demo wires on the corpus, all advisory |
 | samples history: one sweep replaced hand-rolled init flags in 111 classes (`7b210d1`), and the antipattern kept reappearing for years | `manual-init-flag` — only the unambiguous shape (flag-gated branch that BOTH sets the flag AND displays a view); a lazy-load guard that displays nothing is left alone |
 | samples history: `_bind( )` on a `TYPE REF TO` attribute throws at runtime, found twice by users hitting the exception (`ca9d86d`, `8d477fe`) | `binding-to-reference` — `ref->*` and plain data attributes stay silent |
 | samples history: handlers wired next to a literal `enabled="false"` (`ec1efe0`) | `event-on-disabled-control` — hint (a 1:1 port of a disabled-state demo legitimately carries the handler); 5 corpus hits, all exactly that |
@@ -303,7 +307,7 @@ Also in that round: `check-upstream.mjs` now gates **`BINDING_METHODS`** too —
 it was the one mirror in `frontend-actions.mjs` the drift gate did not
 compare, which is exactly how a mirror rots.
 
-Rollout note for that round: ai-demokit's **advisory ratchet**
+Rollout note for that round: samples-controls's **advisory ratchet**
 (`ADVISORY_BUDGET` in its `view-gates.mjs`, budget 0 for unknown types) makes
 the downstream corpus job red until its next pin-bump PR adds
 `'live-event-roundtrip': 5` and `'event-on-disabled-control': 5` — all ten
@@ -385,10 +389,49 @@ framework's *implementation* rather than its ABAP Doc, which is the reverse of
 the other two — the interface caught up in abap2UI5 the same day
 (`52eb4b9f`), so `z2ui5_if_client` states all three now.
 
-Measured in place of the ai-demokit corpus (not checked out in that session):
+Measured in place of the samples-controls corpus (not checked out in that session):
 abap2UI5's own 9 builder classes, **2 findings** — two dead
 `view_model_update( )` calls in `node/srv/zcl_tst_focus.clas.abap` and a wired
 `_event_client( cs_event-open_new_tab )` in `z2ui5_cl_ui5_app_start`, all real.
+
+The 2026-08-14 staging round emptied the abap2UI5 repo's **`ui5-check` skill**, which
+is explicitly written as this linter's staging area: every entry there carries
+a `Linter:` line saying whether a rule already decides it, what data a rule
+would need, or why it can never be one. Three of them were marked ready:
+
+| Origin | Rule |
+| --- | --- |
+| `ui5-check` §1.1, a user report ("not all icons are shown") that turned out to be TWO unrelated defects in one screenshot | `unknown-icon` (error), `icon-too-new` and `icon-removed` (warnings) + `data/icons.json` — see below |
+| `ui5-check` §2.1, three overview headers silently losing every icon after a separator | `toolbar-control-in-bar` — reported only below 1.76; the parent test is exact (`Toolbar` does NOT inherit from `Bar`), plus `Page headerContent`, which forwards into an implicit Bar |
+| `ui5-check` §3.1, `<footer>` on a `sap.m.Dialog` killing a 1.71 view outright | `aggregation-too-new` — a severity SPLIT of `member-too-new`: a post-floor property is dropped and the control still renders, a post-floor aggregation tag is resolved as a control class and the 404 takes the whole view down |
+| `abap-check` §1, `abap2UI5/samples#669` — over-length lines left two demo classes as EMPTY STUBS after an import that reported the error and carried on | `source-line-too-long` (error, 255 chars). Not a view rule, deliberately: for a consumer repo whose only gate is `npx abap2ui5lint`, a class that cannot be imported is the most severe thing this tool can find |
+
+`data/icons.json` is the round's new knowledge file, and the first one built by
+**scanning history** rather than one snapshot: `scripts/generate-icons.mjs`
+packs the `@openui5/sap.ui.core` registry of every minor from 1.71 to the
+pinned version (79 releases) and records, per icon, the release it first
+appears in. That is what makes `icon-too-new` answer for *any* target instead
+of only for the floor — the staging entry had proposed a bare 1.71 name list,
+which would have been silent above the floor. It also surfaced a fact no
+snapshot could: the font is not purely additive (`binary` @1.104 is
+`non-binary` from 1.120 on, same codepoint), hence `icon-removed`.
+
+Unlike `generate-metadata.mjs` this generator needs **network**, so it is not
+part of `npm test`: the committed file is the contract and the test checks its
+shape. Two parsing notes for whoever regenerates it — the registry declares a
+few names with capitals and at least one with double quotes, and icon names are
+effectively **lower-case** anyway (`IconPool` reads them as a URI hostname), so
+every comparison lower-cases. A camelCase name is not nearly right; it matches
+nothing in any release.
+
+Corpus run for that round (416 ports): 6 `icon-too-new`, 1
+`toolbar-control-in-bar` — the overview header `ui5-check` §2.1 names, found
+again by the rule written from it — 24 `aggregation-too-new`, all already
+carrying a `POST_171` deviation, and 0 `source-line-too-long`. The 24 are why
+the downstream repo needed preparing in the same change: its `VERSION_TYPES`
+had to learn the new type (or a pin bump would have failed 24 ports at once),
+and its `declares()` had to read a finding's `value`, since an icon finding
+names the glyph there and carries no control or member at all.
 
 The 2026-08-14 round asked the one question no rule had asked yet — not
 *how* an app uses the framework, but **what of it it is allowed to name at
@@ -419,7 +462,7 @@ Three decisions worth keeping if it is revisited:
 - **One frozen object is deliberately tolerated**: `z2ui5_if_types`, because
   the RELEASED `z2ui5_if_client~get( )` returns `z2ui5_if_types=>ty_s_get` —
   an app cannot avoid the name, and is not the one to fix that.
-- **Measured** (the ai-demokit corpus was not checked out): 0 findings on
+- **Measured** (the samples-controls corpus was not checked out): 0 findings on
   abap2UI5's own 5 builder classes and its 5 test apps — modern app code
   already obeys the rule — and, as the "check it can see anything at all"
   half, **49 distinct internal objects across the framework's own 118
@@ -431,7 +474,7 @@ Rollout note, the same shape as the `live-event-roundtrip` round: this rule
 will light up an app corpus that grew up with `z2ui5_cl_util` and the
 built-in popups. Those findings are **real** (both packages are frozen), so
 the corpus, not the rule, is the side that moves — but the debt decision
-belongs at ai-demokit's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
+belongs at samples-controls's pin-bump PR, through its `ADVISORY_BUDGET`, not here.
 
 How the builder itself is read:
 
@@ -528,8 +571,8 @@ enum or date property (`"" is of type string, expected sap.m.AvatarShape`).
 Now: unseeded tables are empty for the renderer and a declared row in the
 shape, the same split the scalars already had.
 
-**Measure a new rule against the ai-demokit corpus before shipping it.**
-`node cli.mjs /path/to/ai-demokit/src --no-render --json` over 282 real
+**Measure a new rule against the samples-controls corpus before shipping it.**
+`node cli.mjs /path/to/samples-controls/src --no-render --json` over 282 real
 ports, diffed per finding type against `main`, is what caught three separate
 false-positive shapes: an event raised by a `message_box_display( onclose = )`
 callback rather than `client->_event( )`, dispatch leaking across an
@@ -564,12 +607,12 @@ gate can know (reasoning in the README).
 
 **Keep the pins on the latest published `@openui5` line.** The floor the gate
 checks against (`minUi5`, default 1.71) is a *separate* parameter, so a bump
-does not change a single verdict on existing code — measured on the ai-demokit
+does not change a single verdict on existing code — measured on the samples-controls
 corpus, the 1.150 → 1.151 bump produced **0 new findings across 339 ports**.
 What it does change is what a member *newer than the pin* reports as. A member
 above the floor but below the pin is `member-too-new` / `control-too-new` /
 `event-parameter-too-new` / `enum-value-too-new` — verdicts a consumer can
-knowingly accept (ai-demokit's `POST_171` deviations excuse exactly those). A
+knowingly accept (samples-controls's `POST_171` deviations excuse exactly those). A
 member above the *pin* does not exist in the snapshot at all and degrades into
 `unknown-control` / `unknown-property` / `unknown-aggregation` — "typo?" — plus
 a `render` load failure, and **no consumer can excuse those**: they are the
@@ -581,7 +624,7 @@ the snapshot header numbers above.
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
-ai-demokit used to carry a second one; the two drifted, and the other one was
+samples-controls used to carry a second one; the two drifted, and the other one was
 wrong — it attributed a file-level `@deprecated` JSDoc block sitting on a local
 variable to the CONTROL, marking `sap.f.DynamicPageTitle` and
 `sap.f.semantic.SemanticPage` deprecated when neither class doc says so. Its
@@ -592,7 +635,7 @@ OPENUI5_DIR=./openui5 node node_modules/@abap2ui5/linter/scripts/generate-metada
   --out ui5/properties.json
 ```
 
-Note what that does **not** mean: ai-demokit does not reuse `data/properties.json`
+Note what that does **not** mean: samples-controls does not reuse `data/properties.json`
 itself. It builds its sample universe from an OpenUI5 *checkout* that can be
 newer than the `@openui5` packages pinned here (1.152 vs 1.151 at the time of
 writing, and npm has no 1.152), and a snapshot older than the universe loses
@@ -600,7 +643,7 @@ the `@since` of controls introduced in between — `scopeOf` then reads them as
 in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
 two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
-frozen — ai-demokit's coverage docs read `controls[…].since` / `.deprecated`.
+frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
 
 ## Release model — merging to main IS a release
 
@@ -632,17 +675,23 @@ frozen — ai-demokit's coverage docs read `controls[…].since` / `.deprecated`
   divergence this bullet used to describe is closed; keep the config loader
   backward compatible, three consumers read it now.
 
-## Relation to ai-demokit — this repo is canonical now
+## Relation to samples-controls — this repo is canonical now
 
-ai-demokit's ancestor scripts (`property-check.mjs`, `structure-lint.mjs`,
+> **One name, three spellings in the history.** The corpus repository is
+> `abap2UI5/samples-controls`; it was `abap2UI5-api` before that and
+> `ai-demokit` before that. It is referred to by its current name throughout
+> this file, including where the events described predate a rename — older
+> commit messages and PR titles still carry the old ones.
+
+samples-controls's ancestor scripts (`property-check.mjs`, `structure-lint.mjs`,
 `render-smoke.mjs`) were **deleted** when its gates were consolidated onto
-this linter: ai-demokit consumes `@abap2ui5/linter` as a git npm dependency
+this linter: samples-controls consumes `@abap2ui5/linter` as a git npm dependency
 and keeps only the corpus policy in its `scripts/view-gates.mjs` (which
 ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
 
-- **All generic view-checking logic lives here**; ai-demokit-specific gate
+- **All generic view-checking logic lives here**; samples-controls-specific gate
   policy (sidecar deviations, corpus conventions) stays in `view-gates.mjs`.
-- A behaviour change here changes ai-demokit's CI verdicts on the next
+- A behaviour change here changes samples-controls's CI verdicts on the next
   dependency bump. **`.github/workflows/downstream.yml` runs that check for
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
@@ -664,7 +713,7 @@ the consumer, so no second install is needed):
 
 | Job | What it catches |
 | --- | --- |
-| `ai-demokit corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
+| `samples-controls corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
 | `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports against hand-written typings in its `src/linter.d.ts`, which nothing here would otherwise exercise |
 
 A red downstream job is **not automatically a defect in the change**: a new
@@ -686,7 +735,7 @@ landing unseen. Two traps worth knowing before reading a result:
 
 | Repository | Relation |
 | --- | --- |
-| [ai-demokit](https://github.com/abap2UI5/ai-demokit) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
+| [samples-controls](https://github.com/abap2UI5/samples-controls) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
 | [ai-mcp](https://github.com/abap2UI5/ai-mcp) | `validate_view` imports the linter **through the package exports map** (its `importViewCheck` resolves `.` and the subpaths) — a removed or renamed `exports` entry breaks it; the file layout under `lib/` is free to move as long as `exports` stays intact |
 | [vscode-extension](https://github.com/abap2UI5/vscode-extension) | Consumes the SHA-pinned package (property gate) and the runtime `render-gate-bundle` download |
 | [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ui5_view_builder`, the builder whose chains `lib/reconstruct.mjs` re-executes |

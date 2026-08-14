@@ -71,6 +71,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'aggregation-in-aggregation' — default severity: error"
         },
+        "aggregation-too-new": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'aggregation-too-new' — default severity: error"
+        },
         "attribute-without-element": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'attribute-without-element' — default severity: error"
@@ -203,6 +207,14 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'hardcoded-binding-path' — default severity: warning"
         },
+        "icon-removed": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'icon-removed' — default severity: warning"
+        },
+        "icon-too-new": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'icon-too-new' — default severity: warning"
+        },
         "invalid-action-payload": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'invalid-action-payload' — default severity: error"
@@ -307,9 +319,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'settable-property-via-action' — default severity: hint"
         },
+        "source-line-too-long": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'source-line-too-long' — default severity: error"
+        },
         "too-many-children": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'too-many-children' — default severity: error"
+        },
+        "toolbar-control-in-bar": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'toolbar-control-in-bar' — default severity: warning"
         },
         "trailing-empty-event-arg": {
           "$ref": "#/definitions/rule",
@@ -354,6 +374,10 @@
         "unknown-frontend-action": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'unknown-frontend-action' — default severity: error"
+        },
+        "unknown-icon": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'unknown-icon' — default severity: error"
         },
         "unknown-model": {
           "$ref": "#/definitions/rule",
