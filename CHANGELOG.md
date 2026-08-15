@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **`event-without-handler` reads two more handler shapes.** It knew
+  ``check_on_event( `X` )``, ``get_event( ) = `X` `` and ``WHEN `X`.``, and
+  called everything else no handler at all — so two shapes that are all over
+  the corpora reported an event that IS handled:
+
+  - ``WHEN `A` OR `B`.`` — only the first literal of the alternatives list
+    was read, so the second name was reported dead (samples-stack app 319);
+  - ``IF client->get( )-event = `X`.`` — the spelled-out form of
+    ``get_event( ) = `X` `` matched nothing (samples-stack app 487).
+
+  A false hint is the expensive kind: the reader has to prove the tool wrong
+  before ignoring it, and the next real finding is read the same way.
+
 ## 0.1.0
 
 First public release — of both packages, from one tag:

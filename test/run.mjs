@@ -131,6 +131,26 @@ assert(hasR('binding-to-local', (x) => x.member === 'lv_local'),
   'abap rules: a local variable bound - lost after the roundtrip');
 assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
   'abap rules: an event nothing handles');
+/* The two handler shapes that used to read as no handler at all. Both are
+ * everywhere in the sample corpora, and both made the rule report an event
+ * that IS handled - the worst kind of hint, since the reader has to prove
+ * the tool wrong before ignoring it. */
+{
+  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const alternatives = checkAbapRules(
+    'client->_event( `PRODTYPE_CHANGED` ) client->_event( `SEARCH` )'
+    + ' CASE client->get( )-event. WHEN `PRODTYPE_CHANGED` OR `SEARCH`. do_search( ). ENDCASE.');
+  assert(!alternatives.some((x) => x.type === 'event-without-handler'),
+    'abap rules: WHEN `A` OR `B` handles BOTH names, not only the first');
+  const structRead = checkAbapRules(
+    'client->_event( `enter` ) IF client->get( )-event = `enter`. play( ). ENDIF.');
+  assert(!structRead.some((x) => x.type === 'event-without-handler'),
+    'abap rules: get( )-event = `X` is the same handler as get_event( ) = `X`');
+  const stillDead = checkAbapRules(
+    'client->_event( `SEARCH` ) CASE client->get( )-event. WHEN `OTHER` OR `MORE`. ENDCASE.');
+  assert(stillDead.some((x) => x.type === 'event-without-handler' && x.value === 'SEARCH'),
+    'abap rules: an alternatives list still leaves an unlisted event dead');
+}
 assert(hasR('unconverted-abap-boolean', (x) => x.member === 'expanded' && x.value === 'abap_true'),
   'abap rules: an ABAP boolean written into the view through v = instead of b =');
 assert(hasR('unknown-binding-path', (x) => x.value === '/TYPOED_PATH'),
