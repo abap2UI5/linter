@@ -1482,6 +1482,51 @@ ENDCLASS.`;
   const oneLiner = 'DATA(v) = z2ui5_cl_ui5_view_builder=>factory( )->ele( `View` )->a( n = `x` v = `y` )->tag( `Text` ).';
   assert(!checkAbapRules(oneLiner).some((x) => x.type.startsWith('chain-')),
     'chain layout: a single-line chain has no layout to be inconsistent with');
+
+  // ---- chain-house-layout: the opt-in one ----------------------------------
+  const { applyFixes } = await import('../lib/fix.mjs');
+  const ON = { rules: { 'chain-house-layout': 'warning' } };
+  const drifted = `  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( )->ele( n = \`View\` ns = \`mvc\`
+          )->a( n = \`xmlns\` v = \`sap.m\`
+          )->ele( \`Shell\` )->ele( \`Page\`
+                  )->tag( \`Text\` )->a( n = \`text\` v = \`x\` ).`;
+
+  assert(!checkAbapRules(drifted).some((x) => x.type === 'chain-house-layout'),
+    'chain-house-layout: silent until a config asks for it');
+  assert(checkAbapRules(drifted, ON).some((x) => x.type === 'chain-house-layout'),
+    'chain-house-layout: switched on by a rules entry, it reports the drifted chain');
+  assert(!checkAbapRules(drifted, { rules: { 'chain-house-layout': false } })
+    .some((x) => x.type === 'chain-house-layout'),
+  'chain-house-layout: `false` keeps it off even as an opt-in rule');
+
+  // the fix is the canonical layout, and it is whitespace-only
+  const houseFixed = applyFixes(drifted, checkAbapRules(drifted, ON)).output;
+  const collapse = (t) => t.replace(/\s+/g, ' ').trim();
+  assert(collapse(houseFixed) === collapse(drifted),
+    'chain-house-layout: --fix changes whitespace only — the chain still builds the same view');
+  // the statement is indented by two, so the tree starts at 2+4 and steps by four
+  assert(/\n {6}\)->ele\( n = `View`/.test(houseFixed)
+    && /\n {10}\)->a\( n = `xmlns`/.test(houseFixed)
+    && /\n {10}\)->ele\( `Shell`/.test(houseFixed)
+    && /\n {14}\)->ele\( `Page`/.test(houseFixed)
+    && /\n {18}\)->tag\( `Text`/.test(houseFixed)
+    && /\n {22}\)->a\( n = `text`/.test(houseFixed),
+  `chain-house-layout: --fix gives every call its own line at four spaces per level\n${houseFixed}`);
+  assert(!checkAbapRules(houseFixed, ON).some((x) => x.type === 'chain-house-layout'),
+    'chain-house-layout: the fixed chain reports nothing on a second run');
+
+  // the compact attribute form chain-element-per-line allows IS reported here —
+  // that difference is the whole point of the rule being separate and opt-in
+  assert(checkAbapRules(compact, ON).some((x) => x.type === 'chain-house-layout'),
+    'chain-house-layout: stricter than chain-element-per-line — an attribute gets its own line too');
+
+  // a two-space chain is fine for its neighbours and not for this one
+  for (const clean of ['good.clas.abap', 'viewbuilder.clas.abap']) {
+    const src = fs.readFileSync(f(clean), 'utf8');
+    const out = applyFixes(src, checkAbapRules(src, ON)).output;
+    assert(collapse(out) === collapse(src),
+      `chain-house-layout: the fix stays whitespace-only on ${clean}`);
+  }
 }
 
 // ------------------------------- the view builder (z2ui5_cl_ui5_view_builder) ----

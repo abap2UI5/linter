@@ -275,8 +275,28 @@ declare module "@abap2ui5/linter/abap-rules" {
       data?: unknown;
       /** id -> control name from the class's own views (collectControlIds). */
       controlIds?: Record<string, string> | null;
+      /** The config's `rules` block. Only opt-in rules read it here (they are
+       *  not emitted at all unless it asks); every other rule is filtered
+       *  later by applyRules. */
+      rules?: Record<string, unknown> | null;
     }
   ): PropertyFinding[];
+}
+
+declare module "@abap2ui5/linter/fix" {
+  import type { PropertyFinding } from "@abap2ui5/linter/properties";
+
+  /** Rule ids whose findings can carry `fixes`. */
+  export const FIXABLE: readonly string[];
+
+  export function isFixable(finding: PropertyFinding | null | undefined): boolean;
+
+  /** Rewrite `source` with every fix the findings carry. Overlapping spans are
+   *  deferred to the next run rather than resolved by guesswork. */
+  export function applyFixes(
+    source: string,
+    findings: PropertyFinding[]
+  ): { output: string; applied: number; deferred: number };
 }
 
 declare module "@abap2ui5/linter/findings" {

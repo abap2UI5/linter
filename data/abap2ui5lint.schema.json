@@ -126,6 +126,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'chain-element-per-line' — default severity: hint"
         },
+        "chain-house-layout": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'chain-house-layout' — default severity: hint"
+        },
         "chain-indentation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'chain-indentation' — default severity: hint"

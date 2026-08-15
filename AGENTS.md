@@ -79,7 +79,7 @@ exact line):
 | Emitting file | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar` |
-| `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them |
+| `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the one **opt-in** rule (`OPT_IN` in `lib/findings.mjs`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and would defer any other rule's fix inside it to a second `--fix` pass |
 | `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half), `source-line-too-long` |
 | `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
@@ -547,7 +547,7 @@ has nothing to do with the view it produces — **how it is WRITTEN**:
 
 | Origin | Rule |
 | --- | --- |
-| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-element-per-line` + `lib/chain-layout.mjs` |
+| a builder chain is the one part of an abap2UI5 class NOTHING else formats — abaplint has `indentation` and `in_statement_indentation` switched off (a chain is one statement over fifty lines), so `abaplint --fix` and the auto-format workflow never touch its inner lines either | `chain-indentation`, `chain-element-per-line`, `chain-house-layout` + `lib/chain-layout.mjs` |
 
 The argument for the family, and the reason it is not taste: the XML a
 builder emits is ONE line by construction (`render( )` concatenates without
@@ -582,6 +582,28 @@ purpose. Coverage, the other half of the doctrine: 67 multi-line chains and
 Both are **hints**, deliberately: the view renders identically either way, and
 this family has no business failing a build. `"chain-indentation": "warning"`
 in a repo's config is the one line that changes that.
+
+**`chain-house-layout` (2026-08) is the third, and it breaks the pattern on
+purpose.** Everything above judges a chain against ITSELF; this one judges it
+against one canonical form — one call per line *including attributes*, four
+spaces per level, the closing call in the column of the element it closes. The
+doctrine that kept the step out of `chain-indentation` still holds ("a rule
+that lights up the corpus is wrong before the corpus is") — what changed is
+that the corpus moved: abap2UI5, abap2UI5/samples and abap2UI5/samples-controls
+were unified onto that form, and the rule now reports **0 findings across all
+575 of their builder classes** while catching, on their previous state, 149 of
+150 samples classes and 77 of 417 ports. The 77 are the case that matters:
+their whole chain sat one level too deep, which `chain-indentation` cannot see
+by construction, because a uniformly wrong rhythm is still a rhythm.
+
+It is therefore the linter's first **opt-in** rule, and the mechanism is
+general: an id in `OPT_IN` (`lib/findings.mjs`) is not emitted at all until a
+`rules` entry asks for it. Two reasons, and the second is the sharper one:
+a house style handed to every consumer as a default is precisely what this
+family's header argues against — and its fixes rewrite a whole chain, so if it
+ran by default it would overlap and defer the mechanical fixes of any other
+rule that lands inside the same chain. It still lights up 22 of this repo's 29
+fixtures, and that is fine: they are inputs, and nobody gets the rule unasked.
 
 **Known candidate backlog:**
 
