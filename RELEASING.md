@@ -50,9 +50,21 @@ breaks, because nobody can have installed the broken one yet.
 # 1. Both versions in one bump - the workspace and the root have to agree
 npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
 
-# 2. Write the CHANGELOG.md section for the new version, then
-git commit -am "release vX.Y.Z" && git tag vX.Y.Z
-git push --follow-tags
+# 2. Rename the CHANGELOG.md "Unreleased" heading to the new version, then
+git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
+git push --follow-tags && git push origin vX.Y.Z
+```
+
+**Push the tag explicitly.** `--follow-tags` pushes *annotated* tags only, and
+skips a lightweight one — the kind plain `git tag vX.Y.Z` creates — without
+saying anything: the push reports `main -> main`, the release commit sits on
+main with no tag behind it, and no release ever runs. `-a` and the second push
+each fix that on their own; together they make it impossible to get wrong.
+
+Afterwards, confirm the tag actually arrived:
+
+```sh
+git ls-remote --tags origin | grep vX.Y.Z
 ```
 
 The tag push runs the release workflow: it re-runs the full test suite

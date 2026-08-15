@@ -18,9 +18,16 @@ name: Publish to npm
 # To cut a release (--no-git-tag-version because npm would otherwise commit and
 # tag the root alone, leaving the workspace bump out of the tagged commit):
 #   npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
-#   git commit -am "release vX.Y.Z" && git tag vX.Y.Z
-#   git push --follow-tags
+#   git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
+#   git push --follow-tags && git push origin vX.Y.Z
 # Both versions must match the tag; the job refuses to publish when they do not.
+#
+# The -a is not decoration and the second push is not redundant:
+# `--follow-tags` pushes ANNOTATED tags only and skips a lightweight one
+# WITHOUT A WORD - `git tag vX.Y.Z` (no -a) plus `git push --follow-tags`
+# reports "main -> main", leaves the release commit on main with no tag
+# behind it, and nothing here ever runs. The explicit tag push makes the
+# release independent of which kind of tag was cut.
 #
 # ---------------------------------------------------------------------------
 # One-time setup, in this order - the workflow cannot do either step itself:
