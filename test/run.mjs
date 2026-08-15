@@ -1634,16 +1634,31 @@ ENDCLASS.`;
 }
 
 // ---------------------------------------------- optional render deps ----
-// playwright + @openui5/* are optionalDependencies: absent, the property
-// gate still works and a requested render fails with one actionable message
+// playwright + @openui5/* ship in @abap2ui5/render-runtime, declared as an
+// OPTIONAL PEER: absent, the property gate still works and a requested render
+// fails with one actionable message
 {
-  const { RENDER_DEPS, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
-  const pkg = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
-  assert(!pkg.dependencies && RENDER_DEPS.slice().sort().join() === Object.keys(pkg.optionalDependencies).sort().join(),
-    'render deps: RENDER_DEPS mirrors exactly the optionalDependencies of package.json');
+  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
+  const root = path.join(FIX, '..', '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
+
+  // The whole point of the split: a default `npm i @abap2ui5/linter` (and so
+  // `npx`, which has no --omit=optional) must not drag ~123 MB of UI5 in. npm
+  // installs optionalDependencies BY DEFAULT, so their absence here is the
+  // guard - an optional PEER is the one kind npm leaves alone.
+  assert(!pkg.dependencies && !pkg.optionalDependencies,
+    'render deps: the linter declares no runtime dependencies of its own');
+  assert(pkg.peerDependencies?.[RENDER_RUNTIME]
+    && pkg.peerDependenciesMeta?.[RENDER_RUNTIME]?.optional === true,
+    `render deps: ${RENDER_RUNTIME} is declared as an OPTIONAL peer`);
+  assert(runtime.name === RENDER_RUNTIME
+    && RENDER_DEPS.slice().sort().join() === Object.keys(runtime.dependencies).sort().join(),
+    'render deps: RENDER_DEPS mirrors exactly the dependencies of the render runtime');
+
   assert(missingRenderDeps().length === 0,
     'render deps: everything is installed in this environment');
-  // intercept resolution to simulate an --omit=optional install
+  // intercept resolution to simulate an install without the runtime package
   const missing = missingRenderDeps(() => { throw new Error('MODULE_NOT_FOUND'); });
   assert(missing.length === RENDER_DEPS.length,
     'render deps: an unresolvable install reports every render dep as missing');
@@ -1652,13 +1667,13 @@ ENDCLASS.`;
     'render deps: the refusal carries a stable code the CLI can catch');
   assert(/playwright/.test(err.message) && /@openui5\/sap\.ui\.core/.test(err.message),
     'render deps: the message names the missing packages');
-  assert(/npm install/.test(err.message) && /--no-render/.test(err.message) && /render: false/.test(err.message),
-    'render deps: the message says how to install them and how to run without them');
+  assert(err.message.includes(RENDER_RUNTIME) && /--no-render/.test(err.message) && /render: false/.test(err.message),
+    'render deps: the message names the one package to install and how to run without it');
   const partial = renderDepsError(missingRenderDeps((id) => {
     if (id.startsWith('playwright')) throw new Error('MODULE_NOT_FOUND');
     return id;
   }));
-  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('optionalDependencies')[0]),
+  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('They ship in')[0]),
     'render deps: only what is actually missing is named');
 }
 
@@ -2106,7 +2121,7 @@ ENDCLASS.`;
   assert(!/^::/m.test(run([dumps, '--no-render', '--format', 'markdown'], { GITHUB_ACTIONS: 'true' })),
     'report: markdown stays clean too');
 
-  assert(/^abap2ui5-linter \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
+  assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
   const fails = (args) => {
     try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe' }); return ''; }

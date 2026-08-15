@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /*
- * abap2ui5-linter — validate abap2UI5 views without an SAP system.
+ * abap2ui5lint — validate abap2UI5 views without an SAP system.
  *
- *   npx abap2ui5-linter [paths...] [options]        (alias: abap2ui5lint)
+ *   npx abap2ui5lint [paths...] [options]
  *
  * Paths are files or directories (default: ./src). Checked are ABAP classes
  * building views with z2ui5_cl_ui5_view_builder, plus raw *.view.xml /
@@ -85,7 +85,7 @@ import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = 'usage: abap2ui5-linter [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
+const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
@@ -94,7 +94,7 @@ const USAGE = 'usage: abap2ui5-linter [paths...] [--ui5 1.71] [--distribution sa
   + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
 
 const die = (message) => {
-  console.error(`abap2ui5-linter: ${message}`);
+  console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
 };
 
@@ -168,7 +168,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--verbose') opt.verbose = true;
   else if (a === '--version' || a === '-v') {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
-    console.log(`abap2ui5-linter ${version} (${path.join(HERE, 'cli.mjs')})`);
+    console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
     process.exit(0);
   }
   else if (a === '--help' || a === '-h') {
@@ -240,7 +240,7 @@ if (!files.length) {
     // frozen --json contract cannot drift between the two paths
     console.log(formatJson([], empty, opt));
   } else {
-    console.log(`abap2ui5-linter: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
+    console.log(`abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
   }
   emitBadge(empty, runStats([]));
   process.exit(0);

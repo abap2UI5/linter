@@ -8,10 +8,15 @@
 #
 # Only the files the package actually publishes are copied - the `files` list
 # in package.json is read rather than restated here, so adding a published
-# directory cannot silently leave this script behind. The consumer's install
-# is otherwise untouched: the linter's own runtime dependencies (@openui5/*,
-# playwright) stay hoisted at the consumer's top level, which is why a plain
-# file copy is enough and no second install is needed.
+# directory cannot silently leave this script behind. The consumer's install is
+# otherwise untouched, and a plain file copy is enough because the linter has no
+# runtime dependencies of its own to reconcile.
+#
+# The UI5 runtime (@openui5/*, playwright) is deliberately NOT copied: it ships
+# in @abap2ui5/render-runtime, an optional peer, so it comes from the consumer's
+# own install and stays hoisted at its top level. A consumer that has it keeps
+# rendering; one that does not gets the linter's actionable refusal naming that
+# package, rather than a silently weakened gate.
 set -euo pipefail
 
 # Absolute, because `require()` reads a bare relative path as a module name.

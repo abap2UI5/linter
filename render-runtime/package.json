@@ -1,0 +1,46 @@
+{
+  "name": "@abap2ui5/render-runtime",
+  "version": "0.1.0",
+  "description": "The UI5 runtime the abap2UI5-linter render gate serves: the @openui5 source packages and playwright, as one install.",
+  "type": "module",
+  "keywords": [
+    "abap2ui5",
+    "openui5",
+    "ui5",
+    "sapui5",
+    "abap",
+    "sap",
+    "render",
+    "linter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abap2UI5/linter.git",
+    "directory": "render-runtime"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/abap2UI5/abap2UI5/issues"
+  },
+  "homepage": "https://github.com/abap2UI5/linter#render-gate",
+  "files": [
+    "README.md"
+  ],
+  "dependencies": {
+    "@openui5/sap.f": "1.151.0",
+    "@openui5/sap.m": "1.151.0",
+    "@openui5/sap.tnt": "1.151.0",
+    "@openui5/sap.ui.codeeditor": "1.151.0",
+    "@openui5/sap.ui.core": "1.151.0",
+    "@openui5/sap.ui.integration": "1.151.0",
+    "@openui5/sap.ui.layout": "1.151.0",
+    "@openui5/sap.ui.table": "1.151.0",
+    "@openui5/sap.ui.unified": "1.151.0",
+    "@openui5/sap.uxap": "1.151.0",
+    "@openui5/themelib_sap_horizon": "1.151.0",
+    "playwright": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

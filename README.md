@@ -169,32 +169,41 @@ npm install -D @abap2ui5/linter     # in a project
 npm install -g @abap2ui5/linter     # everywhere
 ```
 
-The binary is `abap2ui5-linter` — or `abap2ui5lint`, the short spelling that
-matches the config file name.
+The binary is `abap2ui5lint`, the spelling that matches the config file name.
+The package is ~240 kB and pulls **nothing** else in, so the `npx` line above
+is a fast one.
 
-The first install is a large one: the render gate needs a real UI5 runtime, so
-the `@openui5/*` source packages (~140 MB) and playwright come in as
-**optional dependencies**, and playwright's Chromium is another download on
-top:
+### Adding the render gate
 
-```sh
-npx playwright install chromium     # once, for the render gate
-```
-
-The package itself is ~240 kB. If you only want the property gate — the ABAP
-and view rules, no browser — skip all of it:
+The render gate boots a real `XMLView.create` in headless Chromium, which needs
+a real UI5 runtime: ~118 MB of `@openui5` sources plus playwright. That ships
+as a second package, so it is one deliberate install rather than a surprise
+attached to the first:
 
 ```sh
-npm install -D --omit=optional @abap2ui5/linter
-npx abap2ui5-linter src --no-render
+npm install -D @abap2ui5/render-runtime   # the UI5 runtime, once
+npx playwright install chromium           # and its browser
 ```
 
-That combination is supported, not a degraded mode: every rule that does not
-need a rendered view still runs. Asking for the render gate without the
-dependencies names the missing packages rather than failing obscurely.
+> **Why not `optionalDependencies`?** Because npm installs those *by default* —
+> the name promises the opposite of what it does. Declaring the runtime that way
+> made `npx @abap2ui5/linter` a ~123 MB download before it linted anything, and
+> `--omit=optional`, the documented way out, is not a flag `npx` accepts. It is
+> now an **optional peer**, which is the one kind npm leaves alone.
+
+Without it, the property gate — every ABAP and view rule that resolves against
+the metadata snapshot — runs in full:
+
+```sh
+npx abap2ui5lint src --no-render
+```
+
+That is supported, not a degraded mode. Asking for the render gate without the
+runtime names the one package to install rather than failing obscurely.
 
 To work on the linter itself, clone it and use `node cli.mjs` in place of the
-binary — the flags below are identical either way:
+binary — the flags below are identical either way. The runtime is an npm
+**workspace** here, so a plain `npm ci` sets up both:
 
 ```sh
 npm ci
@@ -205,21 +214,21 @@ node cli.mjs src
 ## CLI
 
 ```sh
-abap2ui5-linter src                          # check everything under src/
-abap2ui5-linter src --ui5 1.120              # check against UI5 1.120
-abap2ui5-linter src --allow sap.m.GenericTile.systemInfo   # accepted deviation
-abap2ui5-linter src --no-render              # property gate only (no browser)
-abap2ui5-linter src --fail-on error          # only real breakage fails CI
-abap2ui5-linter src --advisory               # report, never fail the build
-abap2ui5-linter src --fix                    # correct what is mechanical, report the rest
-abap2ui5-linter src --quiet                  # errors only (the counts stay complete)
-abap2ui5-linter src --format json            # machine-readable output (for tools)
-abap2ui5-linter src --format markdown        # for a PR comment or a job summary
-abap2ui5-linter src --badge check.json       # the verdict badge for the README
-abap2ui5-linter src --badge-corpus corpus.json  # and what the corpus is
-abap2ui5-linter src --no-stats               # drop the run summary under the report
-abap2ui5-linter src --no-progress            # and the live gate log on stderr
-abap2ui5-linter --version                    # version and script location
+abap2ui5lint src                          # check everything under src/
+abap2ui5lint src --ui5 1.120              # check against UI5 1.120
+abap2ui5lint src --allow sap.m.GenericTile.systemInfo   # accepted deviation
+abap2ui5lint src --no-render              # property gate only (no browser)
+abap2ui5lint src --fail-on error          # only real breakage fails CI
+abap2ui5lint src --advisory               # report, never fail the build
+abap2ui5lint src --fix                    # correct what is mechanical, report the rest
+abap2ui5lint src --quiet                  # errors only (the counts stay complete)
+abap2ui5lint src --format json            # machine-readable output (for tools)
+abap2ui5lint src --format markdown        # for a PR comment or a job summary
+abap2ui5lint src --badge check.json       # the verdict badge for the README
+abap2ui5lint src --badge-corpus corpus.json  # and what the corpus is
+abap2ui5lint src --no-stats               # drop the run summary under the report
+abap2ui5lint src --no-progress            # and the live gate log on stderr
+abap2ui5lint --version                    # version and script location
 ```
 
 | Exit code | |
@@ -296,7 +305,7 @@ statements, and they move on different occasions:
 | `--badge <file>` | what the gate **said** — `check-abap2UI5 \| 83 rules passed`, or `3 problems`, or `7 errors` | green / yellow / red | any run changes the verdict |
 
 ```sh
-abap2ui5-linter src --badge-corpus .github/badges/abap2ui5.json \
+abap2ui5lint src --badge-corpus .github/badges/abap2ui5.json \
                     --badge .github/badges/check-abap2ui5.json
 ```
 
@@ -415,7 +424,7 @@ the escapes above all lose information (`rules: false` drops the rule,
 directives touch every line). The **baseline** freezes the debt instead:
 
 ```bash
-npx abap2ui5-linter src --update-baseline     # writes abap2ui5lint-baseline.json
+npx abap2ui5lint src --update-baseline     # writes abap2ui5lint-baseline.json
 ```
 
 Commit that file and point the config at it (`"baseline":
@@ -524,6 +533,19 @@ Findings are annotated onto the pull request diff by default; set
 write the endpoint files — committing them is the workflow's job, and the pull
 request that changes the corpus is the right place to do it.
 
+The render gate runs by default, which costs the job the UI5 runtime (~118 MB)
+and a Chromium download. For a fast property-gate-only job:
+
+```yaml
+      - uses: abap2UI5/linter@v0
+        with:
+          paths: src
+          render: false      # skips both downloads; every static rule still runs
+```
+
+It is on by default on purpose: turning it off quietly would make findings
+disappear from a pipeline that still reports green.
+
 `@v0` is a moving tag: it follows the newest release of the `0.x` line, so a
 new rule can change your verdict without you asking for it — which is the
 point of a linter, and the reason to pin `@v0.1.0` instead where a build has
@@ -533,7 +555,9 @@ before there were releases; it now moves on every merge, so prefer either tag.
 ## Library
 
 `npm install @abap2ui5/linter` — the package is ESM and ships `types.d.ts`, so
-the named exports below are typed in an editor without a `@types` package.
+the named exports below are typed in an editor without a `@types` package. It
+has no dependencies; add `@abap2ui5/render-runtime` only if you call the render
+gate (`checkFiles` with `render` left on).
 
 ```js
 import { checkFiles, checkAbapSource, checkXmlSource } from '@abap2ui5/linter';

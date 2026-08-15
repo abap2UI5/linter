@@ -4,9 +4,21 @@
   "description": "Validate abap2UI5 app classes without an SAP system: the ABAP and the view it builds, checked together.",
   "type": "module",
   "bin": {
-    "abap2ui5-linter": "cli.mjs",
     "abap2ui5lint": "cli.mjs"
   },
+  "keywords": [
+    "abap2ui5",
+    "abap",
+    "sap",
+    "ui5",
+    "openui5",
+    "sapui5",
+    "linter",
+    "lint",
+    "static-analysis",
+    "abapgit",
+    "xml-view"
+  ],
   "types": "./types.d.ts",
   "exports": {
     ".": { "types": "./types.d.ts", "default": "./lib/index.mjs" },
@@ -48,22 +60,19 @@
     "url": "https://github.com/abap2UI5/abap2UI5/issues"
   },
   "homepage": "https://github.com/abap2UI5/linter#readme",
+  "workspaces": [
+    "render-runtime"
+  ],
   "devDependencies": {
     "typescript": "^5.9.3"
   },
-  "optionalDependencies": {
-    "@openui5/sap.f": "1.151.0",
-    "@openui5/sap.m": "1.151.0",
-    "@openui5/sap.tnt": "1.151.0",
-    "@openui5/sap.ui.codeeditor": "1.151.0",
-    "@openui5/sap.ui.core": "1.151.0",
-    "@openui5/sap.ui.integration": "1.151.0",
-    "@openui5/sap.ui.layout": "1.151.0",
-    "@openui5/sap.ui.table": "1.151.0",
-    "@openui5/sap.ui.unified": "1.151.0",
-    "@openui5/sap.uxap": "1.151.0",
-    "@openui5/themelib_sap_horizon": "1.151.0",
-    "playwright": "^1.61.1"
+  "peerDependencies": {
+    "@abap2ui5/render-runtime": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@abap2ui5/render-runtime": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22"
