@@ -2387,15 +2387,19 @@ ENDCLASS.`;
 
 // ----------------------------------------------------------- rules page ----
 {
-  const { RULES } = await import('../lib/findings.mjs');
+  const { RULES, RENDER_RULE } = await import('../lib/findings.mjs');
   const { RULE_DOCS, CATEGORIES } = await import('../lib/rule-docs.mjs');
   const { FIXABLE } = await import('../lib/fix.mjs');
   const { buildPage, PAGE_FILE } = await import('../scripts/generate-rules-page.mjs');
 
+  // The registry plus the render gate's pseudo-rule: `render-error` is emitted
+  // by no check and so is deliberately absent from RULES, but it reaches
+  // reports and SARIF like any other id and the SARIF helpUri deep-links here.
+  const pageRules = [...RULES, RENDER_RULE].sort();
   const documented = Object.keys(RULE_DOCS).sort();
-  assert(documented.join() === [...RULES].join(),
+  assert(documented.join() === pageRules.join(),
     `rules page: every rule is documented and every documented rule exists (${
-      RULES.filter((r) => !RULE_DOCS[r]).concat(documented.filter((d) => !RULES.includes(d))).join(', ') || 'in sync'})`);
+      pageRules.filter((r) => !RULE_DOCS[r]).concat(documented.filter((d) => !pageRules.includes(d))).join(', ') || 'in sync'})`);
 
   const known = new Set(CATEGORIES.map((c) => c.id));
   assert(Object.values(RULE_DOCS).every((d) => known.has(d.category) && d.summary && d.detail),
@@ -2406,7 +2410,7 @@ ENDCLASS.`;
 
   const page = fs.readFileSync(PAGE_FILE, 'utf8');
   assert(page === buildPage(), 'rules page: docs/index.html is in sync (npm run generate-rules-page)');
-  assert(RULES.every((id) => page.includes(`<article class="rule" id="${id}"`)),
+  assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
     'rules page: every rule has an anchor to link to');
   assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),
     'rules page: self-contained - no external stylesheet, script or font');

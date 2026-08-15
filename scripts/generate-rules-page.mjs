@@ -17,13 +17,19 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { RULES, SEVERITIES, defaultSeverityOf } from '../lib/findings.mjs';
+import { RULES, SEVERITIES, RENDER_RULE, defaultSeverityOf } from '../lib/findings.mjs';
 import { RULE_DOCS, CATEGORIES } from '../lib/rule-docs.mjs';
 import { FIXABLE } from '../lib/fix.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PAGE_FILE = path.join(ROOT, 'docs', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
+
+/* Everything the page owes an anchor to. RULES plus the render gate's
+ * pseudo-rule: `render-error` is emitted by no check, so it is deliberately
+ * not in the registry — but it reaches reports and SARIF like any other id,
+ * and the SARIF helpUri points here, so it needs its card. */
+const PAGE_RULES = [...RULES, RENDER_RULE].sort();
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -130,9 +136,9 @@ function ruleCard(id) {
 }
 
 export function buildPage() {
-  const counts = Object.fromEntries(SEVERITIES.map((s) => [s, RULES.filter((r) => defaultSeverityOf(r) === s).length]));
+  const counts = Object.fromEntries(SEVERITIES.map((s) => [s, PAGE_RULES.filter((r) => defaultSeverityOf(r) === s).length]));
   const sections = CATEGORIES.map((cat) => {
-    const ids = RULES.filter((id) => RULE_DOCS[id].category === cat.id);
+    const ids = PAGE_RULES.filter((id) => RULE_DOCS[id].category === cat.id);
     return [
       `    <section class="cat" id="cat-${cat.id}">`,
       `      <h2>${esc(cat.title)}</h2>`,
@@ -163,7 +169,7 @@ export function buildPage() {
       <span class="badge hint">${counts.hint} hint</span>
       <span class="badge fix">${FIXABLE.length} autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter ${RULES.length} rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter ${PAGE_RULES.length} rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -221,6 +227,6 @@ if (invokedDirectly) {
   } else {
     fs.mkdirSync(path.dirname(PAGE_FILE), { recursive: true });
     fs.writeFileSync(PAGE_FILE, text);
-    console.log(`wrote ${path.relative(ROOT, PAGE_FILE)} (${RULES.length} rules)`);
+    console.log(`wrote ${path.relative(ROOT, PAGE_FILE)} (${PAGE_RULES.length} rules)`);
   }
 }
