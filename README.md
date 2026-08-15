@@ -161,31 +161,66 @@ Input can be:
   `*.view.xml`, `*.fragment.xml`); a file you NAME on the command line is
   checked whatever it is called, as long as it carries a builder chain.
 
-## CLI
+## Install
+
+```sh
+npx @abap2ui5/linter src            # no install, one run
+npm install -D @abap2ui5/linter     # in a project
+npm install -g @abap2ui5/linter     # everywhere
+```
+
+The binary is `abap2ui5-linter` — or `abap2ui5lint`, the short spelling that
+matches the config file name.
+
+The first install is a large one: the render gate needs a real UI5 runtime, so
+the `@openui5/*` source packages (~140 MB) and playwright come in as
+**optional dependencies**, and playwright's Chromium is another download on
+top:
+
+```sh
+npx playwright install chromium     # once, for the render gate
+```
+
+The package itself is ~240 kB. If you only want the property gate — the ABAP
+and view rules, no browser — skip all of it:
+
+```sh
+npm install -D --omit=optional @abap2ui5/linter
+npx abap2ui5-linter src --no-render
+```
+
+That combination is supported, not a degraded mode: every rule that does not
+need a rendered view still runs. Asking for the render gate without the
+dependencies names the missing packages rather than failing obscurely.
+
+To work on the linter itself, clone it and use `node cli.mjs` in place of the
+binary — the flags below are identical either way:
 
 ```sh
 npm ci
-npx playwright install chromium   # once, for the render gate
-
-node cli.mjs src                          # check everything under src/
-node cli.mjs src --ui5 1.120              # check against UI5 1.120
-node cli.mjs src --allow sap.m.GenericTile.systemInfo   # accepted deviation
-node cli.mjs src --no-render              # property gate only (no browser)
-node cli.mjs src --fail-on error          # only real breakage fails CI
-node cli.mjs src --advisory               # report, never fail the build
-node cli.mjs src --fix                    # correct what is mechanical, report the rest
-node cli.mjs src --quiet                  # errors only (the counts stay complete)
-node cli.mjs src --format json            # machine-readable output (for tools)
-node cli.mjs src --format markdown        # for a PR comment or a job summary
-node cli.mjs src --badge check.json       # the verdict badge for the README
-node cli.mjs src --badge-corpus corpus.json  # and what the corpus is
-node cli.mjs src --no-stats               # drop the run summary under the report
-node cli.mjs src --no-progress            # and the live gate log on stderr
-node cli.mjs --version                    # version and script location
+npx playwright install chromium
+node cli.mjs src
 ```
 
-Installed, the binary is `abap2ui5-linter` — or `abap2ui5lint`, the short
-spelling that matches the config file name.
+## CLI
+
+```sh
+abap2ui5-linter src                          # check everything under src/
+abap2ui5-linter src --ui5 1.120              # check against UI5 1.120
+abap2ui5-linter src --allow sap.m.GenericTile.systemInfo   # accepted deviation
+abap2ui5-linter src --no-render              # property gate only (no browser)
+abap2ui5-linter src --fail-on error          # only real breakage fails CI
+abap2ui5-linter src --advisory               # report, never fail the build
+abap2ui5-linter src --fix                    # correct what is mechanical, report the rest
+abap2ui5-linter src --quiet                  # errors only (the counts stay complete)
+abap2ui5-linter src --format json            # machine-readable output (for tools)
+abap2ui5-linter src --format markdown        # for a PR comment or a job summary
+abap2ui5-linter src --badge check.json       # the verdict badge for the README
+abap2ui5-linter src --badge-corpus corpus.json  # and what the corpus is
+abap2ui5-linter src --no-stats               # drop the run summary under the report
+abap2ui5-linter src --no-progress            # and the live gate log on stderr
+abap2ui5-linter --version                    # version and script location
+```
 
 | Exit code | |
 | --- | --- |
@@ -261,8 +296,8 @@ statements, and they move on different occasions:
 | `--badge <file>` | what the gate **said** — `check-abap2UI5 \| 83 rules passed`, or `3 problems`, or `7 errors` | green / yellow / red | any run changes the verdict |
 
 ```sh
-node cli.mjs src --badge-corpus .github/badges/abap2ui5.json \
-                 --badge .github/badges/check-abap2ui5.json
+abap2ui5-linter src --badge-corpus .github/badges/abap2ui5.json \
+                    --badge .github/badges/check-abap2ui5.json
 ```
 
 ```json
@@ -474,7 +509,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: abap2UI5/linter@main
+      - uses: abap2UI5/linter@v0
         with:
           paths: src
           min-ui5: '1.71'
@@ -489,7 +524,16 @@ Findings are annotated onto the pull request diff by default; set
 write the endpoint files — committing them is the workflow's job, and the pull
 request that changes the corpus is the right place to do it.
 
+`@v0` is a moving tag: it follows the newest release of the `0.x` line, so a
+new rule can change your verdict without you asking for it — which is the
+point of a linter, and the reason to pin `@v0.1.0` instead where a build has
+to stay reproducible. `@main` works too and is what this README documented
+before there were releases; it now moves on every merge, so prefer either tag.
+
 ## Library
+
+`npm install @abap2ui5/linter` — the package is ESM and ships `types.d.ts`, so
+the named exports below are typed in an editor without a `@types` package.
 
 ```js
 import { checkFiles, checkAbapSource, checkXmlSource } from '@abap2ui5/linter';
