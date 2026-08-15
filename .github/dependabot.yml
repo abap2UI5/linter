@@ -1,0 +1,35 @@
+# Weekly dependency updates, opened as pull requests so `npm test` and the
+# downstream workflow decide whether they are safe.
+#
+# Grouped one pull request per ecosystem. The runtime dependency count of
+# @abap2ui5/linter is zero and is meant to stay zero; everything here is
+# build- and test-time, plus the @openui5/* packages the render-runtime
+# workspace serves - and those move the metadata snapshot, which
+# `generate-metadata --check` gates.
+#
+# The actions are pinned by commit SHA. Dependabot moves the SHA and keeps
+# the version comment beside it.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:30"
+    open-pull-requests-limit: 5
+    groups:
+      toolchain:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "06:30"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
