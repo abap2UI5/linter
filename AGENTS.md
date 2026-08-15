@@ -166,7 +166,7 @@ The former test-coverage debt (`invalid-aggregation-child`,
 assertion, and the README finding tables (place 5 above) are gated by a
 test that checks every rule id appears in them.
 
-## What a run says about itself — summary, progress, badge
+## What a run says about itself — summary, progress, badges
 
 A finding list is a report on what is WRONG, and a corpus with a baseline is
 by construction a corpus with no findings: `samples` prints three lines for
@@ -178,7 +178,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badge** — a shields.io endpoint JSON (`abap2UI5-linter 148 apps · 172 views · 2,176 controls` grey \| `clean` green) | the file `--badge` / config `badge` names | off |
+| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `83 rules passed` green) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
 
 Rules that hold for all three:
 
@@ -192,12 +192,18 @@ Rules that hold for all three:
   baseline nor the `rules` block has spoken, so a fully baselined corpus
   would log hundreds of findings and then report none. The report is the
   record; the log is only where the run currently is.
-- **The badge splits along meaning**: the grey label carries the name and
-  the reach, the coloured half carries the verdict alone. Reach in the
-  coloured half makes the colour a bar to read rather than a word to see.
-- **The badge writes only keys the shields endpoint schema defines** — an
+- **Two badges, because they are two statements.** The corpus badge is a
+  fact that moves when somebody adds an app; the verdict badge is a judgement
+  that moves on every run. They were one badge once, and the sentence it
+  produced ("abap2UI5-linter 148 apps · 172 views · 2,176 controls | clean")
+  made the reach something to read on the way to the colour. Each badge now
+  keeps the shape a README reader knows: a grey name, one thing to read.
+- **The verdict counts the rules that RAN** — the registry minus what the
+  repo's `rules` block switched off, the way a test badge counts tests. What
+  a baseline swallowed is the run summary's business: those findings exist.
+- **A badge writes only keys the shields endpoint schema defines** — an
   extra key makes shields render "invalid" in the README of everyone who
-  sees it — and it is written before the exit code is decided, because the
+  sees it — and both are written before the exit code is decided, because the
   failing run is the one whose badge matters.
 - **stdout stays the report.** Progress goes to stderr, and the summary joins
   the machine formats as data (`stats`), never as prose — the same rule the

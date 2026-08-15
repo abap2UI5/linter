@@ -2199,41 +2199,49 @@ ENDCLASS.`;
   assert(!off.lines.length && typeof p3.times.properties === 'number',
     'progress: --no-progress prints nothing and keeps the timings');
 
-  // --- badge ----------------------------------------------------------------
+  // --- badges ---------------------------------------------------------------
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5badge-'));
-  const badgeFile = path.join(dir, 'badges', 'abap2ui5lint.json');
-  const clean = run([...two, '--badge', badgeFile]);
-  const badge = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  const badgeFile = path.join(dir, 'badges', 'check-abap2ui5.json');
+  const corpusFile = path.join(dir, 'badges', 'abap2ui5.json');
+  const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+  const clean = run([...two, '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  const badge = read(badgeFile);
+  const facts = read(corpusFile);
   assert(clean.code === 0 && badge.schemaVersion === 1 && badge.color === '4c1'
-    && /^abap2UI5-linter 2 apps · 2 views · \d+ controls$/.test(badge.label) && badge.message === 'clean',
-    `badge: the reach sits in the grey label, the verdict alone in the coloured half (${badge.label} | ${badge.message})`);
-  assert(badge.labelColor === '555' && badge.namedLogo === undefined
-    && Object.keys(badge).every((k) => ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'cacheSeconds'].includes(k)),
+    && badge.label === 'check-abap2UI5' && /^\d+ rules passed$/.test(badge.message),
+    `badge: the verdict badge counts the rules that ran, the way a test badge counts tests (${badge.label} | ${badge.message})`);
+  assert(facts.color === '007ec6' && facts.label === 'abap2UI5'
+    && /^2 apps · 2 views · \d+ controls$/.test(facts.message),
+    `badge: the corpus badge is a fact, blue, with no verdict in it (${facts.label} | ${facts.message})`);
+  const shieldsKeys = ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'cacheSeconds'];
+  assert([badge, facts].every((b) => b.labelColor === '555' && b.namedLogo === undefined
+    && Object.keys(b).every((k) => shieldsKeys.includes(k))),
     'badge: only keys the shields endpoint schema defines - an extra one renders as "invalid"');
 
-  const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile]);
-  const red = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  const red = read(badgeFile);
   assert(dirty.code === 1 && red.color === 'e05d44' && /^\d+ errors$/.test(red.message)
-    && /^abap2UI5-linter 2 apps/.test(red.label),
-    `badge: the failing run - the one whose badge matters - is written too (${red.label} | ${red.message})`);
+    && /^2 apps/.test(read(corpusFile).message),
+    `badge: the failing run - the one whose badge matters - is written too, and the corpus badge stays a count (${red.message})`);
 
-  const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge', badgeFile]);
-  const xml = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(xmlOnly.code === 0 && /^abap2UI5-linter 1 view · \d+ controls$/.test(xml.label) && xml.message === 'clean',
-    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.label})`);
+  const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge-corpus', corpusFile]);
+  const xml = read(corpusFile);
+  assert(xmlOnly.code === 0 && /^1 view · \d+ controls$/.test(xml.message),
+    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.message})`);
 
   const nothing = path.join(dir, 'nothing');
   fs.mkdirSync(nothing);
-  run([nothing, '--no-render', '--badge', badgeFile]);
-  const grey = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f' && grey.label === 'abap2UI5-linter',
-    `badge: a run that finds NOTHING to check says so instead of leaving the last good badge standing (${grey.message})`);
+  run([nothing, '--no-render', '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  assert([read(badgeFile), read(corpusFile)].every((b) => b.message === 'nothing checkable' && b.color === '9f9f9f'),
+    'badge: a run that finds NOTHING to check says so on BOTH badges instead of leaving the last good ones standing');
 
-  // the config form: the badge belongs to the repo, not to the command line
+  // the config form: the badges belong to the repo, not to the command line
   const { loadConfig } = await import('../lib/config.mjs');
   const cfgFile = path.join(dir, 'abap2ui5lint.jsonc');
   fs.writeFileSync(cfgFile, '{ "badge": "badges/from-config.json" }');
-  assert(loadConfig(cfgFile).badge.file === 'badges/from-config.json', 'badge: a plain path in the config is the file');
+  const fromConfig = loadConfig(cfgFile).badge;
+  assert(fromConfig.length === 1 && fromConfig[0].file === 'badges/from-config.json' && fromConfig[0].kind === 'checks',
+    'badge: a plain path in the config is the file, and one badge alone is the verdict - what it has always meant');
   fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
   run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
   assert(fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
@@ -2241,12 +2249,30 @@ ENDCLASS.`;
   fs.rmSync(path.join(dir, 'badges', 'from-config.json'));
   run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile, '--no-badge']);
   assert(!fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
-    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badge');
+    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badges');
 
-  fs.writeFileSync(cfgFile, '{ "badge": { "file": "b.json", "colour": "green" } }');
-  let threw = '';
-  try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
-  assert(/unknown key 'colour'/.test(threw), 'badge: a typo in the badge block fails loudly, like every other config key');
+  // both badges from the config, each with its own file and label
+  fs.writeFileSync(cfgFile, JSON.stringify({ badge: [
+    { kind: 'corpus', file: 'badges/corpus.json', label: 'samples' },
+    { kind: 'checks', file: 'badges/checks.json' },
+  ] }));
+  run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
+  assert(read(path.join(dir, 'badges', 'corpus.json')).label === 'samples'
+    && read(path.join(dir, 'badges', 'checks.json')).label === 'check-abap2UI5',
+    'badge: a list writes one file per kind, and a label given there beats the default name');
+
+  const rejects = (json, pattern, what) => {
+    fs.writeFileSync(cfgFile, json);
+    let threw = '';
+    try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
+    assert(pattern.test(threw), `badge: ${what} (${threw || 'accepted'})`);
+  };
+  rejects('{ "badge": { "file": "b.json", "colour": "green" } }', /unknown key 'colour'/,
+    'a typo in the badge block fails loudly, like every other config key');
+  rejects('{ "badge": { "file": "b.json", "kind": "corpse" } }', /'kind' must be corpus or checks/,
+    'an unknown kind names the two that exist instead of silently writing neither');
+  rejects('{ "badge": [{ "file": "a.json" }, { "file": "b.json" }] }', /lists kind 'checks' twice/,
+    'the same badge written to two files is a copy-paste, and says so');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
