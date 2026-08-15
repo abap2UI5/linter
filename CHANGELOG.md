@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **The advertised `npx @abap2ui5/linter src` lints again.** The render gate
+  is on by default and its ~118 MB runtime is deliberately *not* installed by
+  default, so the first command the README gives a new user did nothing at
+  all: exit 2, no findings, a refusal naming the package to install. That was
+  the state of 0.1.0 on npm.
+
+  A render gate that nobody **asked** for now steps aside for the property
+  gate and says so on stderr (`--json` on stdout stays parseable). Asking for
+  it keeps the hard refusal, because a gate that silently does not run is how
+  a green CI stops meaning anything — and asking is now writable from both
+  sides: the new `--render` flag, or `"render": true` in `abap2ui5lint.jsonc`.
+  `--no-render` is unchanged and silent.
+
 - **`event-without-handler` reads two more handler shapes.** It knew
   ``check_on_event( `X` )``, ``get_event( ) = `X` `` and ``WHEN `X`.``, and
   called everything else no handler at all — so two shapes that are all over

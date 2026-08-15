@@ -1767,7 +1767,7 @@ ENDCLASS.`;
 // OPTIONAL PEER: absent, the property gate still works and a requested render
 // fails with one actionable message
 {
-  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
+  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
   const root = path.join(FIX, '..', '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
@@ -1804,6 +1804,23 @@ ENDCLASS.`;
   }));
   assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('They ship in')[0]),
     'render deps: only what is actually missing is named');
+
+  /* The refusal is for a run that ASKED for the gate. A default-on gate with
+   * no runtime steps aside instead - otherwise the advertised
+   * `npx @abap2ui5/linter src` exits 2 without linting anything, which is the
+   * first command the README gives a new user. */
+  const allMissing = [...RENDER_DEPS];
+  const fallback = renderFallback({ render: true, asked: false, missing: allMissing });
+  assert(typeof fallback === 'string' && /render gate is OFF/.test(fallback),
+    'render fallback: a default-on gate without its runtime falls back instead of refusing');
+  assert(fallback.includes(RENDER_RUNTIME) && /--render/.test(fallback) && /--no-render/.test(fallback),
+    'render fallback: the warning names the package to install, how to demand the gate, and how to go quiet');
+  assert(renderFallback({ render: true, asked: true, missing: allMissing }) === null,
+    'render fallback: a gate that was ASKED for keeps the hard refusal - a promised gate never silently skips');
+  assert(renderFallback({ render: true, asked: false, missing: [] }) === null,
+    'render fallback: nothing to say when the runtime is installed');
+  assert(renderFallback({ render: false, asked: false, missing: allMissing }) === null,
+    'render fallback: --no-render asked for no gate at all, so there is nothing to warn about');
 }
 
 // ------------------------------------------------- curated formatter mirror ----
@@ -2092,6 +2109,16 @@ ENDCLASS.`;
     'cli: --distribution refuses a value outside the two it knows');
   assert(runErr([good, '--no-render', '--no-config', '--distribution', 'OpenUI5']).code !== 2,
     'cli: --distribution stays case-insensitive');
+
+  /* --- --render, the promise that the gate ran -----------------------------
+   * The unit tests above decide the fallback; what this pins is that the flag
+   * REACHES that decision - an unknown option exits 2 with "unknown option",
+   * which would make the whole promise unwritable. The runtime is installed
+   * here, so the run itself is an ordinary one. */
+  assert(runErr([good, '--no-config', '--render']).code !== 2,
+    'cli: --render is a known flag, so a job can demand the render gate');
+  assert(/--render/.test(runErr([good, '--no-config', '--nonsense']).err),
+    'cli: the usage line offers --render next to --no-render');
 
   // --- baseline -------------------------------------------------------------
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5base-'));
