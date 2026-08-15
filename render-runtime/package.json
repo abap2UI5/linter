@@ -24,7 +24,8 @@
   },
   "homepage": "https://github.com/abap2UI5/linter#render-gate",
   "files": [
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "dependencies": {
     "@openui5/sap.f": "1.151.0",
