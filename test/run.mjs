@@ -268,6 +268,21 @@ assert(nestedPaths.length === 1 && nestedPaths[0].value === 'EXPENSE'
 assert(!nested.findings.some((x) => String(x.value).startsWith('AMOUNT/')),
   'nested: a path through a nested structure resolves');
 
+// a structure declared INSIDE another one is a field of its parent AND a
+// structure in its own right - it names no TYPE, so the field matcher cannot
+// see it and the whole subtree used to be dropped from the model
+const nestedTypes = (await checkFiles([f('nestedtypes.clas.abap')], { render: false }))[0];
+const nestedTypePaths = nestedTypes.findings.filter((x) => x.type === 'unknown-binding-path');
+assert(nestedTypePaths.length === 1 && nestedTypePaths[0].value === 'S_DETAILS/CREATE_DAT',
+  `nested types: only the typo through the nested structure is reported (${nestedTypePaths.map((x) => x.value).join(', ')})`);
+assert(nestedTypes.findings.length === 1,
+  `nested types: a correct deep path raises nothing else either (${nestedTypes.findings.map((x) => x.type).join(', ')})`);
+{
+  const shape = prepareAbap(fs.readFileSync(f('nestedtypes.clas.abap'), 'utf8')).modelShape;
+  assert(shape.T_ROWS[0].S_DETAILS?.S_WHO?.UNAME === '',
+    'nested types: two levels of nesting reach the model, not just one');
+}
+
 // the model handed to the RENDERER stays what a seed actually sets: a field
 // the class fills in code cannot be followed statically, and inventing an
 // empty string for it makes UI5 strict mode reject a good view

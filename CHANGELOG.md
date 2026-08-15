@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **A structure declared inside another one was dropped, and every path
+  through it reported.** ABAP nests `BEGIN OF` freely:
+
+  ```abap
+  BEGIN OF ty_s_row,
+    id TYPE string,
+    BEGIN OF s_details,
+      create_date TYPE d,
+    END OF s_details,
+  END OF ty_s_row.
+  ```
+
+  `s_details` names no `TYPE`, so the field matcher could not see it and the
+  whole subtree vanished from the derived model — `{S_DETAILS/CREATE_DATE}`
+  then read as *"the rows have no such field"* on correct code, with no way to
+  act on it beyond a disable directive. Nested blocks are now lifted into
+  structures of their own, at any depth, filed under a name qualified with
+  their parent so two structures can each carry an `s_details`. Two false
+  findings disappear from `abap2UI5/samples`; **nothing else in any corpus
+  changes.**
+
 - **A namespace prefix with a dot in it read as undeclared.** `xmlns:viz.data`
   and `xmlns:viz.feeds` are what the `sap.viz` controls are written with, and
   an XML prefix is an NCName, where a dot is perfectly legal. The declaration
