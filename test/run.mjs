@@ -31,7 +31,7 @@ const assert = (cond, msg) => {
 
 const results = await checkFiles(
   [f('good.clas.abap'), f('viewbuilder.clas.abap'), f('post171.clas.abap'), f('broken.clas.abap'),
-    f('structure.clas.abap'), f('sample.view.xml')],
+    f('structure.clas.abap'), f('barefragment.clas.abap'), f('sample.view.xml')],
 );
 const by = (n) => results.find((r) => r.file.endsWith(n));
 
@@ -51,6 +51,19 @@ assert(vbuilder.findings.length === 0 && vbuilder.renderErrors.length === 0,
 const post = by('post171.clas.abap');
 assert(post.findings.some((x) => x.member === 'systemInfo' && x.type === 'member-too-new'),
   'post171: GenericTile.systemInfo flagged as member-too-new');
+
+/* A popup whose root is a bare control, not core:FragmentDefinition. The
+ * render gate used to decide view-vs-fragment by sniffing the root tag, so
+ * this legitimate shape (display-root-mismatch says so in as many words) went
+ * to XMLView.create and failed with "XMLView's root node must be 'View'" -
+ * a render error against correct code. The consuming call decides now. */
+const bareFrag = by('barefragment.clas.abap');
+assert(bareFrag.docKinds[0] === 'fragment',
+  `barefragment: popup_display marks the document a fragment (got ${bareFrag.docKinds[0]})`);
+assert(bareFrag.renderErrors.length === 0,
+  `barefragment: a bare-control fragment renders clean (${bareFrag.renderErrors[0] || ''})`);
+assert(good.docKinds[0] === 'view',
+  `good: view_display marks the document a view (got ${good.docKinds[0]})`);
 
 const broken = by('broken.clas.abap');
 assert(broken.renderErrors.length > 0, 'broken: render gate reports errors');
@@ -630,6 +643,19 @@ ENDCLASS.`;
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings
     .some((x) => x.type === 'display-root-mismatch'),
     'display-root-mismatch: a matching pair is not reported');
+
+  /* The rule used to live only in the handle-aware extractor, so a LINEARLY
+   * built class - the very shape the rule's own doc uses as its example -
+   * was never judged. roots.clas.abap builds through handles; this is the
+   * other idiom, the whole document in one statement. */
+  const linear = checkAbapSource(`
+  client->popup_display( z2ui5_cl_ui5_view_builder=>factory( )->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->tag( \`Text\` )->a( n = \`text\` v = \`x\` )->stringify( ) ).`);
+  assert(linear.findings.some((x) => x.type === 'display-root-mismatch'
+      && x.member === 'popup_display' && x.value === 'mvc:View'),
+    'display-root-mismatch: reported on a linearly built class too, not only a handle-built one');
 
   const typed = checkAbapSource(fs.readFileSync(f('typedbind.clas.abap'), 'utf8'));
   const mism = typed.findings.filter((x) => x.type === 'binding-type-mismatch');
