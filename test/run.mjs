@@ -1790,6 +1790,32 @@ ENDCLASS.`;
     'separate-lifecycle-ifs: an IF/ELSEIF chain is the correct form and not reported');
   assert(!checkAbapRules(chained).some((x) => x.type === 'missing-view-display-on-navigated'),
     'missing-view-display-on-navigated: an inner IF does not end the branch early — the display after it counts');
+
+  /* The branch usually DELEGATES - `on_navigation( )`, which calls
+   * `view_display( )`, which displays. Reading only the branch text called
+   * four correct samples broken and offered a fix that would have displayed
+   * the view twice. */
+  const delegated = `METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      paint( ).
+    ELSEIF client->check_on_navigated( ).
+      on_navigation( ).
+    ENDIF.
+  ENDMETHOD.
+  METHOD on_navigation.
+    client->message_toast_display( \`back\` ).
+    paint( ).
+  ENDMETHOD.
+  METHOD paint.
+    client->view_display( render( ) ).
+  ENDMETHOD.`;
+  assert(!checkAbapRules(delegated).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: a branch that delegates two levels down to a display still counts');
+  const delegatedSilent = delegated.replace('client->view_display( render( ) ).', 'rendered = abap_true.');
+  // `paint` rather than `view_display` on purpose: the method NAME must not be
+  // what satisfies the rule, or the negative half proves nothing
+  assert(checkAbapRules(delegatedSilent).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: following the call does not make the rule toothless — no display anywhere is still reported');
   // the guard idiom is exclusive by construction: good.clas.abap opens with
   // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings
