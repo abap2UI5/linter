@@ -200,6 +200,29 @@ assert(hasV('undeclared-namespace', (x) => x.member === 'undeclared'),
   'view rules: namespace prefix used but never declared');
 assert(hasV('missing-accessibility', (x) => x.member === 'tooltip'),
   'view rules: icon-only button without a tooltip');
+/* An attribute WRITTEN but not statically resolvable is not an absent one.
+ * `COND #( … )` / `SWITCH #( … )` / `|{ count }|` are how a real app labels a
+ * button that changes its own caption, and reading the dropped attribute as
+ * "no text" reported three correctly labelled buttons as unusable with a
+ * screen reader. */
+{
+  const labelled = `METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+        )->ele( n = \`View\` ns = \`mvc\`
+            )->a( n = \`xmlns\` v = \`sap.m\`
+            )->ele( \`Page\`
+                )->tag( \`Button\`
+                    )->a( n = \`text\` v = COND #( WHEN on = abap_true THEN \`Stop\` ELSE \`Start\` )
+                    )->a( n = \`icon\` v = \`sap-icon://play\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.`;
+  assert(!checkAbapSource(labelled, { render: false }).findings
+    .some((x) => x.type === 'missing-accessibility'),
+    'missing-accessibility: a text the source computes at runtime still names the button');
+  assert(checkAbapSource(labelled.replace(/\)->a\( n = `text`[\s\S]*?\)\n/, ''), { render: false }).findings
+    .some((x) => x.type === 'missing-accessibility'),
+    'missing-accessibility: with the text gone the same button IS reported — the exception is about the value, not the rule');
+}
 assert(hasV('duplicate-aggregation', (x) => x.member === 'content'),
   'view rules: the same aggregation opened twice under one control');
 assert(hasV('member-deprecated', (x) => x.member === 'translucent'),

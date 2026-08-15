@@ -29,6 +29,25 @@
   A structure whose shape IS known still catches a typo through it — the
   fixture asserts both halves.
 
+- **Three rules judged code they could not see.** Each read the ABSENCE of
+  something as a defect, where the truth was that this pass cannot resolve it.
+  Eight more false findings across `abap2UI5/samples`, and no finding anywhere
+  else changes.
+
+  - `missing-view-display-on-navigated` read only the branch text, so the
+    normal shape - `ELSEIF client->check_on_navigated( ). on_navigation( ).` -
+    was reported as never handing a view back, and the fix it proposed would
+    have displayed the view twice. A call to a method of the same class is now
+    followed a few levels deep. It still reports a branch that displays
+    nowhere; the test asserts both halves, with the helper named `paint( )` so
+    the method NAME cannot be what satisfies it.
+  - `missing-accessibility` read a button whose caption is
+    `COND #( … )` / `SWITCH #( … )` / `|{ count }|` as having no text at all.
+    An unresolvable value is dropped rather than invented (a made-up value
+    would be judged as if it had been written), but the fact that the
+    attribute WAS written is real, and the reconstruction now records it for
+    the rules that ask only that.
+
 - **A structure declared inside another one was dropped, and every path
   through it reported.** ABAP nests `BEGIN OF` freely:
 
