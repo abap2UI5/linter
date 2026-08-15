@@ -150,6 +150,20 @@ assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
     'client->_event( `SEARCH` ) CASE client->get( )-event. WHEN `OTHER` OR `MORE`. ENDCASE.');
   assert(stillDead.some((x) => x.type === 'event-without-handler' && x.value === 'SEARCH'),
     'abap rules: an alternatives list still leaves an unlisted event dead');
+
+  /* A dispatcher ending in WHEN OTHERS handles every event, including the ones
+   * no WHEN names - five message types raised and none of them listed
+   * (abap2UI5/samples app 382). */
+  const catchAll = checkAbapRules(
+    'client->_event( `warning` ) client->_event( `error` )'
+    + ' CASE client->get_event( ). WHEN `CUSTOM`. x( ).'
+    + ' WHEN OTHERS. client->message_box_display( type = client->get_event( ) ). ENDCASE.');
+  assert(!catchAll.some((x) => x.type === 'event-without-handler'),
+    'abap rules: WHEN OTHERS in a CASE over the event handles what no WHEN names');
+  const otherCase = checkAbapRules(
+    'client->_event( `SEARCH` ) CASE mv_mode. WHEN OTHERS. x( ). ENDCASE.');
+  assert(otherCase.some((x) => x.type === 'event-without-handler' && x.value === 'SEARCH'),
+    'abap rules: a WHEN OTHERS over something that is not the event handles nothing');
 }
 assert(hasR('unconverted-abap-boolean', (x) => x.member === 'expanded' && x.value === 'abap_true'),
   'abap rules: an ABAP boolean written into the view through v = instead of b =');

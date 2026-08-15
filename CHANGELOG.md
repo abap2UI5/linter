@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **`event-without-handler` reads `WHEN OTHERS`.** A dispatcher that ends in
+
+  ```abap
+  WHEN OTHERS.
+    client->message_box_display( type = client->get_event( ) ... )
+  ```
+
+  handles every event there is, including the ones no `WHEN` names — and the
+  rule read only the literals, so all five message types raised in
+  `abap2UI5/samples` app 382 were reported dead. That is the expensive kind of
+  finding: the reader has to prove the tool wrong before ignoring it, and the
+  next real one is read the same way.
+
+  Conservative on purpose in one direction: the CASE body is matched to the
+  first `ENDCASE`, so a nested CASE hides the catch-all and the events keep
+  being reported. Missing a catch-all costs a hint; inventing one would hide a
+  genuinely dead event.
+
 - **`abap2ui5lint --init`** writes a commented `abap2ui5lint.jsonc` to start
   from. The documented route was three steps — read the README, copy the
   block, fix the `$schema` path — and one of them was silently wrong: the
