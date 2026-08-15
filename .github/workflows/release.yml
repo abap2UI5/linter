@@ -15,8 +15,9 @@ name: Publish to npm
 # that needs a deliberate, immutable version, because a published version can
 # never be changed and `npm i @abap2ui5/linter` has to keep meaning one thing.
 #
-# To cut a release:
-#   npm version patch|minor|major --workspaces --include-workspace-root
+# To cut a release (--no-git-tag-version because npm would otherwise commit and
+# tag the root alone, leaving the workspace bump out of the tagged commit):
+#   npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
 #   git commit -am "release vX.Y.Z" && git tag vX.Y.Z
 #   git push --follow-tags
 # Both versions must match the tag; the job refuses to publish when they do not.
