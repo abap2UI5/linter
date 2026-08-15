@@ -30,12 +30,18 @@ name: Publish to npm
 #      every publish fails with 404 on the scope.
 #   2. Trusted publishing has to be configured per package, and npm can only
 #      configure it for a package that already exists. So the FIRST publish of
-#      EACH is manual, from a maintainer's machine:
+#      EACH is manual, from a maintainer's machine, after `npm login`:
 #
-#         npm publish -w @abap2ui5/render-runtime --access public --provenance
-#         npm publish --access public --provenance
+#         npm publish -w @abap2ui5/render-runtime --access public
+#         npm publish --access public
 #
-#      then, on npmjs.com -> each package -> Settings -> Trusted Publisher,
+#      No --provenance on these two: npm can only generate a provenance
+#      attestation from a supported CI (GitHub Actions or GitLab CI) and
+#      aborts everywhere else with "Automatic provenance generation not
+#      supported for provider". The bootstrap versions therefore ship
+#      without provenance - every release this workflow cuts has it.
+#
+#      Then, on npmjs.com -> each package -> Settings -> Trusted Publisher,
 #      point it at this repository and this workflow file (`release.yml`).
 #      From the second release on, this workflow publishes with no token.
 #
@@ -148,6 +154,32 @@ jobs:
             if (typeof m.loadConfig !== 'function') throw new Error('missing config export');
           })"
 
+      # A version that is already on the registry is not a failure here. Two
+      # ordinary situations produce one: the BOOTSTRAP release of each package
+      # is published by hand (trusted publishing cannot be configured for a
+      # package that does not exist yet - see the header), and a workflow re-run
+      # repeats a publish that already succeeded. npm never lets a version be
+      # replaced, so "already there" is the desired end state, not an error -
+      # and the job must still reach `major-tag`, which is what makes
+      # `uses: abap2UI5/linter@v0` resolve.
+      - name: Which versions are already on the registry
+        id: published
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          on_registry() {
+            if npm view "$1@$2" version >/dev/null 2>&1; then
+              echo "::notice::$1@$2 is already published - skipping its publish step"
+              echo true
+            else
+              echo false
+            fi
+          }
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo "runtime=$(on_registry @abap2ui5/render-runtime "$VERSION")"
+            echo "linter=$(on_registry @abap2ui5/linter "$VERSION")"
+          } >> "$GITHUB_OUTPUT"
+
       # --access public because a scoped package is private by default and the
       # first publish would fail on a free account. No NODE_AUTH_TOKEN: npm
       # exchanges the Actions OIDC token for a short-lived registry credential
@@ -157,10 +189,10 @@ jobs:
       # peer, so publishing it second would leave a window in which `npm i
       # @abap2ui5/linter @abap2ui5/render-runtime` cannot be satisfied.
       - name: Publish the UI5 runtime
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && steps.published.outputs.runtime != 'true'
         run: npm publish -w @abap2ui5/render-runtime --access public
       - name: Publish the linter
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && steps.published.outputs.linter != 'true'
         run: npm publish --access public
 
       - name: Dry run only
