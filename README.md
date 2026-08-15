@@ -11,6 +11,38 @@ are the ones living between the two — a bound attribute whose ABAP field does
 not exist, an event argument the control never delivers — and no UI5 tooling
 can see them, because the view only exists at runtime.
 
+## Quick start
+
+```sh
+npx @abap2ui5/linter src
+```
+
+That is the whole of it: no install, no SAP system, no configuration. ~240 kB
+and no dependencies, so the line above is a fast one.
+
+```
+src/zcl_my_app.clas.abap
+  36:14  error  sap.m.Page has no aggregation contentt - typo?                       unknown-aggregation
+  40:22  error  sap.m.Button type="Emphasised" is not a valid value (allowed: ...)   invalid-property-value
+```
+
+Then, when you want it to stay green:
+
+```sh
+npm install -D @abap2ui5/linter          # pin it for CI and for your machine
+npx abap2ui5lint --init                  # write a commented abap2ui5lint.jsonc
+```
+
+Add the [render gate](#adding-the-render-gate) to load every view in a real
+browser as well, and the [GitHub Action](#github-action) to run it on every
+pull request. Starting a new app repository? **[app-template](https://github.com/abap2UI5/app-template)**
+ships with all of this already wired up.
+
+Full reference below; every rule id also has a page at
+[abap2ui5.github.io/linter](https://abap2ui5.github.io/linter/).
+
+## What it checks
+
 Two gates:
 
 1. **Property gate** — everything the view writes is resolved against a UI5
@@ -492,9 +524,16 @@ searched upward from the current directory and from each given path.
 Precedence per option: explicit CLI flag > config file > built-in default
 (`--no-config` ignores the file entirely).
 
+`abap2ui5lint --init` writes a commented starter version of this file for
+you, with the `$schema` already pointing at the copy your project installed.
+
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/abap2UI5/linter/main/data/abap2ui5lint.schema.json",
+  // resolved from the version this project pinned. The raw.githubusercontent
+  // URL for `main` also works, but it validates your file against rules the
+  // installed CLI may not have yet - the editor then accepts what the run
+  // refuses, which is the wrong way round.
+  "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json",
   "paths": ["src"],          // used when the CLI got no positional paths
   "ui5": "1.71",             // UI5 floor for the property gate
   "distribution": "sapui5",  // or "openui5"

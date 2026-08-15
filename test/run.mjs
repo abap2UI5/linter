@@ -2323,6 +2323,29 @@ ENDCLASS.`;
 
   assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
+
+  // --init: the config a new project starts from. It has to parse with the
+  // linter's OWN loader (it is jsonc with comments), point $schema at the
+  // installed copy rather than at main, and refuse to overwrite.
+  {
+    const { loadConfig } = await import('../lib/config.mjs');
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-init-'));
+    cp.execFileSync('node', [CLI, '--init'], { cwd: dir, encoding: 'utf8' });
+    const written = path.join(dir, 'abap2ui5lint.jsonc');
+    assert(fs.existsSync(written), 'init: writes abap2ui5lint.jsonc into the working directory');
+    const cfg = loadConfig(written);
+    assert(cfg.minUi5 === '1.71' && cfg.failOn === 'warning' && Array.isArray(cfg.paths),
+      'init: the file the linter writes is one the linter reads back');
+    const raw = fs.readFileSync(written, 'utf8');
+    assert(raw.includes('./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json'),
+      'init: $schema points at the installed version, not at main');
+    let refused = '';
+    try { cp.execFileSync('node', [CLI, '--init'], { cwd: dir, encoding: 'utf8', stdio: 'pipe' }); }
+    catch (e) { refused = e.status === 2 ? String(e.stderr) : ''; }
+    assert(/already exists/.test(refused), 'init: a second run refuses instead of overwriting');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   const fails = (args) => {
     try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe' }); return ''; }
     catch (e) { return e.status === 2 ? (e.stderr ?? '') : ''; }

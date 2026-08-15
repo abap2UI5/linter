@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- **`abap2ui5lint --init`** writes a commented `abap2ui5lint.jsonc` to start
+  from. The documented route was three steps — read the README, copy the
+  block, fix the `$schema` path — and one of them was silently wrong: the
+  README's `$schema` pointed at `main`, so an editor validated the file
+  against rules the pinned CLI does not have, accepting what the run then
+  refused. `--init` resolves it against the installed copy, and refuses to
+  overwrite a file that is already there.
+
+- **The README opens with the thing you came for.** `## Install` used to sit
+  on line 165, behind ninety lines of rule catalogue; the run that needs no
+  install at all now comes first, with the sample output it produces. The
+  catalogue is unchanged, just no longer in front of the door. It also names
+  [app-template](https://github.com/abap2UI5/app-template) — the repository
+  that already has all of this wired up, and the answer for anyone starting a
+  new project, which this README did not mention at all.
+
 ## 0.1.1
 
 - **The advertised `npx @abap2ui5/linter src` lints again.** The render gate
