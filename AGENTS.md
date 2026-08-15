@@ -690,10 +690,36 @@ two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
 frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
 
-## Release model — merging to main IS a release
+## Release model — merging to main IS a release, except on npm
 
-- There is **no npm publish**; consumers install from git
-  (`github:abap2UI5/linter`). `package.json` stays at its version.
+- **Merging to main is the release for every channel but one.** The rules page,
+  the render-gate bundle and the SHA pins downstream all follow main. npm is
+  the exception: a published version is immutable and `npm i @abap2ui5/linter`
+  has to keep meaning one thing, so it needs a deliberate version tag.
+- **npm — `.github/workflows/release.yml`, triggered by a `v*` tag.**
+  `npm version patch|minor|major && git push --follow-tags` is the whole
+  procedure. The job refuses to publish when the tag and `package.json`
+  disagree (a burned version number cannot be reused), reruns the full suite
+  including the render half on the exact commit, packs the tarball and
+  installs it into a scratch directory to prove the `files` allowlist did not
+  drop a `lib/` or `data/` file. Dispatching the workflow by hand runs all of
+  that and stops short of the publish.
+  - Publishing uses **trusted publishing (OIDC)**, so there is no `NPM_TOKEN`
+    to leak or rotate and npm attaches a provenance attestation. Two manual
+    steps precede the first automated release, in this order: the npm
+    organisation **`abap2ui5` must exist** (the scope is unclaimed — every
+    publish 404s until it does), and trusted publishing can only be configured
+    on a package that already exists, so the **first publish is manual**
+    (`npm publish --access public --provenance`) and the trusted publisher is
+    pointed at `release.yml` afterwards.
+  - Stay in **`0.x`** while the rule set is still growing: it says out loud
+    that a new rule may change a consumer's verdict, which is exactly what
+    happens on most merges here.
+- **npm publishing does not replace the git-SHA pins.** samples-controls and
+  the VS Code extension keep pinning `github:abap2UI5/linter#<sha>`; the
+  downstream workflow keeps being what says a bump is safe. npm serves the
+  consumers that have no such workflow — a developer linting their own app,
+  and anyone who wants a pinnable version instead of `@main`.
 - **`docs/index.html` is published on merge** to
   https://abap2ui5.github.io/linter/ by `.github/workflows/pages.yml` — a
   reworded rule detail is live the moment it lands on main. The workflow only

@@ -1,0 +1,126 @@
+name: Publish to npm
+# Publishes @abap2ui5/linter to the public npm registry from a version tag.
+# Merging to main stays a release for every OTHER consumer (the rules page,
+# the render-gate bundle, the SHA pins downstream) - npm is the one channel
+# that needs a deliberate, immutable version, because a published version can
+# never be changed and `npm i @abap2ui5/linter` has to keep meaning one thing.
+#
+# To cut a release:
+#   npm version patch|minor|major   # bumps package.json, commits, tags vX.Y.Z
+#   git push --follow-tags
+# Pushing the tag is what triggers this; the tag and package.json version must
+# agree, and the job refuses to publish when they do not.
+#
+# ---------------------------------------------------------------------------
+# One-time setup, in this order - the workflow cannot do either step itself:
+#
+#   1. The npm organisation `abap2ui5` has to exist and own the scope
+#      (npmjs.com -> Add Organization, free for public packages). Until then
+#      every publish fails with 404 on the scope.
+#   2. Trusted publishing has to be configured on the package, and npm can
+#      only configure it for a package that already exists. So the FIRST
+#      publish is manual, from a maintainer's machine:
+#
+#         npm publish --access public --provenance
+#
+#      then, on npmjs.com -> the package -> Settings -> Trusted Publisher,
+#      point it at this repository and this workflow file (`release.yml`).
+#      From the second release on, this workflow publishes with no token.
+#
+# Trusted publishing (OIDC) is deliberate: no NPM_TOKEN secret to leak or
+# rotate, and npm records a provenance attestation tying the tarball to this
+# workflow run and commit. `id-token: write` below is what mints that token.
+# ---------------------------------------------------------------------------
+on:
+  push:
+    tags:
+      - 'v*'
+  # A publish is irreversible, so it is worth being able to run everything
+  # EXCEPT the publish. Dispatching this workflow does exactly that: the same
+  # gates, the same tarball, no registry write.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Node 22 ships npm 10.x, which has no OIDC support at all - it would
+      # fall through to asking for a token and fail confusingly. Trusted
+      # publishing needs 11.5.1 or newer.
+      - name: Use an npm that can publish via OIDC
+        run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # The tag is the version claim; package.json is what actually gets
+      # published. Catching a mismatch here costs a minute, catching it after
+      # the fact costs a burned version number - npm never lets one be reused.
+      - name: Tag and package.json must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json ($PKG)" >&2
+            exit 1
+          fi
+          echo "publishing $PKG"
+
+      # Same gate as ci.yml, on the exact commit being published rather than
+      # on whatever passed on main - the render half of the suite needs the
+      # browser, so a published version is one that rendered.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install chromium --with-deps
+      - run: npm test
+
+      # Build the tarball first and print what is in it. `files` in
+      # package.json is an allowlist, so the failure mode is a lib/ or data/
+      # file silently missing from the published package while every local
+      # test passes against the working tree.
+      - name: Pack and show the contents
+        run: npm pack
+
+      # Prove the packed artefact works the way a consumer meets it: installed
+      # from a tarball, in a directory that is not this repo. The property gate
+      # runs without the optional dependencies, which is also the path a user
+      # who skipped the 140 MB of OpenUI5 takes.
+      - name: Smoke-test the tarball as an installed package
+        run: |
+          TARBALL="$PWD/$(ls abap2ui5-linter-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          npm init -y >/dev/null
+          npm install --omit=optional "$TARBALL"
+          npx abap2ui5-linter --version
+          npx abap2ui5lint --version
+          node -e "import('@abap2ui5/linter').then(m => {
+            for (const fn of ['checkFiles', 'checkAbapSource', 'checkXmlSource'])
+              if (typeof m[fn] !== 'function') throw new Error('missing export: ' + fn);
+          })"
+          node -e "import('@abap2ui5/linter/config').then(m => {
+            if (typeof m.loadConfig !== 'function') throw new Error('missing config export');
+          })"
+
+      # --access public because a scoped package is private by default and the
+      # first publish would fail on a free account. No NODE_AUTH_TOKEN: npm
+      # exchanges the Actions OIDC token for a short-lived registry credential
+      # and attaches provenance on its own.
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm publish --access public
+
+      - name: Dry run only
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: echo "Not a tag - everything ran except the publish."
