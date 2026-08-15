@@ -81,3 +81,15 @@ Useful properties when something goes wrong:
   publish step is skipped, so a re-run finishes the rest instead of failing.
 - **A wrong tag is not a release.** As long as the publish step has not run,
   `git push --delete origin vX.Y.Z` undoes it completely.
+- **A red `major-tag` job does not undo a publish.** It runs after the packages
+  are on npm and only maintains the `v0` alias, so the fix is to move that
+  alias, not to re-release. By hand, the same call the job makes:
+
+  ```sh
+  gh api -X PATCH repos/abap2UI5/linter/git/refs/tags/v0 \
+    -f sha="$(git rev-parse vX.Y.Z)" -F force=true
+  ```
+
+  Not `git push -f`: a push that moves a ref across workflow-file changes is
+  refused outright, and for the workflow's own token that refusal cannot be
+  waived — `workflows` is not a permission `GITHUB_TOKEN` can be granted.
