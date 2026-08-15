@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - **The advertised `npx @abap2ui5/linter src` lints again.** The render gate
   is on by default and its ~118 MB runtime is deliberately *not* installed by

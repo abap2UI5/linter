@@ -1,6 +1,6 @@
 {
   "name": "@abap2ui5/linter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Validate abap2UI5 app classes without an SAP system: the ABAP and the view it builds, checked together.",
   "type": "module",
   "bin": {
@@ -21,20 +21,50 @@
   ],
   "types": "./types.d.ts",
   "exports": {
-    ".": { "types": "./types.d.ts", "default": "./lib/index.mjs" },
-    "./reconstruct": { "types": "./types.d.ts", "default": "./lib/reconstruct.mjs" },
-    "./properties": { "types": "./types.d.ts", "default": "./lib/properties.mjs" },
-    "./render": { "types": "./types.d.ts", "default": "./lib/render.mjs" },
-    "./abap-rules": { "types": "./types.d.ts", "default": "./lib/abap-rules.mjs" },
+    ".": {
+      "types": "./types.d.ts",
+      "default": "./lib/index.mjs"
+    },
+    "./reconstruct": {
+      "types": "./types.d.ts",
+      "default": "./lib/reconstruct.mjs"
+    },
+    "./properties": {
+      "types": "./types.d.ts",
+      "default": "./lib/properties.mjs"
+    },
+    "./render": {
+      "types": "./types.d.ts",
+      "default": "./lib/render.mjs"
+    },
+    "./abap-rules": {
+      "types": "./types.d.ts",
+      "default": "./lib/abap-rules.mjs"
+    },
     "./fix": {
-    "types": "./types.d.ts",
-    "default": "./lib/fix.mjs"
-  },
-  "./findings": { "types": "./types.d.ts", "default": "./lib/findings.mjs" },
-    "./config": { "types": "./types.d.ts", "default": "./lib/config.mjs" },
-    "./baseline": { "types": "./types.d.ts", "default": "./lib/baseline.mjs" },
-    "./report": { "types": "./types.d.ts", "default": "./lib/report.mjs" },
-    "./formatters": { "types": "./types.d.ts", "default": "./lib/formatters.mjs" },
+      "types": "./types.d.ts",
+      "default": "./lib/fix.mjs"
+    },
+    "./findings": {
+      "types": "./types.d.ts",
+      "default": "./lib/findings.mjs"
+    },
+    "./config": {
+      "types": "./types.d.ts",
+      "default": "./lib/config.mjs"
+    },
+    "./baseline": {
+      "types": "./types.d.ts",
+      "default": "./lib/baseline.mjs"
+    },
+    "./report": {
+      "types": "./types.d.ts",
+      "default": "./lib/report.mjs"
+    },
+    "./formatters": {
+      "types": "./types.d.ts",
+      "default": "./lib/formatters.mjs"
+    },
     "./schema": "./data/abap2ui5lint.schema.json"
   },
   "files": [
