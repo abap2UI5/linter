@@ -498,6 +498,17 @@ ENDCLASS.`;
   assert(JSON.parse(stripJsonc('{"a":1,/*x*/"b":"//not a comment",}')).b === '//not a comment',
     'config: stripJsonc keeps // inside strings');
 
+  /* Trailing-comma removal must tell punctuation from text. It used to be a
+   * regex over the finished output, which also rewrote string CONTENT: an
+   * exclude pattern `app[,]x` came out as `app[]x` - a character class that
+   * matches nothing, so the suppression silently stopped suppressing. */
+  assert(JSON.parse(stripJsonc('{"exclude":["src/app[,]x"],}')).exclude[0] === 'src/app[,]x',
+    'config: stripJsonc keeps a comma before ] inside a string');
+  assert(JSON.parse(stripJsonc('{"a":"foo, } bar"}')).a === 'foo, } bar',
+    'config: stripJsonc keeps a comma before } inside a string');
+  assert(JSON.stringify(JSON.parse(stripJsonc('{"a":[1, 2, ], "b":{"c":1, }, }'))) === '{"a":[1,2],"b":{"c":1}}',
+    'config: stripJsonc still drops the structural trailing commas');
+
   const cfg = loadConfig(cfgFile);
   assert(cfg.minUi5 === '1.96' && cfg.failOn === 'hint' && cfg.render === false,
     'config: jsonc parsed with comments and trailing commas');
