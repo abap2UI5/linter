@@ -283,6 +283,32 @@ assert(nestedTypes.findings.length === 1,
     'nested types: two levels of nesting reach the model, not just one');
 }
 
+// four ways an ABAP structure declaration hides its shape from a naive parse.
+// Every binding in the fixture is correct, so silence is the assertion - and
+// each shape then has to still CATCH a typo, or it is being blanket-accepted
+// rather than understood.
+{
+  const src = fs.readFileSync(f('structshapes.clas.abap'), 'utf8');
+  assert(checkAbapSource(src, { render: false }).findings.length === 0,
+    `struct shapes: nesting, INCLUDE TYPE, a foreign type and a template var are all understood (${
+      checkAbapSource(src, { render: false }).findings.map((x) => x.type + ' ' + x.value).join(', ')})`);
+
+  const typos = [
+    ['ms_deep-ms_deep2-ms_deep2-val', 'ms_deep-ms_deep2-ms_deep2-vla', 'the same name nested at several levels'],
+    ['ms_incl-title', 'ms_incl-titel', 'a field spliced in by INCLUDE TYPE'],
+  ];
+  for (const [good, bad, what] of typos) {
+    const broken = checkAbapSource(src.replace(good, bad), { render: false }).findings;
+    assert(broken.some((x) => x.type === 'unknown-binding-path'),
+      `struct shapes: a typo through ${what} is still caught (got ${broken.map((x) => x.type).join(', ') || 'nothing'})`);
+  }
+  /* The foreign type is the exception and has to stay one: its shape is not
+   * knowable from this source, so no path below it can be judged. */
+  assert(checkAbapSource(src.replace('ms_foreign-anything', 'ms_foreign-whatever'), { render: false })
+    .findings.length === 0,
+    'struct shapes: a path into a type owned by another class stays unjudged');
+}
+
 // the model handed to the RENDERER stays what a seed actually sets: a field
 // the class fills in code cannot be followed statically, and inventing an
 // empty string for it makes UI5 strict mode reject a good view

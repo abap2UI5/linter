@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+- **Four more ways an ABAP structure declaration hid its shape.** Every one of
+  them ended in the same place — a correct binding reported as a path the model
+  does not have, with nothing to do about it but a disable directive. Together
+  they account for **16 findings across `abap2UI5/samples`, all of them false;
+  nothing else in any corpus changes.**
+
+  - *The same name nested at several levels.* `END OF ms_data` is a PREFIX of
+    `END OF ms_data2`, so the outer structure ended at the inner one's close
+    and kept only the fields written after it. Sample 138 nests seven deep on
+    purpose; the depth limit on the mock model (5) cut it short as well.
+  - *`INCLUDE TYPE`.* The period-terminated `DATA BEGIN OF x. INCLUDE TYPE y.
+    DATA END OF x.` form was not read at all — a different statement, not a
+    spelling variant, and the only one that can carry an include. The included
+    fields land flat, as components of the including structure.
+  - *A type owned by another class.* `DATA s TYPE zcl_other=>ty_s_result.` was
+    not merely typed as unknown, it was dropped: the type matcher accepted no
+    `=>`, so the declaration did not match and the variable never existed. Now
+    it is registered and takes the "shape not knowable here" branch, where
+    paths below it are accepted rather than guessed at.
+  - *A model declared by the view.* `<template:repeat var="L0">` creates the
+    model `L0>` for its subtree. Enumerating models from the ABAP source cannot
+    see it, so every templated view reported its own aliases as models nothing
+    has.
+
+  A structure whose shape IS known still catches a typo through it — the
+  fixture asserts both halves.
+
 ## 0.2.0
 
 - **A structure declared inside another one was dropped, and every path
