@@ -166,19 +166,23 @@ jobs:
         id: published
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          on_registry() {
-            if npm view "$1@$2" version >/dev/null 2>&1; then
-              echo "::notice::$1@$2 is already published - skipping its publish step"
-              echo true
-            else
-              echo false
-            fi
-          }
+          # The notice is printed HERE rather than inside the function, because
+          # a function whose result is read through $(...) may write nothing but
+          # that result: the notice would be captured with it and land in
+          # GITHUB_OUTPUT as a second line, which fails the step with
+          # "Invalid format" - and takes `major-tag` down with it, exactly in
+          # the already-published case this step exists to survive.
           VERSION="${GITHUB_REF_NAME#v}"
-          {
-            echo "runtime=$(on_registry @abap2ui5/render-runtime "$VERSION")"
-            echo "linter=$(on_registry @abap2ui5/linter "$VERSION")"
-          } >> "$GITHUB_OUTPUT"
+          for PAIR in 'runtime:@abap2ui5/render-runtime' 'linter:@abap2ui5/linter'; do
+            KEY="${PAIR%%:*}"
+            PKG="${PAIR#*:}"
+            if npm view "$PKG@$VERSION" version >/dev/null 2>&1; then
+              echo "::notice::$PKG@$VERSION is already published - skipping its publish step"
+              echo "$KEY=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$KEY=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
       # --access public because a scoped package is private by default and the
       # first publish would fail on a free account. No NODE_AUTH_TOKEN: npm

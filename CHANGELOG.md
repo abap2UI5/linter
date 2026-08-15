@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
+
+First public release — of both packages, from one tag:
+
+| Package | What it is |
+| --- | --- |
+| `@abap2ui5/linter` | the CLI, the library and the GitHub Action (~240 kB, no dependencies) |
+| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves (`@openui5/*` + playwright) |
+
+Everything below is what changed while preparing that release. Nothing was
+published before it, so none of it can break an installed consumer — which is
+exactly why these were worth doing now rather than later.
 
 - **New rule `chain-house-layout`, and the first opt-in rule.** It judges a
   builder chain against one canonical form — one call per line *including
@@ -22,18 +33,8 @@
   inside the same chain to a second `--fix` pass. The mechanism is general:
   `OPT_IN` in `lib/findings.mjs`, honoured before the rule is even emitted.
 
-## 0.1.0
-
-First public release — of both packages, from one tag:
-
-| Package | What it is |
-| --- | --- |
-| `@abap2ui5/linter` | the CLI, the library and the GitHub Action (~240 kB, no dependencies) |
-| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves (`@openui5/*` + playwright) |
-
-Everything below is what changed while preparing that release. Nothing was
-published before it, so none of it can break an installed consumer — which is
-exactly why these were worth doing now rather than later.
+- **`./fix` is an export**, so a generator can format what it emits with the
+  same code `--fix` runs rather than reimplementing the layout downstream.
 
 - **The UI5 runtime moved into its own package.** It used to be declared as
   `optionalDependencies` of the linter, which does not mean what the name
