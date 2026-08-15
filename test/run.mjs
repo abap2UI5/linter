@@ -485,6 +485,33 @@ const foreign = checkAbapSource(`
 assert(!foreign.findings.some((x) => x.type === 'unknown-aggregation'),
   'foreign namespace: html:iframe is left alone, not read as an aggregation of Panel');
 
+/* A SAP control the snapshot does not carry - a SAPUI5-only library, judged
+ * under --distribution sapui5 so it is not reported as sapui5-only either.
+ * Its own aggregation was blamed on the nearest KNOWN ancestor: `vos` inside
+ * `vbm:AnalyticMap` came out as "sap.m.Page has no aggregation vos", which is
+ * a finding no author can act on. `samples-stack` excluded a whole package to
+ * silence the same shape. The mirror image was worse and invisible: an
+ * aggregation whose name happens to exist on that ancestor was silently
+ * excused. */
+const opaqueOwner = checkAbapSource(`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->a( n = \`xmlns:vbm\` v = \`sap.ui.vbm\`
+      )->ele( \`Page\`
+          )->ele( n = \`AnalyticMap\` ns = \`vbm\`
+              )->ele( n = \`vos\` ns = \`vbm\`
+                  )->tag( n = \`Spot\` ns = \`vbm\`
+                      )->a( n = \`position\` v = \`0;0;0\` ).
+  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+assert(!opaqueOwner.findings.some((x) => x.type === 'unknown-aggregation'),
+  `opaque control: vos belongs to vbm:AnalyticMap, not to the Page above it (got ${
+    opaqueOwner.findings.map((x) => `${x.type} ${x.control}/${x.member}`).join(', ') || 'nothing'})`);
+assert(!opaqueOwner.findings.length,
+  `opaque control: nothing under an unjudgeable control is judged (${
+    opaqueOwner.findings.map((x) => x.type).join(', ') || 'none'})`);
+
 // positions in raw XML are just as exact as in a builder class
 const xmlPos = (await checkFiles([f('badvalue.view.xml')], { render: false }))[0];
 const bad = xmlPos.findings.find((x) => x.type === "invalid-property-value");

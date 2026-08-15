@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **An aggregation under a control the snapshot does not have was blamed on
+  the nearest one it does.** The metadata covers OpenUI5; a SAPUI5-only
+  control (`sap.ui.vbm`, `sap.ui.comp`, `sap.suite.*`) is outside it, and its
+  children kept the last known ancestor as their owner. So `vos` inside
+  `vbm:AnalyticMap` came out as *"sap.m.Page has no aggregation vos"* — a
+  finding pointing at a control that is not the one in question, which nobody
+  can act on. `abap2UI5/samples-stack` had excluded a whole package to silence
+  the shape. Eighteen such findings across the sample corpora; **no finding
+  anywhere else changes.**
+
+  The mirror image was the worse half and invisible: an aggregation whose name
+  happened to exist on that distant ancestor was silently *excused*. Both are
+  guesses, and this rule's promise is that a chain leaving the snapshot is not
+  guessed about — now the owner goes opaque and nothing below it is judged.
+
 - **The rule reference showed code the builder cannot run.** Eleven of the 49
   examples on the rules page and in the README called `view->leaf( … )`,
   `)->open( … )` or `->_generic( name = … )` — the role names
