@@ -5,7 +5,7 @@
  * Two files in lib/ mirror closed sets that live in the abap2UI5 repo:
  *
  *   lib/formatters.mjs        <- app/webapp/model/formatter.js
- *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap
+ *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
  *   lib/released-api.mjs      <- the abapGit object layout of src/
