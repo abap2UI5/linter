@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - **Four more ways an ABAP structure declaration hid its shape.** Every one of
   them ended in the same place — a correct binding reported as a path the model
@@ -28,8 +28,6 @@
 
   A structure whose shape IS known still catches a typo through it — the
   fixture asserts both halves.
-
-## 0.2.0
 
 - **A structure declared inside another one was dropped, and every path
   through it reported.** ABAP nests `BEGIN OF` freely:
