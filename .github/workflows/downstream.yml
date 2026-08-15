@@ -1,7 +1,8 @@
 name: Downstream
 
-# The linter was extracted from ai-demokit's CI gates and is consumed back by
-# it, so `npm test` here only ever proves the linter against its own fixtures.
+# The linter was extracted from samples-controls' CI gates and is consumed
+# back by it, so `npm test` here only ever proves the linter against its own
+# fixtures.
 # This workflow closes that loop: every change is run against the real
 # consumers, with THIS checkout substituted for the version they pin.
 #
@@ -30,12 +31,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ai-demokit:
-    # The corpus: 280 generated ports. Runs the consumer's own gate wrapper
+  samples-controls:
+    # The corpus: 416 generated ports. Runs the consumer's own gate wrapper
     # (view-gates.mjs), so the corpus POLICY applies - POST_171 deviations,
     # declared render skips, advisory rules - and a failure means a real port
     # regressed, not that a deviation went unread.
-    name: ai-demokit corpus (280 ports)
+    name: samples-controls corpus (416 ports)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -44,37 +45,37 @@ jobs:
         with:
           path: linter
 
-      - name: Check out ai-demokit
+      - name: Check out samples-controls
         uses: actions/checkout@v4
         with:
-          repository: abap2UI5/ai-demokit
-          path: ai-demokit
+          repository: abap2UI5/samples-controls
+          path: samples-controls
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ai-demokit/package-lock.json
+          cache-dependency-path: samples-controls/package-lock.json
 
-      - name: Install ai-demokit (with its pinned linter)
-        working-directory: ai-demokit
+      - name: Install samples-controls (with its pinned linter)
+        working-directory: samples-controls
         run: npm ci
 
       - name: Substitute this checkout for the pinned linter
-        run: ./linter/.github/scripts/substitute-linter.sh linter ai-demokit
+        run: ./linter/.github/scripts/substitute-linter.sh linter samples-controls
 
       # cache the Chromium download, keyed on the consumer's lockfile (which
       # pins its playwright version); a hit skips the download, not the deps
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('ai-demokit/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('samples-controls/package-lock.json') }}
 
       - run: npx playwright install chromium --with-deps
-        working-directory: ai-demokit
+        working-directory: samples-controls
 
       - name: View gates over every port
-        working-directory: ai-demokit
+        working-directory: samples-controls
         run: node scripts/view-gates.mjs --strict
 
   ai-mcp:
@@ -99,11 +100,11 @@ jobs:
           repository: abap2UI5/ai-mcp
           path: ai-mcp
 
-      - name: Check out ai-demokit (the server's content source)
+      - name: Check out samples-controls (the server's content source)
         uses: actions/checkout@v4
         with:
-          repository: abap2UI5/ai-demokit
-          path: ai-demokit
+          repository: abap2UI5/samples-controls
+          path: samples-controls
 
       - uses: actions/setup-node@v4
         with:

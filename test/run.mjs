@@ -16,7 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkAbapSource, checkFiles } from '../lib/index.mjs';
+import { checkAbapSource, checkXmlSource, checkFiles } from '../lib/index.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
 import { severityOf } from '../lib/findings.mjs';
 
@@ -31,7 +31,7 @@ const assert = (cond, msg) => {
 
 const results = await checkFiles(
   [f('good.clas.abap'), f('viewbuilder.clas.abap'), f('post171.clas.abap'), f('broken.clas.abap'),
-    f('structure.clas.abap'), f('sample.view.xml')],
+    f('structure.clas.abap'), f('barefragment.clas.abap'), f('sample.view.xml')],
 );
 const by = (n) => results.find((r) => r.file.endsWith(n));
 
@@ -51,6 +51,19 @@ assert(vbuilder.findings.length === 0 && vbuilder.renderErrors.length === 0,
 const post = by('post171.clas.abap');
 assert(post.findings.some((x) => x.member === 'systemInfo' && x.type === 'member-too-new'),
   'post171: GenericTile.systemInfo flagged as member-too-new');
+
+/* A popup whose root is a bare control, not core:FragmentDefinition. The
+ * render gate used to decide view-vs-fragment by sniffing the root tag, so
+ * this legitimate shape (display-root-mismatch says so in as many words) went
+ * to XMLView.create and failed with "XMLView's root node must be 'View'" -
+ * a render error against correct code. The consuming call decides now. */
+const bareFrag = by('barefragment.clas.abap');
+assert(bareFrag.docKinds[0] === 'fragment',
+  `barefragment: popup_display marks the document a fragment (got ${bareFrag.docKinds[0]})`);
+assert(bareFrag.renderErrors.length === 0,
+  `barefragment: a bare-control fragment renders clean (${bareFrag.renderErrors[0] || ''})`);
+assert(good.docKinds[0] === 'view',
+  `good: view_display marks the document a view (got ${good.docKinds[0]})`);
 
 const broken = by('broken.clas.abap');
 assert(broken.renderErrors.length > 0, 'broken: render gate reports errors');
@@ -498,6 +511,17 @@ ENDCLASS.`;
   assert(JSON.parse(stripJsonc('{"a":1,/*x*/"b":"//not a comment",}')).b === '//not a comment',
     'config: stripJsonc keeps // inside strings');
 
+  /* Trailing-comma removal must tell punctuation from text. It used to be a
+   * regex over the finished output, which also rewrote string CONTENT: an
+   * exclude pattern `app[,]x` came out as `app[]x` - a character class that
+   * matches nothing, so the suppression silently stopped suppressing. */
+  assert(JSON.parse(stripJsonc('{"exclude":["src/app[,]x"],}')).exclude[0] === 'src/app[,]x',
+    'config: stripJsonc keeps a comma before ] inside a string');
+  assert(JSON.parse(stripJsonc('{"a":"foo, } bar"}')).a === 'foo, } bar',
+    'config: stripJsonc keeps a comma before } inside a string');
+  assert(JSON.stringify(JSON.parse(stripJsonc('{"a":[1, 2, ], "b":{"c":1, }, }'))) === '{"a":[1,2],"b":{"c":1}}',
+    'config: stripJsonc still drops the structural trailing commas');
+
   const cfg = loadConfig(cfgFile);
   assert(cfg.minUi5 === '1.96' && cfg.failOn === 'hint' && cfg.render === false,
     'config: jsonc parsed with comments and trailing commas');
@@ -619,6 +643,19 @@ ENDCLASS.`;
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings
     .some((x) => x.type === 'display-root-mismatch'),
     'display-root-mismatch: a matching pair is not reported');
+
+  /* The rule used to live only in the handle-aware extractor, so a LINEARLY
+   * built class - the very shape the rule's own doc uses as its example -
+   * was never judged. roots.clas.abap builds through handles; this is the
+   * other idiom, the whole document in one statement. */
+  const linear = checkAbapSource(`
+  client->popup_display( z2ui5_cl_ui5_view_builder=>factory( )->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->tag( \`Text\` )->a( n = \`text\` v = \`x\` )->stringify( ) ).`);
+  assert(linear.findings.some((x) => x.type === 'display-root-mismatch'
+      && x.member === 'popup_display' && x.value === 'mvc:View'),
+    'display-root-mismatch: reported on a linearly built class too, not only a handle-built one');
 
   const typed = checkAbapSource(fs.readFileSync(f('typedbind.clas.abap'), 'utf8'));
   const mism = typed.findings.filter((x) => x.type === 'binding-type-mismatch');
@@ -995,13 +1032,38 @@ ENDCLASS.`).findings;
   assert(!actions.some((x) => ['MESSAGE_TOAST', 'show', 'hide', 'BUSY_INDICATOR'].includes(x.value)),
     'invalid-frontend-action: a correct wire is never reported');
 
-  const { ACTION_ARGS, GLOBAL_TARGETS } = await import('../lib/frontend-actions.mjs');
+  const { ACTION_ARGS, GLOBAL_TARGETS, FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES } = await import('../lib/frontend-actions.mjs');
   assert(Object.keys(ACTION_ARGS).every((a) => a === a.toLowerCase()) && GLOBAL_TARGETS.MESSAGE_TOAST.includes('show'),
     'invalid-frontend-action: the catalog is keyed by the cs_event constant name');
   assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
     + 't_arg = VALUE #( ( `POPUP` ) ( `setWithinArea` ) ( `withinArea` ) ) ).')
     .filter((x) => x.type === 'invalid-frontend-action').length === 0,
     'invalid-frontend-action: POPUP.setWithinArea is a known global (abap2UI5 CONTROL_GLOBAL target)');
+
+  /* The targets upstream added after the frontend action layer was split per
+   * action group. check-upstream could not see any of them while it still
+   * read the single, now-emptied z2ui5_cl_ui5f_frontact_js class. */
+  for (const [target, method] of [
+    ['VIEW_SLOTS', 'destroy'], ['VIEW_SLOTS', 'updateModel'],
+    ['ROUTER', 'sync'], ['MESSAGE_BOX', 'alert'], ['MESSAGE_BOX', 'confirm'],
+  ]) {
+    assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
+      + `t_arg = VALUE #( ( \`${target}\` ) ( \`${method}\` ) ) ).`)
+      .filter((x) => x.type === 'invalid-frontend-action').length === 0,
+      `invalid-frontend-action: ${target}.${method} is a known CONTROL_GLOBAL wire`);
+  }
+  /* Removed upstream (BREAKING, changelog): the constants are gone from
+   * z2ui5_if_client, so naming them is broken code and must be reported. */
+  for (const gone of ['HISTORY_BACK', 'NAV_TO_ROUTE']) {
+    assert(!FRONTEND_EVENTS.includes(gone),
+      `invalid-frontend-action: ${gone} was removed upstream and must not stay in the dispatch mirror`);
+  }
+  /* Still released cs_event constants - the SERVER remaps either close onto
+   * the VIEW_SLOTS destroy action, so an app using them is correct code. */
+  for (const kept of ['POPUP_CLOSE', 'POPOVER_CLOSE']) {
+    assert(FRONTEND_EVENT_ALIASES.includes(kept),
+      `invalid-frontend-action: ${kept} is server-remapped, not gone - it must stay accepted`);
+  }
 
   const css = wire.findings.filter((x) => x.type === 'unescaped-brace-in-style');
   assert(css.length === 1 && css[0].count === 2,
@@ -1498,9 +1560,11 @@ ENDCLASS.`;
   for (const name of RELEASED_OBJECTS) {
     assert(apiVerdict(name) === null, `non-released-api: the released ${name} is never reported`);
   }
-  // the two deliberate exemptions, each for a reason of its own (see released-api.mjs)
+  // z2ui5_if_types ships in the released src/02 - which it has to, because the
+  // released client->get( ) returns z2ui5_if_types=>ty_s_get and an app that
+  // declares a variable of that type cannot avoid naming it
   assert(!named.includes('z2ui5_if_types'),
-    'non-released-api: z2ui5_if_types is tolerated — the released client->get( ) returns it');
+    'non-released-api: z2ui5_if_types is released — the released client->get( ) returns it');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');
@@ -1919,6 +1983,50 @@ ENDCLASS.`;
     'sarif: severities map to error/warning/note and every result carries its rule id');
   assert(sarif.runs[0].tool.driver.rules.every((r) => r.helpUri.includes(`#${r.id}`)),
     'sarif: every rule links to its anchor on the rules page');
+
+  /* What code scanning actually renders. Without these the Security tab shows
+   * a bare rule id and attributes every alert to an unversioned tool. */
+  const { version: pkgVersion } = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+  assert(sarif.runs[0].tool.driver.version === pkgVersion
+    && sarif.runs[0].tool.driver.semanticVersion === pkgVersion,
+    `sarif: the driver carries the package version (got ${sarif.runs[0].tool.driver.version})`);
+  const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+  assert(sarif.runs[0].tool.driver.rules.every((r) => r.id === r.name
+    && r.defaultConfiguration
+    && ['error', 'warning', 'note'].includes(r.defaultConfiguration.level)),
+    'sarif: every rule carries a name and a defaultConfiguration level');
+  assert(sarif.runs[0].tool.driver.rules.every((r) => !RULE_DOCS[r.id]
+    || (r.shortDescription.markdown === RULE_DOCS[r.id].summary
+      && !r.shortDescription.text.includes('`'))),
+    'sarif: a documented rule carries its summary, markdown raw and text backtick-free');
+
+  /* --- the two value flags that name a closed set ---------------------------
+   * A value outside the set fails nowhere downstream - it falls back to the
+   * default - so a typo used to be silent: `--ui5 1,130` reported every
+   * control added after 1.71 as too new, and `--distribution openui` ran none
+   * of the openui5 checks that were asked for. abap2ui5lint.jsonc refuses
+   * both loudly, and the flags have to agree with it. */
+  const runErr = (args) => {
+    try {
+      cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } });
+      return { err: '', code: 0 };
+    } catch (e) { return { err: e.stderr ?? '', code: e.status }; }
+  };
+  const good = f('good.clas.abap');
+  for (const bad of ['banana', '1,71', '1.', '']) {
+    const r = runErr([good, '--no-render', '--no-config', '--ui5', bad]);
+    assert(r.code === 2 && /takes a version like 1\.71/.test(r.err),
+      `cli: --ui5 '${bad}' is refused instead of silently meaning 1.71 (exit ${r.code})`);
+  }
+  for (const ok of ['1.71', '1.130', '1.120.3']) {
+    assert(runErr([good, '--no-render', '--no-config', '--ui5', ok]).code !== 2,
+      `cli: --ui5 ${ok} is accepted`);
+  }
+  const distro = runErr([good, '--no-render', '--no-config', '--distribution', 'openui']);
+  assert(distro.code === 2 && /takes sapui5 or openui5/.test(distro.err),
+    'cli: --distribution refuses a value outside the two it knows');
+  assert(runErr([good, '--no-render', '--no-config', '--distribution', 'OpenUI5']).code !== 2,
+    'cli: --distribution stays case-insensitive');
 
   // --- baseline -------------------------------------------------------------
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5base-'));
@@ -2346,15 +2454,19 @@ ENDCLASS.`;
 
 // ----------------------------------------------------------- rules page ----
 {
-  const { RULES } = await import('../lib/findings.mjs');
+  const { RULES, RENDER_RULE } = await import('../lib/findings.mjs');
   const { RULE_DOCS, CATEGORIES } = await import('../lib/rule-docs.mjs');
   const { FIXABLE } = await import('../lib/fix.mjs');
   const { buildPage, PAGE_FILE } = await import('../scripts/generate-rules-page.mjs');
 
+  // The registry plus the render gate's pseudo-rule: `render-error` is emitted
+  // by no check and so is deliberately absent from RULES, but it reaches
+  // reports and SARIF like any other id and the SARIF helpUri deep-links here.
+  const pageRules = [...RULES, RENDER_RULE].sort();
   const documented = Object.keys(RULE_DOCS).sort();
-  assert(documented.join() === [...RULES].join(),
+  assert(documented.join() === pageRules.join(),
     `rules page: every rule is documented and every documented rule exists (${
-      RULES.filter((r) => !RULE_DOCS[r]).concat(documented.filter((d) => !RULES.includes(d))).join(', ') || 'in sync'})`);
+      pageRules.filter((r) => !RULE_DOCS[r]).concat(documented.filter((d) => !pageRules.includes(d))).join(', ') || 'in sync'})`);
 
   const known = new Set(CATEGORIES.map((c) => c.id));
   assert(Object.values(RULE_DOCS).every((d) => known.has(d.category) && d.summary && d.detail),
@@ -2365,7 +2477,7 @@ ENDCLASS.`;
 
   const page = fs.readFileSync(PAGE_FILE, 'utf8');
   assert(page === buildPage(), 'rules page: docs/index.html is in sync (npm run generate-rules-page)');
-  assert(RULES.every((id) => page.includes(`<article class="rule" id="${id}"`)),
+  assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
     'rules page: every rule has an anchor to link to');
   assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),
     'rules page: self-contained - no external stylesheet, script or font');
@@ -2376,6 +2488,40 @@ ENDCLASS.`;
   const missing = RULES.filter((id) => !readme.includes(`\`${id}\``));
   assert(!missing.length,
     `README: every rule id appears in the finding tables (missing: ${missing.join(', ') || 'none'})`);
+}
+
+
+// -------------------------------------------------------- robustness ----
+/* The VS Code extension checks LIVE while the user types, so half-written
+ * source is a normal input, not an edge case - and a throw there kills the
+ * feature instead of reporting a finding. Nothing pinned that before.
+ *
+ * Measured over the corpus first: 2,508 truncations and 2,760 seeded
+ * mutations (inserted brackets/backticks/quotes, deleted runs, duplicated
+ * runs, stripped backticks) across 103 real ports threw nothing. Those
+ * sweeps need the corpus; this fixture-scale guard is what CI can carry.
+ */
+{
+  const abap = fs.readFileSync(f('good.clas.abap'), 'utf8');
+  const xml = fs.readFileSync(f('badvalue.view.xml'), 'utf8');
+  const POISON = ['`', '(', ')', '{', '}', '"', "'", '&', '<', '>', '=>', '->'];
+  let threw = null;
+
+  for (let i = 0; i <= 40 && !threw; i++) {
+    const cutA = abap.slice(0, Math.floor((abap.length * i) / 40));
+    const cutX = xml.slice(0, Math.floor((xml.length * i) / 40));
+    try { checkAbapSource(cutA, { minUi5: '1.71' }); } catch (e) { threw = `truncated ABAP at ${i}/40: ${e.message}`; }
+    try { checkXmlSource(cutX, { minUi5: '1.71' }); } catch (e) { threw = threw || `truncated XML at ${i}/40: ${e.message}`; }
+  }
+  assert(!threw, `robustness: a truncated source is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
+
+  threw = null;
+  for (let i = 0; i < POISON.length && !threw; i++) {
+    const at = Math.floor((abap.length * (i + 1)) / (POISON.length + 1));
+    const hurt = abap.slice(0, at) + POISON[i] + abap.slice(at);
+    try { checkAbapSource(hurt, { minUi5: '1.71' }); } catch (e) { threw = `'${POISON[i]}' at ${at}: ${e.message}`; }
+  }
+  assert(!threw, `robustness: a stray bracket/quote is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');

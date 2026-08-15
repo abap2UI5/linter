@@ -10,7 +10,7 @@ ENDCLASS.
 CLASS zcl_fixture_releasedapi IMPLEMENTATION.
   METHOD z2ui5_if_app~main.
 
-    " tolerated: the RELEASED z2ui5_if_client~get( ) returns this very type
+    " released: the RELEASED z2ui5_if_client~get( ) returns this very type
     DATA ls_get TYPE z2ui5_if_types=>ty_s_get.
     ls_get = client->get( ).
 

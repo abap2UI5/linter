@@ -218,6 +218,7 @@ abap2ui5lint src                          # check everything under src/
 abap2ui5lint src --ui5 1.120              # check against UI5 1.120
 abap2ui5lint src --allow sap.m.GenericTile.systemInfo   # accepted deviation
 abap2ui5lint src --no-render              # property gate only (no browser)
+abap2ui5lint src --no-properties          # the other way round: render gate only
 abap2ui5lint src --fail-on error          # only real breakage fails CI
 abap2ui5lint src --advisory               # report, never fail the build
 abap2ui5lint src --fix                    # correct what is mechanical, report the rest
@@ -228,6 +229,7 @@ abap2ui5lint src --badge check.json       # the verdict badge for the README
 abap2ui5lint src --badge-corpus corpus.json  # and what the corpus is
 abap2ui5lint src --no-stats               # drop the run summary under the report
 abap2ui5lint src --no-progress            # and the live gate log on stderr
+abap2ui5lint src --verbose                # add the reconstruction notes per file
 abap2ui5lint --version                    # version and script location
 ```
 
@@ -482,6 +484,7 @@ Precedence per option: explicit CLI flag > config file > built-in default
   "distribution": "sapui5",  // or "openui5"
   "failOn": "warning",       // error | warning | hint | never
   "render": true,            // false = skip the render gate (--no-render)
+  "properties": true,        // false = skip the property gate (--no-properties)
   "allow": [],               // e.g. ["sap.m.Avatar.displaySize"]
   "baseline": "abap2ui5lint-baseline.json",  // adoption-time debt, see above
   "badge": [                 // shields endpoints for the README, see above

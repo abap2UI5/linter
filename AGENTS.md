@@ -115,10 +115,11 @@ map from the abap2UI5 sources and fails on any difference — so an upstream
 change becomes an issue here instead of a silent false positive at some
 user's desk. On `lib/frontend-actions.mjs` in detail:
 the closed whitelists `invalid-frontend-action` judges against. Its source of
-truth is abap2UI5's `z2ui5_cl_ui5f_frontact_js` — a JavaScript module
-embedded in an ABAP string concatenation, which is not worth parsing, and
-that repo is not a dependency here. Refresh it by reading `GLOBAL_TARGETS`
-and `BINDING_METHODS` there. Kept in step 2026-08-02 with abap2UI5's new
+truth is abap2UI5's frontend action modules (`app/webapp/core/actions/*.js`,
+shipped as the `z2ui5_cl_ui5f_*_js` classes) — JavaScript embedded in an ABAP
+string concatenation, which is not worth parsing, and that repo is not a
+dependency here. Refresh it by reading `GLOBAL_TARGETS` and `BINDING_METHODS`
+in `actions/ControlCall.js`. Kept in step 2026-08-02 with abap2UI5's new
 `POPUP: setWithinArea` target (`sap.ui.core.Popup.setWithinArea`, @since
 1.89) — a target added upstream is a **silent** breaking change here until
 this file follows: the linter reports the correct new wire as an
@@ -303,7 +304,7 @@ UI5 member KINDS the snapshot already carries:
 
 | Origin | Rule |
 | --- | --- |
-| the CONTROL_BY_ID denylist in `FrontendAction.js` — the closed half of a wire whose allowed half is open | `denied-control-method` + `CONTROL_METHOD_DENY_EXACT`/`_PREFIXES` in `lib/frontend-actions.mjs`, both gated by `check-upstream` |
+| the CONTROL_BY_ID denylist in `actions/ControlCall.js` — the closed half of a wire whose allowed half is open | `denied-control-method` + `CONTROL_METHOD_DENY_EXACT`/`_PREFIXES` in `lib/frontend-actions.mjs`, both gated by `check-upstream` |
 | `XMLTemplateProcessor` never parses an association attribute as a binding (`_iKind === 3` → `createId(sValue)`) | `binding-on-association` |
 | abap2UI5 serves ONE model per slot; a ported sample's `{ui>/x}` / `{i18n>KEY}` survives the port silently | `unknown-model` |
 
@@ -590,16 +591,21 @@ in a repo's config is the one line that changes that.
   positions, not the ABAP statement splitter) — worth it only if such files
   turn out to be a real part of anybody's corpus.
 
-- **The FrontendAction mirror lost its source file.** `db10b13` renamed
-  `z2ui5_cl_ui5f_frontact_js` to `z2ui5_cl_ui5f_frontact_js` **and split
-  the JS across modules** — `GLOBAL_TARGETS` now lives in
-  `z2ui5_cl_ui5f_ctrlcall_js` / `Slots.js`, not in the class
-  `check-upstream` reads. `ACTION_PATH` follows the rename already, so the
-  script gets as far as saying "the embedding changed" instead of "sources
-  unreachable", and the three `released-api` comparisons (which run first,
-  deliberately) still report. Re-pointing the `parse*` helpers at the split
-  modules — and dealing with whatever content drift that then reveals in
-  `lib/frontend-actions.mjs` — is a change of its own.
+- **The FrontendAction mirror lost its source file — fixed.** `db10b13`
+  **split the JS across modules**, so `GLOBAL_TARGETS` moved to
+  `z2ui5_cl_ui5f_ctrlcall_js` / `actions/ControlCall.js` and the single
+  class `check-upstream` read defined none of the mirrored sets; the script
+  exited 2 on "the embedding changed" before comparing a single frontend
+  mirror. It now reads the whole `src/01/03/z2ui5_cl_ui5f_*_js` family and
+  concatenates it (`ACTION_DIR` / `ACTION_FILE_RE`), and `parseHandlers`
+  collects every `const handlers = {` rather than the first — the dispatch
+  table is one per action group now. The content drift that revealed is
+  closed in the same change: `VIEW_SLOTS` / `ROUTER` and
+  `MESSAGE_BOX.alert` / `.confirm` added, `HISTORY_BACK` / `NAV_TO_ROUTE`
+  dropped (BREAKING removals upstream), and `POPUP_CLOSE` / `POPOVER_CLOSE`
+  moved to `FRONTEND_EVENT_ALIASES` — the server formats either close as the
+  `["VIEW_SLOTS","destroy","<slot>"]` action, and upstream keeps both
+  constants released.
 
 New candidates go here as they are found. Two rules of the trade the last
 rounds established, before anything is added:
