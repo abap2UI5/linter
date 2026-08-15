@@ -1,15 +1,25 @@
 name: Publish to npm
-# Publishes @abap2ui5/linter to the public npm registry from a version tag.
+# Publishes TWO packages to the public npm registry from one version tag:
+#
+#   @abap2ui5/linter           the CLI, the library and the GitHub Action
+#   @abap2ui5/render-runtime   the UI5 runtime the render gate serves
+#
+# They are one release with one version. The runtime exists so that a default
+# `npm i @abap2ui5/linter` (and `npx`, which has no --omit=optional) stays at
+# ~240 kB instead of dragging ~123 MB of @openui5 in; splitting it out is only
+# safe if the two never drift, because the linter's metadata snapshot is
+# generated from exactly the @openui5 version pinned over there.
+#
 # Merging to main stays a release for every OTHER consumer (the rules page,
 # the render-gate bundle, the SHA pins downstream) - npm is the one channel
 # that needs a deliberate, immutable version, because a published version can
 # never be changed and `npm i @abap2ui5/linter` has to keep meaning one thing.
 #
 # To cut a release:
-#   npm version patch|minor|major   # bumps package.json, commits, tags vX.Y.Z
+#   npm version patch|minor|major --workspaces --include-workspace-root
+#   git commit -am "release vX.Y.Z" && git tag vX.Y.Z
 #   git push --follow-tags
-# Pushing the tag is what triggers this; the tag and package.json version must
-# agree, and the job refuses to publish when they do not.
+# Both versions must match the tag; the job refuses to publish when they do not.
 #
 # ---------------------------------------------------------------------------
 # One-time setup, in this order - the workflow cannot do either step itself:
@@ -17,13 +27,14 @@ name: Publish to npm
 #   1. The npm organisation `abap2ui5` has to exist and own the scope
 #      (npmjs.com -> Add Organization, free for public packages). Until then
 #      every publish fails with 404 on the scope.
-#   2. Trusted publishing has to be configured on the package, and npm can
-#      only configure it for a package that already exists. So the FIRST
-#      publish is manual, from a maintainer's machine:
+#   2. Trusted publishing has to be configured per package, and npm can only
+#      configure it for a package that already exists. So the FIRST publish of
+#      EACH is manual, from a maintainer's machine:
 #
+#         npm publish -w @abap2ui5/render-runtime --access public --provenance
 #         npm publish --access public --provenance
 #
-#      then, on npmjs.com -> the package -> Settings -> Trusted Publisher,
+#      then, on npmjs.com -> each package -> Settings -> Trusted Publisher,
 #      point it at this repository and this workflow file (`release.yml`).
 #      From the second release on, this workflow publishes with no token.
 #
@@ -74,6 +85,15 @@ jobs:
             echo "tag $GITHUB_REF_NAME does not match package.json ($PKG)" >&2
             exit 1
           fi
+          # The runtime is published from this same tag and is named as the
+          # linter's peer by an exact minor range, so a version that lags here
+          # publishes a pair that cannot be installed together.
+          RT="v$(node -p "require('./render-runtime/package.json').version")"
+          if [ "$RT" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match render-runtime/package.json ($RT)" >&2
+            echo "bump both: npm version <level> --workspaces --include-workspace-root" >&2
+            exit 1
+          fi
           echo "publishing $PKG"
 
       # Same gate as ci.yml, on the exact commit being published rather than
@@ -90,20 +110,34 @@ jobs:
       # package.json is an allowlist, so the failure mode is a lib/ or data/
       # file silently missing from the published package while every local
       # test passes against the working tree.
+      # Both packages, so the contents of each are on the log. `files` in
+      # package.json is an allowlist, so the failure mode is a lib/ or data/
+      # file silently missing from the published package while every local
+      # test passes against the working tree.
       - name: Pack and show the contents
-        run: npm pack
+        run: |
+          npm pack
+          npm pack -w @abap2ui5/render-runtime
 
       # Prove the packed artefact works the way a consumer meets it: installed
-      # from a tarball, in a directory that is not this repo. The property gate
-      # runs without the optional dependencies, which is also the path a user
-      # who skipped the 140 MB of OpenUI5 takes.
+      # from a tarball, in a directory that is not this repo - and with a PLAIN
+      # install, because that is what `npx` does and what a first-time user gets.
       - name: Smoke-test the tarball as an installed package
         run: |
           TARBALL="$PWD/$(ls abap2ui5-linter-*.tgz)"
           mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
           npm init -y >/dev/null
-          npm install --omit=optional "$TARBALL"
-          npx abap2ui5-linter --version
+          npm install "$TARBALL"
+
+          # The reason the UI5 runtime is a separate package at all: npm installs
+          # optionalDependencies BY DEFAULT, so declaring @openui5 that way made
+          # `npx @abap2ui5/linter` a ~123 MB download before it linted anything.
+          # If this ever finds them again, that regression is back.
+          if [ -d node_modules/@openui5 ]; then
+            echo "::error::the default install pulled the UI5 runtime - the render deps must stay an optional PEER" >&2
+            exit 1
+          fi
+
           npx abap2ui5lint --version
           node -e "import('@abap2ui5/linter').then(m => {
             for (const fn of ['checkFiles', 'checkAbapSource', 'checkXmlSource'])
@@ -117,7 +151,14 @@ jobs:
       # first publish would fail on a free account. No NODE_AUTH_TOKEN: npm
       # exchanges the Actions OIDC token for a short-lived registry credential
       # and attaches provenance on its own.
-      - name: Publish
+      #
+      # The runtime goes FIRST: it is what the linter names as its optional
+      # peer, so publishing it second would leave a window in which `npm i
+      # @abap2ui5/linter @abap2ui5/render-runtime` cannot be satisfied.
+      - name: Publish the UI5 runtime
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm publish -w @abap2ui5/render-runtime --access public
+      - name: Publish the linter
         if: startsWith(github.ref, 'refs/tags/')
         run: npm publish --access public
 

@@ -28,8 +28,12 @@ inputs:
     description: 'Write the corpus badge ("abap2UI5 | 148 apps · 172 views · 2,176 controls") to this path, e.g. .github/badges/abap2ui5.json. Same rules as "badge"'
     required: false
     default: ''
+  render:
+    description: 'Run the render gate (a real XMLView.create in headless Chromium). On by default - it finds defects no static rule can. Set to false for a much faster job: it skips the ~118 MB UI5 runtime and the Chromium download, and every property-gate rule still runs'
+    required: false
+    default: 'true'
   flags:
-    description: 'Extra CLI flags, e.g. "--no-render --allow sap.m.Avatar.displaySize"'
+    description: 'Extra CLI flags, e.g. "--allow sap.m.Avatar.displaySize"'
     required: false
     default: ''
 runs:
@@ -38,12 +42,27 @@ runs:
     - uses: actions/setup-node@v4
       with:
         node-version: 22
-    - name: Install abap2UI5-linter
+
+    # The UI5 runtime is a WORKSPACE of this repository, not a dependency of the
+    # linter itself, so `--workspaces=false` is what makes a property-only job
+    # skip the ~118 MB download instead of paying it and then passing
+    # --no-render. The full install stays the default: turning the render gate
+    # off silently would make findings disappear from somebody's CI.
+    - name: Install abap2UI5-linter (with the UI5 runtime)
+      if: inputs.render != 'false'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
       run: npm ci --prefix "$ACTION_PATH"
+    - name: Install abap2UI5-linter (property gate only)
+      if: inputs.render == 'false'
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: npm ci --prefix "$ACTION_PATH" --workspaces=false
+
     - name: Install Chromium
+      if: inputs.render != 'false'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -63,10 +82,15 @@ runs:
         LINT_ANNOTATIONS: ${{ inputs.annotations }}
         LINT_BADGE: ${{ inputs.badge }}
         LINT_BADGE_CORPUS: ${{ inputs['badge-corpus'] }}
+        LINT_RENDER: ${{ inputs.render }}
         LINT_FLAGS: ${{ inputs.flags }}
       run: |
         ARGS=()
         if [ -n "$LINT_MIN_UI5" ]; then ARGS+=(--min-ui5 "$LINT_MIN_UI5"); fi
+        # render: false skipped the runtime install above, so the gate has to be
+        # switched off here too - otherwise the run dies naming the missing
+        # runtime instead of reporting the property findings it can produce
+        if [ "$LINT_RENDER" = "false" ]; then ARGS+=(--no-render); fi
         if [ -n "$LINT_FAIL_ON" ]; then ARGS+=(--fail-on "$LINT_FAIL_ON"); fi
         if [ "$LINT_ANNOTATIONS" = "false" ]; then ARGS+=(--no-annotate); fi
         # one path each, quoted - a badge file name is not a list, unlike paths/flags
