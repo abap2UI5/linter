@@ -171,6 +171,7 @@ node cli.mjs src                          # check everything under src/
 node cli.mjs src --ui5 1.120              # check against UI5 1.120
 node cli.mjs src --allow sap.m.GenericTile.systemInfo   # accepted deviation
 node cli.mjs src --no-render              # property gate only (no browser)
+node cli.mjs src --no-properties          # the other way round: render gate only
 node cli.mjs src --fail-on error          # only real breakage fails CI
 node cli.mjs src --advisory               # report, never fail the build
 node cli.mjs src --fix                    # correct what is mechanical, report the rest
@@ -180,6 +181,7 @@ node cli.mjs src --format markdown        # for a PR comment or a job summary
 node cli.mjs src --badge badge.json       # a shields.io endpoint for the README
 node cli.mjs src --no-stats               # drop the run summary under the report
 node cli.mjs src --no-progress            # and the live gate log on stderr
+node cli.mjs src --verbose                # add the reconstruction notes per file
 node cli.mjs --version                    # version and script location
 ```
 
@@ -417,6 +419,7 @@ Precedence per option: explicit CLI flag > config file > built-in default
   "distribution": "sapui5",  // or "openui5"
   "failOn": "warning",       // error | warning | hint | never
   "render": true,            // false = skip the render gate (--no-render)
+  "properties": true,        // false = skip the property gate (--no-properties)
   "allow": [],               // e.g. ["sap.m.Avatar.displaySize"]
   "baseline": "abap2ui5lint-baseline.json",  // adoption-time debt, see above
   "badge": ".github/badges/abap2ui5lint.json",  // shields endpoint, see above
