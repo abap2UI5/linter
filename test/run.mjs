@@ -1698,16 +1698,31 @@ ENDCLASS.`;
 }
 
 // ---------------------------------------------- optional render deps ----
-// playwright + @openui5/* are optionalDependencies: absent, the property
-// gate still works and a requested render fails with one actionable message
+// playwright + @openui5/* ship in @abap2ui5/render-runtime, declared as an
+// OPTIONAL PEER: absent, the property gate still works and a requested render
+// fails with one actionable message
 {
-  const { RENDER_DEPS, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
-  const pkg = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
-  assert(!pkg.dependencies && RENDER_DEPS.slice().sort().join() === Object.keys(pkg.optionalDependencies).sort().join(),
-    'render deps: RENDER_DEPS mirrors exactly the optionalDependencies of package.json');
+  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError } = await import('../lib/render.mjs');
+  const root = path.join(FIX, '..', '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
+
+  // The whole point of the split: a default `npm i @abap2ui5/linter` (and so
+  // `npx`, which has no --omit=optional) must not drag ~123 MB of UI5 in. npm
+  // installs optionalDependencies BY DEFAULT, so their absence here is the
+  // guard - an optional PEER is the one kind npm leaves alone.
+  assert(!pkg.dependencies && !pkg.optionalDependencies,
+    'render deps: the linter declares no runtime dependencies of its own');
+  assert(pkg.peerDependencies?.[RENDER_RUNTIME]
+    && pkg.peerDependenciesMeta?.[RENDER_RUNTIME]?.optional === true,
+    `render deps: ${RENDER_RUNTIME} is declared as an OPTIONAL peer`);
+  assert(runtime.name === RENDER_RUNTIME
+    && RENDER_DEPS.slice().sort().join() === Object.keys(runtime.dependencies).sort().join(),
+    'render deps: RENDER_DEPS mirrors exactly the dependencies of the render runtime');
+
   assert(missingRenderDeps().length === 0,
     'render deps: everything is installed in this environment');
-  // intercept resolution to simulate an --omit=optional install
+  // intercept resolution to simulate an install without the runtime package
   const missing = missingRenderDeps(() => { throw new Error('MODULE_NOT_FOUND'); });
   assert(missing.length === RENDER_DEPS.length,
     'render deps: an unresolvable install reports every render dep as missing');
@@ -1716,13 +1731,13 @@ ENDCLASS.`;
     'render deps: the refusal carries a stable code the CLI can catch');
   assert(/playwright/.test(err.message) && /@openui5\/sap\.ui\.core/.test(err.message),
     'render deps: the message names the missing packages');
-  assert(/npm install/.test(err.message) && /--no-render/.test(err.message) && /render: false/.test(err.message),
-    'render deps: the message says how to install them and how to run without them');
+  assert(err.message.includes(RENDER_RUNTIME) && /--no-render/.test(err.message) && /render: false/.test(err.message),
+    'render deps: the message names the one package to install and how to run without it');
   const partial = renderDepsError(missingRenderDeps((id) => {
     if (id.startsWith('playwright')) throw new Error('MODULE_NOT_FOUND');
     return id;
   }));
-  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('optionalDependencies')[0]),
+  assert(/missing: playwright\./.test(partial.message) && !/@openui5/.test(partial.message.split('They ship in')[0]),
     'render deps: only what is actually missing is named');
 }
 
@@ -2214,7 +2229,7 @@ ENDCLASS.`;
   assert(!/^::/m.test(run([dumps, '--no-render', '--format', 'markdown'], { GITHUB_ACTIONS: 'true' })),
     'report: markdown stays clean too');
 
-  assert(/^abap2ui5-linter \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
+  assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
   const fails = (args) => {
     try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe' }); return ''; }
@@ -2307,41 +2322,49 @@ ENDCLASS.`;
   assert(!off.lines.length && typeof p3.times.properties === 'number',
     'progress: --no-progress prints nothing and keeps the timings');
 
-  // --- badge ----------------------------------------------------------------
+  // --- badges ---------------------------------------------------------------
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5badge-'));
-  const badgeFile = path.join(dir, 'badges', 'abap2ui5lint.json');
-  const clean = run([...two, '--badge', badgeFile]);
-  const badge = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  const badgeFile = path.join(dir, 'badges', 'check-abap2ui5.json');
+  const corpusFile = path.join(dir, 'badges', 'abap2ui5.json');
+  const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+  const clean = run([...two, '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  const badge = read(badgeFile);
+  const facts = read(corpusFile);
   assert(clean.code === 0 && badge.schemaVersion === 1 && badge.color === '4c1'
-    && /^abap2UI5-linter 2 apps · 2 views · \d+ controls$/.test(badge.label) && badge.message === 'clean',
-    `badge: the reach sits in the grey label, the verdict alone in the coloured half (${badge.label} | ${badge.message})`);
-  assert(badge.labelColor === '555' && badge.namedLogo === undefined
-    && Object.keys(badge).every((k) => ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'cacheSeconds'].includes(k)),
+    && badge.label === 'check-abap2UI5' && /^\d+ rules passed$/.test(badge.message),
+    `badge: the verdict badge counts the rules that ran, the way a test badge counts tests (${badge.label} | ${badge.message})`);
+  assert(facts.color === '007ec6' && facts.label === 'abap2UI5'
+    && /^2 apps · 2 views · \d+ controls$/.test(facts.message),
+    `badge: the corpus badge is a fact, blue, with no verdict in it (${facts.label} | ${facts.message})`);
+  const shieldsKeys = ['schemaVersion', 'label', 'message', 'color', 'labelColor', 'cacheSeconds'];
+  assert([badge, facts].every((b) => b.labelColor === '555' && b.namedLogo === undefined
+    && Object.keys(b).every((k) => shieldsKeys.includes(k))),
     'badge: only keys the shields endpoint schema defines - an extra one renders as "invalid"');
 
-  const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile]);
-  const red = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
+  const dirty = run([f('structure.clas.abap'), f('good.clas.abap'), '--no-render', '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  const red = read(badgeFile);
   assert(dirty.code === 1 && red.color === 'e05d44' && /^\d+ errors$/.test(red.message)
-    && /^abap2UI5-linter 2 apps/.test(red.label),
-    `badge: the failing run - the one whose badge matters - is written too (${red.label} | ${red.message})`);
+    && /^2 apps/.test(read(corpusFile).message),
+    `badge: the failing run - the one whose badge matters - is written too, and the corpus badge stays a count (${red.message})`);
 
-  const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge', badgeFile]);
-  const xml = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(xmlOnly.code === 0 && /^abap2UI5-linter 1 view · \d+ controls$/.test(xml.label) && xml.message === 'clean',
-    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.label})`);
+  const xmlOnly = run([f('sample.view.xml'), '--no-render', '--badge-corpus', corpusFile]);
+  const xml = read(corpusFile);
+  assert(xmlOnly.code === 0 && /^1 view · \d+ controls$/.test(xml.message),
+    `badge: a corpus of raw views has no app classes to count, and says nothing instead of "0 apps" (${xml.message})`);
 
   const nothing = path.join(dir, 'nothing');
   fs.mkdirSync(nothing);
-  run([nothing, '--no-render', '--badge', badgeFile]);
-  const grey = JSON.parse(fs.readFileSync(badgeFile, 'utf8'));
-  assert(grey.message === 'nothing checkable' && grey.color === '9f9f9f' && grey.label === 'abap2UI5-linter',
-    `badge: a run that finds NOTHING to check says so instead of leaving the last good badge standing (${grey.message})`);
+  run([nothing, '--no-render', '--badge', badgeFile, '--badge-corpus', corpusFile]);
+  assert([read(badgeFile), read(corpusFile)].every((b) => b.message === 'nothing checkable' && b.color === '9f9f9f'),
+    'badge: a run that finds NOTHING to check says so on BOTH badges instead of leaving the last good ones standing');
 
-  // the config form: the badge belongs to the repo, not to the command line
+  // the config form: the badges belong to the repo, not to the command line
   const { loadConfig } = await import('../lib/config.mjs');
   const cfgFile = path.join(dir, 'abap2ui5lint.jsonc');
   fs.writeFileSync(cfgFile, '{ "badge": "badges/from-config.json" }');
-  assert(loadConfig(cfgFile).badge.file === 'badges/from-config.json', 'badge: a plain path in the config is the file');
+  const fromConfig = loadConfig(cfgFile).badge;
+  assert(fromConfig.length === 1 && fromConfig[0].file === 'badges/from-config.json' && fromConfig[0].kind === 'checks',
+    'badge: a plain path in the config is the file, and one badge alone is the verdict - what it has always meant');
   fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
   run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
   assert(fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
@@ -2349,12 +2372,30 @@ ENDCLASS.`;
   fs.rmSync(path.join(dir, 'badges', 'from-config.json'));
   run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile, '--no-badge']);
   assert(!fs.existsSync(path.join(dir, 'badges', 'from-config.json')),
-    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badge');
+    'badge: --no-badge keeps a second pass (a job summary, a piped --json) from overwriting the real run\'s badges');
 
-  fs.writeFileSync(cfgFile, '{ "badge": { "file": "b.json", "colour": "green" } }');
-  let threw = '';
-  try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
-  assert(/unknown key 'colour'/.test(threw), 'badge: a typo in the badge block fails loudly, like every other config key');
+  // both badges from the config, each with its own file and label
+  fs.writeFileSync(cfgFile, JSON.stringify({ badge: [
+    { kind: 'corpus', file: 'badges/corpus.json', label: 'samples' },
+    { kind: 'checks', file: 'badges/checks.json' },
+  ] }));
+  run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
+  assert(read(path.join(dir, 'badges', 'corpus.json')).label === 'samples'
+    && read(path.join(dir, 'badges', 'checks.json')).label === 'check-abap2UI5',
+    'badge: a list writes one file per kind, and a label given there beats the default name');
+
+  const rejects = (json, pattern, what) => {
+    fs.writeFileSync(cfgFile, json);
+    let threw = '';
+    try { loadConfig(cfgFile); } catch (e) { threw = e.message; }
+    assert(pattern.test(threw), `badge: ${what} (${threw || 'accepted'})`);
+  };
+  rejects('{ "badge": { "file": "b.json", "colour": "green" } }', /unknown key 'colour'/,
+    'a typo in the badge block fails loudly, like every other config key');
+  rejects('{ "badge": { "file": "b.json", "kind": "corpse" } }', /'kind' must be corpus or checks/,
+    'an unknown kind names the two that exist instead of silently writing neither');
+  rejects('{ "badge": [{ "file": "a.json" }, { "file": "b.json" }] }', /lists kind 'checks' twice/,
+    'the same badge written to two files is a copy-paste, and says so');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

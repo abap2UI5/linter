@@ -514,12 +514,23 @@ declare module "@abap2ui5/linter/report" {
     github?: boolean;
   }): Progress;
 
+  /** The two badges a run can write: what the corpus IS, and what the gate
+   *  said about it. */
+  export const BADGE_KINDS: readonly ["corpus", "checks"];
+
   /** A shields.io endpoint object for the run — nothing but the keys that
    *  schema defines, or shields renders the badge as "invalid". */
   export function badgeEndpoint(
     summary: Summary,
     stats: RunStats,
-    opt?: { label?: string; logo?: string | null; labelColor?: string; minUi5?: string }
+    opt?: {
+      kind?: "corpus" | "checks";
+      label?: string;
+      logo?: string | null;
+      labelColor?: string;
+      /** the run's `rules` config — what it switched off is not counted as passed */
+      rules?: Record<string, unknown>;
+    }
   ): Record<string, unknown>;
 }
 

@@ -161,32 +161,77 @@ Input can be:
   `*.view.xml`, `*.fragment.xml`); a file you NAME on the command line is
   checked whatever it is called, as long as it carries a builder chain.
 
-## CLI
+## Install
+
+```sh
+npx @abap2ui5/linter src            # no install, one run
+npm install -D @abap2ui5/linter     # in a project
+npm install -g @abap2ui5/linter     # everywhere
+```
+
+The binary is `abap2ui5lint`, the spelling that matches the config file name.
+The package is ~240 kB and pulls **nothing** else in, so the `npx` line above
+is a fast one.
+
+### Adding the render gate
+
+The render gate boots a real `XMLView.create` in headless Chromium, which needs
+a real UI5 runtime: ~118 MB of `@openui5` sources plus playwright. That ships
+as a second package, so it is one deliberate install rather than a surprise
+attached to the first:
+
+```sh
+npm install -D @abap2ui5/render-runtime   # the UI5 runtime, once
+npx playwright install chromium           # and its browser
+```
+
+> **Why not `optionalDependencies`?** Because npm installs those *by default* —
+> the name promises the opposite of what it does. Declaring the runtime that way
+> made `npx @abap2ui5/linter` a ~123 MB download before it linted anything, and
+> `--omit=optional`, the documented way out, is not a flag `npx` accepts. It is
+> now an **optional peer**, which is the one kind npm leaves alone.
+
+Without it, the property gate — every ABAP and view rule that resolves against
+the metadata snapshot — runs in full:
+
+```sh
+npx abap2ui5lint src --no-render
+```
+
+That is supported, not a degraded mode. Asking for the render gate without the
+runtime names the one package to install rather than failing obscurely.
+
+To work on the linter itself, clone it and use `node cli.mjs` in place of the
+binary — the flags below are identical either way. The runtime is an npm
+**workspace** here, so a plain `npm ci` sets up both:
 
 ```sh
 npm ci
-npx playwright install chromium   # once, for the render gate
-
-node cli.mjs src                          # check everything under src/
-node cli.mjs src --ui5 1.120              # check against UI5 1.120
-node cli.mjs src --allow sap.m.GenericTile.systemInfo   # accepted deviation
-node cli.mjs src --no-render              # property gate only (no browser)
-node cli.mjs src --no-properties          # the other way round: render gate only
-node cli.mjs src --fail-on error          # only real breakage fails CI
-node cli.mjs src --advisory               # report, never fail the build
-node cli.mjs src --fix                    # correct what is mechanical, report the rest
-node cli.mjs src --quiet                  # errors only (the counts stay complete)
-node cli.mjs src --format json            # machine-readable output (for tools)
-node cli.mjs src --format markdown        # for a PR comment or a job summary
-node cli.mjs src --badge badge.json       # a shields.io endpoint for the README
-node cli.mjs src --no-stats               # drop the run summary under the report
-node cli.mjs src --no-progress            # and the live gate log on stderr
-node cli.mjs src --verbose                # add the reconstruction notes per file
-node cli.mjs --version                    # version and script location
+npx playwright install chromium
+node cli.mjs src
 ```
 
-Installed, the binary is `abap2ui5-linter` — or `abap2ui5lint`, the short
-spelling that matches the config file name.
+## CLI
+
+```sh
+abap2ui5lint src                          # check everything under src/
+abap2ui5lint src --ui5 1.120              # check against UI5 1.120
+abap2ui5lint src --allow sap.m.GenericTile.systemInfo   # accepted deviation
+abap2ui5lint src --no-render              # property gate only (no browser)
+abap2ui5lint src --no-properties          # the other way round: render gate only
+abap2ui5lint src --fail-on error          # only real breakage fails CI
+abap2ui5lint src --advisory               # report, never fail the build
+abap2ui5lint src --fix                    # correct what is mechanical, report the rest
+abap2ui5lint src --quiet                  # errors only (the counts stay complete)
+abap2ui5lint src --format json            # machine-readable output (for tools)
+abap2ui5lint src --format markdown        # for a PR comment or a job summary
+abap2ui5lint src --badge check.json       # the verdict badge for the README
+abap2ui5lint src --badge-corpus corpus.json  # and what the corpus is
+abap2ui5lint src --no-stats               # drop the run summary under the report
+abap2ui5lint src --no-progress            # and the live gate log on stderr
+abap2ui5lint src --verbose                # add the reconstruction notes per file
+abap2ui5lint --version                    # version and script location
+```
 
 | Exit code | |
 | --- | --- |
@@ -249,21 +294,28 @@ the `rules` block have not had their say, so a fully baselined corpus would
 log hundreds of findings and then report none. `--progress` / `--no-progress`
 override where it is on (default: a terminal, and GitHub Actions).
 
-## The badge
+## The badges
 
-`--badge <file>` writes a [shields.io endpoint][endpoint] object for the run,
-so a repository can show the state of its **corpus** in the README instead of
-only whether some workflow exited zero:
+A run can write two [shields.io endpoint][endpoint] objects, so a repository
+can show the state of its **corpus** in the README instead of only whether
+some workflow exited zero. They are two badges because they are two
+statements, and they move on different occasions:
+
+| | says | colour | changes when |
+| --- | --- | --- | --- |
+| `--badge-corpus <file>` | what the repository **is** — `abap2UI5 \| 148 apps · 172 views · 2,176 controls` | blue, a fact with no verdict in it | somebody adds or removes an app |
+| `--badge <file>` | what the gate **said** — `check-abap2UI5 \| 83 rules passed`, or `3 problems`, or `7 errors` | green / yellow / red | any run changes the verdict |
 
 ```sh
-node cli.mjs src --badge .github/badges/abap2ui5lint.json
+abap2ui5lint src --badge-corpus .github/badges/abap2ui5.json \
+                    --badge .github/badges/check-abap2ui5.json
 ```
 
 ```json
 {
   "schemaVersion": 1,
-  "label": "abap2UI5-linter 148 apps · 172 views · 2,176 controls",
-  "message": "clean",
+  "label": "check-abap2UI5",
+  "message": "83 rules passed",
   "color": "4c1",
   "labelColor": "555",
   "cacheSeconds": 3600
@@ -271,33 +323,46 @@ node cli.mjs src --badge .github/badges/abap2ui5lint.json
 ```
 
 ```md
-[![abap2UI5-linter](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/abap2ui5lint.json)](https://github.com/abap2UI5/linter)
+[![abap2UI5](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/abap2ui5.json)](https://github.com/abap2UI5/abap2UI5)
+[![check-abap2UI5](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/.github/badges/check-abap2ui5.json)](https://github.com/abap2UI5/linter)
 ```
 
-The two halves split along what they mean. The grey left half is factual —
-the linter's name and how far the check reached: classes read, views those
-built, controls those were made of. The coloured right half carries the
-verdict alone (`clean`, `3 problems`, `7 errors`), so at badge size it is one
-green or red word against a neutral sentence. A segment with nothing to say is
-left out rather than printed as a zero, so a corpus of raw `*.view.xml` reads
-`abap2UI5-linter 12 views · 340 controls | clean`. It is written on every run — a failing one
-included, which is the run whose badge matters, and the run that finds
-**nothing checkable**, which turns the badge grey and says so instead of
-leaving the last good one standing. Commit the file from the job that lints the pull request (that is
-where the corpus changes) and the badge on the default branch updates when
-that pull request merges; nothing needs to run on a schedule and no service
-sees your repository.
+Each badge keeps the shape every other badge in a README has: a grey name on
+the left, one thing to read on the right. `83 rules passed` counts the rules
+that **ran** — the registry minus what your `rules` block switched off — the
+way a test badge counts tests; a repository that turns ten rules off does not
+get credit for them, and findings a baseline swallowed are the run summary's
+business, not the badge's. On the corpus badge a segment with nothing to say
+is left out rather than printed as a zero, so a corpus of raw `*.view.xml`
+reads `abap2UI5 | 12 views · 340 controls`.
 
-`label` (the name in front of the counts), `labelColor` and `logo` (a
-[simple-icons] name — there is none by default, a logo next to a
-sentence-long label only crowds it) are settable through the config's `badge`
-block, which is also where the file belongs when every run should refresh it:
+Both are written on every run — a failing one included, which is the run whose
+badge matters, and the run that finds **nothing checkable**, which turns both
+grey and says so instead of leaving the last good ones standing. Commit them
+from the job that lints the pull request (that is where the corpus changes)
+and the badges on the default branch update when that pull request merges;
+nothing needs to run on a schedule and no service sees your repository.
+
+`kind` (`corpus` or `checks`, default `checks`), `label` (the name on the
+left), `labelColor` and `logo` (a [simple-icons] name — there is none by
+default, a logo among a row of badges that carry none only draws the eye) are
+settable through the config's `badge` block, which is also where the files
+belong when every run should refresh them:
 
 ```jsonc
-"badge": { "file": ".github/badges/abap2ui5lint.json", "label": "samples" }
+"badge": [
+  { "kind": "corpus", "file": ".github/badges/abap2ui5.json", "label": "samples" },
+  { "kind": "checks", "file": ".github/badges/check-abap2ui5.json" }
+]
 ```
 
-`--no-badge` suppresses the configured badge for one run — a second pass over
+A single path stays what it has always been — the verdict badge:
+
+```jsonc
+"badge": ".github/badges/check-abap2ui5.json"
+```
+
+`--no-badge` suppresses the configured badges for one run — a second pass over
 the same corpus (a `--format markdown` job summary, a piped `--json`) saw
 fewer gates than the real run, and must not overwrite what that run wrote.
 
@@ -361,7 +426,7 @@ the escapes above all lose information (`rules: false` drops the rule,
 directives touch every line). The **baseline** freezes the debt instead:
 
 ```bash
-npx abap2ui5-linter src --update-baseline     # writes abap2ui5lint-baseline.json
+npx abap2ui5lint src --update-baseline     # writes abap2ui5lint-baseline.json
 ```
 
 Commit that file and point the config at it (`"baseline":
@@ -422,7 +487,10 @@ Precedence per option: explicit CLI flag > config file > built-in default
   "properties": true,        // false = skip the property gate (--no-properties)
   "allow": [],               // e.g. ["sap.m.Avatar.displaySize"]
   "baseline": "abap2ui5lint-baseline.json",  // adoption-time debt, see above
-  "badge": ".github/badges/abap2ui5lint.json",  // shields endpoint, see above
+  "badge": [                 // shields endpoints for the README, see above
+    { "kind": "corpus", "file": ".github/badges/abap2ui5.json" },
+    { "kind": "checks", "file": ".github/badges/check-abap2ui5.json" }
+  ],
   "rules": {
     "missing-accessibility": false,        // off
     "member-deprecated": "hint",           // another severity
@@ -453,21 +521,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: abap2UI5/linter@main
+      - uses: abap2UI5/linter@v0
         with:
           paths: src
           min-ui5: '1.71'
           fail-on: warning
-          badge: .github/badges/abap2ui5lint.json
+          badge: .github/badges/check-abap2ui5.json
+          badge-corpus: .github/badges/abap2ui5.json
           flags: '--allow sap.m.GenericTile.systemInfo'
 ```
 
 Findings are annotated onto the pull request diff by default; set
-`annotations: false` to keep the log plain. `badge` only writes the endpoint
-file — committing it is the workflow's job, and the pull request that changes
-the corpus is the right place to do it.
+`annotations: false` to keep the log plain. `badge` and `badge-corpus` only
+write the endpoint files — committing them is the workflow's job, and the pull
+request that changes the corpus is the right place to do it.
+
+The render gate runs by default, which costs the job the UI5 runtime (~118 MB)
+and a Chromium download. For a fast property-gate-only job:
+
+```yaml
+      - uses: abap2UI5/linter@v0
+        with:
+          paths: src
+          render: false      # skips both downloads; every static rule still runs
+```
+
+It is on by default on purpose: turning it off quietly would make findings
+disappear from a pipeline that still reports green.
+
+`@v0` is a moving tag: it follows the newest release of the `0.x` line, so a
+new rule can change your verdict without you asking for it — which is the
+point of a linter, and the reason to pin `@v0.1.0` instead where a build has
+to stay reproducible. `@main` works too and is what this README documented
+before there were releases; it now moves on every merge, so prefer either tag.
 
 ## Library
+
+`npm install @abap2ui5/linter` — the package is ESM and ships `types.d.ts`, so
+the named exports below are typed in an editor without a `@types` package. It
+has no dependencies; add `@abap2ui5/render-runtime` only if you call the render
+gate (`checkFiles` with `render` left on).
 
 ```js
 import { checkFiles, checkAbapSource, checkXmlSource } from '@abap2ui5/linter';

@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { RULES, SEVERITIES, defaultSeverityOf, RENDER_RULE } from '../lib/findings.mjs';
+import { BADGE_KINDS } from '../lib/report.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SCHEMA_FILE = path.join(ROOT, 'data', 'abap2ui5lint.schema.json');
@@ -77,20 +78,11 @@ export function buildSchema() {
       },
       badge: {
         anyOf: [
-          { type: 'string', description: 'Path (relative to this config) of the shields.io endpoint JSON to write.' },
-          {
-            type: 'object',
-            additionalProperties: false,
-            required: ['file'],
-            properties: {
-              file: { type: 'string', description: 'Path (relative to this config) of the endpoint JSON to write.' },
-              label: { type: 'string', description: 'Left half of the badge. Default: "abap2UI5-linter".' },
-              logo: { type: ['string', 'null'], description: 'simple-icons logo name, or null for none. Default: "sap".' },
-              labelColor: { type: 'string', description: 'Colour of the left half. Default: SAP blue "0a6ed1".' },
-            },
-          },
+          { type: 'string', description: 'Path (relative to this config) of the shields.io endpoint JSON to write. Writes the verdict badge.' },
+          { $ref: '#/definitions/badge' },
+          { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write a shields.io endpoint JSON for every run, so the README can show the state of the corpus: how much was checked, against which UI5 floor, and whether it is clean.',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 83 rules passed").',
       },
       rules: {
         type: 'object',
@@ -100,6 +92,18 @@ export function buildSchema() {
       },
     },
     definitions: {
+      badge: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['file'],
+        properties: {
+          kind: { enum: [...BADGE_KINDS], description: '"corpus" (what the repository is, blue) or "checks" (what the gate said, green/red). Default: "checks".' },
+          file: { type: 'string', description: 'Path (relative to this config) of the endpoint JSON to write.' },
+          label: { type: 'string', description: 'Left half of the badge. Default: "abap2UI5" for corpus, "check-abap2UI5" for checks.' },
+          logo: { type: ['string', 'null'], description: 'simple-icons logo name, or null for none. Default: none.' },
+          labelColor: { type: 'string', description: 'Colour of the left half. Default: shields grey "555".' },
+        },
+      },
       rule: {
         anyOf: [
           { type: 'boolean', description: 'false switches the rule off' },

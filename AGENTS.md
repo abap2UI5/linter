@@ -167,7 +167,7 @@ The former test-coverage debt (`invalid-aggregation-child`,
 assertion, and the README finding tables (place 5 above) are gated by a
 test that checks every rule id appears in them.
 
-## What a run says about itself — summary, progress, badge
+## What a run says about itself — summary, progress, badges
 
 A finding list is a report on what is WRONG, and a corpus with a baseline is
 by construction a corpus with no findings: `samples` prints three lines for
@@ -179,7 +179,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badge** — a shields.io endpoint JSON (`abap2UI5-linter 148 apps · 172 views · 2,176 controls` grey \| `clean` green) | the file `--badge` / config `badge` names | off |
+| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `83 rules passed` green) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
 
 Rules that hold for all three:
 
@@ -193,12 +193,18 @@ Rules that hold for all three:
   baseline nor the `rules` block has spoken, so a fully baselined corpus
   would log hundreds of findings and then report none. The report is the
   record; the log is only where the run currently is.
-- **The badge splits along meaning**: the grey label carries the name and
-  the reach, the coloured half carries the verdict alone. Reach in the
-  coloured half makes the colour a bar to read rather than a word to see.
-- **The badge writes only keys the shields endpoint schema defines** — an
+- **Two badges, because they are two statements.** The corpus badge is a
+  fact that moves when somebody adds an app; the verdict badge is a judgement
+  that moves on every run. They were one badge once, and the sentence it
+  produced ("abap2UI5-linter 148 apps · 172 views · 2,176 controls | clean")
+  made the reach something to read on the way to the colour. Each badge now
+  keeps the shape a README reader knows: a grey name, one thing to read.
+- **The verdict counts the rules that RAN** — the registry minus what the
+  repo's `rules` block switched off, the way a test badge counts tests. What
+  a baseline swallowed is the run summary's business: those findings exist.
+- **A badge writes only keys the shields endpoint schema defines** — an
   extra key makes shields render "invalid" in the README of everyone who
-  sees it — and it is written before the exit code is decided, because the
+  sees it — and both are written before the exit code is decided, because the
   failing run is the one whose badge matters.
 - **stdout stays the report.** Progress goes to stderr, and the summary joins
   the machine formats as data (`stats`), never as prose — the same rule the
@@ -690,10 +696,66 @@ two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
 frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
 
-## Release model — merging to main IS a release
+## Release model — merging to main IS a release, except on npm
 
-- There is **no npm publish**; consumers install from git
-  (`github:abap2UI5/linter`). `package.json` stays at its version.
+- **Merging to main is the release for every channel but one.** The rules page,
+  the render-gate bundle and the SHA pins downstream all follow main. npm is
+  the exception: a published version is immutable and `npm i @abap2ui5/linter`
+  has to keep meaning one thing, so it needs a deliberate version tag.
+- **npm — `.github/workflows/release.yml`, triggered by a `v*` tag.**
+  `npm version patch|minor|major && git push --follow-tags` is the whole
+  procedure. The job refuses to publish when the tag and `package.json`
+  disagree (a burned version number cannot be reused), reruns the full suite
+  including the render half on the exact commit, packs the tarball and
+  installs it into a scratch directory to prove the `files` allowlist did not
+  drop a `lib/` or `data/` file. Dispatching the workflow by hand runs all of
+  that and stops short of the publish.
+  - Publishing uses **trusted publishing (OIDC)**, so there is no `NPM_TOKEN`
+    to leak or rotate and npm attaches a provenance attestation. Two manual
+    steps precede the first automated release, in this order: the npm
+    organisation **`abap2ui5` must exist** (the scope is unclaimed — every
+    publish 404s until it does), and trusted publishing can only be configured
+    on a package that already exists, so the **first publish is manual**
+    (`npm publish --access public --provenance`) and the trusted publisher is
+    pointed at `release.yml` afterwards.
+  - Stay in **`0.x`** while the rule set is still growing: it says out loud
+    that a new rule may change a consumer's verdict, which is exactly what
+    happens on most merges here.
+  - The same tag also serves **the Action in this repo**: a second job
+    force-moves the major tag (`v0`, `v1` later) onto the release commit, so
+    `uses: abap2UI5/linter@v0` is the documented pin instead of the
+    unpinnable `@main`. Only the alias moves — `v0.1.0` stays put for anyone
+    who needs a build to stay reproducible. That job is separate so the
+    publish job keeps `contents: read`.
+  - A tagged release is also the **prerequisite for the GitHub Marketplace
+    listing** (the Action needs a release to be published from; `action.yml`
+    already carries the required `branding`). Marketplace publishing itself
+    is a click-through on the release, not a workflow step.
+
+## `github-app/` — a spike, not a channel
+
+`github-app/` is a working prototype of the linter as a hosted **GitHub App**
+(webhook → installation token → property gate → check run), written to answer
+"what would this take" with running code. **It is not deployed, not registered
+and not part of any release** — the npm `files` allowlist excludes it, so it
+never reaches the package. Treat it as documentation that happens to execute.
+
+- It runs the **property gate only**, and that is the load-bearing decision:
+  `checkAbapSource`/`checkXmlSource` take source rather than a checkout, so a
+  delivery is linted in memory with no clone and no temp directory. The render
+  gate needs Chromium plus ~140 MB of `@openui5/*` per run and stays in the
+  consumer's CI. It is the same split the VS Code extension already lives on.
+- `node github-app/dryrun.mjs <path>` runs the identical
+  `lintSource`/`toAnnotations`/`summarize` path against local files and prints
+  the check-run payload — the only part testable without registering an App.
+- Its README lists what separates the prototype from a service (persistence,
+  rate limits, installation lifecycle, operations). That list, not the code,
+  is why this is a spike: the missing work is ongoing, not one-time.
+- **npm publishing does not replace the git-SHA pins.** samples-controls and
+  the VS Code extension keep pinning `github:abap2UI5/linter#<sha>`; the
+  downstream workflow keeps being what says a bump is safe. npm serves the
+  consumers that have no such workflow — a developer linting their own app,
+  and anyone who wants a pinnable version instead of `@main`.
 - **`docs/index.html` is published on merge** to
   https://abap2ui5.github.io/linter/ by `.github/workflows/pages.yml` — a
   reworded rule detail is live the moment it lands on main. The workflow only

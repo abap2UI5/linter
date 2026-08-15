@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /*
- * abap2ui5-linter — validate abap2UI5 views without an SAP system.
+ * abap2ui5lint — validate abap2UI5 views without an SAP system.
  *
- *   npx abap2ui5-linter [paths...] [options]        (alias: abap2ui5lint)
+ *   npx abap2ui5lint [paths...] [options]
  *
  * Paths are files or directories (default: ./src). Checked are ABAP classes
  * building views with z2ui5_cl_ui5_view_builder, plus raw *.view.xml /
@@ -44,12 +44,15 @@
  *   --progress         report the gates while they run, on stderr (stdout stays
  *                      pipeable). Default: on a terminal and inside GitHub
  *                      Actions, where it becomes one collapsed log group
- *   --badge <file>     write a shields.io endpoint JSON for the run, so a repo
- *                      can show how far the check reached in the README
- *                      ("abap2UI5-linter 148 apps · 172 views · 2,176
- *                      controls" grey, "clean" green next to it). Also
- *                      settable as "badge" in the config;
- *                      --no-badge suppresses the configured one for this run
+ *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
+ *                      repo can show it in the README ("check-abap2UI5 |
+ *                      83 rules passed" green, "7 errors" red)
+ *   --badge-corpus <file>
+ *                      the same for what the corpus IS, blue and without a
+ *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
+ *                      2,176 controls"). Both are also settable as "badge" in
+ *                      the config; --no-badge suppresses every configured
+ *                      badge for this run
  *   --annotate         emit GitHub workflow commands so findings show up on
  *                      the pull request diff (default inside GitHub Actions;
  *                      --no-annotate switches it off). Alongside the stylish
@@ -82,15 +85,16 @@ import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = 'usage: abap2ui5-linter [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
+const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
-  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] [--badge <file>|--no-badge] '
+  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
 
 const die = (message) => {
-  console.error(`abap2ui5-linter: ${message}`);
+  console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
 };
 
@@ -162,9 +166,12 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--no-stats') opt.stats = false;
   else if (a === '--progress') opt.progress = true;
   else if (a === '--no-progress') opt.progress = false;
-  else if (a === '--badge') { opt.badge = value(); seen.add('badge'); }
+  // the two badges accumulate: a run that wants both names both files, and
+  // naming either one on the command line takes the config's block out
+  else if (a === '--badge') { opt.badge = [...(opt.badge ?? []), { kind: 'checks', file: value() }]; seen.add('badge'); }
+  else if (a === '--badge-corpus') { opt.badge = [...(opt.badge ?? []), { kind: 'corpus', file: value() }]; seen.add('badge'); }
   // a second pass over the same corpus (a job summary, a piped --json) must
-  // not overwrite the badge the real run wrote - it saw fewer gates
+  // not overwrite the badges the real run wrote - it saw fewer gates
   else if (a === '--no-badge') { opt.badge = null; seen.add('badge'); }
   else if (a === '--json') opt.format = 'json';
   else if (a === '--format') {
@@ -181,7 +188,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--verbose') opt.verbose = true;
   else if (a === '--version' || a === '-v') {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
-    console.log(`abap2ui5-linter ${version} (${path.join(HERE, 'cli.mjs')})`);
+    console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
     process.exit(0);
   }
   else if (a === '--help' || a === '-h') {
@@ -210,9 +217,9 @@ if (!noConfig) {
     if (!seen.has('baseline') && cfg.baseline) {
       opt.baseline = path.resolve(path.dirname(configFile), cfg.baseline);
     }
-    // ditto the badge file: the config says where in the REPO it belongs
+    // ditto the badge files: the config says where in the REPO they belong
     if (!seen.has('badge') && cfg.badge) {
-      opt.badge = { ...cfg.badge, file: path.resolve(path.dirname(configFile), cfg.badge.file) };
+      opt.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file) }));
     }
   }
 }
@@ -225,22 +232,24 @@ try {
   // a mistyped path is bad usage, not a crash - exit 2 with one clean line
   die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
 }
-/* The badge: a shields.io endpoint file, so the README of a checked repo can
- * carry the state of its corpus. Written on every run that got as far as a
- * verdict - including a failing one and including the one below that found
- * NOTHING, which is the state a stale "148 apps · clean" badge would hide
- * longest - and always before the exit code is decided. */
+/* The badges: shields.io endpoint files, so the README of a checked repo can
+ * carry what its corpus IS and what the gate said about it. Written on every
+ * run that got as far as a verdict - including a failing one and including
+ * the one below that found NOTHING, which is the state a stale "148 apps"
+ * and "clean" would hide longest - and always before the exit code is
+ * decided. */
 const emitBadge = (summary, stats) => {
   if (!opt.badge) return;
-  const badge = typeof opt.badge === 'string' ? { file: opt.badge } : opt.badge;
-  try {
-    fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
-    fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, minUi5: opt.minUi5 }), null, 2)}\n`);
-  } catch (e) {
-    die(`could not write the badge file ${badge.file}: ${e.message}`);
-  }
-  if (opt.format === 'stylish' && !opt.quiet) {
-    console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+  for (const badge of opt.badge) {
+    try {
+      fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
+      fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`);
+    } catch (e) {
+      die(`could not write the badge file ${badge.file}: ${e.message}`);
+    }
+    if (opt.format === 'stylish' && !opt.quiet) {
+      console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+    }
   }
 };
 
@@ -251,7 +260,7 @@ if (!files.length) {
     // frozen --json contract cannot drift between the two paths
     console.log(formatJson([], empty, opt));
   } else {
-    console.log(`abap2ui5-linter: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
+    console.log(`abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
   }
   emitBadge(empty, runStats([]));
   process.exit(0);

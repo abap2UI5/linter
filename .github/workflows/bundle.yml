@@ -28,8 +28,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # The UI5 runtime lives in the render-runtime WORKSPACE, so it arrives as
+      # ordinary (non-dev) dependencies of that workspace and `--omit=dev` keeps
+      # it - which is what makes this bundle a render gate at all.
       - run: npm ci --omit=dev
-      - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json
+      # render-runtime/ ships next to node_modules on purpose: npm links the
+      # workspace as node_modules/@abap2ui5/render-runtime -> ../../render-runtime,
+      # and without the target that symlink dangles in the extracted bundle. The
+      # linter would fall back to the hoisted @openui5 tree anyway, but shipping
+      # the manifest keeps resolution on the intended path.
+      - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json render-runtime
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: render-gate-bundle

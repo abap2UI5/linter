@@ -1,0 +1,202 @@
+name: Publish to npm
+# Publishes TWO packages to the public npm registry from one version tag:
+#
+#   @abap2ui5/linter           the CLI, the library and the GitHub Action
+#   @abap2ui5/render-runtime   the UI5 runtime the render gate serves
+#
+# They are one release with one version. The runtime exists so that a default
+# `npm i @abap2ui5/linter` (and `npx`, which has no --omit=optional) stays at
+# ~240 kB instead of dragging ~123 MB of @openui5 in; splitting it out is only
+# safe if the two never drift, because the linter's metadata snapshot is
+# generated from exactly the @openui5 version pinned over there.
+#
+# Merging to main stays a release for every OTHER consumer (the rules page,
+# the render-gate bundle, the SHA pins downstream) - npm is the one channel
+# that needs a deliberate, immutable version, because a published version can
+# never be changed and `npm i @abap2ui5/linter` has to keep meaning one thing.
+#
+# To cut a release (--no-git-tag-version because npm would otherwise commit and
+# tag the root alone, leaving the workspace bump out of the tagged commit):
+#   npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
+#   git commit -am "release vX.Y.Z" && git tag vX.Y.Z
+#   git push --follow-tags
+# Both versions must match the tag; the job refuses to publish when they do not.
+#
+# ---------------------------------------------------------------------------
+# One-time setup, in this order - the workflow cannot do either step itself:
+#
+#   1. The npm organisation `abap2ui5` has to exist and own the scope
+#      (npmjs.com -> Add Organization, free for public packages). Until then
+#      every publish fails with 404 on the scope.
+#   2. Trusted publishing has to be configured per package, and npm can only
+#      configure it for a package that already exists. So the FIRST publish of
+#      EACH is manual, from a maintainer's machine:
+#
+#         npm publish -w @abap2ui5/render-runtime --access public --provenance
+#         npm publish --access public --provenance
+#
+#      then, on npmjs.com -> each package -> Settings -> Trusted Publisher,
+#      point it at this repository and this workflow file (`release.yml`).
+#      From the second release on, this workflow publishes with no token.
+#
+# Trusted publishing (OIDC) is deliberate: no NPM_TOKEN secret to leak or
+# rotate, and npm records a provenance attestation tying the tarball to this
+# workflow run and commit. `id-token: write` below is what mints that token.
+# ---------------------------------------------------------------------------
+on:
+  push:
+    tags:
+      - 'v*'
+  # A publish is irreversible, so it is worth being able to run everything
+  # EXCEPT the publish. Dispatching this workflow does exactly that: the same
+  # gates, the same tarball, no registry write.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Node 22 ships npm 10.x, which has no OIDC support at all - it would
+      # fall through to asking for a token and fail confusingly. Trusted
+      # publishing needs 11.5.1 or newer.
+      - name: Use an npm that can publish via OIDC
+        run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # The tag is the version claim; package.json is what actually gets
+      # published. Catching a mismatch here costs a minute, catching it after
+      # the fact costs a burned version number - npm never lets one be reused.
+      - name: Tag and package.json must agree
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json ($PKG)" >&2
+            exit 1
+          fi
+          # The runtime is published from this same tag and is named as the
+          # linter's peer by an exact minor range, so a version that lags here
+          # publishes a pair that cannot be installed together.
+          RT="v$(node -p "require('./render-runtime/package.json').version")"
+          if [ "$RT" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match render-runtime/package.json ($RT)" >&2
+            echo "bump both: npm version <level> --workspaces --include-workspace-root" >&2
+            exit 1
+          fi
+          echo "publishing $PKG"
+
+      # Same gate as ci.yml, on the exact commit being published rather than
+      # on whatever passed on main - the render half of the suite needs the
+      # browser, so a published version is one that rendered.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install chromium --with-deps
+      - run: npm test
+
+      # Build the tarball first and print what is in it. `files` in
+      # package.json is an allowlist, so the failure mode is a lib/ or data/
+      # file silently missing from the published package while every local
+      # test passes against the working tree.
+      # Both packages, so the contents of each are on the log. `files` in
+      # package.json is an allowlist, so the failure mode is a lib/ or data/
+      # file silently missing from the published package while every local
+      # test passes against the working tree.
+      - name: Pack and show the contents
+        run: |
+          npm pack
+          npm pack -w @abap2ui5/render-runtime
+
+      # Prove the packed artefact works the way a consumer meets it: installed
+      # from a tarball, in a directory that is not this repo - and with a PLAIN
+      # install, because that is what `npx` does and what a first-time user gets.
+      - name: Smoke-test the tarball as an installed package
+        run: |
+          TARBALL="$PWD/$(ls abap2ui5-linter-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          npm init -y >/dev/null
+          npm install "$TARBALL"
+
+          # The reason the UI5 runtime is a separate package at all: npm installs
+          # optionalDependencies BY DEFAULT, so declaring @openui5 that way made
+          # `npx @abap2ui5/linter` a ~123 MB download before it linted anything.
+          # If this ever finds them again, that regression is back.
+          if [ -d node_modules/@openui5 ]; then
+            echo "::error::the default install pulled the UI5 runtime - the render deps must stay an optional PEER" >&2
+            exit 1
+          fi
+
+          npx abap2ui5lint --version
+          node -e "import('@abap2ui5/linter').then(m => {
+            for (const fn of ['checkFiles', 'checkAbapSource', 'checkXmlSource'])
+              if (typeof m[fn] !== 'function') throw new Error('missing export: ' + fn);
+          })"
+          node -e "import('@abap2ui5/linter/config').then(m => {
+            if (typeof m.loadConfig !== 'function') throw new Error('missing config export');
+          })"
+
+      # --access public because a scoped package is private by default and the
+      # first publish would fail on a free account. No NODE_AUTH_TOKEN: npm
+      # exchanges the Actions OIDC token for a short-lived registry credential
+      # and attaches provenance on its own.
+      #
+      # The runtime goes FIRST: it is what the linter names as its optional
+      # peer, so publishing it second would leave a window in which `npm i
+      # @abap2ui5/linter @abap2ui5/render-runtime` cannot be satisfied.
+      - name: Publish the UI5 runtime
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm publish -w @abap2ui5/render-runtime --access public
+      - name: Publish the linter
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npm publish --access public
+
+      - name: Dry run only
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: echo "Not a tag - everything ran except the publish."
+
+  # The same tag serves the OTHER consumer of a release: the GitHub Action in
+  # this repo. Action users pin `uses: abap2UI5/linter@v0`, so the major tag
+  # has to be moved onto every release - that is the Actions convention, and
+  # it is what replaces the unpinnable `@main` the README used to document.
+  #
+  # Force-moving a tag is normally a smell; for a major Action tag it is the
+  # documented practice. Only the ALIAS moves - `v0.1.0` stays where it is, so
+  # a consumer who wants an immutable pin already has one.
+  #
+  # Separate job so the publish keeps `contents: read`: only this one needs
+  # write, and it needs no OIDC token at all.
+  major-tag:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move the major tag onto this release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MAJOR="${TAG%%.*}"          # v0.1.0 -> v0, v1.4.2 -> v1
+          if [ "$MAJOR" = "$TAG" ]; then
+            echo "$TAG is already a bare major tag - nothing to move"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -f "$MAJOR" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$MAJOR"
+          echo "$MAJOR now points at $TAG ($GITHUB_SHA)"
