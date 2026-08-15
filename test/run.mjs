@@ -1006,13 +1006,38 @@ ENDCLASS.`).findings;
   assert(!actions.some((x) => ['MESSAGE_TOAST', 'show', 'hide', 'BUSY_INDICATOR'].includes(x.value)),
     'invalid-frontend-action: a correct wire is never reported');
 
-  const { ACTION_ARGS, GLOBAL_TARGETS } = await import('../lib/frontend-actions.mjs');
+  const { ACTION_ARGS, GLOBAL_TARGETS, FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES } = await import('../lib/frontend-actions.mjs');
   assert(Object.keys(ACTION_ARGS).every((a) => a === a.toLowerCase()) && GLOBAL_TARGETS.MESSAGE_TOAST.includes('show'),
     'invalid-frontend-action: the catalog is keyed by the cs_event constant name');
   assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
     + 't_arg = VALUE #( ( `POPUP` ) ( `setWithinArea` ) ( `withinArea` ) ) ).')
     .filter((x) => x.type === 'invalid-frontend-action').length === 0,
     'invalid-frontend-action: POPUP.setWithinArea is a known global (abap2UI5 CONTROL_GLOBAL target)');
+
+  /* The targets upstream added after the frontend action layer was split per
+   * action group. check-upstream could not see any of them while it still
+   * read the single, now-emptied z2ui5_cl_ui5f_frontact_js class. */
+  for (const [target, method] of [
+    ['VIEW_SLOTS', 'destroy'], ['VIEW_SLOTS', 'updateModel'],
+    ['ROUTER', 'sync'], ['MESSAGE_BOX', 'alert'], ['MESSAGE_BOX', 'confirm'],
+  ]) {
+    assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
+      + `t_arg = VALUE #( ( \`${target}\` ) ( \`${method}\` ) ) ).`)
+      .filter((x) => x.type === 'invalid-frontend-action').length === 0,
+      `invalid-frontend-action: ${target}.${method} is a known CONTROL_GLOBAL wire`);
+  }
+  /* Removed upstream (BREAKING, changelog): the constants are gone from
+   * z2ui5_if_client, so naming them is broken code and must be reported. */
+  for (const gone of ['HISTORY_BACK', 'NAV_TO_ROUTE']) {
+    assert(!FRONTEND_EVENTS.includes(gone),
+      `invalid-frontend-action: ${gone} was removed upstream and must not stay in the dispatch mirror`);
+  }
+  /* Still released cs_event constants - the SERVER remaps either close onto
+   * the VIEW_SLOTS destroy action, so an app using them is correct code. */
+  for (const kept of ['POPUP_CLOSE', 'POPOVER_CLOSE']) {
+    assert(FRONTEND_EVENT_ALIASES.includes(kept),
+      `invalid-frontend-action: ${kept} is server-remapped, not gone - it must stay accepted`);
+  }
 
   const css = wire.findings.filter((x) => x.type === 'unescaped-brace-in-style');
   assert(css.length === 1 && css[0].count === 2,

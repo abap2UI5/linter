@@ -42,9 +42,27 @@ import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-ap
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
-// renamed upstream with the z2ui5_cl_ui5f_* sweep (was
-// src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap)
-const ACTION_PATH = 'src/01/03/z2ui5_cl_ui5f_frontact_js.clas.abap';
+
+/* The frontend action JS lives embedded in the generated ABAP classes under
+ * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
+ * has since split it per action group — GLOBAL_TARGETS, CSS_PROPERTIES and
+ * BINDING_METHODS moved to z2ui5_cl_ui5f_ctrlcall_js, the shortcut sets to
+ * z2ui5_cl_ui5f_shortcut_js — which left this script reading a file that no
+ * longer defines any of them, and every frontend-actions mirror unchecked.
+ *
+ * So the whole family is read and concatenated rather than one named file:
+ * WHICH class holds a given closed set is upstream's business, and the next
+ * split must not blind the gate again. The parsers below each look for their
+ * own `const NAME =`, so one blob is what they want. */
+const ACTION_DIR = 'src/01/03';
+const ACTION_FILE_RE = /^z2ui5_cl_ui5f_\w+_js\.clas\.abap$/;
+
+/** The embedded-JS classes, repo-relative, from a full file list. */
+function actionPathsOf(paths) {
+  return paths
+    .filter((p) => p.startsWith(`${ACTION_DIR}/`) && ACTION_FILE_RE.test(p.slice(ACTION_DIR.length + 1)))
+    .sort();
+}
 
 /** The abapGit file name of an object -> the object name, or null for
  *  anything that is not one (a `package.devc.xml`, a test include, a sidecar
@@ -168,10 +186,17 @@ export function parseBindingMethods(abapSrc) {
 /** The top-level dispatch table: the keys of `const handlers = { … }`. */
 export function parseHandlers(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const handlers = {');
-  if (at === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', at));
-  return [...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
+  /* EVERY `const handlers = { … }`, not the first: upstream split the dispatch
+   * table per action group (browser, ctrlcall, launchpd, shortcut, variants,
+   * viewops each declare one), so reading a single table reports the other
+   * five groups' events as removed upstream. */
+  const out = [];
+  const needle = 'const handlers = {';
+  for (let at = js.indexOf(needle); at !== -1; at = js.indexOf(needle, at + needle.length)) {
+    const body = braceRegion(js, js.indexOf('{', at));
+    out.push(...[...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]));
+  }
+  return [...new Set(out)];
 }
 
 /** A `const NAME = new Set([ … ])` / `const NAME = [ … ]` of quoted strings. */
@@ -266,22 +291,29 @@ if (invokedDirectly) {
 
   let formatterSrc;
   let actionSrc;
+  let actionPaths = [];
   let srcPaths;
   try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
-      actionSrc = fs.readFileSync(path.join(LOCAL, ACTION_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
+      actionPaths = actionPathsOf(srcPaths);
+      actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
     } else {
-      [formatterSrc, actionSrc, srcPaths] = await Promise.all([
+      [formatterSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
-        fetchText(`${RAW}/${ACTION_PATH}`),
         fetchTree(TREE),
       ]);
+      actionPaths = actionPathsOf(srcPaths);
+      actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
-    console.error('(if a file moved upstream, update FORMATTER_PATH/ACTION_PATH here)');
+    console.error(`(if a file moved upstream, update FORMATTER_PATH / ACTION_DIR here)`);
+    process.exit(2);
+  }
+  if (!actionPaths.length) {
+    console.error(`check-upstream: no ${ACTION_DIR}/${ACTION_FILE_RE.source} classes found — the embedded-JS layout changed, update ACTION_DIR/ACTION_FILE_RE`);
     process.exit(2);
   }
 
