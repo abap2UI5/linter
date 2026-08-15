@@ -29,6 +29,16 @@
   A structure whose shape IS known still catches a typo through it — the
   fixture asserts both halves.
 
+- **An ABAP keyword inside a string literal counted as structure.** A
+  MessageStrip whose text reads *"…share the state with someone else. Enter a
+  quantity…"* ended its enclosing `IF` branch at that `else`, four statements
+  before the real `ENDIF` — so the `view_display( )` after it stopped counting
+  and a correct view was reported as never displayed. `scrub( )` keeps literal
+  contents on purpose (the value resolver reads them); the rules that look for
+  STRUCTURE now read a view with literal contents blanked and offsets
+  preserved. Any English sentence long enough contains one of these words, so
+  this was a coin flip on the wording of a message.
+
 - **Three rules judged code they could not see.** Each read the ABSENCE of
   something as a defect, where the truth was that this pass cannot resolve it.
   Eight more false findings across `abap2UI5/samples`, and no finding anywhere

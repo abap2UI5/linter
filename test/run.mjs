@@ -1839,6 +1839,24 @@ ENDCLASS.`;
   // what satisfies the rule, or the negative half proves nothing
   assert(checkAbapRules(delegatedSilent).some((x) => x.type === 'missing-view-display-on-navigated'),
     'missing-view-display-on-navigated: following the call does not make the rule toothless — no display anywhere is still reported');
+
+  /* An ABAP keyword inside a STRING LITERAL is not structure. A MessageStrip
+   * whose text reads "…so the state can be shared with someone else. Enter a
+   * quantity…" ended its enclosing IF branch at that `else`, four statements
+   * before the real ENDIF - and the view_display( ) after it stopped counting.
+   * Any English sentence long enough contains one of these words. */
+  const prose = `METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+          )->ele( n = \`View\` ns = \`mvc\`
+              )->a( n = \`xmlns\` v = \`sap.m\`
+              )->tag( \`MessageStrip\`
+                  )->a( n = \`text\` v = \`share the state with someone else. Enter a quantity, if you like, and press it\` ).
+      client->view_display( view->stringify( ) ).
+    ENDIF.
+  ENDMETHOD.`;
+  assert(!checkAbapRules(prose).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'ifBranchEnd: `else`/`if` inside a literal is prose, not the end of the branch');
   // the guard idiom is exclusive by construction: good.clas.abap opens with
   // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings
