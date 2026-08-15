@@ -725,6 +725,26 @@ frozen — samples-controls's coverage docs read `controls[…].since` / `.depre
     listing** (the Action needs a release to be published from; `action.yml`
     already carries the required `branding`). Marketplace publishing itself
     is a click-through on the release, not a workflow step.
+
+## `github-app/` — a spike, not a channel
+
+`github-app/` is a working prototype of the linter as a hosted **GitHub App**
+(webhook → installation token → property gate → check run), written to answer
+"what would this take" with running code. **It is not deployed, not registered
+and not part of any release** — the npm `files` allowlist excludes it, so it
+never reaches the package. Treat it as documentation that happens to execute.
+
+- It runs the **property gate only**, and that is the load-bearing decision:
+  `checkAbapSource`/`checkXmlSource` take source rather than a checkout, so a
+  delivery is linted in memory with no clone and no temp directory. The render
+  gate needs Chromium plus ~140 MB of `@openui5/*` per run and stays in the
+  consumer's CI. It is the same split the VS Code extension already lives on.
+- `node github-app/dryrun.mjs <path>` runs the identical
+  `lintSource`/`toAnnotations`/`summarize` path against local files and prints
+  the check-run payload — the only part testable without registering an App.
+- Its README lists what separates the prototype from a service (persistence,
+  rate limits, installation lifecycle, operations). That list, not the code,
+  is why this is a spike: the missing work is ongoing, not one-time.
 - **npm publishing does not replace the git-SHA pins.** samples-controls and
   the VS Code extension keep pinning `github:abap2UI5/linter#<sha>`; the
   downstream workflow keeps being what says a bump is safe. npm serves the
