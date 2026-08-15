@@ -1943,6 +1943,34 @@ ENDCLASS.`;
   assert(sarif.runs[0].tool.driver.rules.every((r) => r.helpUri.includes(`#${r.id}`)),
     'sarif: every rule links to its anchor on the rules page');
 
+  /* --- the two value flags that name a closed set ---------------------------
+   * A value outside the set fails nowhere downstream - it falls back to the
+   * default - so a typo used to be silent: `--ui5 1,130` reported every
+   * control added after 1.71 as too new, and `--distribution openui` ran none
+   * of the openui5 checks that were asked for. abap2ui5lint.jsonc refuses
+   * both loudly, and the flags have to agree with it. */
+  const runErr = (args) => {
+    try {
+      cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } });
+      return { err: '', code: 0 };
+    } catch (e) { return { err: e.stderr ?? '', code: e.status }; }
+  };
+  const good = f('good.clas.abap');
+  for (const bad of ['banana', '1,71', '1.', '']) {
+    const r = runErr([good, '--no-render', '--no-config', '--ui5', bad]);
+    assert(r.code === 2 && /takes a version like 1\.71/.test(r.err),
+      `cli: --ui5 '${bad}' is refused instead of silently meaning 1.71 (exit ${r.code})`);
+  }
+  for (const ok of ['1.71', '1.130', '1.120.3']) {
+    assert(runErr([good, '--no-render', '--no-config', '--ui5', ok]).code !== 2,
+      `cli: --ui5 ${ok} is accepted`);
+  }
+  const distro = runErr([good, '--no-render', '--no-config', '--distribution', 'openui']);
+  assert(distro.code === 2 && /takes sapui5 or openui5/.test(distro.err),
+    'cli: --distribution refuses a value outside the two it knows');
+  assert(runErr([good, '--no-render', '--no-config', '--distribution', 'OpenUI5']).code !== 2,
+    'cli: --distribution stays case-insensitive');
+
   // --- baseline -------------------------------------------------------------
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5base-'));
   const target = path.join(dir, 'abaprules.clas.abap');

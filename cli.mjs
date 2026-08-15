@@ -94,6 +94,16 @@ const die = (message) => {
   process.exit(2);
 };
 
+/* The two value flags whose wrong value would otherwise be SILENT. Both name
+ * a closed set the run is judged against, and a value outside it does not
+ * fail anywhere downstream - it just falls back to the default, so
+ * `--ui5 1,130` (a comma is one keystroke away on a German layout) reports
+ * every control added after 1.71 as too new, and `--distribution openui` runs
+ * none of the checks the user asked for. abap2ui5lint.jsonc already refuses
+ * both loudly; the flags say the same thing now. */
+const UI5_VERSION_RE = /^\d+\.\d+(\.\d+)?$/;
+const DISTRIBUTIONS = ['sapui5', 'openui5'];
+
 const args = process.argv.slice(2);
 const opt = {
   minUi5: '1.71', distribution: 'sapui5', allow: [], render: true, properties: true,
@@ -122,8 +132,18 @@ for (let i = 0; i < args.length; i++) {
     if (i + 1 >= args.length) die(`${a} needs a value\n${USAGE}`);
     return args[++i];
   };
-  if (a === '--min-ui5' || a === '--ui5') { opt.minUi5 = value(); seen.add('minUi5'); }
-  else if (a === '--distribution') { opt.distribution = value().toLowerCase(); seen.add('distribution'); }
+  if (a === '--min-ui5' || a === '--ui5') {
+    const version = value();
+    if (!UI5_VERSION_RE.test(version)) die(`${a} takes a version like 1.71 (got '${version}')`);
+    opt.minUi5 = version;
+    seen.add('minUi5');
+  }
+  else if (a === '--distribution') {
+    const distribution = value().toLowerCase();
+    if (!DISTRIBUTIONS.includes(distribution)) die(`--distribution takes ${DISTRIBUTIONS.join(' or ')} (got '${distribution}')`);
+    opt.distribution = distribution;
+    seen.add('distribution');
+  }
   else if (a === '--openui5') { opt.distribution = 'openui5'; seen.add('distribution'); }
   else if (a === '--allow') opt.allow.push(value());
   else if (a === '--no-render') { opt.render = false; seen.add('render'); }
