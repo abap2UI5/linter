@@ -1509,9 +1509,11 @@ ENDCLASS.`;
   for (const name of RELEASED_OBJECTS) {
     assert(apiVerdict(name) === null, `non-released-api: the released ${name} is never reported`);
   }
-  // the two deliberate exemptions, each for a reason of its own (see released-api.mjs)
+  // z2ui5_if_types ships in the released src/02 - which it has to, because the
+  // released client->get( ) returns z2ui5_if_types=>ty_s_get and an app that
+  // declares a variable of that type cannot avoid naming it
   assert(!named.includes('z2ui5_if_types'),
-    'non-released-api: z2ui5_if_types is tolerated — the released client->get( ) returns it');
+    'non-released-api: z2ui5_if_types is released — the released client->get( ) returns it');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');
