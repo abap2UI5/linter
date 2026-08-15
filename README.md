@@ -509,7 +509,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: abap2UI5/linter@main
+      - uses: abap2UI5/linter@v0
         with:
           paths: src
           min-ui5: '1.71'
@@ -523,6 +523,12 @@ Findings are annotated onto the pull request diff by default; set
 `annotations: false` to keep the log plain. `badge` and `badge-corpus` only
 write the endpoint files — committing them is the workflow's job, and the pull
 request that changes the corpus is the right place to do it.
+
+`@v0` is a moving tag: it follows the newest release of the `0.x` line, so a
+new rule can change your verdict without you asking for it — which is the
+point of a linter, and the reason to pin `@v0.1.0` instead where a build has
+to stay reproducible. `@main` works too and is what this README documented
+before there were releases; it now moves on every merge, so prefer either tag.
 
 ## Library
 

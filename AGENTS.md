@@ -715,6 +715,16 @@ frozen — samples-controls's coverage docs read `controls[…].since` / `.depre
   - Stay in **`0.x`** while the rule set is still growing: it says out loud
     that a new rule may change a consumer's verdict, which is exactly what
     happens on most merges here.
+  - The same tag also serves **the Action in this repo**: a second job
+    force-moves the major tag (`v0`, `v1` later) onto the release commit, so
+    `uses: abap2UI5/linter@v0` is the documented pin instead of the
+    unpinnable `@main`. Only the alias moves — `v0.1.0` stays put for anyone
+    who needs a build to stay reproducible. That job is separate so the
+    publish job keeps `contents: read`.
+  - A tagged release is also the **prerequisite for the GitHub Marketplace
+    listing** (the Action needs a release to be published from; `action.yml`
+    already carries the required `branding`). Marketplace publishing itself
+    is a click-through on the release, not a workflow step.
 - **npm publishing does not replace the git-SHA pins.** samples-controls and
   the VS Code extension keep pinning `github:abap2UI5/linter#<sha>`; the
   downstream workflow keeps being what says a bump is safe. npm serves the

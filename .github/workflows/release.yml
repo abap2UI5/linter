@@ -124,3 +124,37 @@ jobs:
       - name: Dry run only
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: echo "Not a tag - everything ran except the publish."
+
+  # The same tag serves the OTHER consumer of a release: the GitHub Action in
+  # this repo. Action users pin `uses: abap2UI5/linter@v0`, so the major tag
+  # has to be moved onto every release - that is the Actions convention, and
+  # it is what replaces the unpinnable `@main` the README used to document.
+  #
+  # Force-moving a tag is normally a smell; for a major Action tag it is the
+  # documented practice. Only the ALIAS moves - `v0.1.0` stays where it is, so
+  # a consumer who wants an immutable pin already has one.
+  #
+  # Separate job so the publish keeps `contents: read`: only this one needs
+  # write, and it needs no OIDC token at all.
+  major-tag:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move the major tag onto this release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MAJOR="${TAG%%.*}"          # v0.1.0 -> v0, v1.4.2 -> v1
+          if [ "$MAJOR" = "$TAG" ]; then
+            echo "$TAG is already a bare major tag - nothing to move"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -f "$MAJOR" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$MAJOR"
+          echo "$MAJOR now points at $TAG ($GITHUB_SHA)"
