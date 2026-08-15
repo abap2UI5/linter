@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- **New rule `chain-house-layout`, and the first opt-in rule.** It judges a
+  builder chain against one canonical form — one call per line *including
+  attributes*, four spaces per level of the tree, the closing call in the
+  column of the element it closes — and carries fixes, so `--fix` reformats.
+
+  Its two neighbours judge a chain against itself and deliberately do not name
+  a step, because demanding one lit up the corpus. That is still the right
+  doctrine; what changed is the corpus. abap2UI5, abap2UI5/samples and
+  abap2UI5/samples-controls were unified onto this layout, where the rule now
+  reports nothing across all 575 builder classes — and on their previous state
+  it reports 149 of 150 samples classes and 77 of 417 ports. Those 77 are what
+  motivated it: their whole chain sat one level too deep, which
+  `chain-indentation` cannot see, because a uniformly wrong rhythm is a rhythm.
+
+  **It is off unless asked for** — `"rules": { "chain-house-layout": "warning" }`.
+  A house style shipped as everyone's default is what `lib/chain-layout.mjs`
+  argues against, and a whole-chain fix would defer any other rule's fix
+  inside the same chain to a second `--fix` pass. The mechanism is general:
+  `OPT_IN` in `lib/findings.mjs`, honoured before the rule is even emitted.
+
 ## 0.1.0
 
 First public release — of both packages, from one tag:
