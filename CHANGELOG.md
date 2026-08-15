@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - **A structure declared inside another one was dropped, and every path
   through it reported.** ABAP nests `BEGIN OF` freely:
