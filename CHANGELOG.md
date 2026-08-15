@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A namespace prefix with a dot in it read as undeclared.** `xmlns:viz.data`
+  and `xmlns:viz.feeds` are what the `sap.viz` controls are written with, and
+  an XML prefix is an NCName, where a dot is perfectly legal. The declaration
+  matcher used `\w`, so it saw no declaration and then reported every use as
+  `undeclared-namespace` — four errors on one correct class.
+
 - **An aggregation under a control the snapshot does not have was blamed on
   the nearest one it does.** The metadata covers OpenUI5; a SAPUI5-only
   control (`sap.ui.vbm`, `sap.ui.comp`, `sap.suite.*`) is outside it, and its

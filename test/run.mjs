@@ -512,6 +512,23 @@ assert(!opaqueOwner.findings.length,
   `opaque control: nothing under an unjudgeable control is judged (${
     opaqueOwner.findings.map((x) => x.type).join(', ') || 'none'})`);
 
+/* An XML prefix is an NCName: a dot is legal in it, and the sap.viz controls
+ * are written with `xmlns:viz.data` / `xmlns:viz.feeds`. Matching the prefix
+ * with \w alone read those declarations as absent and then reported every use
+ * of them as undeclared-namespace - four errors on one correct class. */
+const dottedNs = checkAbapSource(`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`          v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\`      v = \`sap.ui.core.mvc\`
+      )->a( n = \`xmlns:viz.data\` v = \`sap.viz.ui5.data\`
+      )->ele( \`Page\`
+          )->tag( n = \`FlattenedDataset\` ns = \`viz.data\` ).
+  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+assert(!dottedNs.findings.some((x) => x.type === 'undeclared-namespace'),
+  `dotted prefix: xmlns:viz.data is a declaration (got ${
+    dottedNs.findings.map((x) => `${x.type} ${x.member ?? ''}`).join(', ') || 'nothing'})`);
+
 // positions in raw XML are just as exact as in a builder class
 const xmlPos = (await checkFiles([f('badvalue.view.xml')], { render: false }))[0];
 const bad = xmlPos.findings.find((x) => x.type === "invalid-property-value");
