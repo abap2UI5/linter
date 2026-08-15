@@ -1857,6 +1857,20 @@ ENDCLASS.`;
   ENDMETHOD.`;
   assert(!checkAbapRules(prose).some((x) => x.type === 'missing-view-display-on-navigated'),
     'ifBranchEnd: `else`/`if` inside a literal is prose, not the end of the branch');
+
+  /* An `exclude` is matched against the path the runner REACHED the file by,
+   * which is absolute when `paths` comes from a config file - while the report
+   * prints it relative to the cwd. A pattern written from what you can read in
+   * the report used to match nothing, silently. */
+  {
+    const { applyRules } = await import('../lib/findings.mjs');
+    const abs = `${process.cwd()}/src/00/98/app.clas.abap`;
+    const rules = { 'unknown-control': { exclude: ['^src/00/98/'] } };
+    assert(applyRules([{ type: 'unknown-control' }], rules, abs).length === 0,
+      'rules.exclude: a pattern written the way the report prints the path excludes the file');
+    assert(applyRules([{ type: 'unknown-control' }], rules, `${process.cwd()}/src/01/app.clas.abap`).length === 1,
+      'rules.exclude: and it still only excludes what it names');
+  }
   // the guard idiom is exclusive by construction: good.clas.abap opens with
   // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings

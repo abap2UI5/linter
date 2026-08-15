@@ -29,6 +29,13 @@
   A structure whose shape IS known still catches a typo through it — the
   fixture asserts both halves.
 
+- **A `rules.*.exclude` written from the report matched nothing, silently.**
+  The pattern is tested against the path the runner reached the file by, and
+  with `paths` in a config file that is absolute — while the report prints the
+  path relative to the cwd. So `"exclude": ["^src/00/98/"]`, written from what
+  you can read in the output, waived nothing and said nothing about it. Both
+  forms are now tried.
+
 - **An ABAP keyword inside a string literal counted as structure.** A
   MessageStrip whose text reads *"…share the state with someone else. Enter a
   quantity…"* ended its enclosing `IF` branch at that `else`, four statements

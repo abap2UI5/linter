@@ -554,7 +554,9 @@ you, with the `$schema` already pointing at the copy your project installed.
     "member-deprecated": "hint",           // another severity
     "event-without-handler": {             // both, plus file exclusions
       "severity": "warning",
-      "exclude": ["/test/"]                // file regex, case insensitive
+      "exclude": ["/test/"]                // file regex, case insensitive; matched
+                                           // against the path as the report prints
+                                           // it AND as the runner reached it
     },
     // the render gate's pseudo-rule: waive render failures per file instead
     // of render:false wholesale. A waived file that renders CLEAN is called
