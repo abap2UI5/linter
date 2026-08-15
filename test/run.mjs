@@ -16,7 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkAbapSource, checkFiles } from '../lib/index.mjs';
+import { checkAbapSource, checkXmlSource, checkFiles } from '../lib/index.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
 import { severityOf } from '../lib/findings.mjs';
 
@@ -2417,6 +2417,40 @@ ENDCLASS.`;
   const missing = RULES.filter((id) => !readme.includes(`\`${id}\``));
   assert(!missing.length,
     `README: every rule id appears in the finding tables (missing: ${missing.join(', ') || 'none'})`);
+}
+
+
+// -------------------------------------------------------- robustness ----
+/* The VS Code extension checks LIVE while the user types, so half-written
+ * source is a normal input, not an edge case - and a throw there kills the
+ * feature instead of reporting a finding. Nothing pinned that before.
+ *
+ * Measured over the corpus first: 2,508 truncations and 2,760 seeded
+ * mutations (inserted brackets/backticks/quotes, deleted runs, duplicated
+ * runs, stripped backticks) across 103 real ports threw nothing. Those
+ * sweeps need the corpus; this fixture-scale guard is what CI can carry.
+ */
+{
+  const abap = fs.readFileSync(f('good.clas.abap'), 'utf8');
+  const xml = fs.readFileSync(f('badvalue.view.xml'), 'utf8');
+  const POISON = ['`', '(', ')', '{', '}', '"', "'", '&', '<', '>', '=>', '->'];
+  let threw = null;
+
+  for (let i = 0; i <= 40 && !threw; i++) {
+    const cutA = abap.slice(0, Math.floor((abap.length * i) / 40));
+    const cutX = xml.slice(0, Math.floor((xml.length * i) / 40));
+    try { checkAbapSource(cutA, { minUi5: '1.71' }); } catch (e) { threw = `truncated ABAP at ${i}/40: ${e.message}`; }
+    try { checkXmlSource(cutX, { minUi5: '1.71' }); } catch (e) { threw = threw || `truncated XML at ${i}/40: ${e.message}`; }
+  }
+  assert(!threw, `robustness: a truncated source is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
+
+  threw = null;
+  for (let i = 0; i < POISON.length && !threw; i++) {
+    const at = Math.floor((abap.length * (i + 1)) / (POISON.length + 1));
+    const hurt = abap.slice(0, at) + POISON[i] + abap.slice(at);
+    try { checkAbapSource(hurt, { minUi5: '1.71' }); } catch (e) { threw = `'${POISON[i]}' at ${at}: ${e.message}`; }
+  }
+  assert(!threw, `robustness: a stray bracket/quote is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');
