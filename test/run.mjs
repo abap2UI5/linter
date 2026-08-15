@@ -16,7 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkAbapSource, checkXmlSource, checkFiles } from '../lib/index.mjs';
+import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
 import { severityOf } from '../lib/findings.mjs';
 
@@ -121,7 +121,7 @@ assert(hasR('obsolete-binder', (x) => x.member === '_bind_edit'),
   // checkAbapRules, not checkAbapSource: a snippet without a builder chain
   // never reaches the ABAP rules at all, so the negative form this assertion
   // used to have was green for the wrong reason
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const back = checkAbapRules('client->_bind_edit( val = name custom_mapper_back = mapper )')
     .find((x) => x.type === 'obsolete-binder');
   assert(back?.value === 'custom_mapper_back' && !back.fixes,
@@ -136,7 +136,7 @@ assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
  * that IS handled - the worst kind of hint, since the reader has to prove
  * the tool wrong before ignoring it. */
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const alternatives = checkAbapRules(
     'client->_event( `PRODTYPE_CHANGED` ) client->_event( `SEARCH` )'
     + ' CASE client->get( )-event. WHEN `PRODTYPE_CHANGED` OR `SEARCH`. do_search( ). ENDCASE.');
@@ -664,7 +664,7 @@ ENDCLASS.`;
 // -------------------------------------------------------------- new rules ----
 // display-root-mismatch, binding-type-mismatch, event-arg-out-of-range
 {
-  const { checkAbapRules, namedModels } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules, namedModels } = await import('./observe.mjs');
   const { deniedControlMethod } = await import('../lib/frontend-actions.mjs');
   const roots = checkAbapSource(fs.readFileSync(f('roots.clas.abap'), 'utf8'));
   const mismatches = roots.findings.filter((x) => x.type === 'display-root-mismatch');
@@ -1036,7 +1036,7 @@ ENDCLASS.`).findings;
   assert(!jsonBind(')->tag( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
     .some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: a stylesheet is not code and stays fine');
-  const { checkXmlSource } = await import('../lib/index.mjs');
+  const { checkXmlSource } = await import('./observe.mjs');
   assert(!checkXmlSource('<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><Button press=".onPress"/></mvc:View>')
     .findings.some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: a raw view.xml has a controller — handler names belong there');
@@ -1118,6 +1118,23 @@ ENDCLASS.`).findings;
     .filter((x) => x.type === 'collapsed-brace-in-style').length === 0,
     'collapsed-brace-in-style: the backtick form it recommends is not reported');
 
+  /* The mirror image, and the rule that had no test at all until the coverage
+   * gate at the end of this file went in. A backtick literal does no escape
+   * processing, so the backslash is not an escape there - it lands in the
+   * serialized attribute and UI5 sees `\{ path: … \}` where a binding should
+   * be. Both correct spellings must stay silent, or the rule would report the
+   * fix it recommends. */
+  const escaped = (v) => checkAbapRules(`)->a( n = \`items\` v = ${v} )`)
+    .filter((x) => x.type === 'escaped-brace-in-backtick');
+  assert(escaped('`\\{ path: \'message>/\' \\}`').length === 1,
+    'escaped-brace-in-backtick: a binding escaped inside a backtick literal is reported');
+  assert(escaped('`{ path: \'message>/\' }`').length === 0,
+    'escaped-brace-in-backtick: the plain-brace binding it recommends is silent');
+  assert(escaped('|\\{ path: \'message>/\' \\}|').length === 0,
+    'escaped-brace-in-backtick: the template form needs the escapes and is silent');
+  assert(escaped('`<style>.a \\{color:red\\}</style>`').length === 0,
+    'escaped-brace-in-backtick: an escaped stylesheet is not a binding and is left alone');
+
   const dead = wire.findings.filter((x) => x.type === 'unused-public-attribute');
   assert(dead.length === 1 && dead[0].member === 'ballast',
     `unused-public-attribute: only the untouched one (got ${dead.map((x) => x.member).join() || 'none'})`);
@@ -1133,7 +1150,7 @@ ENDCLASS.`).findings;
 // duplicate-for-iterator — lessons that bit the ai-demokit corpus, promoted
 // from its repo-local pattern-lint into rules every consumer sees
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const srcC = fs.readFileSync(f('corpusrules.clas.abap'), 'utf8');
   const corpus = checkAbapSource(srcC);
@@ -1295,7 +1312,7 @@ ENDCLASS.`);
 
 // ------------------------------------------- obsolete z2ui5_if_client members ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const source = fs.readFileSync(f('obsolete.clas.abap'), 'utf8');
   const found = checkAbapRules(source);
@@ -1344,7 +1361,7 @@ ENDCLASS.`);
 
 // ------------------------------------------ source positions and declarations ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { annotate } = await import('../lib/findings.mjs');
 
   /* A finding has to point at the line it is about. publicAttributes measured
@@ -1443,7 +1460,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------------- file collection ----
 {
-  const { collectFiles } = await import('../lib/index.mjs');
+  const { collectFiles } = await import('./observe.mjs');
   const os = await import('node:os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5lint-collect-'));
   const named = path.join(dir, 'my_app.abap');           // not abapGit's spelling
@@ -1476,7 +1493,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------- builder chain layout ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { annotate } = await import('../lib/findings.mjs');
   const source = fs.readFileSync(f('chainlayout.clas.abap'), 'utf8');
   const found = annotate(checkAbapRules(source).filter((x) => x.type.startsWith('chain-')), source);
@@ -1565,7 +1582,7 @@ ENDCLASS.`;
 
 // ------------------------------- the view builder (z2ui5_cl_ui5_view_builder) ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const { dialectOf } = await import('../lib/builders.mjs');
   const source = fs.readFileSync(f('viewbuilder.clas.abap'), 'utf8');
@@ -1619,7 +1636,7 @@ ENDCLASS.`;
 
 // ------------------------------------------ the released API surface (src/02) ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { apiVerdict, RELEASED_OBJECTS } = await import('../lib/released-api.mjs');
   const source = fs.readFileSync(f('releasedapi.clas.abap'), 'utf8');
   const named = checkAbapRules(source)
@@ -1683,7 +1700,7 @@ ENDCLASS.`;
       client->view_display( render( ) ).
     ENDIF.
   ENDMETHOD.`;
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   assert(!checkAbapRules(chained).some((x) => x.type === 'separate-lifecycle-ifs'),
     'separate-lifecycle-ifs: an IF/ELSEIF chain is the correct form and not reported');
   assert(!checkAbapRules(chained).some((x) => x.type === 'missing-view-display-on-navigated'),
@@ -1851,7 +1868,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------ round 2: new rules ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
 
   // --- binding-to-nonpublic: the app-043 failure class ----------------------
   const nonpublic = `CLASS zcl_x DEFINITION PUBLIC.
@@ -2234,7 +2251,7 @@ ENDCLASS.`;
   const cp = await import('node:child_process');
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5fix-'));
   const target = path.join(dir, 'abaprules.clas.abap');
@@ -2651,6 +2668,69 @@ ENDCLASS.`;
     try { checkAbapSource(hurt, { minUi5: '1.71' }); } catch (e) { threw = `'${POISON[i]}' at ${at}: ${e.message}`; }
   }
   assert(!threw, `robustness: a stray bracket/quote is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
+}
+
+// ------------------------------------------------------- rule coverage ----
+/* Every rule the linter offers has to FIRE somewhere in this suite.
+ *
+ * The gap this closes was invisible by construction: 83 of the 84 rules were
+ * asserted and the 84th (`escaped-brace-in-backtick`) simply had no test.
+ * Nothing was in a position to say so — a rule that stops firing keeps this
+ * suite green, ships, and reports nothing until somebody notices by hand.
+ *
+ * What is recorded is what the checks actually produced (test/observe.mjs),
+ * not what the test source appears to mention, so a negated assertion or a
+ * renamed idiom cannot pass for coverage. A rule may be exempt, but only in
+ * writing, below. */
+{
+  const { RULES } = await import('../lib/findings.mjs');
+
+  /* id -> why this rule cannot be produced by the fixture suite. Keep it
+   * empty if you can: an exemption is a rule nothing proves. */
+  const EXEMPT = {};
+
+  const uncovered = RULES.filter((id) => !produced.has(id) && !(id in EXEMPT));
+  assert(!uncovered.length,
+    `rule coverage: every rule fires somewhere in the suite (never fired: ${uncovered.join(', ') || 'none'})`);
+
+  const stale = Object.keys(EXEMPT).filter((id) => produced.has(id) || !RULES.includes(id));
+  assert(!stale.length,
+    `rule coverage: no stale exemption - a rule that fires needs none (${stale.join(', ') || 'none'})`);
+}
+
+// ----------------------------------------------- the docs' builder verbs ----
+/* The rule reference shows code a reader copies, and 11 of its 49 examples
+ * called methods the view builder does not have (`view->leaf( … )`,
+ * `->_generic( name = … )`) - the ROLE names lib/builders.mjs uses internally,
+ * which were the verbs of a builder that is gone. It rendered on the published
+ * page and in the README, and no reader could have known.
+ *
+ * Derived from the builder rather than from a list of bad spellings, so a
+ * future rename of a verb takes the docs with it. */
+{
+  const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+  const { VIEW_BUILDER } = await import('../lib/builders.mjs');
+
+  const REAL = new Set([
+    VIEW_BUILDER.open, VIEW_BUILDER.leaf, VIEW_BUILDER.att, VIEW_BUILDER.shut,
+    'factory', 'stringify', 'render', 'xml_escape',
+  ]);
+  // a builder chain in the docs is written `view->x(` or `)->x(`; a client
+  // call is `client->x(` and is not this gate's business
+  const CHAIN_CALL = /(?:^|[\s(])(?:\w*view\w*|popup|popover|\)|\w*_x)->(\w+)\s*\(/g;
+
+  const wrong = [];
+  for (const [id, doc] of Object.entries(RULE_DOCS)) {
+    for (const field of ['summary', 'detail', 'example', 'fixNote']) {
+      const text = doc[field];
+      if (typeof text !== 'string') continue;
+      for (const [, verb] of text.matchAll(CHAIN_CALL)) {
+        if (!REAL.has(verb)) wrong.push(`${id}.${field}: ->${verb}( )`);
+      }
+    }
+  }
+  assert(!wrong.length,
+    `rule docs: every builder call names a method the builder has (${wrong.join('; ') || 'all real'})`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');

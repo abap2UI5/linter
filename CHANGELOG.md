@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **The rule reference showed code the builder cannot run.** Eleven of the 49
+  examples on the rules page and in the README called `view->leaf( … )`,
+  `)->open( … )` or `->_generic( name = … )` — the role names
+  `lib/builders.mjs` uses internally, which were the verbs of a builder that is
+  gone. The current one has `ele`, `tag`, `a`, `end`. Every example is now
+  written in it, and a gate derives the allowed spellings from the builder
+  definition itself, so a future rename takes the documentation with it rather
+  than leaving it behind.
+
+- **Every rule now has to fire in the test suite.** 83 of the 84 did;
+  `escaped-brace-in-backtick` had no test of any kind, and nothing in the
+  repository was in a position to say so — a rule that stops firing keeps a
+  green suite, ships, and reports nothing until somebody notices by hand. The
+  suite records the rule ids the checks actually produce and asserts the
+  registry against them, so a new rule cannot land without a source that
+  triggers it. `escaped-brace-in-backtick` got the four cases it was missing,
+  including both correct spellings it must stay silent on.
+
 - **`event-without-handler` reads `WHEN OTHERS`.** A dispatcher that ends in
 
   ```abap

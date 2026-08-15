@@ -62,7 +62,7 @@ every PR, and the same thing runs locally against sibling checkouts:
   gate cannot know about anything newer than its `ui5Version`.
 - **One builder chain per document.** The reconstructor reads a chain as one
   ABAP statement; a chain **split across statements on the same handle**
-  (`popover->open( … ).` then `popover->open( \`List\` )`) keeps its cursor at
+  (`popover->ele( … ).` then `popover->ele( \`List\` )`) keeps its cursor at
   runtime but is re-rooted here, so the document comes out with two roots.
   It fails loudly (the render gate rejects it as native HTML content) rather
   than silently — but the fix is in the port: write one chain per view.
@@ -96,6 +96,18 @@ exact line):
 3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail,
 4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`,
 5. a row in the README finding-type table.
+
+Step 4 is no longer on trust: the **rule-coverage gate** at the end of
+`test/run.mjs` asserts that every id in `RULES` actually fired somewhere in the
+suite, from what the checks produced (`test/observe.mjs` records it) rather
+than from what the test source appears to mention. A rule registered in step 2
+with no source that triggers it fails `npm test`. It is what found
+`escaped-brace-in-backtick`, which had shipped with no test of any kind and
+which nothing was in a position to notice.
+
+Import the checks from `./observe.mjs` in tests, not from `../lib/index.mjs`
+or `../lib/abap-rules.mjs` — a check called around the observer counts for
+nothing.
 
 Then regenerate and commit both artefacts — `npm test` fails while either is
 stale:
