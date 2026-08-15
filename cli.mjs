@@ -58,6 +58,12 @@
  *                      --no-annotate switches it off). Alongside the stylish
  *                      report only - json and markdown stay parseable.
  *   --no-render        skip the render gate (no browser/@openui5 needed)
+ *   --render           require the render gate: without its runtime the run
+ *                      fails instead of falling back to the property gate.
+ *                      The gate is on by default, but a DEFAULT-on gate whose
+ *                      runtime is not installed steps aside with a warning -
+ *                      this flag (or "render": true in the config) is how a
+ *                      job says the gate has to have run
  *   --no-properties    skip the property gate
  *   --advisory         report only, always exit 0 (same as --fail-on never)
  *   --verbose          print reconstruction notes
@@ -81,6 +87,7 @@ import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
+import { missingRenderDeps, renderFallback } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
@@ -90,7 +97,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
-  + '[--annotate|--no-annotate] [--no-render] [--no-properties] [--advisory] [--verbose] '
+  + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
 
 const die = (message) => {
@@ -124,6 +131,9 @@ const opt = {
   progress: process.stderr.isTTY === true || process.env.GITHUB_ACTIONS === 'true',
 };
 const seen = new Set(); // options the CLI set explicitly - they beat the config
+// whether the render gate was ASKED for (--render, or "render": true in the
+// config) rather than merely left on - see renderFallback below
+let renderAsked = false;
 const paths = [];
 let configFlag = null;
 let noConfig = false;
@@ -151,6 +161,9 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--openui5') { opt.distribution = 'openui5'; seen.add('distribution'); }
   else if (a === '--allow') opt.allow.push(value());
   else if (a === '--no-render') { opt.render = false; seen.add('render'); }
+  // Asking for the gate is what turns a missing runtime back into an error -
+  // the default-on gate falls back to the property gate instead (renderFallback)
+  else if (a === '--render') { opt.render = true; seen.add('render'); renderAsked = true; }
   else if (a === '--no-properties') { opt.properties = false; seen.add('properties'); }
   else if (a === '--advisory') { opt.failOn = 'never'; seen.add('failOn'); }
   else if (a === '--config') configFlag = value();
@@ -209,6 +222,10 @@ if (!noConfig) {
       die(e.message);
     }
     applyConfig(opt, seen, cfg);
+    // a config that names the render gate is asking for it, the same way
+    // --render does: from here on a missing runtime is an error, not a
+    // fallback. `render: false` says property-only, which needs no runtime.
+    if (cfg.render === true && !seen.has('render')) renderAsked = true;
     if (!paths.length && cfg.paths) {
       const base = path.dirname(configFile);
       paths.push(...cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p))));
@@ -224,6 +241,22 @@ if (!noConfig) {
   }
 }
 if (!paths.length) paths.push('src');
+
+/* The render gate is on by default and its ~118 MB runtime is deliberately
+ * not, so a fresh `npx @abap2ui5/linter src` would refuse to run at all. A
+ * gate nobody asked for therefore steps aside for the property gate and says
+ * so - loudly, on stderr, so a piped --json stays parseable and the notice
+ * still reaches a terminal. An ASKED-for gate keeps the hard refusal. */
+{
+  const fallback = renderFallback({
+    render: opt.render, asked: renderAsked, missing: opt.render ? missingRenderDeps() : [],
+  });
+  if (fallback) {
+    opt.render = false;
+    console.error(process.env.GITHUB_ACTIONS === 'true'
+      ? `::warning::${fallback}` : `abap2ui5lint: ${fallback}`);
+  }
+}
 
 let files;
 try {

@@ -199,8 +199,22 @@ the metadata snapshot — runs in full:
 npx abap2ui5lint src --no-render
 ```
 
-That is supported, not a degraded mode. Asking for the render gate without the
-runtime names the one package to install rather than failing obscurely.
+That is supported, not a degraded mode. And it is what the `npx` line at the
+top of this section does on its own: the render gate is on by default, so a
+run that never *asked* for it and has no runtime installed falls back to the
+property gate, with a warning on stderr naming the one package to install.
+
+The fallback is deliberately limited to a gate nobody asked for. Say you want
+it — `--render`, or `"render": true` in `abap2ui5lint.jsonc` — and a missing
+runtime is an error again:
+
+```sh
+npx abap2ui5lint src --render          # no runtime => exit 2, not a fallback
+```
+
+That is the line to use in CI. Quietly skipping a gate the config promised is
+how a green pipeline stops meaning anything, so the promise has to be
+writable — and `--render` is how it is written.
 
 To work on the linter itself, clone it and use `node cli.mjs` in place of the
 binary — the flags below are identical either way. The runtime is an npm
@@ -219,6 +233,7 @@ abap2ui5lint src                          # check everything under src/
 abap2ui5lint src --ui5 1.120              # check against UI5 1.120
 abap2ui5lint src --allow sap.m.GenericTile.systemInfo   # accepted deviation
 abap2ui5lint src --no-render              # property gate only (no browser)
+abap2ui5lint src --render                 # require the render gate: no runtime, no run
 abap2ui5lint src --no-properties          # the other way round: render gate only
 abap2ui5lint src --fail-on error          # only real breakage fails CI
 abap2ui5lint src --advisory               # report, never fail the build
@@ -484,7 +499,10 @@ Precedence per option: explicit CLI flag > config file > built-in default
   "ui5": "1.71",             // UI5 floor for the property gate
   "distribution": "sapui5",  // or "openui5"
   "failOn": "warning",       // error | warning | hint | never
-  "render": true,            // false = skip the render gate (--no-render)
+  "render": true,            // false = skip the render gate (--no-render).
+                             // true is also a PROMISE: unlike the default-on
+                             // gate, it fails when the runtime is missing
+                             // rather than falling back (--render)
   "properties": true,        // false = skip the property gate (--no-properties)
   "allow": [],               // e.g. ["sap.m.Avatar.displaySize"]
   "baseline": "abap2ui5lint-baseline.json",  // adoption-time debt, see above
