@@ -1943,6 +1943,22 @@ ENDCLASS.`;
   assert(sarif.runs[0].tool.driver.rules.every((r) => r.helpUri.includes(`#${r.id}`)),
     'sarif: every rule links to its anchor on the rules page');
 
+  /* What code scanning actually renders. Without these the Security tab shows
+   * a bare rule id and attributes every alert to an unversioned tool. */
+  const { version: pkgVersion } = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+  assert(sarif.runs[0].tool.driver.version === pkgVersion
+    && sarif.runs[0].tool.driver.semanticVersion === pkgVersion,
+    `sarif: the driver carries the package version (got ${sarif.runs[0].tool.driver.version})`);
+  const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+  assert(sarif.runs[0].tool.driver.rules.every((r) => r.id === r.name
+    && r.defaultConfiguration
+    && ['error', 'warning', 'note'].includes(r.defaultConfiguration.level)),
+    'sarif: every rule carries a name and a defaultConfiguration level');
+  assert(sarif.runs[0].tool.driver.rules.every((r) => !RULE_DOCS[r.id]
+    || (r.shortDescription.markdown === RULE_DOCS[r.id].summary
+      && !r.shortDescription.text.includes('`'))),
+    'sarif: a documented rule carries its summary, markdown raw and text backtick-free');
+
   /* --- the two value flags that name a closed set ---------------------------
    * A value outside the set fails nowhere downstream - it falls back to the
    * default - so a typo used to be silent: `--ui5 1,130` reported every
