@@ -1,5 +1,172 @@
 # Changelog
 
+## 0.2.0
+
+The theme of this release is **findings that were not true**. Six defects, all
+of the same shape: a rule reading the ABSENCE of something it could not see as
+evidence that the code is wrong. Together they account for **31 of the 32
+findings `abap2UI5/samples` had to keep in a baseline** — after the bump that
+file is down to one deliberate row — and eight more in `samples-controls` and
+`samples-stack`, where whole rules and whole folders had been switched off to
+silence them. No finding anywhere in any corpus is added.
+
+- **Four more ways an ABAP structure declaration hid its shape.** Every one of
+  them ended in the same place — a correct binding reported as a path the model
+  does not have, with nothing to do about it but a disable directive. Together
+  they account for **16 findings across `abap2UI5/samples`, all of them false;
+  nothing else in any corpus changes.**
+
+  - *The same name nested at several levels.* `END OF ms_data` is a PREFIX of
+    `END OF ms_data2`, so the outer structure ended at the inner one's close
+    and kept only the fields written after it. Sample 138 nests seven deep on
+    purpose; the depth limit on the mock model (5) cut it short as well.
+  - *`INCLUDE TYPE`.* The period-terminated `DATA BEGIN OF x. INCLUDE TYPE y.
+    DATA END OF x.` form was not read at all — a different statement, not a
+    spelling variant, and the only one that can carry an include. The included
+    fields land flat, as components of the including structure.
+  - *A type owned by another class.* `DATA s TYPE zcl_other=>ty_s_result.` was
+    not merely typed as unknown, it was dropped: the type matcher accepted no
+    `=>`, so the declaration did not match and the variable never existed. Now
+    it is registered and takes the "shape not knowable here" branch, where
+    paths below it are accepted rather than guessed at.
+  - *A model declared by the view.* `<template:repeat var="L0">` creates the
+    model `L0>` for its subtree. Enumerating models from the ABAP source cannot
+    see it, so every templated view reported its own aliases as models nothing
+    has.
+
+  A structure whose shape IS known still catches a typo through it — the
+  fixture asserts both halves.
+
+- **A `rules.*.exclude` written from the report matched nothing, silently.**
+  The pattern is tested against the path the runner reached the file by, and
+  with `paths` in a config file that is absolute — while the report prints the
+  path relative to the cwd. So `"exclude": ["^src/00/98/"]`, written from what
+  you can read in the output, waived nothing and said nothing about it. Both
+  forms are now tried.
+
+- **An ABAP keyword inside a string literal counted as structure.** A
+  MessageStrip whose text reads *"…share the state with someone else. Enter a
+  quantity…"* ended its enclosing `IF` branch at that `else`, four statements
+  before the real `ENDIF` — so the `view_display( )` after it stopped counting
+  and a correct view was reported as never displayed. `scrub( )` keeps literal
+  contents on purpose (the value resolver reads them); the rules that look for
+  STRUCTURE now read a view with literal contents blanked and offsets
+  preserved. Any English sentence long enough contains one of these words, so
+  this was a coin flip on the wording of a message.
+
+- **Three rules judged code they could not see.** Each read the ABSENCE of
+  something as a defect, where the truth was that this pass cannot resolve it.
+  Eight more false findings across `abap2UI5/samples`, and no finding anywhere
+  else changes.
+
+  - `missing-view-display-on-navigated` read only the branch text, so the
+    normal shape - `ELSEIF client->check_on_navigated( ). on_navigation( ).` -
+    was reported as never handing a view back, and the fix it proposed would
+    have displayed the view twice. A call to a method of the same class is now
+    followed a few levels deep. It still reports a branch that displays
+    nowhere; the test asserts both halves, with the helper named `paint( )` so
+    the method NAME cannot be what satisfies it.
+  - `missing-accessibility` read a button whose caption is
+    `COND #( … )` / `SWITCH #( … )` / `|{ count }|` as having no text at all.
+    An unresolvable value is dropped rather than invented (a made-up value
+    would be judged as if it had been written), but the fact that the
+    attribute WAS written is real, and the reconstruction now records it for
+    the rules that ask only that.
+
+- **A structure declared inside another one was dropped, and every path
+  through it reported.** ABAP nests `BEGIN OF` freely:
+
+  ```abap
+  BEGIN OF ty_s_row,
+    id TYPE string,
+    BEGIN OF s_details,
+      create_date TYPE d,
+    END OF s_details,
+  END OF ty_s_row.
+  ```
+
+  `s_details` names no `TYPE`, so the field matcher could not see it and the
+  whole subtree vanished from the derived model — `{S_DETAILS/CREATE_DATE}`
+  then read as *"the rows have no such field"* on correct code, with no way to
+  act on it beyond a disable directive. Nested blocks are now lifted into
+  structures of their own, at any depth, filed under a name qualified with
+  their parent so two structures can each carry an `s_details`. Two false
+  findings disappear from `abap2UI5/samples`; **nothing else in any corpus
+  changes.**
+
+- **A namespace prefix with a dot in it read as undeclared.** `xmlns:viz.data`
+  and `xmlns:viz.feeds` are what the `sap.viz` controls are written with, and
+  an XML prefix is an NCName, where a dot is perfectly legal. The declaration
+  matcher used `\w`, so it saw no declaration and then reported every use as
+  `undeclared-namespace` — four errors on one correct class.
+
+- **An aggregation under a control the snapshot does not have was blamed on
+  the nearest one it does.** The metadata covers OpenUI5; a SAPUI5-only
+  control (`sap.ui.vbm`, `sap.ui.comp`, `sap.suite.*`) is outside it, and its
+  children kept the last known ancestor as their owner. So `vos` inside
+  `vbm:AnalyticMap` came out as *"sap.m.Page has no aggregation vos"* — a
+  finding pointing at a control that is not the one in question, which nobody
+  can act on. `abap2UI5/samples-stack` had excluded a whole package to silence
+  the shape. Eighteen such findings across the sample corpora; **no finding
+  anywhere else changes.**
+
+  The mirror image was the worse half and invisible: an aggregation whose name
+  happened to exist on that distant ancestor was silently *excused*. Both are
+  guesses, and this rule's promise is that a chain leaving the snapshot is not
+  guessed about — now the owner goes opaque and nothing below it is judged.
+
+- **The rule reference showed code the builder cannot run.** Eleven of the 49
+  examples on the rules page and in the README called `view->leaf( … )`,
+  `)->open( … )` or `->_generic( name = … )` — the role names
+  `lib/builders.mjs` uses internally, which were the verbs of a builder that is
+  gone. The current one has `ele`, `tag`, `a`, `end`. Every example is now
+  written in it, and a gate derives the allowed spellings from the builder
+  definition itself, so a future rename takes the documentation with it rather
+  than leaving it behind.
+
+- **Every rule now has to fire in the test suite.** 83 of the 84 did;
+  `escaped-brace-in-backtick` had no test of any kind, and nothing in the
+  repository was in a position to say so — a rule that stops firing keeps a
+  green suite, ships, and reports nothing until somebody notices by hand. The
+  suite records the rule ids the checks actually produce and asserts the
+  registry against them, so a new rule cannot land without a source that
+  triggers it. `escaped-brace-in-backtick` got the four cases it was missing,
+  including both correct spellings it must stay silent on.
+
+- **`event-without-handler` reads `WHEN OTHERS`.** A dispatcher that ends in
+
+  ```abap
+  WHEN OTHERS.
+    client->message_box_display( type = client->get_event( ) ... )
+  ```
+
+  handles every event there is, including the ones no `WHEN` names — and the
+  rule read only the literals, so all five message types raised in
+  `abap2UI5/samples` app 382 were reported dead. That is the expensive kind of
+  finding: the reader has to prove the tool wrong before ignoring it, and the
+  next real one is read the same way.
+
+  Conservative on purpose in one direction: the CASE body is matched to the
+  first `ENDCASE`, so a nested CASE hides the catch-all and the events keep
+  being reported. Missing a catch-all costs a hint; inventing one would hide a
+  genuinely dead event.
+
+- **`abap2ui5lint --init`** writes a commented `abap2ui5lint.jsonc` to start
+  from. The documented route was three steps — read the README, copy the
+  block, fix the `$schema` path — and one of them was silently wrong: the
+  README's `$schema` pointed at `main`, so an editor validated the file
+  against rules the pinned CLI does not have, accepting what the run then
+  refused. `--init` resolves it against the installed copy, and refuses to
+  overwrite a file that is already there.
+
+- **The README opens with the thing you came for.** `## Install` used to sit
+  on line 165, behind ninety lines of rule catalogue; the run that needs no
+  install at all now comes first, with the sample output it produces. The
+  catalogue is unchanged, just no longer in front of the door. It also names
+  [app-template](https://github.com/abap2UI5/app-template) — the repository
+  that already has all of this wired up, and the answer for anyone starting a
+  new project, which this README did not mention at all.
+
 ## 0.1.1
 
 - **The advertised `npx @abap2ui5/linter src` lints again.** The render gate

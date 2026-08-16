@@ -16,7 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkAbapSource, checkXmlSource, checkFiles } from '../lib/index.mjs';
+import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
 import { severityOf } from '../lib/findings.mjs';
 
@@ -121,7 +121,7 @@ assert(hasR('obsolete-binder', (x) => x.member === '_bind_edit'),
   // checkAbapRules, not checkAbapSource: a snippet without a builder chain
   // never reaches the ABAP rules at all, so the negative form this assertion
   // used to have was green for the wrong reason
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const back = checkAbapRules('client->_bind_edit( val = name custom_mapper_back = mapper )')
     .find((x) => x.type === 'obsolete-binder');
   assert(back?.value === 'custom_mapper_back' && !back.fixes,
@@ -136,7 +136,7 @@ assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
  * that IS handled - the worst kind of hint, since the reader has to prove
  * the tool wrong before ignoring it. */
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const alternatives = checkAbapRules(
     'client->_event( `PRODTYPE_CHANGED` ) client->_event( `SEARCH` )'
     + ' CASE client->get( )-event. WHEN `PRODTYPE_CHANGED` OR `SEARCH`. do_search( ). ENDCASE.');
@@ -150,6 +150,20 @@ assert(hasR('event-without-handler', (x) => x.value === 'NO_HANDLER'),
     'client->_event( `SEARCH` ) CASE client->get( )-event. WHEN `OTHER` OR `MORE`. ENDCASE.');
   assert(stillDead.some((x) => x.type === 'event-without-handler' && x.value === 'SEARCH'),
     'abap rules: an alternatives list still leaves an unlisted event dead');
+
+  /* A dispatcher ending in WHEN OTHERS handles every event, including the ones
+   * no WHEN names - five message types raised and none of them listed
+   * (abap2UI5/samples app 382). */
+  const catchAll = checkAbapRules(
+    'client->_event( `warning` ) client->_event( `error` )'
+    + ' CASE client->get_event( ). WHEN `CUSTOM`. x( ).'
+    + ' WHEN OTHERS. client->message_box_display( type = client->get_event( ) ). ENDCASE.');
+  assert(!catchAll.some((x) => x.type === 'event-without-handler'),
+    'abap rules: WHEN OTHERS in a CASE over the event handles what no WHEN names');
+  const otherCase = checkAbapRules(
+    'client->_event( `SEARCH` ) CASE mv_mode. WHEN OTHERS. x( ). ENDCASE.');
+  assert(otherCase.some((x) => x.type === 'event-without-handler' && x.value === 'SEARCH'),
+    'abap rules: a WHEN OTHERS over something that is not the event handles nothing');
 }
 assert(hasR('unconverted-abap-boolean', (x) => x.member === 'expanded' && x.value === 'abap_true'),
   'abap rules: an ABAP boolean written into the view through v = instead of b =');
@@ -186,6 +200,29 @@ assert(hasV('undeclared-namespace', (x) => x.member === 'undeclared'),
   'view rules: namespace prefix used but never declared');
 assert(hasV('missing-accessibility', (x) => x.member === 'tooltip'),
   'view rules: icon-only button without a tooltip');
+/* An attribute WRITTEN but not statically resolvable is not an absent one.
+ * `COND #( … )` / `SWITCH #( … )` / `|{ count }|` are how a real app labels a
+ * button that changes its own caption, and reading the dropped attribute as
+ * "no text" reported three correctly labelled buttons as unusable with a
+ * screen reader. */
+{
+  const labelled = `METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+        )->ele( n = \`View\` ns = \`mvc\`
+            )->a( n = \`xmlns\` v = \`sap.m\`
+            )->ele( \`Page\`
+                )->tag( \`Button\`
+                    )->a( n = \`text\` v = COND #( WHEN on = abap_true THEN \`Stop\` ELSE \`Start\` )
+                    )->a( n = \`icon\` v = \`sap-icon://play\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.`;
+  assert(!checkAbapSource(labelled, { render: false }).findings
+    .some((x) => x.type === 'missing-accessibility'),
+    'missing-accessibility: a text the source computes at runtime still names the button');
+  assert(checkAbapSource(labelled.replace(/\)->a\( n = `text`[\s\S]*?\)\n/, ''), { render: false }).findings
+    .some((x) => x.type === 'missing-accessibility'),
+    'missing-accessibility: with the text gone the same button IS reported — the exception is about the value, not the rule');
+}
 assert(hasV('duplicate-aggregation', (x) => x.member === 'content'),
   'view rules: the same aggregation opened twice under one control');
 assert(hasV('member-deprecated', (x) => x.member === 'translucent'),
@@ -253,6 +290,47 @@ assert(nestedPaths.length === 1 && nestedPaths[0].value === 'EXPENSE'
   `nested: inside the inner list only its own row fields exist (${nestedPaths.map((x) => x.value).join(', ')})`);
 assert(!nested.findings.some((x) => String(x.value).startsWith('AMOUNT/')),
   'nested: a path through a nested structure resolves');
+
+// a structure declared INSIDE another one is a field of its parent AND a
+// structure in its own right - it names no TYPE, so the field matcher cannot
+// see it and the whole subtree used to be dropped from the model
+const nestedTypes = (await checkFiles([f('nestedtypes.clas.abap')], { render: false }))[0];
+const nestedTypePaths = nestedTypes.findings.filter((x) => x.type === 'unknown-binding-path');
+assert(nestedTypePaths.length === 1 && nestedTypePaths[0].value === 'S_DETAILS/CREATE_DAT',
+  `nested types: only the typo through the nested structure is reported (${nestedTypePaths.map((x) => x.value).join(', ')})`);
+assert(nestedTypes.findings.length === 1,
+  `nested types: a correct deep path raises nothing else either (${nestedTypes.findings.map((x) => x.type).join(', ')})`);
+{
+  const shape = prepareAbap(fs.readFileSync(f('nestedtypes.clas.abap'), 'utf8')).modelShape;
+  assert(shape.T_ROWS[0].S_DETAILS?.S_WHO?.UNAME === '',
+    'nested types: two levels of nesting reach the model, not just one');
+}
+
+// four ways an ABAP structure declaration hides its shape from a naive parse.
+// Every binding in the fixture is correct, so silence is the assertion - and
+// each shape then has to still CATCH a typo, or it is being blanket-accepted
+// rather than understood.
+{
+  const src = fs.readFileSync(f('structshapes.clas.abap'), 'utf8');
+  assert(checkAbapSource(src, { render: false }).findings.length === 0,
+    `struct shapes: nesting, INCLUDE TYPE, a foreign type and a template var are all understood (${
+      checkAbapSource(src, { render: false }).findings.map((x) => x.type + ' ' + x.value).join(', ')})`);
+
+  const typos = [
+    ['ms_deep-ms_deep2-ms_deep2-val', 'ms_deep-ms_deep2-ms_deep2-vla', 'the same name nested at several levels'],
+    ['ms_incl-title', 'ms_incl-titel', 'a field spliced in by INCLUDE TYPE'],
+  ];
+  for (const [good, bad, what] of typos) {
+    const broken = checkAbapSource(src.replace(good, bad), { render: false }).findings;
+    assert(broken.some((x) => x.type === 'unknown-binding-path'),
+      `struct shapes: a typo through ${what} is still caught (got ${broken.map((x) => x.type).join(', ') || 'nothing'})`);
+  }
+  /* The foreign type is the exception and has to stay one: its shape is not
+   * knowable from this source, so no path below it can be judged. */
+  assert(checkAbapSource(src.replace('ms_foreign-anything', 'ms_foreign-whatever'), { render: false })
+    .findings.length === 0,
+    'struct shapes: a path into a type owned by another class stays unjudged');
+}
 
 // the model handed to the RENDERER stays what a seed actually sets: a field
 // the class fills in code cannot be followed statically, and inventing an
@@ -471,6 +549,50 @@ const foreign = checkAbapSource(`
 assert(!foreign.findings.some((x) => x.type === 'unknown-aggregation'),
   'foreign namespace: html:iframe is left alone, not read as an aggregation of Panel');
 
+/* A SAP control the snapshot does not carry - a SAPUI5-only library, judged
+ * under --distribution sapui5 so it is not reported as sapui5-only either.
+ * Its own aggregation was blamed on the nearest KNOWN ancestor: `vos` inside
+ * `vbm:AnalyticMap` came out as "sap.m.Page has no aggregation vos", which is
+ * a finding no author can act on. `samples-stack` excluded a whole package to
+ * silence the same shape. The mirror image was worse and invisible: an
+ * aggregation whose name happens to exist on that ancestor was silently
+ * excused. */
+const opaqueOwner = checkAbapSource(`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`     v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+      )->a( n = \`xmlns:vbm\` v = \`sap.ui.vbm\`
+      )->ele( \`Page\`
+          )->ele( n = \`AnalyticMap\` ns = \`vbm\`
+              )->ele( n = \`vos\` ns = \`vbm\`
+                  )->tag( n = \`Spot\` ns = \`vbm\`
+                      )->a( n = \`position\` v = \`0;0;0\` ).
+  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+assert(!opaqueOwner.findings.some((x) => x.type === 'unknown-aggregation'),
+  `opaque control: vos belongs to vbm:AnalyticMap, not to the Page above it (got ${
+    opaqueOwner.findings.map((x) => `${x.type} ${x.control}/${x.member}`).join(', ') || 'nothing'})`);
+assert(!opaqueOwner.findings.length,
+  `opaque control: nothing under an unjudgeable control is judged (${
+    opaqueOwner.findings.map((x) => x.type).join(', ') || 'none'})`);
+
+/* An XML prefix is an NCName: a dot is legal in it, and the sap.viz controls
+ * are written with `xmlns:viz.data` / `xmlns:viz.feeds`. Matching the prefix
+ * with \w alone read those declarations as absent and then reported every use
+ * of them as undeclared-namespace - four errors on one correct class. */
+const dottedNs = checkAbapSource(`
+  DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+  view->ele( n = \`View\` ns = \`mvc\`
+      )->a( n = \`xmlns\`          v = \`sap.m\`
+      )->a( n = \`xmlns:mvc\`      v = \`sap.ui.core.mvc\`
+      )->a( n = \`xmlns:viz.data\` v = \`sap.viz.ui5.data\`
+      )->ele( \`Page\`
+          )->tag( n = \`FlattenedDataset\` ns = \`viz.data\` ).
+  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+assert(!dottedNs.findings.some((x) => x.type === 'undeclared-namespace'),
+  `dotted prefix: xmlns:viz.data is a declaration (got ${
+    dottedNs.findings.map((x) => `${x.type} ${x.member ?? ''}`).join(', ') || 'nothing'})`);
+
 // positions in raw XML are just as exact as in a builder class
 const xmlPos = (await checkFiles([f('badvalue.view.xml')], { render: false }))[0];
 const bad = xmlPos.findings.find((x) => x.type === "invalid-property-value");
@@ -650,7 +772,7 @@ ENDCLASS.`;
 // -------------------------------------------------------------- new rules ----
 // display-root-mismatch, binding-type-mismatch, event-arg-out-of-range
 {
-  const { checkAbapRules, namedModels } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules, namedModels } = await import('./observe.mjs');
   const { deniedControlMethod } = await import('../lib/frontend-actions.mjs');
   const roots = checkAbapSource(fs.readFileSync(f('roots.clas.abap'), 'utf8'));
   const mismatches = roots.findings.filter((x) => x.type === 'display-root-mismatch');
@@ -1022,7 +1144,7 @@ ENDCLASS.`).findings;
   assert(!jsonBind(')->tag( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{color:red\\}</style>` )')
     .some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: a stylesheet is not code and stays fine');
-  const { checkXmlSource } = await import('../lib/index.mjs');
+  const { checkXmlSource } = await import('./observe.mjs');
   assert(!checkXmlSource('<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><Button press=".onPress"/></mvc:View>')
     .findings.some((x) => x.type === 'raw-javascript-to-frontend'),
     'raw-javascript-to-frontend: a raw view.xml has a controller — handler names belong there');
@@ -1104,6 +1226,23 @@ ENDCLASS.`).findings;
     .filter((x) => x.type === 'collapsed-brace-in-style').length === 0,
     'collapsed-brace-in-style: the backtick form it recommends is not reported');
 
+  /* The mirror image, and the rule that had no test at all until the coverage
+   * gate at the end of this file went in. A backtick literal does no escape
+   * processing, so the backslash is not an escape there - it lands in the
+   * serialized attribute and UI5 sees `\{ path: … \}` where a binding should
+   * be. Both correct spellings must stay silent, or the rule would report the
+   * fix it recommends. */
+  const escaped = (v) => checkAbapRules(`)->a( n = \`items\` v = ${v} )`)
+    .filter((x) => x.type === 'escaped-brace-in-backtick');
+  assert(escaped('`\\{ path: \'message>/\' \\}`').length === 1,
+    'escaped-brace-in-backtick: a binding escaped inside a backtick literal is reported');
+  assert(escaped('`{ path: \'message>/\' }`').length === 0,
+    'escaped-brace-in-backtick: the plain-brace binding it recommends is silent');
+  assert(escaped('|\\{ path: \'message>/\' \\}|').length === 0,
+    'escaped-brace-in-backtick: the template form needs the escapes and is silent');
+  assert(escaped('`<style>.a \\{color:red\\}</style>`').length === 0,
+    'escaped-brace-in-backtick: an escaped stylesheet is not a binding and is left alone');
+
   const dead = wire.findings.filter((x) => x.type === 'unused-public-attribute');
   assert(dead.length === 1 && dead[0].member === 'ballast',
     `unused-public-attribute: only the untouched one (got ${dead.map((x) => x.member).join() || 'none'})`);
@@ -1119,7 +1258,7 @@ ENDCLASS.`).findings;
 // duplicate-for-iterator — lessons that bit the ai-demokit corpus, promoted
 // from its repo-local pattern-lint into rules every consumer sees
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const srcC = fs.readFileSync(f('corpusrules.clas.abap'), 'utf8');
   const corpus = checkAbapSource(srcC);
@@ -1281,7 +1420,7 @@ ENDCLASS.`);
 
 // ------------------------------------------- obsolete z2ui5_if_client members ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const source = fs.readFileSync(f('obsolete.clas.abap'), 'utf8');
   const found = checkAbapRules(source);
@@ -1330,7 +1469,7 @@ ENDCLASS.`);
 
 // ------------------------------------------ source positions and declarations ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { annotate } = await import('../lib/findings.mjs');
 
   /* A finding has to point at the line it is about. publicAttributes measured
@@ -1429,7 +1568,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------------- file collection ----
 {
-  const { collectFiles } = await import('../lib/index.mjs');
+  const { collectFiles } = await import('./observe.mjs');
   const os = await import('node:os');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5lint-collect-'));
   const named = path.join(dir, 'my_app.abap');           // not abapGit's spelling
@@ -1462,7 +1601,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------- builder chain layout ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { annotate } = await import('../lib/findings.mjs');
   const source = fs.readFileSync(f('chainlayout.clas.abap'), 'utf8');
   const found = annotate(checkAbapRules(source).filter((x) => x.type.startsWith('chain-')), source);
@@ -1551,7 +1690,7 @@ ENDCLASS.`;
 
 // ------------------------------- the view builder (z2ui5_cl_ui5_view_builder) ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
   const { dialectOf } = await import('../lib/builders.mjs');
   const source = fs.readFileSync(f('viewbuilder.clas.abap'), 'utf8');
@@ -1605,7 +1744,7 @@ ENDCLASS.`;
 
 // ------------------------------------------ the released API surface (src/02) ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   const { apiVerdict, RELEASED_OBJECTS } = await import('../lib/released-api.mjs');
   const source = fs.readFileSync(f('releasedapi.clas.abap'), 'utf8');
   const named = checkAbapRules(source)
@@ -1669,11 +1808,69 @@ ENDCLASS.`;
       client->view_display( render( ) ).
     ENDIF.
   ENDMETHOD.`;
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
   assert(!checkAbapRules(chained).some((x) => x.type === 'separate-lifecycle-ifs'),
     'separate-lifecycle-ifs: an IF/ELSEIF chain is the correct form and not reported');
   assert(!checkAbapRules(chained).some((x) => x.type === 'missing-view-display-on-navigated'),
     'missing-view-display-on-navigated: an inner IF does not end the branch early — the display after it counts');
+
+  /* The branch usually DELEGATES - `on_navigation( )`, which calls
+   * `view_display( )`, which displays. Reading only the branch text called
+   * four correct samples broken and offered a fix that would have displayed
+   * the view twice. */
+  const delegated = `METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      paint( ).
+    ELSEIF client->check_on_navigated( ).
+      on_navigation( ).
+    ENDIF.
+  ENDMETHOD.
+  METHOD on_navigation.
+    client->message_toast_display( \`back\` ).
+    paint( ).
+  ENDMETHOD.
+  METHOD paint.
+    client->view_display( render( ) ).
+  ENDMETHOD.`;
+  assert(!checkAbapRules(delegated).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: a branch that delegates two levels down to a display still counts');
+  const delegatedSilent = delegated.replace('client->view_display( render( ) ).', 'rendered = abap_true.');
+  // `paint` rather than `view_display` on purpose: the method NAME must not be
+  // what satisfies the rule, or the negative half proves nothing
+  assert(checkAbapRules(delegatedSilent).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: following the call does not make the rule toothless — no display anywhere is still reported');
+
+  /* An ABAP keyword inside a STRING LITERAL is not structure. A MessageStrip
+   * whose text reads "…so the state can be shared with someone else. Enter a
+   * quantity…" ended its enclosing IF branch at that `else`, four statements
+   * before the real ENDIF - and the view_display( ) after it stopped counting.
+   * Any English sentence long enough contains one of these words. */
+  const prose = `METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+          )->ele( n = \`View\` ns = \`mvc\`
+              )->a( n = \`xmlns\` v = \`sap.m\`
+              )->tag( \`MessageStrip\`
+                  )->a( n = \`text\` v = \`share the state with someone else. Enter a quantity, if you like, and press it\` ).
+      client->view_display( view->stringify( ) ).
+    ENDIF.
+  ENDMETHOD.`;
+  assert(!checkAbapRules(prose).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'ifBranchEnd: `else`/`if` inside a literal is prose, not the end of the branch');
+
+  /* An `exclude` is matched against the path the runner REACHED the file by,
+   * which is absolute when `paths` comes from a config file - while the report
+   * prints it relative to the cwd. A pattern written from what you can read in
+   * the report used to match nothing, silently. */
+  {
+    const { applyRules } = await import('../lib/findings.mjs');
+    const abs = `${process.cwd()}/src/00/98/app.clas.abap`;
+    const rules = { 'unknown-control': { exclude: ['^src/00/98/'] } };
+    assert(applyRules([{ type: 'unknown-control' }], rules, abs).length === 0,
+      'rules.exclude: a pattern written the way the report prints the path excludes the file');
+    assert(applyRules([{ type: 'unknown-control' }], rules, `${process.cwd()}/src/01/app.clas.abap`).length === 1,
+      'rules.exclude: and it still only excludes what it names');
+  }
   // the guard idiom is exclusive by construction: good.clas.abap opens with
   // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF
   assert(!checkAbapSource(fs.readFileSync(f('good.clas.abap'), 'utf8')).findings
@@ -1837,7 +2034,7 @@ ENDCLASS.`;
 
 // ------------------------------------------------ round 2: new rules ----
 {
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
 
   // --- binding-to-nonpublic: the app-043 failure class ----------------------
   const nonpublic = `CLASS zcl_x DEFINITION PUBLIC.
@@ -2220,7 +2417,7 @@ ENDCLASS.`;
   const cp = await import('node:child_process');
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const { applyFixes } = await import('../lib/fix.mjs');
-  const { checkAbapRules } = await import('../lib/abap-rules.mjs');
+  const { checkAbapRules } = await import('./observe.mjs');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5fix-'));
   const target = path.join(dir, 'abaprules.clas.abap');
@@ -2323,6 +2520,29 @@ ENDCLASS.`;
 
   assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
+
+  // --init: the config a new project starts from. It has to parse with the
+  // linter's OWN loader (it is jsonc with comments), point $schema at the
+  // installed copy rather than at main, and refuse to overwrite.
+  {
+    const { loadConfig } = await import('../lib/config.mjs');
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-init-'));
+    cp.execFileSync('node', [CLI, '--init'], { cwd: dir, encoding: 'utf8' });
+    const written = path.join(dir, 'abap2ui5lint.jsonc');
+    assert(fs.existsSync(written), 'init: writes abap2ui5lint.jsonc into the working directory');
+    const cfg = loadConfig(written);
+    assert(cfg.minUi5 === '1.71' && cfg.failOn === 'warning' && Array.isArray(cfg.paths),
+      'init: the file the linter writes is one the linter reads back');
+    const raw = fs.readFileSync(written, 'utf8');
+    assert(raw.includes('./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json'),
+      'init: $schema points at the installed version, not at main');
+    let refused = '';
+    try { cp.execFileSync('node', [CLI, '--init'], { cwd: dir, encoding: 'utf8', stdio: 'pipe' }); }
+    catch (e) { refused = e.status === 2 ? String(e.stderr) : ''; }
+    assert(/already exists/.test(refused), 'init: a second run refuses instead of overwriting');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   const fails = (args) => {
     try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe' }); return ''; }
     catch (e) { return e.status === 2 ? (e.stderr ?? '') : ''; }
@@ -2614,6 +2834,69 @@ ENDCLASS.`;
     try { checkAbapSource(hurt, { minUi5: '1.71' }); } catch (e) { threw = `'${POISON[i]}' at ${at}: ${e.message}`; }
   }
   assert(!threw, `robustness: a stray bracket/quote is reported, never thrown on${threw ? ` - ${threw}` : ''}`);
+}
+
+// ------------------------------------------------------- rule coverage ----
+/* Every rule the linter offers has to FIRE somewhere in this suite.
+ *
+ * The gap this closes was invisible by construction: 83 of the 84 rules were
+ * asserted and the 84th (`escaped-brace-in-backtick`) simply had no test.
+ * Nothing was in a position to say so — a rule that stops firing keeps this
+ * suite green, ships, and reports nothing until somebody notices by hand.
+ *
+ * What is recorded is what the checks actually produced (test/observe.mjs),
+ * not what the test source appears to mention, so a negated assertion or a
+ * renamed idiom cannot pass for coverage. A rule may be exempt, but only in
+ * writing, below. */
+{
+  const { RULES } = await import('../lib/findings.mjs');
+
+  /* id -> why this rule cannot be produced by the fixture suite. Keep it
+   * empty if you can: an exemption is a rule nothing proves. */
+  const EXEMPT = {};
+
+  const uncovered = RULES.filter((id) => !produced.has(id) && !(id in EXEMPT));
+  assert(!uncovered.length,
+    `rule coverage: every rule fires somewhere in the suite (never fired: ${uncovered.join(', ') || 'none'})`);
+
+  const stale = Object.keys(EXEMPT).filter((id) => produced.has(id) || !RULES.includes(id));
+  assert(!stale.length,
+    `rule coverage: no stale exemption - a rule that fires needs none (${stale.join(', ') || 'none'})`);
+}
+
+// ----------------------------------------------- the docs' builder verbs ----
+/* The rule reference shows code a reader copies, and 11 of its 49 examples
+ * called methods the view builder does not have (`view->leaf( … )`,
+ * `->_generic( name = … )`) - the ROLE names lib/builders.mjs uses internally,
+ * which were the verbs of a builder that is gone. It rendered on the published
+ * page and in the README, and no reader could have known.
+ *
+ * Derived from the builder rather than from a list of bad spellings, so a
+ * future rename of a verb takes the docs with it. */
+{
+  const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+  const { VIEW_BUILDER } = await import('../lib/builders.mjs');
+
+  const REAL = new Set([
+    VIEW_BUILDER.open, VIEW_BUILDER.leaf, VIEW_BUILDER.att, VIEW_BUILDER.shut,
+    'factory', 'stringify', 'render', 'xml_escape',
+  ]);
+  // a builder chain in the docs is written `view->x(` or `)->x(`; a client
+  // call is `client->x(` and is not this gate's business
+  const CHAIN_CALL = /(?:^|[\s(])(?:\w*view\w*|popup|popover|\)|\w*_x)->(\w+)\s*\(/g;
+
+  const wrong = [];
+  for (const [id, doc] of Object.entries(RULE_DOCS)) {
+    for (const field of ['summary', 'detail', 'example', 'fixNote']) {
+      const text = doc[field];
+      if (typeof text !== 'string') continue;
+      for (const [, verb] of text.matchAll(CHAIN_CALL)) {
+        if (!REAL.has(verb)) wrong.push(`${id}.${field}: ->${verb}( )`);
+      }
+    }
+  }
+  assert(!wrong.length,
+    `rule docs: every builder call names a method the builder has (${wrong.join('; ') || 'all real'})`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');

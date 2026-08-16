@@ -98,7 +98,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
-  + '[--config abap2ui5lint.jsonc] [--no-config] [--version]';
+  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version]';
 
 const die = (message) => {
   console.error(`abap2ui5lint: ${message}`);
@@ -199,6 +199,61 @@ for (let i = 0; i < args.length; i++) {
     seen.add('failOn');
   }
   else if (a === '--verbose') opt.verbose = true;
+  else if (a === '--init') {
+    /* The documented way to a config was: read the README, copy the block,
+     * fix the $schema path by hand. Three steps and one of them silently
+     * wrong - the README's $schema pointed at main, so an editor validated
+     * against rules the pinned CLI does not have. This writes the file, with
+     * the schema resolved against the version actually installed. */
+    const target = path.resolve('abap2ui5lint.jsonc');
+    if (fs.existsSync(target)) {
+      die(`${path.relative(process.cwd(), target)} already exists - delete it first, or edit it`);
+    }
+    fs.writeFileSync(target, `{
+  // abap2UI5-linter settings for this repo. Precedence: CLI flag > this file
+  // > built-in default. Every rule id has a page at
+  // https://abap2ui5.github.io/linter/
+  //
+  // The $schema line gives an editor completion and validation for every key
+  // and every rule id, from the version this project installed - not from
+  // whatever main happens to hold.
+  "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json",
+
+  // where the app classes and views are
+  "paths": ["src"],
+
+  // the UI5 version your system serves. 1.71 is abap2UI5's own floor and the
+  // safe default: anything that arrived later is reported here instead of
+  // failing in a browser. Raise it once you know the system.
+  "ui5": "1.71",
+
+  // "sapui5" allows the libraries only SAPUI5 ships (sap.ui.comp, sap.suite.*,
+  // sap.ushell, sap.fe). "openui5" turns those into errors.
+  "distribution": "sapui5",
+
+  // load every view in a headless browser as well - the check no static rule
+  // can make. Saying so here makes it a REQUIREMENT: an unasked-for render
+  // gate steps aside when @abap2ui5/render-runtime is missing and the run
+  // stays green, which is how a gate quietly stops meaning anything.
+  // Needs: npm i -D @abap2ui5/render-runtime && npx playwright install chromium
+  "render": false,
+
+  // lowest severity that fails the run: error | warning | hint | never
+  "failOn": "warning",
+
+  "rules": {
+    // one call per line, four spaces per level, the closing call in the
+    // column of the element it closes - the layout abap2UI5, samples and
+    // samples-controls are written in. Opt-in because it encodes ONE style;
+    // \`--fix\` applies it. Drop the line if your project settles on another.
+    // "chain-house-layout": "warning"
+  }
+}
+`);
+    console.log(`abap2ui5lint: wrote ${path.relative(process.cwd(), target)}`);
+    console.log('             read it - every default in there is a choice you may want to make differently');
+    process.exit(0);
+  }
   else if (a === '--version' || a === '-v') {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
     console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
