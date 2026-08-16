@@ -1973,6 +1973,28 @@ ENDCLASS.`;
   ENDMETHOD.`).some((x) => x.type === NAV),
   'missing-on-navigated-branch: a helper that leaves on every other roundtrip needs no branch');
 
+  /* The client handle is not always spelled `client`. samples-stack's app 319
+   * calls it `m_client`, and every lifecycle rule used to hard-code
+   * `client->` - so that class had no navigated branch and NO rule saw it,
+   * neither this one nor separate-lifecycle-ifs. The handle is matched by
+   * shape now. */
+  const mclient = canonical.replace(/client->/g, 'm_client->').replace('me->client = client.', 'm_client = client.');
+  assert(checkAbapRules(mclient).some((x) => x.type === NAV),
+    'missing-on-navigated-branch: found through a handle named m_client, not only client');
+  assert(!checkAbapRules(mclient.replace(
+    'ELSEIF m_client->check_on_event( ).',
+    'ELSEIF m_client->check_on_navigated( ).\n      view_display( ).\n    ELSEIF m_client->check_on_event( ).')).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: and cleared through it too');
+  assert(checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF mo_client->check_on_init( ).
+      on_init( ).
+    ENDIF.
+    IF mo_client->check_on_navigated( ).
+      view_display( ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === 'separate-lifecycle-ifs'),
+  'separate-lifecycle-ifs: found through a handle named mo_client too');
+
   // a class that never displays anything is not an app to judge - that is
   // view-never-displayed's finding, and two rules for one class is a report
   // nobody can act on

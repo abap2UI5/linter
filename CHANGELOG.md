@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The lifecycle rules find a client handle that is not called `client`.**
+  `missing-on-navigated-branch`, `missing-view-display-on-navigated` and
+  `separate-lifecycle-ifs` all matched the receiver literally as `client->`.
+  A class that names the handle differently was not judged leniently, it was
+  **invisible**: `abap2UI5/samples-stack`'s app 319 calls it `m_client`, has no
+  `check_on_navigated( )` branch, and no rule said a word. `mo_client` and
+  `me->client` are in the corpora too. The handle is matched by shape now, and
+  three assertions pin it.
+
 - **New rule `missing-on-navigated-branch` (`warning`).** The complement of
   `missing-view-display-on-navigated`, which has always judged a
   `check_on_navigated( )` branch that never re-displays. The far more common
