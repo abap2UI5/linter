@@ -2,6 +2,14 @@
 
 ## 0.2.0
 
+The theme of this release is **findings that were not true**. Six defects, all
+of the same shape: a rule reading the ABSENCE of something it could not see as
+evidence that the code is wrong. Together they account for **31 of the 32
+findings `abap2UI5/samples` had to keep in a baseline** — after the bump that
+file is down to one deliberate row — and eight more in `samples-controls` and
+`samples-stack`, where whole rules and whole folders had been switched off to
+silence them. No finding anywhere in any corpus is added.
+
 - **Four more ways an ABAP structure declaration hid its shape.** Every one of
   them ended in the same place — a correct binding reported as a path the model
   does not have, with nothing to do about it but a disable directive. Together
