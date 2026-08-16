@@ -98,7 +98,7 @@
     "render-runtime"
   ],
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@abap2ui5/render-runtime": "^0.1.0"
