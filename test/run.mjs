@@ -1465,6 +1465,32 @@ ENDCLASS.`);
   ENDMETHOD.`;
   assert(checkAbapRules(navigated).some((x) => x.type === 'missing-view-display-on-navigated'),
     'missing-view-display-on-navigated: view_model_update( ) no longer counts as a re-display');
+
+  /* The ELSE of a COND is not the ELSE of the IF. Found on a real
+   * documentation page: the branch below displays four statements after the
+   * COND, and a scanner looking for the WORD ended the branch at the COND's
+   * ELSE and reported a branch that never re-displays. A false positive on
+   * idiomatic modern ABAP is the worst kind - it pushes people away from COND
+   * to satisfy a rule about something else entirely. */
+  const condElse = `METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      DATA(status) = COND #( WHEN sy-index MOD 2 = 0 THEN \`open\` ELSE \`closed\` ).
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+      client->view_display( view->stringify( ) ).
+    ENDIF.
+  ENDMETHOD.`;
+  assert(!checkAbapRules(condElse).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: a COND ELSE inside the branch does not end it');
+
+  /* And the switch is not stuck the other way: a branch that really does not
+   * display is still reported when a COND sits in front of the gap. */
+  const condElseNoDisplay = `METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      DATA(status) = COND #( WHEN sy-index MOD 2 = 0 THEN \`open\` ELSE \`closed\` ).
+    ENDIF.
+  ENDMETHOD.`;
+  assert(checkAbapRules(condElseNoDisplay).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-view-display-on-navigated: a COND does not hide a branch that never displays');
 }
 
 // ------------------------------------------ source positions and declarations ----
