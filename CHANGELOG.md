@@ -1,6 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
+
+The theme of this release is **the lifecycle rules seeing the code that is
+there**. 0.2.0 was about findings that were not true; these three are about
+code the rules could not read at all — a handle with another name, a branch
+that does not exist, and an expression mistaken for a statement.
+
+- **`COND`'s `ELSE` is not the `IF`'s `ELSE`.** `ifBranchEnd` scanned for the
+  WORD `ELSE` to find where a lifecycle branch stops, and
+
+      status = COND #( WHEN i MOD 2 = 0 THEN `open` ELSE `closed` ).
+
+  puts one at IF-depth 0, so the branch ended there — four statements before
+  the `view_display( )` it actually contains, which was then reported as a
+  branch that never re-displays. Found on a real documentation page, not by
+  reading. A false positive on idiomatic modern ABAP is the worst kind: it
+  costs more than a suppression, it pushes people away from `COND` to satisfy
+  a rule about something else. The scanner tracks parenthesis depth now, so
+  inside an unclosed `(` nothing is a statement keyword. Two tests, both
+  directions — the second (a `COND` must not HIDE a branch that genuinely
+  never displays) is the one that matters, because a fix that blinds the
+  scanner passes the first alone.
 
 - **The lifecycle rules find a client handle that is not called `client`.**
   `missing-on-navigated-branch`, `missing-view-display-on-navigated` and
