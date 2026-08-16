@@ -1905,6 +1905,106 @@ ENDCLASS.`;
   assert(!checkAbapRules(prose).some((x) => x.type === 'missing-view-display-on-navigated'),
     'ifBranchEnd: `else`/`if` inside a literal is prose, not the end of the branch');
 
+  /* ---- missing-on-navigated-branch: the same defect, one step earlier ----
+   *
+   * The rule above needs a branch to judge. The far more common shape in the
+   * wild has none at all - 576 classes across the three sample repositories -
+   * and it is invisible until something navigates into the app. */
+  const NAV = 'missing-on-navigated-branch';
+  const canonical = `METHOD z2ui5_if_app~main.
+    me->client = client.
+    IF client->check_on_init( ).
+      model_init( ).
+      view_display( ).
+    ELSEIF client->check_on_event( ).
+      on_event( ).
+    ENDIF.
+  ENDMETHOD.
+  METHOD view_display.
+    client->view_display( render( ) ).
+  ENDMETHOD.`;
+  assert(checkAbapRules(canonical).some((x) => x.type === NAV),
+    'missing-on-navigated-branch: the two-branch dispatcher every guide used to show');
+  assert(!checkAbapRules(canonical).some((x) => x.type === 'missing-view-display-on-navigated'),
+    'missing-on-navigated-branch: the branch-that-exists rule stays quiet - the two never both fire');
+  assert(!checkAbapRules(canonical.replace(
+    'ELSEIF client->check_on_event( ).',
+    'ELSEIF client->check_on_navigated( ).\n      view_display( ).\n    ELSEIF client->check_on_event( ).')).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: adding the branch clears it');
+
+  // a static app - no data, no events - is the same defect with one branch
+  assert(checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      client->view_display( render( ) ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: a lone check_on_init branch is not exempt for being simple');
+
+  /* The reason this is not a text search for the word. An app whose display
+   * is NOT gated by the lifecycle re-displays on EVERY roundtrip, navigated
+   * ones included - samples/z2ui5_cl_smp_app_025 is exactly this shape, and
+   * a rule reading the text alone called it broken. */
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    me->client = client.
+    IF client->check_on_init( ).
+      name = \`world\`.
+    ELSEIF client->check_on_event( ).
+      on_event( ).
+    ENDIF.
+    view_display( ).
+  ENDMETHOD.
+  METHOD view_display.
+    client->view_display( render( ) ).
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: an ungated display after the chain covers every roundtrip');
+
+  /* The popup-helper shape: display once, then leave on everything else.
+   * abap2UI5's own z2ui5_cl_pop_data is written this way. */
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    me->client = client.
+    IF client->check_on_init( ).
+      display( ).
+      RETURN.
+    ENDIF.
+    client->nav_app_leave( ).
+  ENDMETHOD.
+  METHOD display.
+    client->popup_display( render( ) ).
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: a helper that leaves on every other roundtrip needs no branch');
+
+  // a class that never displays anything is not an app to judge - that is
+  // view-never-displayed's finding, and two rules for one class is a report
+  // nobody can act on
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      counter = counter + 1.
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: a class with no display anywhere is a helper, not a blank app');
+
+  // the OR form is a navigated branch too, spelled differently
+  assert(!checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ) OR client->check_on_navigated( ).
+      client->view_display( render( ) ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: check_on_navigated in an OR condition counts');
+
+  /* ifBlockEnd has to step OVER the ELSEIF branches of the construct it is
+   * cutting, or the second branch is read as ungated code and every
+   * dispatcher looks covered by its own on_event branch. */
+  assert(checkAbapRules(`METHOD z2ui5_if_app~main.
+    IF client->check_on_init( ).
+      IF flag = abap_true.
+        client->view_display( render( ) ).
+      ENDIF.
+    ELSEIF client->check_on_event( ).
+      client->view_display( render( ) ).
+    ENDIF.
+  ENDMETHOD.`).some((x) => x.type === NAV),
+  'missing-on-navigated-branch: a nested IF inside the branch does not end the construct early');
+
   /* An `exclude` is matched against the path the runner REACHED the file by,
    * which is absolute when `paths` comes from a config file - while the report
    * prints it relative to the cwd. A pattern written from what you can read in

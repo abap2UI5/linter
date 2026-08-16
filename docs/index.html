@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">49 error</span>
-      <span class="badge warning">27 warning</span>
+      <span class="badge warning">28 warning</span>
       <span class="badge hint">10 hint</span>
       <span class="badge fix">8 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 86 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 87 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -604,6 +604,21 @@ ENDIF.
 " instead:
 IF client-&gt;check_on_init( ).
   client-&gt;view_display( render( ) ).
+ENDIF.</code></pre>
+      </article>
+      <article class="rule" id="missing-on-navigated-branch" data-search="missing-on-navigated-branch a lifecycle dispatcher with no check_on_navigated( ) branch at all check_on_init( ) means "this app instance never ran", not "the app starts" — abap2ui5 flips the flag after the very first roundtrip. so it is false on three roundtrips that put the app back on screen: a called app leaving through nav_app_leave( ), one of the built-in z2ui5_cl_pop_ value helps returning (those run over nav_app_call too), and a bookmarked draft being restored. all three raise check_on_navigated( ) alone; with no branch for it main( ) does nothing, the response carries no display, and the model is pushed into a main slot still holding the other app's view. the screen stays wrong with no error anywhere — which is why an app written this way works perfectly until the day something navigates into it. this is the complement of missing-view-display-on-navigated, which judges a branch that exists but never displays; the two never fire on the same class. an app whose display is not gated by the lifecycle at all — a view_display( ) after the if/elseif chain, or the client-&gt;nav_app_leave( ) a popup helper ends on — is correct as it stands and is not reported. warning">
+        <h3><a href="#missing-on-navigated-branch">missing-on-navigated-branch</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a lifecycle dispatcher with no <code>check_on_navigated( )</code> branch at all</p>
+        <p class="detail"><code>check_on_init( )</code> means "this app INSTANCE never ran", not "the app starts" — abap2UI5 flips the flag after the very first roundtrip. So it is false on three roundtrips that put the app back on screen: a called app leaving through <code>nav_app_leave( )</code>, one of the built-in <code>z2ui5_cl_pop_*</code> value helps returning (those run over <code>nav_app_call</code> too), and a bookmarked draft being restored. All three raise <code>check_on_navigated( )</code> alone; with no branch for it <code>main( )</code> does nothing, the response carries no display, and the model is pushed into a MAIN slot still holding the other app's view. The screen stays wrong with no error anywhere — which is why an app written this way works perfectly until the day something navigates into it. This is the complement of <code>missing-view-display-on-navigated</code>, which judges a branch that exists but never displays; the two never fire on the same class. An app whose display is not gated by the lifecycle at all — a <code>view_display( )</code> after the <code>IF</code>/<code>ELSEIF</code> chain, or the <code>client-&gt;nav_app_leave( )</code> a popup helper ends on — is correct as it stands and is not reported.</p>
+        <pre><code>IF client-&gt;check_on_init( ).
+  model_init( ).
+  view_display( ).
+ELSEIF client-&gt;check_on_navigated( ).  " without this the app goes blank after a hop
+  view_display( ).
+ELSEIF client-&gt;check_on_event( ).
+  on_event( ).
 ENDIF.</code></pre>
       </article>
       <article class="rule" id="missing-view-display-on-navigated" data-search="missing-view-display-on-navigated a check_on_navigated( ) branch that never re-displays the view when a called app leaves, the browser still shows that app's view — returning control alone changes nothing on screen. the check_on_navigated( ) branch has to hand a view back with client-&gt;view_display( ). a branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. view_model_update( ) used to count as a re-display here and no longer does: it is an empty method now (obsolete-model-update), and the automatic model push that replaced it reaches the main slot — which is still holding the called app's view. error">

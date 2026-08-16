@@ -294,6 +294,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'missing-accessibility' — default severity: hint"
         },
+        "missing-on-navigated-branch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5-linter rule 'missing-on-navigated-branch' — default severity: warning"
+        },
         "missing-required-aggregation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5-linter rule 'missing-required-aggregation' — default severity: warning"

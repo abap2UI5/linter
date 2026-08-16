@@ -34,6 +34,8 @@ CLASS zcl_fixture_viewbuilder IMPLEMENTATION.
       name = `world`.
       editable = abap_true.
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      view_display( ).
     ENDIF.
 
   ENDMETHOD.
