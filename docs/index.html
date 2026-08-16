@@ -72,12 +72,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">48 error</span>
+      <span class="badge error">49 error</span>
       <span class="badge warning">27 warning</span>
       <span class="badge hint">10 hint</span>
       <span class="badge fix">8 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 85 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 86 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -510,6 +510,15 @@ a( n = `items` v = |\{ path: '{ p }' \}| )       " correct in a template</code><
         <p class="detail">The frontend resolves the first <code>t_arg</code> as a control id. When no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does <strong>nothing</strong>: no exception, no failed render, a button that looks connected. <code>CONTROL_BY_ID</code> at least logs the miss; <code>SET_FOCUS</code>, <code>SCROLL_TO</code>, <code>SCROLL_INTO_VIEW</code> and <code>KEYBOARD_SET_MODE</code> <code>return</code> without even a console line. Judged only when every <code>id</code> attribute of the class is a literal; a class that builds ids at runtime is left alone.</p>
         <pre><code>a( n = `id` v = `messageView` )
 " … follow_up_action( val = client-&gt;cs_event-control_by_id t_arg = VALUE #( ( `messageview` ) ( `navigateBack` ) ) )</code></pre>
+      </article>
+      <article class="rule" id="frozen-view-builder" data-search="frozen-view-builder the class builds its view with the frozen z2ui5_cl_xml_view, so the view was not checked at all this is the only finding here about what was not judged. z2ui5_cl_xml_view was the abap2ui5 view builder until z2ui5_cl_ui5_view_builder replaced it, and it moved into the frozen src/99 rather than being deleted — so a class written on it still compiles and still renders, and nothing anywhere raises an eyebrow. this linter reconstructs a view from the current builder's five verbs (ele, tag, a, end, stringify); the old api is a different one, so there is no view to judge and every other rule is silent for lack of anything to read. until this rule existed the file was not even collected: an entire app on the retired builder came back as "no checkable app classes" and exit 0, which reads like approval. it matters more than it used to, because the old api is what almost all public abap2ui5 material shows and therefore what a language model reproduces when asked to write an app — the wrong answer arrives already looking like the right one. rewrite the chain on z2ui5_cl_ui5_view_builder and the whole gate applies again. an app that is deliberately staying on the old builder for now says so once, in its config: "rules": { "frozen-view-builder": "warning" }. error">
+        <h3><a href="#frozen-view-builder">frozen-view-builder</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">the class builds its view with the frozen <code>z2ui5_cl_xml_view</code>, so the view was not checked at all</p>
+        <p class="detail">This is the only finding here about what was *not* judged. <code>z2ui5_cl_xml_view</code> was the abap2UI5 view builder until <code>z2ui5_cl_ui5_view_builder</code> replaced it, and it moved into the frozen <code>src/99</code> rather than being deleted — so a class written on it still compiles and still renders, and nothing anywhere raises an eyebrow. This linter reconstructs a view from the current builder's five verbs (<code>ele</code>, <code>tag</code>, <code>a</code>, <code>end</code>, <code>stringify</code>); the old API is a different one, so there is no view to judge and every other rule is silent for lack of anything to read. Until this rule existed the file was not even collected: an entire app on the retired builder came back as "no checkable app classes" and exit 0, which reads like approval. It matters more than it used to, because the old API is what almost all public abap2UI5 material shows and therefore what a language model reproduces when asked to write an app — the wrong answer arrives already looking like the right one. Rewrite the chain on <code>z2ui5_cl_ui5_view_builder</code> and the whole gate applies again. An app that is deliberately staying on the old builder for now says so once, in its config: <code>"rules": { "frozen-view-builder": "warning" }</code>.</p>
+        <pre><code>DATA(view) = z2ui5_cl_xml_view=&gt;factory( ).   " frozen — nothing below this line is checked
+view-&gt;page( )-&gt;button( text = `hi` ).</code></pre>
       </article>
       <article class="rule" id="get-viewname-removed" data-search="get-viewname-removed client-&gt;get( )-viewname — removed from ty_s_get the viewname component was removed from z2ui5_if_types=&gt;ty_s_get (it always carried an empty string), so the read no longer compiles — but nothing in a systemless pipeline says so before activation: abaplint has no signature knowledge of the framework interfaces, and the render gate never sees the class fail. the same blindness popover-display-val covers. error">
         <h3><a href="#get-viewname-removed">get-viewname-removed</a>
