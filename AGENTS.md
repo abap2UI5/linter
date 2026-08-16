@@ -373,6 +373,45 @@ findings are deliberate 1:1 demo wires, so the budget, not the corpus, is the
 right side to move. That is the ratchet working as designed ("the debt
 decision belongs at the bump PR"), not a defect in either repo.
 
+The 2026-08-16 round closed the half of the lifecycle chapter the earlier one
+had left open:
+
+| Origin | Rule |
+| --- | --- |
+| the app guide said the `check_on_navigated( )` branch is "part of the canonical dispatcher, not an option", and every template in the ecosystem showed a two-branch dispatcher without it | `missing-on-navigated-branch` |
+
+`missing-view-display-on-navigated` needed a branch to judge. The shape that
+actually breaks apps has **none**, and it is invisible in a way the rest of
+this list is not: the app works, standalone, indefinitely. It breaks on the
+first roundtrip that raises `check_on_navigated( )` without
+`check_on_init( )` — a sub-app or a built-in `z2ui5_cl_pop_*` value help
+handing control back, or a bookmarked draft being restored — and then only by
+leaving the wrong view on screen.
+
+Its precision lives in **not** being a text search. Every lifecycle
+`IF … ENDIF` construct is cut out of `main( )` (`ifBlockEnd`, which steps over
+the `ELSEIF` branches `ifBranchEnd` stops at) and what remains has to reach no
+display. Two legitimate shapes exempt themselves that way: an ungated
+`view_display( )` after the chain, which covers every roundtrip
+(`samples`'s `z2ui5_cl_smp_app_025` — the text search called it broken), and
+the `client->nav_app_leave( )` a popup helper ends on (abap2UI5's own
+`z2ui5_cl_pop_data`). A class that displays nothing is a helper and belongs to
+`view-never-displayed`. Those exemptions are 36 of the 573 classes a text
+search would have named.
+
+Rollout note for this round, and it is a bigger one than any before it: this
+is the first rule that adds findings to every corpus at scale — `samples` 85,
+`samples-controls` 425, `samples-stack` 27, `app-template` 0, one per class.
+The downstream job is red until the pin-bump PRs decide it, and both
+instruments already exist: `--update-baseline` for the two baselined corpora,
+`ADVISORY_BUDGET` for samples-controls. Unlike the ratchet note above, the
+corpus is **not** the right side to leave alone here — every one of those
+classes really does go blank behind a navigation, the fix is two lines, and
+the templates that produced them were corrected in the same round
+(abap2UI5 `README.md` + `build-an-app`, samples-controls `scaffold.mjs` +
+`generation-prompt.txt` + `port-a-sample`). A baseline here should be read as
+"not yet", not as "allowed".
+
 The second 2026-08-11 round worked that backlog off — the frontend's
 remaining closed sets, each mirrored in `lib/frontend-actions.mjs` AND gated
 by `check-upstream.mjs` in the same change (the BINDING_METHODS lesson):

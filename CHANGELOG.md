@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased
+
+- **New rule `missing-on-navigated-branch` (`warning`).** The complement of
+  `missing-view-display-on-navigated`, which has always judged a
+  `check_on_navigated( )` branch that never re-displays. The far more common
+  shape in the wild has **no branch at all**, and nothing could see it.
+
+  `check_on_init( )` means "this app INSTANCE never ran", not "the app starts"
+  — abap2UI5 flips `mv_check_initialized` in `db_save( )` after the very first
+  roundtrip. It is therefore false on three roundtrips that put the app back on
+  screen: a called app leaving through `nav_app_leave( )`, one of the built-in
+  `z2ui5_cl_pop_*` value helps returning (those run over `nav_app_call` too),
+  and a bookmarked draft being restored. All three raise `check_on_navigated( )`
+  alone; with no branch for it `main( )` does nothing, the response carries no
+  display, and the model is pushed into a MAIN slot still holding the other
+  app's view. The screen stays wrong with **no error anywhere** — which is why
+  an app written this way works perfectly until the day something navigates
+  into it, and why the defect is usually reported as "it broke when I put it
+  behind a navigation" long after the app was written.
+
+  Judged on the dispatcher, never on the absence of the word. Every lifecycle
+  `IF … ENDIF` construct is cut out of `main( )` and what remains has to reach
+  no display: an ungated `view_display( )` after the chain covers every
+  roundtrip and is not reported (`samples`'s `z2ui5_cl_smp_app_025` is exactly
+  that shape, and a text search called it broken), and so does the
+  `client->nav_app_leave( )` a popup helper ends on (abap2UI5's own
+  `z2ui5_cl_pop_data`). A class that displays nothing at all is a helper and
+  belongs to `view-never-displayed`.
+
+  **This rule adds findings to every corpus** — the first rule here that does
+  on this scale, and deliberately: `samples` 85, `samples-controls` 425,
+  `samples-stack` 27, `app-template` 0, one per class and none of them a
+  duplicate. The 36 classes that a plain text search for `check_on_navigated`
+  would have added on top are exactly the exemptions above. It ships as a
+  `warning` rather than an error because the defect is **latent**: the app is
+  not broken today, it breaks on the first hop into it, and for an app that is
+  never navigated into that day may never come. Consumers absorb it at their
+  pin bump — `npx abap2ui5lint --update-baseline` for the two baselined
+  corpora, `ADVISORY_BUDGET` in samples-controls' `view-gates.mjs` — or fix the
+  corpus, which is a two-line change per class. The downstream job is red until
+  one of the two happens, which is what that job is for.
+
+  The linter's own canonical fixtures (`good.clas.abap`, `viewbuilder.clas.abap`)
+  did not have the branch either, and now do.
+
 ## 0.2.0
 
 The theme of this release is **findings that were not true**. Six defects, all
