@@ -24,8 +24,8 @@ jobs:
   bundle:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       # The UI5 runtime lives in the render-runtime WORKSPACE, so it arrives as
@@ -38,7 +38,7 @@ jobs:
       # linter would fall back to the hoisted @openui5 tree anyway, but shipping
       # the manifest keeps resolution on the intended path.
       - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json render-runtime
-      - uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: render-gate-bundle
           name: Render-gate bundle (rolling)
@@ -58,7 +58,7 @@ jobs:
       - name: Short SHA
         id: sha
         run: echo "short=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: render-gate-bundle-${{ steps.sha.outputs.short }}
           name: Render-gate bundle @ ${{ steps.sha.outputs.short }}
