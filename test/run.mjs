@@ -1864,12 +1864,31 @@ ENDCLASS.`;
    * the report used to match nothing, silently. */
   {
     const { applyRules } = await import('../lib/findings.mjs');
-    const abs = `${process.cwd()}/src/00/98/app.clas.abap`;
-    const rules = { 'unknown-control': { exclude: ['^src/00/98/'] } };
-    assert(applyRules([{ type: 'unknown-control' }], rules, abs).length === 0,
-      'rules.exclude: a pattern written the way the report prints the path excludes the file');
-    assert(applyRules([{ type: 'unknown-control' }], rules, `${process.cwd()}/src/01/app.clas.abap`).length === 1,
-      'rules.exclude: and it still only excludes what it names');
+    const one = [{ type: 'unknown-control' }];
+    /* An exclude has to mean the same thing however the run was started. The
+     * path a finding carries is absolute or relative depending on the
+     * invocation, and BOTH spellings of the pattern were in the README and in
+     * real configs: `/src/02/` with abaplint's leading slash (linter#35, where
+     * `abap2ui5lint src` reported 25 findings the config had waived), and
+     * `^src/00/98/` written the way the report prints it. */
+    for (const [pattern, what] of [
+      ['^src/00/98/', 'written the way the report prints the path'],
+      ['/src/00/98/', "written with abaplint's leading slash"],
+    ]) {
+      const rules = { 'unknown-control': { exclude: [pattern] } };
+      for (const [form, how] of [
+        [`${process.cwd()}/src/00/98/app.clas.abap`, 'an absolute path'],
+        ['src/00/98/app.clas.abap', 'a relative path'],
+        ['./src/00/98/app.clas.abap', 'a dot-prefixed path'],
+      ]) {
+        assert(applyRules([...one], rules, form).length === 0,
+          `rules.exclude: "${pattern}" (${what}) excludes the file when it arrives as ${how}`);
+      }
+      assert(applyRules([...one], rules, `${process.cwd()}/src/01/app.clas.abap`).length === 1,
+        `rules.exclude: "${pattern}" still only excludes what it names`);
+      assert(applyRules([...one], rules, 'src/01/app.clas.abap').length === 1,
+        `rules.exclude: "${pattern}" still only excludes what it names, relative too`);
+    }
   }
   // the guard idiom is exclusive by construction: good.clas.abap opens with
   // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF

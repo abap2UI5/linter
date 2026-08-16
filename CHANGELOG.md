@@ -37,12 +37,25 @@ silence them. No finding anywhere in any corpus is added.
   A structure whose shape IS known still catches a typo through it — the
   fixture asserts both halves.
 
-- **A `rules.*.exclude` written from the report matched nothing, silently.**
-  The pattern is tested against the path the runner reached the file by, and
-  with `paths` in a config file that is absolute — while the report prints the
-  path relative to the cwd. So `"exclude": ["^src/00/98/"]`, written from what
-  you can read in the output, waived nothing and said nothing about it. Both
-  forms are now tried.
+- **A `rules.*.exclude` meant different things depending on how the run was
+  started** ([#35](https://github.com/abap2UI5/linter/issues/35)). The pattern
+  was tested against whatever string the file was collected under, and that is
+  absolute or relative depending on the invocation — a discovered config joins
+  `paths` onto its absolute dirname, while `abap2ui5lint src` and
+  `--config abap2ui5lint.jsonc` both leave it relative.
+
+  So the same config on the same tree waived different things, and it was the
+  run that *looked* stricter that was broken: in `abap2UI5/samples-stack`,
+  whose config excludes the Smart Controls package with abaplint's leading
+  slash (`["/src/02/"]`), `abap2ui5lint` reported nothing while
+  `abap2ui5lint src` reported 25 findings the repository had waived on purpose
+  — with nothing in the output connecting them to the exclusion that should
+  have caught them. The mirror case is equally silent: `["^src/00/98/"]`,
+  written the way the report prints the path, matched only the relative form.
+
+  Both spellings now work from any invocation. The test asserts each pattern
+  against an absolute, a relative and a dot-prefixed path — and that neither
+  stops excluding only what it names.
 
 - **An ABAP keyword inside a string literal counted as structure.** A
   MessageStrip whose text reads *"…share the state with someone else. Enter a
