@@ -53,7 +53,45 @@ evidence that the code is wrong. Together they account for **31 of the 32
 findings `abap2UI5/samples` had to keep in a baseline** — after the bump that
 file is down to one deliberate row — and eight more in `samples-controls` and
 `samples-stack`, where whole rules and whole folders had been switched off to
-silence them. No finding anywhere in any corpus is added.
+silence them. No finding anywhere in any corpus is added by them.
+
+One rule is added, and it is the mirror image of the theme — a file the linter
+was not judging at all, and did not say so.
+
+### New: `frozen-view-builder`
+
+An app written on `z2ui5_cl_xml_view` was not merely unchecked, it was
+**invisible**. Files are collected by the builder factory they call, the frozen
+builder is not one, and so a complete app on the retired API ended a run with:
+
+    abap2ui5lint: no checkable app classes under src
+
+and exit 0. Which reads like approval, and was the strongest possible false
+green: not one control, property, binding or render had been looked at.
+
+The old builder still compiles and still renders — it moved into the frozen
+`src/99` rather than being deleted — so nothing else raises an eyebrow either.
+And it is what nearly every blog post, forum answer and tutorial about
+abap2UI5 shows, which makes it what a language model reproduces when asked to
+write an abap2UI5 app. The most likely wrong answer was the one nothing here
+could see.
+
+Such a class is now collected and reported, at the factory call, as an `error`
+— the severity is about what was *not* judged, and an unjudged view is worse
+than any single finding. And **only** that one finding: the other ABAP rules
+model the current dialect, and running them over `page( )`/`button( )` would
+trade a silent miss for confident noise.
+
+Measured before shipping, as every rule here is: `abap2UI5/samples` 0,
+`samples-controls` 0, `samples-stack` 0, `app-template` 0. The only corpus it
+lights up is the framework itself — 17 popup classes in `src/99/02`, which is
+correct, since that package IS the frozen legacy and will never be migrated.
+
+> **If you check a repository that keeps a legacy app on purpose**, say so once
+> instead of arguing with it:
+> `"rules": { "frozen-view-builder": { "exclude": ["src/99/"] } }`
+> — or `"warning"` to keep it visible without failing.
+> The abap2UI5 framework repository needs exactly this when it bumps to 0.2.0.
 
 - **Four more ways an ABAP structure declaration hid its shape.** Every one of
   them ended in the same place — a correct binding reported as a path the model

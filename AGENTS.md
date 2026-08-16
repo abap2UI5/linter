@@ -109,6 +109,22 @@ Import the checks from `./observe.mjs` in tests, not from `../lib/index.mjs`
 or `../lib/abap-rules.mjs` — a check called around the observer counts for
 nothing.
 
+**Before writing a rule, ask whether the file is even collected.** A rule can
+fail in two places and only one of them is visible: it can judge wrongly, or it
+can never be handed the file. `collectFiles` keeps a class that calls a view
+builder's factory — anything else is dropped, and a dropped file leaves the run
+saying `no checkable app classes` with exit 0, which reads like approval.
+
+That is how `frozen-view-builder` was missed for a year: a complete app written
+on `z2ui5_cl_xml_view` was not merely unjudged, it was invisible, and the
+strongest false green this tool can produce is the one where it looked at
+nothing. A findings test would never have caught it — the test for that rule
+runs `collectFiles` over a real directory on purpose, because collection was
+where it was broken.
+
+So when a rule is about a shape this linter does not model, check what the CLI
+prints for a file of that shape *before* deciding the rule is the whole fix.
+
 Then regenerate and commit both artefacts — `npm test` fails while either is
 stale:
 

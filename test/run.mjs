@@ -1742,6 +1742,53 @@ ENDCLASS.`;
     'view builder: a source is read in the dialect its factory names');
 }
 
+// ------------------------------------------------- the FROZEN view builder ----
+/* An app on `z2ui5_cl_xml_view` was not merely unjudged, it was invisible:
+ * collectFiles kept a class only when it called a CURRENT builder's factory, so
+ * a whole app on the retired API produced "no checkable app classes" and exit 0.
+ * That is the shape of miss this linter exists to prevent, and it is aimed at
+ * the most common wrong answer there is - the old API is what nearly all public
+ * abap2UI5 material shows, and therefore what a language model writes. */
+{
+  const { checkAbapSource, collectFiles } = await import('./observe.mjs');
+  const { frozenBuilderOf, FROZEN_BUILDERS } = await import('../lib/builders.mjs');
+  const os = await import('node:os');
+  const source = fs.readFileSync(f('frozenbuilder.clas.abap'), 'utf8');
+
+  const found = checkAbapSource(source, { render: false }).findings;
+  const frozen = found.find((x) => x.type === 'frozen-view-builder');
+  assert(frozen && frozen.value === 'z2ui5_cl_xml_view',
+    'frozen builder: a class on z2ui5_cl_xml_view is reported, not skipped');
+  assert(frozen.severity === 'error',
+    'frozen builder: an error - the whole view went unchecked, which is worse than any one finding');
+  assert(/NOTHING about the view was checked/.test(frozen.message),
+    'frozen builder: the message says what was not judged, not just that a name is old');
+  assert(frozen.line === 13,
+    `frozen builder: reported at the factory call, not at line 1 (got ${frozen.line})`);
+
+  /* And ONLY that. The other ABAP rules model the current dialect; run over
+   * `page( )`/`button( )` they would be guessing, and confident noise is a
+   * worse trade than the silence it replaces. */
+  assert(found.length === 1,
+    `frozen builder: exactly one finding, no guesses about an API the reconstructor does not model (got ${found.map((x) => x.type).join(', ') || 'none'})`);
+
+  // the collection half - the actual defect, and the half a findings test misses
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-frozen-'));
+  fs.writeFileSync(path.join(dir, 'zcl_frozen_app.clas.abap'), source);
+  assert(collectFiles([dir]).length === 1,
+    'frozen builder: the file is collected — before this, the run said "no checkable app classes"');
+  fs.rmSync(dir, { recursive: true, force: true });
+
+  // negative: the current builder is not mistaken for the frozen one, and a
+  // mention that is not a factory call is not a view being built with it
+  assert(frozenBuilderOf(fs.readFileSync(f('good.clas.abap'), 'utf8')) === null,
+    'frozen builder: a class on the current builder is not reported');
+  assert(frozenBuilderOf('" see z2ui5_cl_xml_view for the old way') === null,
+    'frozen builder: naming the class without calling its factory builds no view');
+  assert(FROZEN_BUILDERS.includes('z2ui5_cl_xml_view_cc'),
+    'frozen builder: the custom-control half of the old API counts too');
+}
+
 // ------------------------------------------ the released API surface (src/02) ----
 {
   const { checkAbapRules } = await import('./observe.mjs');
@@ -3004,8 +3051,15 @@ ENDCLASS.`;
   // call is `client->x(` and is not this gate's business
   const CHAIN_CALL = /(?:^|[\s(])(?:\w*view\w*|popup|popover|\)|\w*_x)->(\w+)\s*\(/g;
 
+  /* One rule is ABOUT the builder that does not have these methods. Its example
+   * has to show `page( )`/`button( )` or it is not showing the reader the code
+   * they have in front of them. Named here rather than loosened for everyone,
+   * so the gate still holds for the other 85. */
+  const ABOUT_THE_OLD_BUILDER = new Set(['frozen-view-builder']);
+
   const wrong = [];
   for (const [id, doc] of Object.entries(RULE_DOCS)) {
+    if (ABOUT_THE_OLD_BUILDER.has(id)) continue;
     for (const field of ['summary', 'detail', 'example', 'fixNote']) {
       const text = doc[field];
       if (typeof text !== 'string') continue;
