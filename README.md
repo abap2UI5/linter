@@ -555,8 +555,9 @@ you, with the `$schema` already pointing at the copy your project installed.
     "event-without-handler": {             // both, plus file exclusions
       "severity": "warning",
       "exclude": ["/test/"]                // file regex, case insensitive; matched
-                                           // against the path as the report prints
-                                           // it AND as the runner reached it
+                                           // against the path in every form the
+                                           // run can produce, so it means the
+                                           // same however you invoke the linter
     },
     // the render gate's pseudo-rule: waive render failures per file instead
     // of render:false wholesale. A waived file that renders CLEAN is called
