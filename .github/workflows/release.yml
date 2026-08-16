@@ -78,8 +78,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -118,7 +118,7 @@ jobs:
       # Same gate as ci.yml, on the exact commit being published rather than
       # on whatever passed on main - the render half of the suite needs the
       # browser, so a published version is one that rendered.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -251,7 +251,7 @@ jobs:
       # npm by now - and only the `v0` alias stale, so the message says what to
       # run by hand rather than pretending the release did not happen.
       - name: Move the major tag onto this release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const tag = context.ref.replace('refs/tags/', '');

@@ -41,17 +41,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out the linter (this change)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: linter
 
       - name: Check out samples-controls
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: abap2UI5/samples-controls
           path: samples-controls
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -66,7 +66,7 @@ jobs:
 
       # cache the Chromium download, keyed on the consumer's lockfile (which
       # pins its playwright version); a hit skips the download, not the deps
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('samples-controls/package-lock.json') }}
@@ -90,23 +90,23 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out the linter (this change)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: linter
 
       - name: Check out ai-mcp
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: abap2UI5/ai-mcp
           path: ai-mcp
 
       - name: Check out samples-controls (the server's content source)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: abap2UI5/samples-controls
           path: samples-controls
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -131,17 +131,17 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out the linter (this change)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: linter
 
       - name: Check out the extension
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: abap2UI5/vscode-extension
           path: vscode-extension
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
