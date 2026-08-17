@@ -57,6 +57,21 @@
  *                      the pull request diff (default inside GitHub Actions;
  *                      --no-annotate switches it off). Alongside the stylish
  *                      report only - json and markdown stay parseable.
+ *   --screenshot <file>
+ *                      photograph the view instead of judging it: every view
+ *                      the given file builds is rendered against the local
+ *                      OpenUI5 runtime and written as a PNG, and the written
+ *                      paths are printed one per line. No system, no
+ *                      activation - the same reconstruction the gate renders,
+ *                      kept on the page long enough to be seen. Several views
+ *                      (or several files) number the name. Needs the render
+ *                      runtime; nothing else in the run happens
+ *   --screenshot-theme <name>
+ *                      the UI5 theme to photograph in (default sap_horizon)
+ *   --screenshot-size <WxH>
+ *                      the viewport, e.g. 390x844 for a phone (default
+ *                      1280x900). The picture is full-page, so a view taller
+ *                      than the viewport is photographed whole
  *   --no-render        skip the render gate (no browser/@openui5 needed)
  *   --render           require the render gate: without its runtime the run
  *                      fails instead of falling back to the property gate.
@@ -82,12 +97,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkFiles, collectFiles } from './lib/index.mjs';
+import { checkFiles, collectFiles, screenshotFiles } from './lib/index.mjs';
 import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
-import { missingRenderDeps, renderFallback } from './lib/render.mjs';
+import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
@@ -98,6 +113,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
+  + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version]';
 
 const die = (message) => {
@@ -114,6 +130,12 @@ const die = (message) => {
  * both loudly; the flags say the same thing now. */
 const UI5_VERSION_RE = /^\d+\.\d+(\.\d+)?$/;
 const DISTRIBUTIONS = ['sapui5', 'openui5'];
+/* A theme name is a resource path inside the runtime, so it is a plain
+ * identifier or it is not a theme; a viewport is two numbers. Both are
+ * checked here for the same reason --ui5 is: a wrong value would fall back
+ * silently and the picture would simply be of something else. */
+const THEME_RE = /^[a-z][a-z0-9_]*$/i;
+const SIZE_RE = /^(\d{2,5})x(\d{2,5})$/i;
 
 const args = process.argv.slice(2);
 const opt = {
@@ -138,6 +160,8 @@ const paths = [];
 let configFlag = null;
 let noConfig = false;
 let updateBaseline = false;
+// --screenshot and its two dials: a MODE, not a gate (see the run below)
+const shot = { out: null, theme: 'sap_horizon', width: 1280, height: 900 };
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   // a flag that takes a value must actually have one - `--allow` as the last
@@ -164,6 +188,18 @@ for (let i = 0; i < args.length; i++) {
   // Asking for the gate is what turns a missing runtime back into an error -
   // the default-on gate falls back to the property gate instead (renderFallback)
   else if (a === '--render') { opt.render = true; seen.add('render'); renderAsked = true; }
+  else if (a === '--screenshot') shot.out = value();
+  else if (a === '--screenshot-theme') {
+    const theme = value();
+    if (!THEME_RE.test(theme)) die(`--screenshot-theme takes a theme name like sap_horizon (got '${theme}')`);
+    shot.theme = theme;
+  }
+  else if (a === '--screenshot-size') {
+    const size = SIZE_RE.exec(value());
+    if (!size) die(`--screenshot-size takes a viewport like 1280x900 (got '${args[i]}')`);
+    shot.width = Number(size[1]);
+    shot.height = Number(size[2]);
+  }
   else if (a === '--no-properties') { opt.properties = false; seen.add('properties'); }
   else if (a === '--advisory') { opt.failOn = 'never'; seen.add('failOn'); }
   else if (a === '--config') configFlag = value();
@@ -320,6 +356,54 @@ try {
   // a mistyped path is bad usage, not a crash - exit 2 with one clean line
   die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
 }
+/*
+ * --screenshot: the render gate turned around. Instead of asking whether the
+ * view survives creation, it keeps the view standing and photographs it - the
+ * only way to SEE an abap2UI5 view without activating the class on a system
+ * and launching the app.
+ *
+ * A mode, not an additional gate: nothing else runs, and stdout carries the
+ * written paths and nothing else, one per line, so a caller (an editor, a
+ * workflow uploading screenshots as artefacts) can just read them. Everything
+ * a human wants to know beyond that goes to stderr.
+ */
+if (shot.out) {
+  const missing = missingRenderDeps();
+  if (missing.length) die(renderDepsError(missing).message);
+  if (!files.length) die('no view to photograph in the given path(s)');
+  const shots = await screenshotFiles(files, shot);
+  const taken = shots.filter((s) => s.png);
+  /* One picture keeps the name it was given; several have to be told apart,
+   * and by the CLASS they came from rather than by a counter - a directory
+   * full of shot-1.png says nothing about which app broke. */
+  const base = shot.out.replace(/\.png$/i, '');
+  const nameOf = (s) => {
+    if (taken.length === 1) return shot.out.endsWith('.png') ? shot.out : `${shot.out}.png`;
+    const stem = path.basename(s.file).replace(/\.(clas\.abap|abap|view\.xml|fragment\.xml|xml)$/i, '');
+    return `${base}-${stem}${s.index ? `-${s.index + 1}` : ''}.png`;
+  };
+  for (const s of shots) {
+    const where = path.relative(process.cwd(), s.file) || s.file;
+    if (!s.png) {
+      console.error(`abap2ui5lint: ${where} - ${s.errors[0] ?? 'no picture'}`);
+      continue;
+    }
+    const target = path.resolve(nameOf(s));
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, s.png);
+    } catch (e) {
+      die(`could not write ${target}: ${e.message}`);
+    }
+    console.log(target);
+    /* Render errors do NOT suppress the picture: a view with one broken
+     * binding still comes up, and the half that rendered is exactly what the
+     * author needs to look at. They are said out loud all the same. */
+    for (const e of s.errors) console.error(`abap2ui5lint: ${where} - ${e}`);
+  }
+  process.exit(taken.length ? 0 : 1);
+}
+
 /* The badges: shields.io endpoint files, so the README of a checked repo can
  * carry what its corpus IS and what the gate said about it. Written on every
  * run that got as far as a verdict - including a failing one and including

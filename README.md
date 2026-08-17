@@ -250,6 +250,43 @@ That is the line to use in CI. Quietly skipping a gate the config promised is
 how a green pipeline stops meaning anything, so the promise has to be
 writable — and `--render` is how it is written.
 
+### Seeing the view — `--screenshot`
+
+The same runtime, asked a different question. The gate loads the view to find
+out whether it *survives* creation and throws it away the moment it knows;
+`--screenshot` keeps it standing and photographs it:
+
+```sh
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-size 390x844
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-theme sap_horizon_dark
+```
+
+An abap2UI5 view exists at runtime and nowhere else, so *looking* at one has
+meant activating the class on a system and launching the app. Here it is
+reconstructed from the builder calls, seeded with the model derived from the
+class's own `TYPES`/`DATA`, and rendered against the local OpenUI5 runtime in
+the theme and viewport you name — no system, no transport, no activation. The
+same reconstruction the gate renders, so the picture is of the view the gate
+cleared.
+
+It is a **mode**: nothing else runs, and stdout carries the written paths and
+nothing else, one per line, so an editor or a workflow can just read them.
+Several views in one class (a main view and a popup) number the name after
+the class they came from. Render errors do not suppress the picture — a view
+with one broken binding still comes up, and the half that rendered is the part
+worth looking at — they go to stderr alongside it.
+
+The themes ship as `.less` in the `@openui5` source packages, never as the
+`library.css` a browser asks for, so the first picture in a theme compiles it
+(`less-openui5`, the UI5 toolchain's own compiler, a few seconds for `sap.m`)
+and caches the result per runtime version and theme. The gate itself never
+asks for a stylesheet and pays none of this.
+
+What it is not: a preview of the *app*. Nothing round-trips, no event reaches
+ABAP, and the data is the derived mock model rather than what a system would
+serve. It is the view, rendered.
+
 To work on the linter itself, clone it and use `node cli.mjs` in place of the
 binary — the flags below are identical either way. The runtime is an npm
 **workspace** here, so a plain `npm ci` sets up both:
@@ -280,6 +317,7 @@ abap2ui5lint src --badge-corpus corpus.json  # and what the corpus is
 abap2ui5lint src --no-stats               # drop the run summary under the report
 abap2ui5lint src --no-progress            # and the live gate log on stderr
 abap2ui5lint src --verbose                # add the reconstruction notes per file
+abap2ui5lint zcl_app.clas.abap --screenshot app.png   # SEE the view, without a system
 abap2ui5lint --version                    # version and script location
 ```
 
@@ -631,6 +669,17 @@ import { checkFiles, checkAbapSource, checkXmlSource } from '@abap2ui5/linter';
 const results = await checkFiles(['src/zcl_my_app.clas.abap']);
 // -> [{ file, findings: [...], renderErrors, docs, model }]
 //    finding: { type, control, member, severity, message, line, column, ... }
+```
+
+`screenshotFiles` is the same runtime taking pictures instead of a verdict —
+what `--screenshot` runs, returning the PNGs as buffers rather than writing
+them, which is what an editor holding an unsaved buffer needs:
+
+```js
+import { screenshotFiles } from '@abap2ui5/linter';
+
+const shots = await screenshotFiles(['src/zcl_my_app.clas.abap'], { theme: 'sap_horizon' });
+// -> [{ file, index, kind, png: Buffer | undefined, errors: [...] }]
 ```
 
 `checkFiles`/`checkAbapSource`/`checkXmlSource` annotate their findings

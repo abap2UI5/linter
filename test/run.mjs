@@ -2178,7 +2178,7 @@ ENDCLASS.`;
 // OPTIONAL PEER: absent, the property gate still works and a requested render
 // fails with one actionable message
 {
-  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
+  const { RENDER_DEPS, SCREENSHOT_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
   const root = path.join(FIX, '..', '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
@@ -2192,9 +2192,16 @@ ENDCLASS.`;
   assert(pkg.peerDependencies?.[RENDER_RUNTIME]
     && pkg.peerDependenciesMeta?.[RENDER_RUNTIME]?.optional === true,
     `render deps: ${RENDER_RUNTIME} is declared as an OPTIONAL peer`);
+  /* Nothing ships in the runtime unaccounted for, and nothing the GATE needs
+   * is missing from it - but the two lists are no longer the same list. The
+   * theme compiler is in the runtime because `--screenshot` needs it and one
+   * install should get everything; it is out of RENDER_DEPS because the gate
+   * must still run where it is absent. */
   assert(runtime.name === RENDER_RUNTIME
-    && RENDER_DEPS.slice().sort().join() === Object.keys(runtime.dependencies).sort().join(),
-    'render deps: RENDER_DEPS mirrors exactly the dependencies of the render runtime');
+    && [...RENDER_DEPS, ...SCREENSHOT_DEPS].sort().join() === Object.keys(runtime.dependencies).sort().join(),
+    'render deps: the runtime ships exactly RENDER_DEPS plus the screenshot-only ones');
+  assert(!RENDER_DEPS.some((d) => SCREENSHOT_DEPS.includes(d)),
+    'render deps: a screenshot-only package is never required by the gate');
 
   assert(missingRenderDeps().length === 0,
     'render deps: everything is installed in this environment');
@@ -3118,6 +3125,53 @@ ENDCLASS.`;
   }
   assert(!wrong.length,
     `rule docs: every builder call names a method the builder has (${wrong.join('; ') || 'all real'})`);
+}
+
+/* ---------------------------------------------------------------------------
+ * --screenshot: the render gate photographing instead of judging
+ *
+ * Runs against the real runtime like the gate assertions above do. What is
+ * asserted is what the mode PROMISES and what silently broke while it was
+ * being built: that a picture comes out at all, that it is of the view rather
+ * than of an empty page (a sap.m.Page in a container of no height renders its
+ * header and clips everything else - every check still passes and the picture
+ * is blank), and that a class whose reconstruction is incomplete is refused
+ * rather than photographed wrong.
+ * ------------------------------------------------------------------------- */
+{
+  const { screenshotFiles } = await import('../lib/index.mjs');
+  const shots = await screenshotFiles([f('good.clas.abap')], { width: 400, height: 300 });
+  assert(shots.length === 1 && Buffer.isBuffer(shots[0].png),
+    `screenshot: the fixture comes back as a PNG (${shots[0]?.errors?.[0] ?? 'no png'})`);
+  const png = shots[0].png;
+  assert(png.slice(1, 4).toString() === 'PNG', 'screenshot: the buffer is a PNG');
+  // IHDR carries the dimensions: full-page, so the WIDTH is the viewport's
+  const width = png.readUInt32BE(16);
+  assert(width === 400, `screenshot: the viewport is the one asked for (got ${width})`);
+  assert(shots[0].errors.length === 0,
+    `screenshot: the clean fixture photographs without errors (${shots[0].errors[0] ?? ''})`);
+  /* The blank-picture regression, and the reason it needs its own assertion:
+   * the whole view was in the DOM, correct and clipped to nothing, while every
+   * check passed and the picture came back a header over an empty area. It is
+   * caught differentially rather than by a magic byte count - the same view
+   * with its content removed is what a clipped picture looks like, so a real
+   * render has to be substantially bigger than that. */
+  const { openRenderer } = await import('../lib/render.mjs');
+  const shooter = await openRenderer({ theme: 'sap_horizon', css: true });
+  const VIEW = (content) => `<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc">`
+    + `<Page title="Fixture">${content}</Page></mvc:View>`;
+  try {
+    const filled = await shooter.screenshot({ xml: VIEW('<content><Input value="{/NAME}"/><Button text="Go"/></content>'), model: { NAME: 'world' } });
+    const empty = await shooter.screenshot({ xml: VIEW('') });
+    assert(filled.png.length > empty.png.length * 1.2,
+      `screenshot: the content is IN the picture, not clipped to a bare header (${filled.png.length} vs ${empty.png.length} bytes)`);
+  } finally {
+    await shooter.close();
+  }
+
+  const refused = await screenshotFiles([f('frozenbuilder.clas.abap')]);
+  assert(refused.every((s) => !s.png) && refused[0].errors.some((e) => /no view reconstructed/.test(e)),
+    `screenshot: a class no view can be reconstructed from is refused with a reason (${refused[0]?.errors?.[0] ?? 'none'})`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');
