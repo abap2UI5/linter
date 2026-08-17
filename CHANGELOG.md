@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The render-runtime peer range forbade the pairing both READMEs prescribe.**
+  `peerDependencies` still said `^0.1.0` while the workspace had been released
+  as 0.2.1 three times — and an out-of-range **optional** peer is not a quiet
+  `npm ls` note, it is an `ERESOLVE` refusal, so
+  `npm i @abap2ui5/linter@0.2.1 @abap2ui5/render-runtime@0.2.1` failed outright
+  and the stale 0.1 line was the only one npm would accept. It now reads
+  `^0.1.0 || ^0.2.0`: both published lines carry the same `@openui5` pins
+  (1.151.0, the version `data/properties.json` was generated from), so both
+  genuinely run the render gate, and every consumer keeps installing — narrowing
+  to the newest line alone would have broken the three repos sitting on 0.1.1
+  for no compatibility reason. `npm test` now gates the range against the
+  workspace's own version, since `npm version --workspaces` moves versions and
+  no dependency range, which is exactly how this rotted unnoticed.
+
 - **Preview data, so a list stops photographing empty.** The model behind a
   screenshot is derived from what the class seeds *literally* — that is all a
   static reconstruction can know — so a table filled by a `SELECT` renders as

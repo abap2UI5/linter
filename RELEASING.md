@@ -50,6 +50,21 @@ breaks, because nobody can have installed the broken one yet.
 # 1. Both versions in one bump - the workspace and the root have to agree
 npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
 
+# 1b. `npm version` moves versions and NO dependency range, so the optional
+#     peer range on @abap2ui5/render-runtime has to follow by hand - ADD the
+#     new line to it:
+#       "peerDependencies": { "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0" }
+#     `npm test` fails while the range does not admit the workspace version.
+#     That gate exists because the step was missed for three releases running,
+#     and an out-of-range OPTIONAL peer is an ERESOLVE error, not a warning:
+#     the matching pair was the one npm refused to install.
+#
+#     Keep the older lines unless there is a reason to drop one. Removing a
+#     line is an install failure for everyone still on it, so it is justified
+#     only by something the linter genuinely cannot work without - not by the
+#     range looking untidy. (A missing `less-openui5` is NOT such a reason: a
+#     screenshot then comes back unstyled and the gate does not care.)
+
 # 2. Rename the CHANGELOG.md "Unreleased" heading to the new version, then
 git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
 git push --follow-tags && git push origin vX.Y.Z
