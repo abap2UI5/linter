@@ -1,5 +1,70 @@
 # Changelog
 
+## Unreleased
+
+- **Preview data, so a list stops photographing empty.** The model behind a
+  screenshot is derived from what the class seeds *literally* — that is all a
+  static reconstruction can know — so a table filled by a `SELECT` renders as
+  *No data*, which is most real apps. A `<class>.mock.json` next to the source
+  is now used as preview data, by convention and without a flag, and
+  `--screenshot-model <file.json>` says it explicitly. It is **merged over**
+  the derived model rather than replacing it: the derived one knows every field
+  of every declared structure, which is what makes the remaining bindings
+  resolve, so a two-line mock file can fill one table without restating the
+  class's whole model. A mock file that does not parse is reported next to the
+  picture it did not fill — silently going back to an empty table is the one
+  failure nobody would investigate.
+
+- **`--screenshot-size` takes a list.** `--screenshot-size 390x844,1280x900`
+  renders both in ONE browser session and writes them side by side, viewport in
+  the file name. The launch and the UI5 boot cost more than every render put
+  together, so a device matrix is barely more expensive than a single picture —
+  and responsive layout is precisely what nobody has in their head.
+
+- **The Action can photograph what it checked.** `screenshots: build/screenshots`
+  (with `screenshot-size` and `screenshot-theme` beside it) renders every
+  checked view into a directory for the workflow to upload as an artifact or
+  post on the pull request — the review artefact CI could not produce before,
+  because seeing an abap2UI5 view needed a system. It runs whether the check
+  passed or failed, since the run that failed is the one where a reviewer most
+  wants to look at the view, and a view that cannot be photographed is a
+  warning rather than a second reason to fail the job.
+
+- **`--screenshot`: see the view, without a system.** An abap2UI5 view exists
+  at runtime and nowhere else, so looking at one has meant activating the class
+  on a system and launching the app. The render gate has been loading these
+  views in a real browser all along — it just threw each one away the moment it
+  knew the view survived creation. Now it can keep it:
+
+      abap2ui5lint zcl_my_app.clas.abap --screenshot app.png
+
+  The view is reconstructed from the builder calls, seeded with the model
+  derived from the class's own `TYPES`/`DATA`, rendered against the local
+  OpenUI5 runtime and written as a PNG — the same reconstruction the gate
+  clears, in the theme (`--screenshot-theme`) and viewport (`--screenshot-size`,
+  e.g. `390x844`) you name. It is a mode: nothing else runs, and stdout carries
+  the written paths and nothing else, so an editor or a workflow can read them
+  straight. Render errors do not suppress the picture — a view with one broken
+  binding still comes up, and the half that rendered is the part worth seeing.
+
+  Two things had to be true for a picture to be worth taking. The themes ship
+  as `.less` in the `@openui5` sources and never as the `library.css` a browser
+  asks for, so unstyled UI5 was all the gate had ever rendered; a screenshot
+  session compiles the theme the way the UI5 build does (`less-openui5`, now in
+  the render runtime), on demand and cached per runtime version and theme. And
+  a `sap.m.Page` lays its content out absolutely against the height of its
+  container, so in the gate's container — which never needed one — the picture
+  came back as a header over an empty area, with the whole view present in the
+  DOM and every check passing. Both are fixed where they belong, in the
+  harness, which now also mirrors the body abap2UI5 itself serves
+  (`sapUiBody sapUiSizeCompact`) so the content density in the picture is the
+  content density on the system.
+
+  The gate is untouched by all of it: it asks for no stylesheet, compiles
+  nothing, and `less-openui5` is deliberately outside `RENDER_DEPS` so a
+  missing theme compiler can never stop a check from running. `screenshotFiles`
+  is the library form, returning buffers rather than writing files.
+
 ## 0.2.1
 
 The theme of this release is **the lifecycle rules seeing the code that is

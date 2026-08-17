@@ -14,6 +14,7 @@
  *   sample.view.xml     raw XML path: no findings, renders clean
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
@@ -2178,7 +2179,7 @@ ENDCLASS.`;
 // OPTIONAL PEER: absent, the property gate still works and a requested render
 // fails with one actionable message
 {
-  const { RENDER_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
+  const { RENDER_DEPS, SCREENSHOT_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
   const root = path.join(FIX, '..', '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
@@ -2192,9 +2193,16 @@ ENDCLASS.`;
   assert(pkg.peerDependencies?.[RENDER_RUNTIME]
     && pkg.peerDependenciesMeta?.[RENDER_RUNTIME]?.optional === true,
     `render deps: ${RENDER_RUNTIME} is declared as an OPTIONAL peer`);
+  /* Nothing ships in the runtime unaccounted for, and nothing the GATE needs
+   * is missing from it - but the two lists are no longer the same list. The
+   * theme compiler is in the runtime because `--screenshot` needs it and one
+   * install should get everything; it is out of RENDER_DEPS because the gate
+   * must still run where it is absent. */
   assert(runtime.name === RENDER_RUNTIME
-    && RENDER_DEPS.slice().sort().join() === Object.keys(runtime.dependencies).sort().join(),
-    'render deps: RENDER_DEPS mirrors exactly the dependencies of the render runtime');
+    && [...RENDER_DEPS, ...SCREENSHOT_DEPS].sort().join() === Object.keys(runtime.dependencies).sort().join(),
+    'render deps: the runtime ships exactly RENDER_DEPS plus the screenshot-only ones');
+  assert(!RENDER_DEPS.some((d) => SCREENSHOT_DEPS.includes(d)),
+    'render deps: a screenshot-only package is never required by the gate');
 
   assert(missingRenderDeps().length === 0,
     'render deps: everything is installed in this environment');
@@ -3118,6 +3126,110 @@ ENDCLASS.`;
   }
   assert(!wrong.length,
     `rule docs: every builder call names a method the builder has (${wrong.join('; ') || 'all real'})`);
+}
+
+/* ---------------------------------------------------------------------------
+ * --screenshot: the render gate photographing instead of judging
+ *
+ * Runs against the real runtime like the gate assertions above do. What is
+ * asserted is what the mode PROMISES and what silently broke while it was
+ * being built: that a picture comes out at all, that it is of the view rather
+ * than of an empty page (a sap.m.Page in a container of no height renders its
+ * header and clips everything else - every check still passes and the picture
+ * is blank), and that a class whose reconstruction is incomplete is refused
+ * rather than photographed wrong.
+ * ------------------------------------------------------------------------- */
+{
+  const { screenshotFiles, mockModelFor } = await import('../lib/index.mjs');
+  const shots = await screenshotFiles([f('good.clas.abap')], { width: 400, height: 300 });
+  assert(shots.length === 1 && Buffer.isBuffer(shots[0].png),
+    `screenshot: the fixture comes back as a PNG (${shots[0]?.errors?.[0] ?? 'no png'})`);
+  const png = shots[0].png;
+  assert(png.slice(1, 4).toString() === 'PNG', 'screenshot: the buffer is a PNG');
+  // IHDR carries the dimensions: full-page, so the WIDTH is the viewport's
+  const width = png.readUInt32BE(16);
+  assert(width === 400, `screenshot: the viewport is the one asked for (got ${width})`);
+  assert(shots[0].errors.length === 0,
+    `screenshot: the clean fixture photographs without errors (${shots[0].errors[0] ?? ''})`);
+  /* The blank-picture regression, and the reason it needs its own assertion:
+   * the whole view was in the DOM, correct and clipped to nothing, while every
+   * check passed and the picture came back a header over an empty area. It is
+   * caught differentially rather than by a magic byte count - the same view
+   * with its content removed is what a clipped picture looks like, so a real
+   * render has to be substantially bigger than that. */
+  const { openRenderer } = await import('../lib/render.mjs');
+  const shooter = await openRenderer({ theme: 'sap_horizon', css: true });
+  const VIEW = (content) => `<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc">`
+    + `<Page title="Fixture">${content}</Page></mvc:View>`;
+  try {
+    const filled = await shooter.screenshot({ xml: VIEW('<content><Input value="{/NAME}"/><Button text="Go"/></content>'), model: { NAME: 'world' } });
+    const empty = await shooter.screenshot({ xml: VIEW('') });
+    assert(filled.png.length > empty.png.length * 1.2,
+      `screenshot: the content is IN the picture, not clipped to a bare header (${filled.png.length} vs ${empty.png.length} bytes)`);
+  } finally {
+    await shooter.close();
+  }
+
+  /* The device matrix: one browser session, one entry per viewport, and the
+   * size recorded so a caller can name the files apart. */
+  const matrix = await screenshotFiles([f('good.clas.abap')], {
+    sizes: [{ width: 390, height: 844 }, { width: 1280, height: 900 }],
+  });
+  assert(matrix.length === 2 && matrix.every((s) => s.png),
+    `screenshot: every viewport comes back with a picture (${matrix.length} entries)`);
+  assert(matrix[0].png.readUInt32BE(16) === 390 && matrix[1].png.readUInt32BE(16) === 1280,
+    'screenshot: each picture is taken at the viewport it belongs to');
+
+  /* Preview data. The model derived from a class only knows what the class
+   * SEEDS literally, so a table filled by a SELECT photographs empty - which
+   * is most real apps. A mock file next to the source fills it, with no flag
+   * to remember. */
+  {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2u5-mock-'));
+    const source = path.join(dir, 'zcl_mock.clas.abap');
+    fs.writeFileSync(source, `CLASS zcl_mock DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_row,
+             name TYPE string,
+           END OF ty_row.
+    DATA mt_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_mock IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( n = \`Page\` )->a( n = \`title\` v = \`Rows\`
+        )->ele( n = \`content\`
+        )->ele( n = \`List\` )->a( n = \`items\` v = client->_bind( mt_rows )
+        )->tag( n = \`StandardListItem\` )->a( n = \`title\` v = \`{NAME}\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`);
+    const empty = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    fs.writeFileSync(path.join(dir, 'zcl_mock.mock.json'),
+      JSON.stringify({ MT_ROWS: [{ NAME: 'Berlin' }, { NAME: 'Rome' }, { NAME: 'Lisbon' }] }));
+    assert(mockModelFor(source)?.MT_ROWS?.length === 3,
+      'screenshot: the mock file next to the class is the preview data, by convention');
+    const filled = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    assert(filled[0].png.length > empty[0].png.length,
+      `screenshot: the mocked rows are IN the picture (${filled[0].png.length} vs ${empty[0].png.length} bytes)`);
+
+    /* Merged over the derived model, not replacing it: a mock file naming one
+     * table must not cost the class its other fields. */
+    fs.writeFileSync(path.join(dir, 'zcl_mock.mock.json'), '{ broken');
+    const broken = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    assert(broken[0].png && broken[0].errors.some((e) => /not valid JSON/.test(e)),
+      `screenshot: a broken mock file is reported next to the picture it did not fill (${broken[0].errors[0] ?? 'silent'})`);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  const refused = await screenshotFiles([f('frozenbuilder.clas.abap')]);
+  assert(refused.every((s) => !s.png) && refused[0].errors.some((e) => /no view reconstructed/.test(e)),
+    `screenshot: a class no view can be reconstructed from is refused with a reason (${refused[0]?.errors?.[0] ?? 'none'})`);
 }
 
 console.log(failed ? `\n${failed} assertion(s) failed` : '\nall assertions passed');

@@ -250,6 +250,72 @@ That is the line to use in CI. Quietly skipping a gate the config promised is
 how a green pipeline stops meaning anything, so the promise has to be
 writable — and `--render` is how it is written.
 
+### Seeing the view — `--screenshot`
+
+The same runtime, asked a different question. The gate loads the view to find
+out whether it *survives* creation and throws it away the moment it knows;
+`--screenshot` keeps it standing and photographs it:
+
+```sh
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-size 390x844
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-size 390x844,1280x900
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-theme sap_horizon_dark
+```
+
+Several viewports render in **one** browser session — the launch and the UI5
+boot cost more than every render together, so a phone-and-desktop matrix is
+barely more expensive than one picture. Each file carries its viewport in the
+name.
+
+An abap2UI5 view exists at runtime and nowhere else, so *looking* at one has
+meant activating the class on a system and launching the app. Here it is
+reconstructed from the builder calls, seeded with the model derived from the
+class's own `TYPES`/`DATA`, and rendered against the local OpenUI5 runtime in
+the theme and viewport you name — no system, no transport, no activation. The
+same reconstruction the gate renders, so the picture is of the view the gate
+cleared.
+
+It is a **mode**: nothing else runs, and stdout carries the written paths and
+nothing else, one per line, so an editor or a workflow can just read them.
+Several views in one class (a main view and a popup) number the name after
+the class they came from. Render errors do not suppress the picture — a view
+with one broken binding still comes up, and the half that rendered is the part
+worth looking at — they go to stderr alongside it.
+
+The themes ship as `.less` in the `@openui5` source packages, never as the
+`library.css` a browser asks for, so the first picture in a theme compiles it
+(`less-openui5`, the UI5 toolchain's own compiler, a few seconds for `sap.m`)
+and caches the result per runtime version and theme. The gate itself never
+asks for a stylesheet and pays none of this.
+
+#### Preview data — the empty-table problem
+
+The model is derived from what the class seeds **literally** (`model_init`, a
+`VALUE #( )`), because that is all a static reconstruction can know. A table
+filled by a `SELECT` is therefore empty in the picture, and a list view — most
+real apps — photographs as *No data*.
+
+So a JSON file next to the source is used as preview data, by convention and
+without a flag:
+
+```
+src/zcl_travel_list.clas.abap
+src/zcl_travel_list.mock.json     ->  { "MT_ROWS": [ { "NAME": "Berlin - Rome" } ] }
+```
+
+It is **merged over** the derived model rather than replacing it: the derived
+one knows every field of every declared structure, which is what makes the
+other bindings resolve, and the mock file only has to name the table you want
+to see filled. `--screenshot-model <file.json>` does the same for a run that
+should not depend on a file lying next to the source. A mock file that does not
+parse is reported next to the picture it did not fill — silently going back to
+an empty table would be the one failure nobody would investigate.
+
+What it is not: a preview of the *app*. Nothing round-trips, no event reaches
+ABAP, and the data is a mock model rather than what a system would serve. It is
+the view, rendered.
+
 To work on the linter itself, clone it and use `node cli.mjs` in place of the
 binary — the flags below are identical either way. The runtime is an npm
 **workspace** here, so a plain `npm ci` sets up both:
@@ -280,6 +346,7 @@ abap2ui5lint src --badge-corpus corpus.json  # and what the corpus is
 abap2ui5lint src --no-stats               # drop the run summary under the report
 abap2ui5lint src --no-progress            # and the live gate log on stderr
 abap2ui5lint src --verbose                # add the reconstruction notes per file
+abap2ui5lint zcl_app.clas.abap --screenshot app.png   # SEE the view, without a system
 abap2ui5lint --version                    # version and script location
 ```
 
@@ -594,6 +661,27 @@ jobs:
           flags: '--allow sap.m.GenericTile.systemInfo'
 ```
 
+Ask for **screenshots** and the job also photographs every checked view, which
+is the review artefact CI could not produce before — seeing an abap2UI5 view
+used to need a system:
+
+```yaml
+      - uses: abap2UI5/linter@v0
+        with:
+          paths: src
+          screenshots: build/screenshots
+          screenshot-size: '390x844,1280x900'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: views
+          path: build/screenshots
+```
+
+That step runs whether the check passed or failed — the run that failed is the
+one where a reviewer most wants to see the view — and a view that cannot be
+photographed is a warning, never a second reason to fail the job.
+
 Findings are annotated onto the pull request diff by default; set
 `annotations: false` to keep the log plain. `badge` and `badge-corpus` only
 write the endpoint files — committing them is the workflow's job, and the pull
@@ -631,6 +719,17 @@ import { checkFiles, checkAbapSource, checkXmlSource } from '@abap2ui5/linter';
 const results = await checkFiles(['src/zcl_my_app.clas.abap']);
 // -> [{ file, findings: [...], renderErrors, docs, model }]
 //    finding: { type, control, member, severity, message, line, column, ... }
+```
+
+`screenshotFiles` is the same runtime taking pictures instead of a verdict —
+what `--screenshot` runs, returning the PNGs as buffers rather than writing
+them, which is what an editor holding an unsaved buffer needs:
+
+```js
+import { screenshotFiles } from '@abap2ui5/linter';
+
+const shots = await screenshotFiles(['src/zcl_my_app.clas.abap'], { theme: 'sap_horizon' });
+// -> [{ file, index, kind, png: Buffer | undefined, errors: [...] }]
 ```
 
 `checkFiles`/`checkAbapSource`/`checkXmlSource` annotate their findings

@@ -1,8 +1,8 @@
 # @abap2ui5/render-runtime
 
 The UI5 runtime that the [abap2UI5-linter](https://github.com/abap2UI5/linter)
-render gate serves — the `@openui5/*` source packages and `playwright`, bundled
-as **one** install instead of twelve.
+render gate serves — the `@openui5/*` source packages, `playwright` and the
+theme compiler, bundled as **one** install instead of thirteen.
 
 ```sh
 npm install -D @abap2ui5/linter @abap2ui5/render-runtime
@@ -15,7 +15,9 @@ be installed — or not installed — as a single decision.
 ## Why it is a separate package
 
 The render gate boots a real `XMLView.create` in headless Chromium, which needs
-a real UI5 runtime: ~118 MB of `@openui5` sources plus playwright. The property
+a real UI5 runtime: ~118 MB of `@openui5` sources plus playwright — and, for
+`--screenshot`, `less-openui5` to compile the themes those sources ship as
+`.less` rather than as the `library.css` a browser asks for. The property
 gate — every ABAP and view rule that resolves against the metadata snapshot —
 needs none of it and is about 1 MB.
 
