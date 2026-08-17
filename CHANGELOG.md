@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **Preview data, so a list stops photographing empty.** The model behind a
+  screenshot is derived from what the class seeds *literally* — that is all a
+  static reconstruction can know — so a table filled by a `SELECT` renders as
+  *No data*, which is most real apps. A `<class>.mock.json` next to the source
+  is now used as preview data, by convention and without a flag, and
+  `--screenshot-model <file.json>` says it explicitly. It is **merged over**
+  the derived model rather than replacing it: the derived one knows every field
+  of every declared structure, which is what makes the remaining bindings
+  resolve, so a two-line mock file can fill one table without restating the
+  class's whole model. A mock file that does not parse is reported next to the
+  picture it did not fill — silently going back to an empty table is the one
+  failure nobody would investigate.
+
+- **`--screenshot-size` takes a list.** `--screenshot-size 390x844,1280x900`
+  renders both in ONE browser session and writes them side by side, viewport in
+  the file name. The launch and the UI5 boot cost more than every render put
+  together, so a device matrix is barely more expensive than a single picture —
+  and responsive layout is precisely what nobody has in their head.
+
+- **The Action can photograph what it checked.** `screenshots: build/screenshots`
+  (with `screenshot-size` and `screenshot-theme` beside it) renders every
+  checked view into a directory for the workflow to upload as an artifact or
+  post on the pull request — the review artefact CI could not produce before,
+  because seeing an abap2UI5 view needed a system. It runs whether the check
+  passed or failed, since the run that failed is the one where a reviewer most
+  wants to look at the view, and a view that cannot be photographed is a
+  warning rather than a second reason to fail the job.
+
 - **`--screenshot`: see the view, without a system.** An abap2UI5 view exists
   at runtime and nowhere else, so looking at one has meant activating the class
   on a system and launching the app. The render gate has been loading these

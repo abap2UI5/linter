@@ -14,6 +14,7 @@
  *   sample.view.xml     raw XML path: no findings, renders clean
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
@@ -3139,7 +3140,7 @@ ENDCLASS.`;
  * rather than photographed wrong.
  * ------------------------------------------------------------------------- */
 {
-  const { screenshotFiles } = await import('../lib/index.mjs');
+  const { screenshotFiles, mockModelFor } = await import('../lib/index.mjs');
   const shots = await screenshotFiles([f('good.clas.abap')], { width: 400, height: 300 });
   assert(shots.length === 1 && Buffer.isBuffer(shots[0].png),
     `screenshot: the fixture comes back as a PNG (${shots[0]?.errors?.[0] ?? 'no png'})`);
@@ -3167,6 +3168,63 @@ ENDCLASS.`;
       `screenshot: the content is IN the picture, not clipped to a bare header (${filled.png.length} vs ${empty.png.length} bytes)`);
   } finally {
     await shooter.close();
+  }
+
+  /* The device matrix: one browser session, one entry per viewport, and the
+   * size recorded so a caller can name the files apart. */
+  const matrix = await screenshotFiles([f('good.clas.abap')], {
+    sizes: [{ width: 390, height: 844 }, { width: 1280, height: 900 }],
+  });
+  assert(matrix.length === 2 && matrix.every((s) => s.png),
+    `screenshot: every viewport comes back with a picture (${matrix.length} entries)`);
+  assert(matrix[0].png.readUInt32BE(16) === 390 && matrix[1].png.readUInt32BE(16) === 1280,
+    'screenshot: each picture is taken at the viewport it belongs to');
+
+  /* Preview data. The model derived from a class only knows what the class
+   * SEEDS literally, so a table filled by a SELECT photographs empty - which
+   * is most real apps. A mock file next to the source fills it, with no flag
+   * to remember. */
+  {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2u5-mock-'));
+    const source = path.join(dir, 'zcl_mock.clas.abap');
+    fs.writeFileSync(source, `CLASS zcl_mock DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_row,
+             name TYPE string,
+           END OF ty_row.
+    DATA mt_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_mock IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( n = \`Page\` )->a( n = \`title\` v = \`Rows\`
+        )->ele( n = \`content\`
+        )->ele( n = \`List\` )->a( n = \`items\` v = client->_bind( mt_rows )
+        )->tag( n = \`StandardListItem\` )->a( n = \`title\` v = \`{NAME}\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`);
+    const empty = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    fs.writeFileSync(path.join(dir, 'zcl_mock.mock.json'),
+      JSON.stringify({ MT_ROWS: [{ NAME: 'Berlin' }, { NAME: 'Rome' }, { NAME: 'Lisbon' }] }));
+    assert(mockModelFor(source)?.MT_ROWS?.length === 3,
+      'screenshot: the mock file next to the class is the preview data, by convention');
+    const filled = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    assert(filled[0].png.length > empty[0].png.length,
+      `screenshot: the mocked rows are IN the picture (${filled[0].png.length} vs ${empty[0].png.length} bytes)`);
+
+    /* Merged over the derived model, not replacing it: a mock file naming one
+     * table must not cost the class its other fields. */
+    fs.writeFileSync(path.join(dir, 'zcl_mock.mock.json'), '{ broken');
+    const broken = await screenshotFiles([source], { sizes: [{ width: 600, height: 400 }] });
+    assert(broken[0].png && broken[0].errors.some((e) => /not valid JSON/.test(e)),
+      `screenshot: a broken mock file is reported next to the picture it did not fill (${broken[0].errors[0] ?? 'silent'})`);
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 
   const refused = await screenshotFiles([f('frozenbuilder.clas.abap')]);

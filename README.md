@@ -259,8 +259,14 @@ out whether it *survives* creation and throws it away the moment it knows;
 ```sh
 abap2ui5lint zcl_my_app.clas.abap --screenshot app.png
 abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-size 390x844
+abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-size 390x844,1280x900
 abap2ui5lint zcl_my_app.clas.abap --screenshot app.png --screenshot-theme sap_horizon_dark
 ```
+
+Several viewports render in **one** browser session — the launch and the UI5
+boot cost more than every render together, so a phone-and-desktop matrix is
+barely more expensive than one picture. Each file carries its viewport in the
+name.
 
 An abap2UI5 view exists at runtime and nowhere else, so *looking* at one has
 meant activating the class on a system and launching the app. Here it is
@@ -283,9 +289,32 @@ The themes ship as `.less` in the `@openui5` source packages, never as the
 and caches the result per runtime version and theme. The gate itself never
 asks for a stylesheet and pays none of this.
 
+#### Preview data — the empty-table problem
+
+The model is derived from what the class seeds **literally** (`model_init`, a
+`VALUE #( )`), because that is all a static reconstruction can know. A table
+filled by a `SELECT` is therefore empty in the picture, and a list view — most
+real apps — photographs as *No data*.
+
+So a JSON file next to the source is used as preview data, by convention and
+without a flag:
+
+```
+src/zcl_travel_list.clas.abap
+src/zcl_travel_list.mock.json     ->  { "MT_ROWS": [ { "NAME": "Berlin - Rome" } ] }
+```
+
+It is **merged over** the derived model rather than replacing it: the derived
+one knows every field of every declared structure, which is what makes the
+other bindings resolve, and the mock file only has to name the table you want
+to see filled. `--screenshot-model <file.json>` does the same for a run that
+should not depend on a file lying next to the source. A mock file that does not
+parse is reported next to the picture it did not fill — silently going back to
+an empty table would be the one failure nobody would investigate.
+
 What it is not: a preview of the *app*. Nothing round-trips, no event reaches
-ABAP, and the data is the derived mock model rather than what a system would
-serve. It is the view, rendered.
+ABAP, and the data is a mock model rather than what a system would serve. It is
+the view, rendered.
 
 To work on the linter itself, clone it and use `node cli.mjs` in place of the
 binary — the flags below are identical either way. The runtime is an npm
@@ -631,6 +660,27 @@ jobs:
           badge-corpus: .github/badges/abap2ui5.json
           flags: '--allow sap.m.GenericTile.systemInfo'
 ```
+
+Ask for **screenshots** and the job also photographs every checked view, which
+is the review artefact CI could not produce before — seeing an abap2UI5 view
+used to need a system:
+
+```yaml
+      - uses: abap2UI5/linter@v0
+        with:
+          paths: src
+          screenshots: build/screenshots
+          screenshot-size: '390x844,1280x900'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: views
+          path: build/screenshots
+```
+
+That step runs whether the check passed or failed — the run that failed is the
+one where a reviewer most wants to see the view — and a view that cannot be
+photographed is a warning, never a second reason to fail the job.
 
 Findings are annotated onto the pull request diff by default; set
 `annotations: false` to keep the log plain. `badge` and `badge-corpus` only

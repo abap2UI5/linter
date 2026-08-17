@@ -91,6 +91,12 @@ declare module "@abap2ui5/linter" {
     /** Viewport width/height in CSS pixels (default 1280x900). */
     width?: number;
     height?: number;
+    /** Several viewports, rendered in ONE browser session - one result per
+     *  document per size. Overrides width/height when given. */
+    sizes?: Array<{ width: number; height: number }>;
+    /** Preview data, merged over the model derived from the class. Without
+     *  it, a `<class>.mock.json` next to the source is used when present. */
+    model?: Record<string, unknown>;
     /** Photograph the whole document rather than the viewport (default true). */
     fullPage?: boolean;
     onProgress?: (event: {
@@ -108,6 +114,8 @@ declare module "@abap2ui5/linter" {
     /** Index of the document within its file (a class can build several). */
     index: number;
     kind?: "view" | "fragment";
+    /** The viewport this picture was taken at. */
+    size?: { width: number; height: number };
     png?: Buffer;
     errors: string[];
   }
@@ -118,6 +126,12 @@ declare module "@abap2ui5/linter" {
   /** Render every view the given files build and return the PNGs — the render
    *  gate as a preview. Needs the render runtime. */
   export function screenshotFiles(files: string[], opts?: ScreenshotOptions): Promise<ScreenshotResult[]>;
+  /** The preview data belonging to a source file by convention
+   *  (`zcl_app.mock.json` next to `zcl_app.clas.abap`), or null. Throws when
+   *  the file is there and does not parse. */
+  export function mockModelFor(file: string): Record<string, unknown> | null;
+  /** The suffix that convention uses. */
+  export const MOCK_SUFFIX: string;
   /** Recursively collect checkable files (builder classes + view/fragment XML). */
   export function collectFiles(paths: string[]): string[];
 }

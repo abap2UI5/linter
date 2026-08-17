@@ -68,10 +68,17 @@
  *                      runtime; nothing else in the run happens
  *   --screenshot-theme <name>
  *                      the UI5 theme to photograph in (default sap_horizon)
- *   --screenshot-size <WxH>
- *                      the viewport, e.g. 390x844 for a phone (default
- *                      1280x900). The picture is full-page, so a view taller
- *                      than the viewport is photographed whole
+ *   --screenshot-size <WxH[,WxH...]>
+ *                      the viewport(s), e.g. 390x844 for a phone (default
+ *                      1280x900). Several are rendered in ONE browser session
+ *                      and written side by side - the device matrix a
+ *                      responsive view needs. The picture is full-page, so a
+ *                      view taller than the viewport is photographed whole
+ *   --screenshot-model <file.json>
+ *                      the model to render with, merged over the one derived
+ *                      from the class. Without it, a `<class>.mock.json` next
+ *                      to the source is used when there is one - which is how
+ *                      a table bound to a SELECT stops photographing empty
  *   --no-render        skip the render gate (no browser/@openui5 needed)
  *   --render           require the render gate: without its runtime the run
  *                      fails instead of falling back to the property gate.
@@ -114,6 +121,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
+  + '[--screenshot-model <file.json>] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version]';
 
 const die = (message) => {
@@ -161,7 +169,7 @@ let configFlag = null;
 let noConfig = false;
 let updateBaseline = false;
 // --screenshot and its two dials: a MODE, not a gate (see the run below)
-const shot = { out: null, theme: 'sap_horizon', width: 1280, height: 900 };
+const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   // a flag that takes a value must actually have one - `--allow` as the last
@@ -195,10 +203,24 @@ for (let i = 0; i < args.length; i++) {
     shot.theme = theme;
   }
   else if (a === '--screenshot-size') {
-    const size = SIZE_RE.exec(value());
-    if (!size) die(`--screenshot-size takes a viewport like 1280x900 (got '${args[i]}')`);
-    shot.width = Number(size[1]);
-    shot.height = Number(size[2]);
+    /* A LIST: one browser launch and one UI5 boot serve every viewport, so
+     * asking for phone, tablet and desktop together costs barely more than
+     * asking for one - and responsive layout is exactly what nobody has in
+     * their head. */
+    const raw = value();
+    for (const part of raw.split(',')) {
+      const size = SIZE_RE.exec(part.trim());
+      if (!size) die(`--screenshot-size takes viewports like 1280x900 or 390x844,1280x900 (got '${raw}')`);
+      shot.sizes.push({ width: Number(size[1]), height: Number(size[2]) });
+    }
+  }
+  else if (a === '--screenshot-model') {
+    const file = value();
+    try {
+      shot.model = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (e) {
+      die(`--screenshot-model ${file}: ${e.message}`);
+    }
   }
   else if (a === '--no-properties') { opt.properties = false; seen.add('properties'); }
   else if (a === '--advisory') { opt.failOn = 'never'; seen.add('failOn'); }
@@ -380,7 +402,10 @@ if (shot.out) {
   const nameOf = (s) => {
     if (taken.length === 1) return shot.out.endsWith('.png') ? shot.out : `${shot.out}.png`;
     const stem = path.basename(s.file).replace(/\.(clas\.abap|abap|view\.xml|fragment\.xml|xml)$/i, '');
-    return `${base}-${stem}${s.index ? `-${s.index + 1}` : ''}.png`;
+    // the viewport belongs in the name as soon as there is more than one:
+    // three files called zcl_app.png would be a device matrix nobody can read
+    const size = shot.sizes.length > 1 ? `-${s.size.width}x${s.size.height}` : '';
+    return `${base}-${stem}${s.index ? `-${s.index + 1}` : ''}${size}.png`;
   };
   for (const s of shots) {
     const where = path.relative(process.cwd(), s.file) || s.file;

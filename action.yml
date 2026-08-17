@@ -32,6 +32,18 @@ inputs:
     description: 'Run the render gate (a real XMLView.create in headless Chromium). On by default - it finds defects no static rule can. Set to false for a much faster job: it skips the ~118 MB UI5 runtime and the Chromium download, and every property-gate rule still runs'
     required: false
     default: 'true'
+  screenshots:
+    description: 'Also photograph every checked view into this directory (e.g. build/screenshots), for the workflow to upload as an artifact or post on the pull request. Runs after the check whether it passed or failed - a picture of what broke is worth more than one of what did not. Needs the render gate; skipped with a warning when render is false'
+    required: false
+    default: ''
+  screenshot-size:
+    description: 'Viewport(s) for the screenshots, e.g. "390x844,1280x900" for a phone-and-desktop matrix. Unset: 1280x900'
+    required: false
+    default: ''
+  screenshot-theme:
+    description: 'UI5 theme for the screenshots, e.g. sap_horizon_dark. Unset: sap_horizon'
+    required: false
+    default: ''
   flags:
     description: 'Extra CLI flags, e.g. "--allow sap.m.Avatar.displaySize"'
     required: false
@@ -102,3 +114,35 @@ runs:
         read -r -a PATH_ARGS <<< "$LINT_PATHS"
         read -r -a FLAG_ARGS <<< "$LINT_FLAGS"
         node "$ACTION_PATH/cli.mjs" "${PATH_ARGS[@]}" "${ARGS[@]}" "${FLAG_ARGS[@]}"
+
+    # Pictures of what the checked classes build - the review artefact CI could
+    # never produce, because seeing an abap2UI5 view used to need a system.
+    #
+    # `always()` on purpose: the run that FAILED is the one where a reviewer
+    # most wants to look at the view, and a step that only runs on green would
+    # never produce that picture. The screenshot mode's own exit code is not
+    # the job's either - a view that could not be photographed is a warning
+    # here, not a second reason to fail a check that already had its say.
+    - name: Screenshot the views
+      if: ${{ always() && inputs.screenshots != '' }}
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        LINT_PATHS: ${{ inputs.paths }}
+        LINT_RENDER: ${{ inputs.render }}
+        SHOT_DIR: ${{ inputs.screenshots }}
+        SHOT_SIZE: ${{ inputs['screenshot-size'] }}
+        SHOT_THEME: ${{ inputs['screenshot-theme'] }}
+      run: |
+        if [ "$LINT_RENDER" = "false" ]; then
+          echo "::warning::screenshots were requested but render is false - the UI5 runtime was never installed, so there is nothing to photograph with"
+          exit 0
+        fi
+        SHOT_ARGS=(--screenshot "$SHOT_DIR/view.png")
+        if [ -n "$SHOT_SIZE" ]; then SHOT_ARGS+=(--screenshot-size "$SHOT_SIZE"); fi
+        if [ -n "$SHOT_THEME" ]; then SHOT_ARGS+=(--screenshot-theme "$SHOT_THEME"); fi
+        read -r -a PATH_ARGS <<< "$LINT_PATHS"
+        mkdir -p "$SHOT_DIR"
+        if ! node "$ACTION_PATH/cli.mjs" "${PATH_ARGS[@]}" "${SHOT_ARGS[@]}"; then
+          echo "::warning::no view could be photographed - see the log above"
+        fi
