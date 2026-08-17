@@ -49,6 +49,10 @@
       "types": "./types.d.ts",
       "default": "./lib/findings.mjs"
     },
+    "./rule-docs": {
+      "types": "./types.d.ts",
+      "default": "./lib/rule-docs.mjs"
+    },
     "./config": {
       "types": "./types.d.ts",
       "default": "./lib/config.mjs"

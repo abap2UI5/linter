@@ -16,6 +16,13 @@
   workspace's own version, since `npm version --workspaces` moves versions and
   no dependency range, which is exactly how this rotted unnoticed.
 
+- **`./rule-docs` is a public export.** The paragraph behind a rule id — what
+  the defect is and what the fix looks like, the text the
+  [rules page](https://abap2ui5.github.io/linter/) is generated from — was
+  reachable only by a reader with a browser. A consumer that hands findings to
+  someone who has none (ai-mcp's `validate_view`, talking to an agent) can now
+  read `RULE_DOCS` through the exports map instead of citing a URL.
+
 - **Preview data, so a list stops photographing empty.** The model behind a
   screenshot is derived from what the class seeds *literally* — that is all a
   static reconstruction can know — so a table filled by a `SELECT` renders as

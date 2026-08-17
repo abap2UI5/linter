@@ -93,7 +93,9 @@ exact line):
 1. the emit site in `lib/`,
 2. its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what
    registers it as a rule id,
-3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail,
+3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail;
+   published as the `./rule-docs` export, so this prose is also what an agent
+   reads through ai-mcp's `validate_view` instead of being sent to a website,
 4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`,
 5. a row in the README finding-type table.
 
