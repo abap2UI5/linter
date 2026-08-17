@@ -840,9 +840,13 @@ never reaches the package. Treat it as documentation that happens to execute.
 - Its README lists what separates the prototype from a service (persistence,
   rate limits, installation lifecycle, operations). That list, not the code,
   is why this is a spike: the missing work is ongoing, not one-time.
-- **npm publishing does not replace the git-SHA pins.** samples-controls and
-  the VS Code extension keep pinning `github:abap2UI5/linter#<sha>`; the
-  downstream workflow keeps being what says a bump is safe. npm serves the
+- **The two pinned consumers no longer pin the same way.** samples-controls
+  moved to the **npm range `^0.2.1`** and lets `package-lock.json` decide which
+  published version its gates actually run, bumped weekly to `latest` by its
+  own `bump_linter.yaml` (which runs the full strict view gates over the 416
+  ports before the PR exists). The VS Code extension still pins
+  `github:abap2UI5/linter#<sha>` in its `package-lock.json`. Either way the
+  downstream workflow is what says a bump is safe. npm additionally serves the
   consumers that have no such workflow — a developer linting their own app,
   and anyone who wants a pinnable version instead of `@main`.
 - **`docs/index.html` is published on merge** to
@@ -891,12 +895,17 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   dependency bump. **`.github/workflows/downstream.yml` runs that check for
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
-- Both consumers pin this repo by **commit SHA**
-  (`github:abap2UI5/linter#<sha>`), so a merge here never moves them on its
-  own; bumping the pin is a deliberate change in the consumer, and the
-  downstream workflow is what says whether that bump is safe. A pin pointing
+- **No consumer follows main.** samples-controls takes this repo from npm
+  (`"@abap2ui5/linter": "^0.2.1"`, resolved by its `package-lock.json`, moved
+  to the latest published version weekly by its `bump_linter.yaml`); the VS
+  Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
+  lock; ai-mcp pins nothing and imports whatever checkout sits beside it. So a
+  merge here reaches nobody on its own except an ai-mcp developer: for the
+  other two, moving the pin is a deliberate change in the consumer, and the
+  downstream workflow is what says whether that move is safe. A pin pointing
   at a **feature branch** of this repo is only ever temporary — it must become
-  a SHA on main before that consumer's change is merged.
+  a SHA on main (or a published version) before that consumer's change is
+  merged.
 
 ## The downstream contract — `.github/workflows/downstream.yml`
 
