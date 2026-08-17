@@ -26,6 +26,9 @@
  *                                          committed file is stale (the test
  *                                          uses this — the drift gate)
  *       node scripts/generate-metadata.mjs --out <file>   (consumers)
+ *       node scripts/generate-metadata.mjs --libs sap.viz,sap.gantt --out …
+ *                                          ADDS libraries to the default set;
+ *                                          resolves them from @sapui5/* too
  *       OPENUI5_DIR=/path/to/openui5 node scripts/generate-metadata.mjs --out …
  */
 
@@ -52,6 +55,25 @@ const LIBS = [
   'sap.ui.unified', 'sap.uxap', 'sap.tnt', 'sap.ui.codeeditor', 'sap.ui.integration',
 ];
 
+/* Libraries a CONSUMER adds on top, `--libs a,b,c` or UI5_LIBS. ADDITIVE on
+ * purpose: replacing the list would let an invocation quietly drop sap.m, and
+ * the committed default snapshot has to stay byte-identical so the `--check`
+ * drift gate keeps meaning what it means.
+ *
+ * This exists for the SAPUI5-only libraries - sap.suite.ui.commons, sap.viz,
+ * sap.ui.comp, sap.gantt and friends. They are not in the default list because
+ * this package pins @openui5 and ships an OpenUI5 snapshot; a consumer that
+ * pins @sapui5 too can now cover them WITH THIS GENERATOR rather than writing
+ * a second parser. That distinction is not pedantry: two parsers over two
+ * checkouts drifted once already, attributing a file-level @deprecated to the
+ * control and marking sap.f.DynamicPageTitle deprecated when its class doc
+ * says nothing of the kind. */
+const libsArg = process.argv.indexOf('--libs');
+const EXTRA_LIBS = [
+  ...(libsArg !== -1 && process.argv[libsArg + 1] ? process.argv[libsArg + 1].split(',') : []),
+  ...(process.env.UI5_LIBS ? process.env.UI5_LIBS.split(',') : []),
+].map((s) => s.trim()).filter(Boolean).filter((l) => !LIBS.includes(l));
+
 /* Base classes every control inherits from. They live in the sap.ui.core
  * package but outside its library path, and without them every inheritance
  * chain ends in an unknown class - which would make the gate treat every
@@ -67,13 +89,27 @@ function libDirs() {
       candidates.push(path.join(process.env.OPENUI5_DIR, 'src', pkg, 'src', ...libPath.split('/')));
     }
     candidates.push(path.join(ROOT, 'node_modules', `@openui5/${pkg}`, 'src', ...libPath.split('/')));
+    /* @sapui5/<pkg> last. The package layout is identical to @openui5's
+     * (<pkg>/src/<libPath>) and the class-level @since/@deprecated this
+     * generator reads are present and identical in shape - verified against
+     * @sapui5/* 1.151.0. Last rather than first so an OpenUI5 library keeps
+     * resolving from the OpenUI5 package even where both are installed. */
+    candidates.push(path.join(ROOT, 'node_modules', `@sapui5/${pkg}`, 'src', ...libPath.split('/')));
     return candidates.find((c) => fs.existsSync(c));
   };
-  for (const lib of LIBS) {
+  for (const lib of [...LIBS, ...EXTRA_LIBS]) {
     const libPath = lib.replace(/\./g, '/');
     const dir = resolveDir(lib, libPath);
     if (dir) out.push([libPath, dir]);
-    else console.error(`WARNING: no sources for ${lib} - skipped`);
+    /* A library the caller ASKED for and that is not installed is an error,
+     * not a warning: the snapshot would come out silently short, and a control
+     * missing from it is SILENTLY PASSED by the property gate - the worst of
+     * the three possible answers. A default library is only warned about,
+     * because a partial default snapshot is still useful. */
+    else if (EXTRA_LIBS.includes(lib)) {
+      console.error(`no sources for ${lib} - install @sapui5/${lib} (or @openui5/${lib}), or drop it from --libs`);
+      process.exit(1);
+    } else console.error(`WARNING: no sources for ${lib} - skipped`);
   }
   for (const [libPath, pkg] of BASE_DIRS) {
     const dir = resolveDir(pkg, libPath);
