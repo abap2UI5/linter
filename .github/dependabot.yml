@@ -1,4 +1,4 @@
-# Weekly dependency updates, opened as pull requests so `npm test` and the
+# Monthly dependency updates, opened as pull requests so `npm test` and the
 # downstream workflow decide whether they are safe.
 #
 # Grouped one pull request per ecosystem. The runtime dependency count of
@@ -15,21 +15,27 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: tuesday
+      interval: monthly
       time: "06:30"
     open-pull-requests-limit: 5
     groups:
       toolchain:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      toolchain-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: tuesday
+      interval: monthly
       time: "06:30"
     open-pull-requests-limit: 5
     groups:
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
