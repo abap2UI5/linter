@@ -126,10 +126,12 @@ jobs:
 
   vscode-extension:
     # The other consumer imports the library through its subpath exports
-    # (./reconstruct, ./properties, ./abap-rules, ./findings) against
-    # hand-written typings in src/linter.d.ts. Type-checking it against this
-    # checkout is what catches a renamed export or a changed finding shape -
-    # the corpus job never would, because view-gates uses a different subset.
+    # (./reconstruct, ./properties, ./abap-rules, ./findings) against the
+    # typings THIS repo ships (types.d.ts, per subpath in the exports map) -
+    # the extension dropped its hand-written copy. Type-checking it against
+    # this checkout is what catches a renamed export, a changed finding shape
+    # or a types.d.ts that no longer matches the code - the corpus job never
+    # would, because view-gates uses a different subset.
     name: vscode-extension typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 15
