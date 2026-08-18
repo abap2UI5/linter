@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/abap2UI5/linter/main/data/abap2ui5lint.schema.json",
   "title": "abap2ui5lint.jsonc",
-  "description": "Configuration for abap2UI5-linter (https://github.com/abap2UI5/linter)",
+  "description": "Configuration for abap2UI5 linter (https://github.com/abap2UI5/linter)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -88,347 +88,347 @@
       "properties": {
         "aggregation-in-aggregation": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'aggregation-in-aggregation' — default severity: error"
+          "description": "abap2UI5 linter rule 'aggregation-in-aggregation' — default severity: error"
         },
         "aggregation-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'aggregation-too-new' — default severity: error"
+          "description": "abap2UI5 linter rule 'aggregation-too-new' — default severity: error"
         },
         "attribute-without-element": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'attribute-without-element' — default severity: error"
+          "description": "abap2UI5 linter rule 'attribute-without-element' — default severity: error"
         },
         "binding-for-event": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-for-event' — default severity: error"
+          "description": "abap2UI5 linter rule 'binding-for-event' — default severity: error"
         },
         "binding-on-association": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-on-association' — default severity: error"
+          "description": "abap2UI5 linter rule 'binding-on-association' — default severity: error"
         },
         "binding-to-local": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-to-local' — default severity: warning"
+          "description": "abap2UI5 linter rule 'binding-to-local' — default severity: warning"
         },
         "binding-to-nonpublic": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-to-nonpublic' — default severity: error"
+          "description": "abap2UI5 linter rule 'binding-to-nonpublic' — default severity: error"
         },
         "binding-to-reference": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-to-reference' — default severity: error"
+          "description": "abap2UI5 linter rule 'binding-to-reference' — default severity: error"
         },
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'binding-type-mismatch' — default severity: warning"
+          "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
         },
         "chain-element-per-line": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'chain-element-per-line' — default severity: hint"
+          "description": "abap2UI5 linter rule 'chain-element-per-line' — default severity: hint"
         },
         "chain-house-layout": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'chain-house-layout' — default severity: hint"
+          "description": "abap2UI5 linter rule 'chain-house-layout' — default severity: hint"
         },
         "chain-indentation": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'chain-indentation' — default severity: hint"
+          "description": "abap2UI5 linter rule 'chain-indentation' — default severity: hint"
         },
         "collapsed-brace-in-style": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'collapsed-brace-in-style' — default severity: error"
+          "description": "abap2UI5 linter rule 'collapsed-brace-in-style' — default severity: error"
         },
         "collection-bound-to-property": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'collection-bound-to-property' — default severity: error"
+          "description": "abap2UI5 linter rule 'collection-bound-to-property' — default severity: error"
         },
         "commercial-ui5-host": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'commercial-ui5-host' — default severity: warning"
+          "description": "abap2UI5 linter rule 'commercial-ui5-host' — default severity: warning"
         },
         "control-deprecated": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'control-deprecated' — default severity: warning"
+          "description": "abap2UI5 linter rule 'control-deprecated' — default severity: warning"
         },
         "control-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'control-too-new' — default severity: warning"
+          "description": "abap2UI5 linter rule 'control-too-new' — default severity: warning"
         },
         "date-type-without-source": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'date-type-without-source' — default severity: error"
+          "description": "abap2UI5 linter rule 'date-type-without-source' — default severity: error"
         },
         "denied-control-method": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'denied-control-method' — default severity: error"
+          "description": "abap2UI5 linter rule 'denied-control-method' — default severity: error"
         },
         "display-root-mismatch": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'display-root-mismatch' — default severity: error"
+          "description": "abap2UI5 linter rule 'display-root-mismatch' — default severity: error"
         },
         "duplicate-aggregation": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'duplicate-aggregation' — default severity: error"
+          "description": "abap2UI5 linter rule 'duplicate-aggregation' — default severity: error"
         },
         "duplicate-for-iterator": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'duplicate-for-iterator' — default severity: warning"
+          "description": "abap2UI5 linter rule 'duplicate-for-iterator' — default severity: warning"
         },
         "duplicate-id": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'duplicate-id' — default severity: error"
+          "description": "abap2UI5 linter rule 'duplicate-id' — default severity: error"
         },
         "duplicate-property": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'duplicate-property' — default severity: error"
+          "description": "abap2UI5 linter rule 'duplicate-property' — default severity: error"
         },
         "enum-value-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'enum-value-too-new' — default severity: warning"
+          "description": "abap2UI5 linter rule 'enum-value-too-new' — default severity: warning"
         },
         "escaped-brace-in-backtick": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'escaped-brace-in-backtick' — default severity: error"
+          "description": "abap2UI5 linter rule 'escaped-brace-in-backtick' — default severity: error"
         },
         "event-arg-out-of-range": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-arg-out-of-range' — default severity: error"
+          "description": "abap2UI5 linter rule 'event-arg-out-of-range' — default severity: error"
         },
         "event-arg-unresolved": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-arg-unresolved' — default severity: warning"
+          "description": "abap2UI5 linter rule 'event-arg-unresolved' — default severity: warning"
         },
         "event-for-property": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-for-property' — default severity: error"
+          "description": "abap2UI5 linter rule 'event-for-property' — default severity: error"
         },
         "event-on-disabled-control": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-on-disabled-control' — default severity: hint"
+          "description": "abap2UI5 linter rule 'event-on-disabled-control' — default severity: hint"
         },
         "event-parameter-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-parameter-too-new' — default severity: warning"
+          "description": "abap2UI5 linter rule 'event-parameter-too-new' — default severity: warning"
         },
         "event-without-handler": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'event-without-handler' — default severity: hint"
+          "description": "abap2UI5 linter rule 'event-without-handler' — default severity: hint"
         },
         "excess-shut": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'excess-shut' — default severity: error"
+          "description": "abap2UI5 linter rule 'excess-shut' — default severity: error"
         },
         "frontend-action-unknown-id": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'frontend-action-unknown-id' — default severity: error"
+          "description": "abap2UI5 linter rule 'frontend-action-unknown-id' — default severity: error"
         },
         "frozen-view-builder": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'frozen-view-builder' — default severity: error"
+          "description": "abap2UI5 linter rule 'frozen-view-builder' — default severity: error"
         },
         "get-viewname-removed": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'get-viewname-removed' — default severity: error"
+          "description": "abap2UI5 linter rule 'get-viewname-removed' — default severity: error"
         },
         "hardcoded-binding-path": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'hardcoded-binding-path' — default severity: warning"
+          "description": "abap2UI5 linter rule 'hardcoded-binding-path' — default severity: warning"
         },
         "icon-removed": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'icon-removed' — default severity: warning"
+          "description": "abap2UI5 linter rule 'icon-removed' — default severity: warning"
         },
         "icon-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'icon-too-new' — default severity: warning"
+          "description": "abap2UI5 linter rule 'icon-too-new' — default severity: warning"
         },
         "invalid-action-payload": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-action-payload' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-action-payload' — default severity: error"
         },
         "invalid-aggregation-child": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-aggregation-child' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-aggregation-child' — default severity: error"
         },
         "invalid-expression-binding": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-expression-binding' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-expression-binding' — default severity: error"
         },
         "invalid-frontend-action": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-frontend-action' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-frontend-action' — default severity: error"
         },
         "invalid-keyboard-shortcut": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-keyboard-shortcut' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-keyboard-shortcut' — default severity: error"
         },
         "invalid-property-value": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'invalid-property-value' — default severity: error"
+          "description": "abap2UI5 linter rule 'invalid-property-value' — default severity: error"
         },
         "json-bind-on-scalar-property": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'json-bind-on-scalar-property' — default severity: warning"
+          "description": "abap2UI5 linter rule 'json-bind-on-scalar-property' — default severity: warning"
         },
         "json-literal-in-attribute": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'json-literal-in-attribute' — default severity: error"
+          "description": "abap2UI5 linter rule 'json-literal-in-attribute' — default severity: error"
         },
         "live-event-roundtrip": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'live-event-roundtrip' — default severity: hint"
+          "description": "abap2UI5 linter rule 'live-event-roundtrip' — default severity: hint"
         },
         "manual-init-flag": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'manual-init-flag' — default severity: warning"
+          "description": "abap2UI5 linter rule 'manual-init-flag' — default severity: warning"
         },
         "member-deprecated": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'member-deprecated' — default severity: warning"
+          "description": "abap2UI5 linter rule 'member-deprecated' — default severity: warning"
         },
         "member-too-new": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'member-too-new' — default severity: warning"
+          "description": "abap2UI5 linter rule 'member-too-new' — default severity: warning"
         },
         "missing-accessibility": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'missing-accessibility' — default severity: hint"
+          "description": "abap2UI5 linter rule 'missing-accessibility' — default severity: hint"
         },
         "missing-on-navigated-branch": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'missing-on-navigated-branch' — default severity: warning"
+          "description": "abap2UI5 linter rule 'missing-on-navigated-branch' — default severity: warning"
         },
         "missing-required-aggregation": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'missing-required-aggregation' — default severity: warning"
+          "description": "abap2UI5 linter rule 'missing-required-aggregation' — default severity: warning"
         },
         "missing-view-display-on-navigated": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'missing-view-display-on-navigated' — default severity: error"
+          "description": "abap2UI5 linter rule 'missing-view-display-on-navigated' — default severity: error"
         },
         "non-released-api": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'non-released-api' — default severity: warning"
+          "description": "abap2UI5 linter rule 'non-released-api' — default severity: warning"
         },
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'obsolete-binder' — default severity: warning"
+          "description": "abap2UI5 linter rule 'obsolete-binder' — default severity: warning"
         },
         "obsolete-frontend-event": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'obsolete-frontend-event' — default severity: warning"
+          "description": "abap2UI5 linter rule 'obsolete-frontend-event' — default severity: warning"
         },
         "obsolete-model-update": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'obsolete-model-update' — default severity: warning"
+          "description": "abap2UI5 linter rule 'obsolete-model-update' — default severity: warning"
         },
         "popover-anchor-unknown-id": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'popover-anchor-unknown-id' — default severity: error"
+          "description": "abap2UI5 linter rule 'popover-anchor-unknown-id' — default severity: error"
         },
         "popover-display-val": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'popover-display-val' — default severity: error"
+          "description": "abap2UI5 linter rule 'popover-display-val' — default severity: error"
         },
         "raw-javascript-to-frontend": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'raw-javascript-to-frontend' — default severity: warning"
+          "description": "abap2UI5 linter rule 'raw-javascript-to-frontend' — default severity: warning"
         },
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'relative-binding-without-context' — default severity: error"
+          "description": "abap2UI5 linter rule 'relative-binding-without-context' — default severity: error"
         },
         "sapui5-only-control": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'sapui5-only-control' — default severity: error"
+          "description": "abap2UI5 linter rule 'sapui5-only-control' — default severity: error"
         },
         "separate-lifecycle-ifs": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'separate-lifecycle-ifs' — default severity: warning"
+          "description": "abap2UI5 linter rule 'separate-lifecycle-ifs' — default severity: warning"
         },
         "settable-property-via-action": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'settable-property-via-action' — default severity: hint"
+          "description": "abap2UI5 linter rule 'settable-property-via-action' — default severity: hint"
         },
         "source-line-too-long": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'source-line-too-long' — default severity: error"
+          "description": "abap2UI5 linter rule 'source-line-too-long' — default severity: error"
         },
         "too-many-children": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'too-many-children' — default severity: error"
+          "description": "abap2UI5 linter rule 'too-many-children' — default severity: error"
         },
         "toolbar-control-in-bar": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'toolbar-control-in-bar' — default severity: warning"
+          "description": "abap2UI5 linter rule 'toolbar-control-in-bar' — default severity: warning"
         },
         "trailing-empty-event-arg": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'trailing-empty-event-arg' — default severity: warning"
+          "description": "abap2UI5 linter rule 'trailing-empty-event-arg' — default severity: warning"
         },
         "ui5-internal-access": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'ui5-internal-access' — default severity: warning"
+          "description": "abap2UI5 linter rule 'ui5-internal-access' — default severity: warning"
         },
         "unconverted-abap-boolean": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unconverted-abap-boolean' — default severity: error"
+          "description": "abap2UI5 linter rule 'unconverted-abap-boolean' — default severity: error"
         },
         "uncurated-formatter": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'uncurated-formatter' — default severity: error"
+          "description": "abap2UI5 linter rule 'uncurated-formatter' — default severity: error"
         },
         "undeclared-namespace": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'undeclared-namespace' — default severity: error"
+          "description": "abap2UI5 linter rule 'undeclared-namespace' — default severity: error"
         },
         "unescaped-brace-in-style": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unescaped-brace-in-style' — default severity: error"
+          "description": "abap2UI5 linter rule 'unescaped-brace-in-style' — default severity: error"
         },
         "unknown-aggregation": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-aggregation' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-aggregation' — default severity: error"
         },
         "unknown-binding-path": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-binding-path' — default severity: warning"
+          "description": "abap2UI5 linter rule 'unknown-binding-path' — default severity: warning"
         },
         "unknown-control": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-control' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-control' — default severity: error"
         },
         "unknown-event-parameter": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-event-parameter' — default severity: hint"
+          "description": "abap2UI5 linter rule 'unknown-event-parameter' — default severity: hint"
         },
         "unknown-frontend-action": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-frontend-action' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-frontend-action' — default severity: error"
         },
         "unknown-icon": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-icon' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-icon' — default severity: error"
         },
         "unknown-model": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-model' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-model' — default severity: error"
         },
         "unknown-property": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-property' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-property' — default severity: error"
         },
         "unknown-view-slot": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unknown-view-slot' — default severity: error"
+          "description": "abap2UI5 linter rule 'unknown-view-slot' — default severity: error"
         },
         "unused-public-attribute": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'unused-public-attribute' — default severity: hint"
+          "description": "abap2UI5 linter rule 'unused-public-attribute' — default severity: hint"
         },
         "view-never-displayed": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5-linter rule 'view-never-displayed' — default severity: error"
+          "description": "abap2UI5 linter rule 'view-never-displayed' — default severity: error"
         },
         "render-error": {
           "$ref": "#/definitions/rule",

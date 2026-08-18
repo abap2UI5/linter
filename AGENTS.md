@@ -1,4 +1,4 @@
-# AGENTS.md — abap2UI5-linter
+# AGENTS.md — abap2UI5 linter
 
 Single source of truth for agents working on the **abap2UI5 view linter** —
 the standalone property + render gates for abap2UI5 views (classes built with

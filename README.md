@@ -1,4 +1,4 @@
-# abap2UI5-linter
+# abap2UI5 linter
 
 **Validate abap2UI5 app classes without an SAP system** — a CLI, library, and
 GitHub Action extracted from the CI gates of
