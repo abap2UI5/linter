@@ -6,11 +6,15 @@ name: Downstream
 # This workflow closes that loop: every change is run against the real
 # consumers, with THIS checkout substituted for the version they pin.
 #
-# Why substitution and not a plain `npm ci`: both consumers pin the linter to a
-# commit, which is exactly what makes them stable - and exactly what would make
-# this job test the pinned version instead of the proposed one. So the
-# consumer is installed normally (to get the hoisted @openui5 + playwright
-# tree) and only the linter's own published files are swapped in afterwards.
+# Why substitution and not a plain `npm ci`: both pinning consumers install a
+# FIXED linter - samples-controls a published npm version through its
+# package-lock.json (range ^0.2.x, moved weekly by its bump_linter workflow),
+# the VS Code extension a commit SHA - which is exactly what makes them stable,
+# and exactly what would make this job test the pinned version instead of the
+# proposed one. So the consumer is installed normally (to get the hoisted
+# @openui5 + playwright tree) and only the linter's own published files are
+# swapped in afterwards. The third consumer, ai-mcp, pins nothing: it imports
+# the sibling checkout, so it is simply given this one.
 #
 # A failure here is not automatically a defect in the change: a new rule that
 # fires on the corpus may well be right. It means the rollout has to be

@@ -404,6 +404,30 @@ declare module "@abap2ui5/linter/findings" {
   ): T[];
 }
 
+declare module "@abap2ui5/linter/rule-docs" {
+  /** The prose behind a rule id: what the defect is and what the fix looks
+   *  like. The one-line `message` on a finding has to stand on its own in a
+   *  terminal; this is the paragraph that does not fit there. */
+  export interface RuleDoc {
+    /** Which group the rule appears under on the rules page. */
+    category: string;
+    /** One line - the README table cell. */
+    summary: string;
+    /** The paragraph: why the defect matters and how to fix it. */
+    detail: string;
+    /** Optional: the shortest source that triggers the rule. */
+    example?: string;
+    /** Optional: what `--fix` does to it, for a rule listed in FIXABLE. */
+    fixNote?: string;
+  }
+
+  /** Keyed by rule id - every id in the `RULES` registry has an entry, plus
+   *  the render gate's pseudo-rule. */
+  export const RULE_DOCS: Record<string, RuleDoc>;
+
+  export const CATEGORIES: { id: string; title: string; blurb: string }[];
+}
+
 declare module "@abap2ui5/linter/config" {
   /** File names discovered, in order - jsonc first. */
   export const CONFIG_NAMES: string[];

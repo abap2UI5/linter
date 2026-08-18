@@ -748,7 +748,18 @@ findings = applyRules(findings, rules, file);     // the repo's rules block
 findings = applyDirectives(findings, source);     // abap2ui5lint-disable-* comments
 ```
 
-`RULES` is the full rule-id registry. The `report` subpath holds the
+`RULES` is the full rule-id registry, and `rule-docs` is the prose behind those
+ids — the same text the [rules page](https://abap2ui5.github.io/linter/) is
+generated from, for a consumer whose reader has no browser to send anyone to:
+
+```js
+import { RULE_DOCS } from '@abap2ui5/linter/rule-docs';
+
+RULE_DOCS['binding-to-reference'].summary;  // the one-line README cell
+RULE_DOCS['binding-to-reference'].detail;   // the paragraph on the rules page
+```
+
+The `report` subpath holds the
 formatters (`formatStylish`, `formatJson`, `formatMarkdown`,
 `githubAnnotations`, `summarize`) if you want the same output elsewhere, plus
 the run-summary and badge builders (`runStats`, `statsRows`, `formatStats`,

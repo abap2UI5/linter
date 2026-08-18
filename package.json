@@ -49,6 +49,10 @@
       "types": "./types.d.ts",
       "default": "./lib/findings.mjs"
     },
+    "./rule-docs": {
+      "types": "./types.d.ts",
+      "default": "./lib/rule-docs.mjs"
+    },
     "./config": {
       "types": "./types.d.ts",
       "default": "./lib/config.mjs"
@@ -101,7 +105,7 @@
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@abap2ui5/render-runtime": "^0.1.0"
+    "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0"
   },
   "peerDependenciesMeta": {
     "@abap2ui5/render-runtime": {

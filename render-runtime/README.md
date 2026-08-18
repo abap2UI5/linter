@@ -36,8 +36,12 @@ default install small and the render gate an explicit, single-name opt-in.
 ## How the linter finds it
 
 `@abap2ui5/render-runtime` is declared as an **optional peer dependency** of
-`@abap2ui5/linter`, so npm never installs it on its own and `npm ls` still
-reports a version mismatch if one develops.
+`@abap2ui5/linter`, so npm never installs it on its own — and, when it *is*
+installed, npm holds it to the linter's declared range. That range lists the
+release lines the linter has been verified against, and it is not advisory:
+npm **refuses** an optional peer that is present and out of range, so a pairing
+this package has not been built for fails at install time rather than at
+render time.
 
 The linter resolves the `@openui5` packages *through* this package when it is
 present, rather than trusting them to be hoisted to the top of `node_modules`.
@@ -51,4 +55,16 @@ render gate fails with one actionable message naming this package.
 
 The pinned `@openui5` version is what the linter's metadata snapshot was
 generated from, so the two move together: a linter release that regenerates the
-snapshot gets a matching release here. Install both from the same minor line.
+snapshot gets a matching release here, and both are cut from one version tag.
+
+**Prefer the same minor line.** What actually has to agree is the `@openui5`
+version — a runtime older than the snapshot the linter was built against can
+serve a control the gate then judges by metadata it does not have. Lines that
+share those pins are interchangeable for the gate, which is why the linter's
+peer range names every line it has been verified against rather than only the
+newest one, and why an older line is not a defect to be broken out of.
+
+What a newer line can add is capability rather than compatibility:
+`less-openui5` (the theme compiler behind `--screenshot`) arrived after the
+first releases. Without it a screenshot still comes back — unstyled — and the
+render gate is untouched either way, because it asks for no stylesheet.
