@@ -927,8 +927,8 @@ the consumer, so no second install is needed):
 
 | Job | What it catches |
 | --- | --- |
-| `samples-controls corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
-| `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports against hand-written typings in its `src/linter.d.ts`, which nothing here would otherwise exercise |
+| `samples-controls corpus` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
+| `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports and typechecks them against the typings this package ships, which nothing here would otherwise exercise |
 
 A red downstream job is **not automatically a defect in the change**: a new
 rule that fires on the corpus may well be right. It means the rollout has to
@@ -941,9 +941,11 @@ landing unseen. Two traps worth knowing before reading a result:
   breaking change: the consumer matches `VERSION_TYPES` and its sidecar
   deviations by type name, so a rename un-excuses every finding that name
   covered (renaming `member-too-new` fails 68 ports).
-- The corpus exercises only a fraction of the rule set — as of this writing
-  just six finding types fire across all 280 ports. A green corpus job means
-  *no regression*, not *the new rule is covered*.
+- The corpus exercises only a fraction of the rule set — when this was last
+  measured (2026-08, 416 ports) just six finding types fired across the whole
+  corpus. A green corpus job means *no regression*, not *the new rule is
+  covered*. The current size is in samples-controls' generated `STATUS.md`;
+  quoting it here as a standing number is how this line came to say 280.
 
 ## Related repositories
 
