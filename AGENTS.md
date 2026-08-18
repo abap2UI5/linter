@@ -15,7 +15,7 @@ npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
 npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
-npm run generate-rules-page       # ditto: docs/index.html, the published reference
+npm run generate-rules-page       # ditto: site/index.html, the published reference
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
@@ -132,7 +132,7 @@ stale:
 
 ```bash
 npm run generate-schema      # data/abap2ui5lint.schema.json
-npm run generate-rules-page  # docs/index.html
+npm run generate-rules-page  # site/index.html
 ```
 
 `lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
@@ -181,7 +181,7 @@ theirs on purpose and a change that drifts from it needs a reason:
 | `--fix` plus a `*_FIX_DRY_RUN` env escape | ui5lint's `--fix` / `UI5LINT_FIX_DRY_RUN` |
 | `abap2ui5lint-disable-next-line`/`-disable-line`/`-disable`/`-enable`, reason after `--` | ui5lint directives |
 | `abap2ui5lint.jsonc`, `rules: { id: false \| severity \| { severity, exclude } }`, JSON schema for editor completion | abaplint's config and `BasicRuleConfig` |
-| `docs/index.html` — one searchable page, one anchor per rule id | rules.abaplint.org |
+| `site/index.html` — one searchable page, one anchor per rule id | rules.abaplint.org |
 | bin alias `abap2ui5lint`, exit codes 0/1/2 | both |
 | workflow-command annotations on the PR diff | abaplint's `actions-abaplint` |
 
@@ -851,7 +851,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   downstream workflow is what says a bump is safe. npm additionally serves the
   consumers that have no such workflow — a developer linting their own app,
   and anyone who wants a pinnable version instead of `@main`.
-- **`docs/index.html` is published on merge** to
+- **`site/index.html` is published on merge** to
   https://abap2ui5.github.io/linter/ by `.github/workflows/pages.yml` — a
   reworded rule detail is live the moment it lands on main. The workflow only
   serves the committed file, it never regenerates it: a generator running in

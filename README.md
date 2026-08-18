@@ -819,7 +819,7 @@ and the prose in `lib/rule-docs.mjs` — `npm test` fails while either is stale:
 
 ```sh
 npm run generate-schema      # data/abap2ui5lint.schema.json — editor completion
-npm run generate-rules-page  # docs/index.html — the published rule reference
+npm run generate-rules-page  # site/index.html — the published rule reference
 ```
 
 ## Credits

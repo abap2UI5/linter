@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * generate-rules-page — docs/index.html, the published rule reference.
+ * generate-rules-page — site/index.html, the published rule reference.
  *
  * rules.abaplint.org is where an abaplint user goes to find out what a rule
  * id means; this is the same thing for abap2UI5 views. Generated from the
@@ -9,7 +9,7 @@
  * keep in step.
  *
  * One self-contained file: no build step, no CDN, no external font. GitHub
- * Pages serves docs/ as-is.
+ * Pages serves site/ as-is.
  *
  *   node scripts/generate-rules-page.mjs           write the page
  *   node scripts/generate-rules-page.mjs --check   exit 1 if it is stale
@@ -22,7 +22,7 @@ import { RULE_DOCS, CATEGORIES } from '../lib/rule-docs.mjs';
 import { FIXABLE } from '../lib/fix.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const PAGE_FILE = path.join(ROOT, 'docs', 'index.html');
+export const PAGE_FILE = path.join(ROOT, 'site', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
 
 /* Everything the page owes an anchor to. RULES plus the render gate's
@@ -153,14 +153,14 @@ export function buildPage() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>abap2UI5-linter rules</title>
+<title>abap2UI5 linter rules</title>
 <meta name="description" content="Every rule the abap2UI5 view linter reports: what it means, how severe it is, and how to configure or waive it.">
 <style>${CSS}</style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>abap2UI5-linter rules</h1>
+    <h1>abap2UI5 linter rules</h1>
     <p class="lede">Every rule the <a href="${REPO}">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
@@ -203,7 +203,7 @@ ${sections}
 
   <footer>
     Generated from the rule registry of
-    <a href="${REPO}">abap2UI5-linter</a> — do not edit by hand.
+    <a href="${REPO}">abap2UI5 linter</a> — do not edit by hand.
     Metadata snapshot and gate details are described in the
     <a href="${REPO}#readme">README</a>.
   </footer>
@@ -220,10 +220,10 @@ if (invokedDirectly) {
   if (process.argv.includes('--check')) {
     const current = fs.existsSync(PAGE_FILE) ? fs.readFileSync(PAGE_FILE, 'utf8') : '';
     if (current !== text) {
-      console.error('docs/index.html is stale — run: npm run generate-rules-page');
+      console.error('site/index.html is stale — run: npm run generate-rules-page');
       process.exit(1);
     }
-    console.log('docs/index.html is up to date');
+    console.log('site/index.html is up to date');
   } else {
     fs.mkdirSync(path.dirname(PAGE_FILE), { recursive: true });
     fs.writeFileSync(PAGE_FILE, text);
