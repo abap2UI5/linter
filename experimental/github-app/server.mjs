@@ -28,7 +28,7 @@ const {
 const privateKey = PRIVATE_KEY || (PRIVATE_KEY_PATH && fs.readFileSync(PRIVATE_KEY_PATH, 'utf8'));
 for (const [name, v] of [['APP_ID', APP_ID], ['PRIVATE_KEY or PRIVATE_KEY_PATH', privateKey], ['WEBHOOK_SECRET', WEBHOOK_SECRET]]) {
   if (!v) {
-    console.error(`missing ${name} - see github-app/README.md`);
+    console.error(`missing ${name} - see experimental/github-app/README.md`);
     process.exit(2);
   }
 }

@@ -4,7 +4,7 @@
  * through the same `lintSource`/`toAnnotations`/`summarize` the webhook path
  * uses, and print the check-run payload that WOULD be posted.
  *
- *   node github-app/dryrun.mjs test/fixtures
+ *   node experimental/github-app/dryrun.mjs test/fixtures
  *
  * A spike nobody can run is a spike nobody can judge. This is also the only
  * part of the App that is testable without registering one.
@@ -16,7 +16,7 @@ import { CHECKABLE, lintSource, summarize, toAnnotations } from './review.mjs';
 const args = process.argv.slice(2);
 const target = args.find((a) => !a.startsWith('-'));
 if (!target) {
-  console.error('usage: node github-app/dryrun.mjs <file-or-directory> [--json]');
+  console.error('usage: node experimental/github-app/dryrun.mjs <file-or-directory> [--json]');
   process.exit(2);
 }
 

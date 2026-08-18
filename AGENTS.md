@@ -829,10 +829,11 @@ frozen — samples-controls's coverage docs read `controls[…].since` / `.depre
     see the metadata section above: samples-controls runs it out of
     `node_modules`.
 
-## `github-app/` — a spike, not a channel
+## `experimental/github-app/` — a spike, not a channel
 
-`github-app/` is a working prototype of the linter as a hosted **GitHub App**
-(webhook → installation token → property gate → check run), written to answer
+`experimental/github-app/` is a working prototype of the linter as a hosted
+**GitHub App** (webhook → installation token → property gate → check run),
+written to answer
 "what would this take" with running code. **It is not deployed, not registered
 and not part of any release** — the npm `files` allowlist excludes it, so it
 never reaches the package. Treat it as documentation that happens to execute.
@@ -842,7 +843,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   delivery is linted in memory with no clone and no temp directory. The render
   gate needs Chromium plus ~140 MB of `@openui5/*` per run and stays in the
   consumer's CI. It is the same split the VS Code extension already lives on.
-- `node github-app/dryrun.mjs <path>` runs the identical
+- `node experimental/github-app/dryrun.mjs <path>` runs the identical
   `lintSource`/`toAnnotations`/`summarize` path against local files and prints
   the check-run payload — the only part testable without registering an App.
 - Its README lists what separates the prototype from a service (persistence,
