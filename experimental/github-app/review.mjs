@@ -9,9 +9,9 @@
  * per run) and is deliberately NOT here: it stays in the consumer's own CI,
  * where the Action already runs it.
  */
-import { checkAbapSource, checkXmlSource } from '../lib/index.mjs';
-import { describe, severityOf, severityRank } from '../lib/findings.mjs';
-import { stripJsonc } from '../lib/config.mjs';
+import { checkAbapSource, checkXmlSource } from '../../lib/index.mjs';
+import { describe, severityOf, severityRank } from '../../lib/findings.mjs';
+import { stripJsonc } from '../../lib/config.mjs';
 import { api, fileAt, paginate } from './github.mjs';
 
 /** The abapGit naming convention the CLI scans a directory by. A file the

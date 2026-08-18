@@ -1,7 +1,7 @@
 {
   "name": "@abap2ui5/render-runtime",
   "version": "0.2.1",
-  "description": "The UI5 runtime the abap2UI5-linter render gate serves: the @openui5 source packages and playwright, as one install.",
+  "description": "The UI5 runtime the abap2UI5 linter render gate serves: the @openui5 source packages and playwright, as one install.",
   "type": "module",
   "keywords": [
     "abap2ui5",
@@ -20,7 +20,7 @@
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/abap2UI5/abap2UI5/issues"
+    "url": "https://github.com/abap2UI5/linter/issues"
   },
   "homepage": "https://github.com/abap2UI5/linter#render-gate",
   "files": [

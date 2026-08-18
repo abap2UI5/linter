@@ -1,6 +1,6 @@
 # @abap2ui5/render-runtime
 
-The UI5 runtime that the [abap2UI5-linter](https://github.com/abap2UI5/linter)
+The UI5 runtime that the [abap2UI5 linter](https://github.com/abap2UI5/linter)
 render gate serves — the `@openui5/*` source packages, `playwright` and the
 theme compiler, bundled as **one** install instead of thirteen.
 

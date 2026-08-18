@@ -1,4 +1,4 @@
-# AGENTS.md — abap2UI5-linter
+# AGENTS.md — abap2UI5 linter
 
 Single source of truth for agents working on the **abap2UI5 view linter** —
 the standalone property + render gates for abap2UI5 views (classes built with
@@ -15,7 +15,7 @@ npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
 npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
-npm run generate-rules-page       # ditto: docs/index.html, the published reference
+npm run generate-rules-page       # ditto: site/index.html, the published reference
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
@@ -132,7 +132,7 @@ stale:
 
 ```bash
 npm run generate-schema      # data/abap2ui5lint.schema.json
-npm run generate-rules-page  # docs/index.html
+npm run generate-rules-page  # site/index.html
 ```
 
 `lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
@@ -181,7 +181,7 @@ theirs on purpose and a change that drifts from it needs a reason:
 | `--fix` plus a `*_FIX_DRY_RUN` env escape | ui5lint's `--fix` / `UI5LINT_FIX_DRY_RUN` |
 | `abap2ui5lint-disable-next-line`/`-disable-line`/`-disable`/`-enable`, reason after `--` | ui5lint directives |
 | `abap2ui5lint.jsonc`, `rules: { id: false \| severity \| { severity, exclude } }`, JSON schema for editor completion | abaplint's config and `BasicRuleConfig` |
-| `docs/index.html` — one searchable page, one anchor per rule id | rules.abaplint.org |
+| `site/index.html` — one searchable page, one anchor per rule id | rules.abaplint.org |
 | bin alias `abap2ui5lint`, exit codes 0/1/2 | both |
 | workflow-command annotations on the PR diff | abaplint's `actions-abaplint` |
 
@@ -822,11 +822,18 @@ frozen — samples-controls's coverage docs read `controls[…].since` / `.depre
     listing** (the Action needs a release to be published from; `action.yml`
     already carries the required `branding`). Marketplace publishing itself
     is a click-through on the release, not a workflow step.
+  - `action.yml` is **not** in `files[]`: a composite action runs from the
+    checkout (`github.action_path`), never from a consumer's `node_modules`,
+    so shipping it on npm only made the tarball describe a channel it cannot
+    serve. `scripts/generate-metadata.mjs` stays in `files[]` on purpose —
+    see the metadata section above: samples-controls runs it out of
+    `node_modules`.
 
-## `github-app/` — a spike, not a channel
+## `experimental/github-app/` — a spike, not a channel
 
-`github-app/` is a working prototype of the linter as a hosted **GitHub App**
-(webhook → installation token → property gate → check run), written to answer
+`experimental/github-app/` is a working prototype of the linter as a hosted
+**GitHub App** (webhook → installation token → property gate → check run),
+written to answer
 "what would this take" with running code. **It is not deployed, not registered
 and not part of any release** — the npm `files` allowlist excludes it, so it
 never reaches the package. Treat it as documentation that happens to execute.
@@ -836,7 +843,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   delivery is linted in memory with no clone and no temp directory. The render
   gate needs Chromium plus ~140 MB of `@openui5/*` per run and stays in the
   consumer's CI. It is the same split the VS Code extension already lives on.
-- `node github-app/dryrun.mjs <path>` runs the identical
+- `node experimental/github-app/dryrun.mjs <path>` runs the identical
   `lintSource`/`toAnnotations`/`summarize` path against local files and prints
   the check-run payload — the only part testable without registering an App.
 - Its README lists what separates the prototype from a service (persistence,
@@ -851,7 +858,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   downstream workflow is what says a bump is safe. npm additionally serves the
   consumers that have no such workflow — a developer linting their own app,
   and anyone who wants a pinnable version instead of `@main`.
-- **`docs/index.html` is published on merge** to
+- **`site/index.html` is published on merge** to
   https://abap2ui5.github.io/linter/ by `.github/workflows/pages.yml` — a
   reworded rule detail is live the moment it lands on main. The workflow only
   serves the committed file, it never regenerates it: a generator running in
@@ -920,8 +927,8 @@ the consumer, so no second install is needed):
 
 | Job | What it catches |
 | --- | --- |
-| `samples-controls corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
-| `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports against hand-written typings in its `src/linter.d.ts`, which nothing here would otherwise exercise |
+| `samples-controls corpus` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
+| `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports and typechecks them against the typings this package ships, which nothing here would otherwise exercise |
 
 A red downstream job is **not automatically a defect in the change**: a new
 rule that fires on the corpus may well be right. It means the rollout has to
@@ -934,9 +941,11 @@ landing unseen. Two traps worth knowing before reading a result:
   breaking change: the consumer matches `VERSION_TYPES` and its sidecar
   deviations by type name, so a rename un-excuses every finding that name
   covered (renaming `member-too-new` fails 68 ports).
-- The corpus exercises only a fraction of the rule set — as of this writing
-  just six finding types fire across all 280 ports. A green corpus job means
-  *no regression*, not *the new rule is covered*.
+- The corpus exercises only a fraction of the rule set — when this was last
+  measured (2026-08, 416 ports) just six finding types fired across the whole
+  corpus. A green corpus job means *no regression*, not *the new rule is
+  covered*. The current size is in samples-controls' generated `STATUS.md`;
+  quoting it here as a standing number is how this line came to say 280.
 
 ## Related repositories
 

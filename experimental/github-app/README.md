@@ -35,8 +35,8 @@ consumer.
 ## Try it without registering anything
 
 ```sh
-node github-app/dryrun.mjs test/fixtures          # what it would post
-node github-app/dryrun.mjs test/fixtures --json   # the check-run payload itself
+node experimental/github-app/dryrun.mjs test/fixtures          # what it would post
+node experimental/github-app/dryrun.mjs test/fixtures --json   # the check-run payload itself
 ```
 
 Same `lintSource` / `toAnnotations` / `summarize` the webhook path uses.
@@ -53,7 +53,7 @@ Register an App (Settings → Developer settings → GitHub Apps) with:
 APP_ID=123456 \
 PRIVATE_KEY_PATH=./private-key.pem \
 WEBHOOK_SECRET=... \
-node github-app/server.mjs
+node experimental/github-app/server.mjs
 ```
 
 `GET /health` answers `ok`; everything else must be a signed `POST`.

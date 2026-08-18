@@ -28,7 +28,7 @@ export function buildSchema() {
   for (const id of RULES) {
     rules[id] = {
       $ref: '#/definitions/rule',
-      description: `abap2UI5-linter rule '${id}' — default severity: ${defaultSeverityOf(id)}`,
+      description: `abap2UI5 linter rule '${id}' — default severity: ${defaultSeverityOf(id)}`,
     };
   }
   // the render gate's pseudo-rule: waive or downgrade render failures per
@@ -41,7 +41,7 @@ export function buildSchema() {
     $schema: 'http://json-schema.org/draft-07/schema#',
     $id: 'https://raw.githubusercontent.com/abap2UI5/linter/main/data/abap2ui5lint.schema.json',
     title: 'abap2ui5lint.jsonc',
-    description: 'Configuration for abap2UI5-linter (https://github.com/abap2UI5/linter)',
+    description: 'Configuration for abap2UI5 linter (https://github.com/abap2UI5/linter)',
     type: 'object',
     additionalProperties: false,
     properties: {

@@ -3060,7 +3060,7 @@ ENDCLASS.`;
     'rules page: an autofixable rule says on the page what --fix does to it');
 
   const page = fs.readFileSync(PAGE_FILE, 'utf8');
-  assert(page === buildPage(), 'rules page: docs/index.html is in sync (npm run generate-rules-page)');
+  assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
   assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
     'rules page: every rule has an anchor to link to');
   assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),

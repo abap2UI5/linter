@@ -1,5 +1,5 @@
 name: Rules page
-# Publishes docs/ (the generated rule reference) to GitHub Pages -
+# Publishes site/ (the generated rule reference) to GitHub Pages -
 # https://abap2ui5.github.io/linter/ - the same role rules.abaplint.org plays
 # next door. The page is generated and committed; this only serves it.
 #
@@ -9,7 +9,7 @@ on:
   push:
     branches: [main]
     paths:
-      - docs/**
+      - site/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -34,6 +34,6 @@ jobs:
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs
+          path: site
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

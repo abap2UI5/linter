@@ -1,4 +1,4 @@
-name: 'abap2UI5-linter'
+name: 'abap2UI5 linter'
 description: 'Validate abap2UI5 app classes — the ABAP and the view it builds, checked together. No SAP system needed.'
 branding:
   icon: 'check-circle'
@@ -60,13 +60,13 @@ runs:
     # skip the ~118 MB download instead of paying it and then passing
     # --no-render. The full install stays the default: turning the render gate
     # off silently would make findings disappear from somebody's CI.
-    - name: Install abap2UI5-linter (with the UI5 runtime)
+    - name: Install abap2UI5 linter (with the UI5 runtime)
       if: inputs.render != 'false'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
       run: npm ci --prefix "$ACTION_PATH"
-    - name: Install abap2UI5-linter (property gate only)
+    - name: Install abap2UI5 linter (property gate only)
       if: inputs.render == 'false'
       shell: bash
       env:
@@ -79,7 +79,7 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
       run: npx --prefix "$ACTION_PATH" playwright install chromium --with-deps
-    - name: Run abap2UI5-linter
+    - name: Run abap2UI5 linter
       shell: bash
       # Inputs reach the shell only through env - a `${{ }}` interpolated into
       # `run:` would let a crafted input inject shell commands. Only
