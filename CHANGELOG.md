@@ -3,7 +3,6 @@
 
 ## Unreleased
 
-
 ## 0.2.2 - 2026-08-18
 
 - **The render-runtime peer range forbade the pairing both READMEs prescribe.**
