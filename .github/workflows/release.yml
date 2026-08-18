@@ -172,8 +172,8 @@ jobs:
       # package that does not exist yet - see the header), and a workflow re-run
       # repeats a publish that already succeeded. npm never lets a version be
       # replaced, so "already there" is the desired end state, not an error -
-      # and the job must still reach `major-tag`, which is what makes
-      # `uses: abap2UI5/linter@v0` resolve.
+      # and the job must still reach `after-publish`, which is what makes
+      # `uses: abap2UI5/linter@v0` resolve and writes the release notes.
       - name: Which versions are already on the registry
         id: published
         if: startsWith(github.ref, 'refs/tags/')
@@ -182,7 +182,7 @@ jobs:
           # a function whose result is read through $(...) may write nothing but
           # that result: the notice would be captured with it and land in
           # GITHUB_OUTPUT as a second line, which fails the step with
-          # "Invalid format" - and takes `major-tag` down with it, exactly in
+          # "Invalid format" - and takes `after-publish` down with it, exactly in
           # the already-published case this step exists to survive.
           VERSION="${GITHUB_REF_NAME#v}"
           for PAIR in 'runtime:@abap2ui5/render-runtime' 'linter:@abap2ui5/linter'; do
@@ -226,13 +226,19 @@ jobs:
   #
   # Separate job so the publish keeps `contents: read`: only this one needs
   # write, and it needs no OIDC token at all.
-  major-tag:
+  #
+  # Named for when it runs rather than for what it does, because it does two
+  # things now: move the major alias, and write the GitHub Release.
+  after-publish:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      # CHANGELOG.md, at the tag - the release notes are read out of it below.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       # Moved through the git REFS API, not `git push -f`. A push is refused
       # outright when the ref it moves carries workflow-file changes:
       #
@@ -270,3 +276,89 @@ jobs:
             core.info(`${major} now points at ${tag} (${context.sha})`);
           # Fail loudly rather than leave a silently stale alias: an Action
           # user pinning @v0 would otherwise keep getting the old release.
+
+      # The tag's THIRD consumer: a human on the releases page.
+      #
+      # Until 2026-08-18 this workflow made none, and nobody noticed for five
+      # releases - `releases/latest` answered 404, the repository showed no
+      # Latest badge, and the page was 37 rolling `render-gate-bundle`
+      # prereleases with no version among them. The five were written by hand
+      # afterwards; this is so there is no sixth.
+      #
+      # After the alias step, and `!cancelled()` so the order cannot cost
+      # anything: a failure here must not skip the alias move (that one leaves
+      # consumers on old code), and a failed alias move must not skip this.
+      - name: Write the GitHub release
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const tag = context.ref.replace('refs/tags/', '');
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
+              core.info(`${tag} is not a version tag - no release to write`);
+              return;
+            }
+            const version = tag.slice(1);
+
+            // The notes are the CHANGELOG section for this version, which
+            // RELEASING.md step 2 renames from "Unreleased" in the release
+            // commit. Heading shapes seen in this file: `## 0.2.1` and
+            // `## 0.2.2 - 2026-08-18`, so match the version then a space or
+            // the end of the line - `## 0.2.1` must not match `## 0.2.10`.
+            const lines = fs.readFileSync('CHANGELOG.md', 'utf8').split('\n');
+            const heading = new RegExp('^## ' + version.replace(/\./g, '\\.') + '( |$)');
+            const from = lines.findIndex((l) => heading.test(l));
+            let body;
+            if (from === -1) {
+              // A warning, not a failure. The packages are on npm by now, and
+              // notes that are missing are visible on the page and editable in
+              // a minute - unlike a stale alias, which is silent and serves
+              // the wrong code. A red run for something cosmetic is how people
+              // learn to ignore red release runs.
+              core.warning(
+                `CHANGELOG.md has no "## ${version}" section, so the release points at the file instead of quoting it. `
+                + 'RELEASING.md step 2 is where that heading gets renamed - add the notes on the release page.',
+              );
+              body = `See [CHANGELOG.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${tag}/CHANGELOG.md).`;
+            } else {
+              let to = from + 1;
+              while (to < lines.length && !/^## /.test(lines[to])) to += 1;
+              body = lines.slice(from + 1, to).join('\n').trim();
+            }
+
+            // `make_latest` is decided here rather than left at 'true',
+            // because a patch backported to an older line (v0.1.3 after
+            // v0.2.0) is a release but not the latest one, and marking it so
+            // would point every reader at the older code.
+            const parts = (t) => t.slice(1).split('.').map(Number);
+            const newer = (a, b) => {
+              for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] > b[i];
+              return false;
+            };
+            const mine = parts(tag);
+            const { data: existing } = await github.rest.repos.listReleases({ ...context.repo, per_page: 100 });
+            const outranked = existing
+              .filter((r) => !r.prerelease && !r.draft && /^v\d+\.\d+\.\d+$/.test(r.tag_name))
+              .some((r) => newer(parts(r.tag_name), mine));
+            const make_latest = outranked ? 'false' : 'true';
+
+            try {
+              const { data } = await github.rest.repos.createRelease({
+                ...context.repo,
+                tag_name: tag,
+                name: tag,
+                body,
+                draft: false,
+                prerelease: false,
+                make_latest,
+              });
+              core.info(`${data.html_url} (make_latest=${make_latest})`);
+            } catch (e) {
+              if (e.status !== 422) throw e;
+              // Same doctrine as the publish step: a re-run finds the work
+              // done and moves on. Left untouched rather than rewritten,
+              // because notes edited by hand on the page would be the thing
+              // an update destroyed.
+              core.info(`${tag} already has a release - left as it is`);
+            }
