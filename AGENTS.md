@@ -88,7 +88,7 @@ exact line):
 | `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
 
-**A new rule moves five places together** — forgetting one has happened:
+**A new rule moves four places together** — forgetting one has happened:
 
 1. the emit site in `lib/`,
 2. its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what
@@ -96,8 +96,12 @@ exact line):
 3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail;
    published as the `./rule-docs` export, so this prose is also what an agent
    reads through mcp-server's `validate_view` instead of being sent to a website,
-4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`,
-5. a row in the README finding-type table.
+4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`.
+
+There used to be a fifth: a row in the README's finding-type table. The README
+no longer documents the rules — it links the generated page — so `RULE_DOCS` is
+now the only place the prose is written, and `npm test` gates it against the
+registry. One place fewer to forget.
 
 Step 4 is no longer on trust: the **rule-coverage gate** at the end of
 `test/run.mjs` asserts that every id in `RULES` actually fired somewhere in the
@@ -194,8 +198,8 @@ whose findings are all baselined.
 
 The former test-coverage debt (`invalid-aggregation-child`,
 `sapui5-only-control`, `open-levels`) is worked off — every rule now has an
-assertion, and the README finding tables (place 5 above) are gated by a
-test that checks every rule id appears in them.
+assertion, and every rule id is gated against `RULE_DOCS` and the page
+generated from it.
 
 ## What a run says about itself — summary, progress, badges
 

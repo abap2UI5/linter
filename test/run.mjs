@@ -3066,12 +3066,12 @@ ENDCLASS.`;
   assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),
     'rules page: self-contained - no external stylesheet, script or font');
 
-  // the README finding tables are hand-written - the one of the five places a
-  // new rule moves to (AGENTS.md) that nothing generated. Now gated too.
-  const readme = fs.readFileSync(path.join(FIX, '..', '..', 'README.md'), 'utf8');
-  const missing = RULES.filter((id) => !readme.includes(`\`${id}\``));
-  assert(!missing.length,
-    `README: every rule id appears in the finding tables (missing: ${missing.join(', ') || 'none'})`);
+  // There was a fifth gate here, over the README's hand-written finding
+  // tables. It is gone with the tables: the rule reference is RULE_DOCS and
+  // the page generated from it, and the README now links that page instead of
+  // keeping a second copy of the rule list by hand. What that gate protected -
+  // a rule nobody can look up - is the `every rule is documented` assertion
+  // above, which reads the registry rather than a prose table.
 }
 
 
