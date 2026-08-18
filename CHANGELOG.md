@@ -20,7 +20,7 @@
   the defect is and what the fix looks like, the text the
   [rules page](https://abap2ui5.github.io/linter/) is generated from — was
   reachable only by a reader with a browser. A consumer that hands findings to
-  someone who has none (ai-mcp's `validate_view`, talking to an agent) can now
+  someone who has none (mcp-server's `validate_view`, talking to an agent) can now
   read `RULE_DOCS` through the exports map instead of citing a URL.
 
 - **Preview data, so a list stops photographing empty.** The model behind a

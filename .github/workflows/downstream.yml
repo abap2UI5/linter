@@ -13,7 +13,7 @@ name: Downstream
 # and exactly what would make this job test the pinned version instead of the
 # proposed one. So the consumer is installed normally (to get the hoisted
 # @openui5 + playwright tree) and only the linter's own published files are
-# swapped in afterwards. The third consumer, ai-mcp, pins nothing: it imports
+# swapped in afterwards. The third consumer, mcp-server, pins nothing: it imports
 # the sibling checkout, so it is simply given this one.
 #
 # A failure here is not automatically a defect in the change: a new rule that
@@ -82,14 +82,14 @@ jobs:
         working-directory: samples-controls
         run: node scripts/view-gates.mjs --strict
 
-  ai-mcp:
+  mcp-server:
     # The third consumer does not pin at all: the MCP server imports whatever
     # linter checkout sits next to it, through the package exports map, and
     # its own CI has no linter. Running its test suite with THIS checkout as
     # the sibling is the only automated guard on that edge - it catches a
     # removed export subpath or a changed result shape before it lands in
     # every developer's editor session.
-    name: ai-mcp smoke (unpinned consumer)
+    name: mcp-server smoke (unpinned consumer)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -98,11 +98,11 @@ jobs:
         with:
           path: linter
 
-      - name: Check out ai-mcp
+      - name: Check out mcp-server
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: abap2UI5/ai-mcp
-          path: ai-mcp
+          repository: abap2UI5/mcp-server
+          path: mcp-server
 
       - name: Check out samples-controls (the server's content source)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,14 +114,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ai-mcp/package-lock.json
+          cache-dependency-path: mcp-server/package-lock.json
 
-      - name: Install ai-mcp
-        working-directory: ai-mcp
+      - name: Install mcp-server
+        working-directory: mcp-server
         run: npm ci
 
       - name: Test suite with this linter as the sibling checkout
-        working-directory: ai-mcp
+        working-directory: mcp-server
         run: npm test
 
   vscode-extension:
