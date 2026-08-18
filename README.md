@@ -776,15 +776,15 @@ const results = await checkFiles(files, {
 severity, a `problems` total, and `stats` — what the run looked at (documents,
 controls, bindings, icons, the control histogram), per file as well.
 
-Consumers: the [ai-mcp](https://github.com/abap2UI5/ai-mcp) server exposes
-these gates as MCP tools for AI coding agents; the
+Consumers: [mcp-server](https://github.com/abap2UI5/mcp-server) exposes these
+gates as MCP tools for AI coding agents; the
 [VS Code extension](https://github.com/abap2UI5/vscode-extension) is the
 natural place to surface findings as editor diagnostics.
 
 ## What it cannot do (by design)
 
 - Event round-trips and visual/UX fidelity stay with a live run (see
-  ai-mcp's `run_app`).
+  mcp-server's `run_app`).
 - A class that builds view parts in helper methods without the handle idiom is
   not statically reconstructable — the render gate is **skipped with a notice**
   (an incomplete reconstruction would validate the wrong view). The property

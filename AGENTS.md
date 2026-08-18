@@ -85,7 +85,7 @@ exact line):
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors); also the screenshot session behind `--screenshot` — same harness, view kept and photographed, theme LESS compiled on demand |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
-| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, ai-mcp) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
+| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
 
 **A new rule moves five places together** — forgetting one has happened:
@@ -95,7 +95,7 @@ exact line):
    registers it as a rule id,
 3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail;
    published as the `./rule-docs` export, so this prose is also what an agent
-   reads through ai-mcp's `validate_view` instead of being sent to a website,
+   reads through mcp-server's `validate_view` instead of being sent to a website,
 4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`,
 5. a row in the README finding-type table.
 
@@ -908,8 +908,8 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   (`"@abap2ui5/linter": "^0.2.1"`, resolved by its `package-lock.json`, moved
   to the latest published version weekly by its `bump_linter.yaml`); the VS
   Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
-  lock; ai-mcp pins nothing and imports whatever checkout sits beside it. So a
-  merge here reaches nobody on its own except an ai-mcp developer: for the
+  lock; mcp-server pins nothing and imports whatever checkout sits beside it. So a
+  merge here reaches nobody on its own except an mcp-server developer: for the
   other two, moving the pin is a deliberate change in the consumer, and the
   downstream workflow is what says whether that move is safe. A pin pointing
   at a **feature branch** of this repo is only ever temporary — it must become
@@ -952,6 +952,6 @@ landing unseen. Two traps worth knowing before reading a result:
 | Repository | Relation |
 | --- | --- |
 | [samples-controls](https://github.com/abap2UI5/samples-controls) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
-| [ai-mcp](https://github.com/abap2UI5/ai-mcp) | `validate_view` imports the linter **through the package exports map** (its `importViewCheck` resolves `.` and the subpaths) — a removed or renamed `exports` entry breaks it; the file layout under `lib/` is free to move as long as `exports` stays intact |
+| [mcp-server](https://github.com/abap2UI5/mcp-server) | `validate_view` imports the linter **through the package exports map** (its `importViewCheck` resolves `.` and the subpaths) — a removed or renamed `exports` entry breaks it; the file layout under `lib/` is free to move as long as `exports` stays intact |
 | [vscode-extension](https://github.com/abap2UI5/vscode-extension) | Consumes the SHA-pinned package (property gate) and the runtime `render-gate-bundle` download |
 | [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ui5_view_builder`, the builder whose chains `lib/reconstruct.mjs` re-executes |
