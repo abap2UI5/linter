@@ -1,6 +1,10 @@
 # Changelog
 
+
 ## Unreleased
+
+
+## 0.2.2 - 2026-08-18
 
 - **The render-runtime peer range forbade the pairing both READMEs prescribe.**
   `peerDependencies` still said `^0.1.0` while the workspace had been released
