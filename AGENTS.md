@@ -822,6 +822,12 @@ frozen — samples-controls's coverage docs read `controls[…].since` / `.depre
     listing** (the Action needs a release to be published from; `action.yml`
     already carries the required `branding`). Marketplace publishing itself
     is a click-through on the release, not a workflow step.
+  - `action.yml` is **not** in `files[]`: a composite action runs from the
+    checkout (`github.action_path`), never from a consumer's `node_modules`,
+    so shipping it on npm only made the tarball describe a channel it cannot
+    serve. `scripts/generate-metadata.mjs` stays in `files[]` on purpose —
+    see the metadata section above: samples-controls runs it out of
+    `node_modules`.
 
 ## `github-app/` — a spike, not a channel
 

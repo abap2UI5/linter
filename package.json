@@ -76,7 +76,6 @@
     "lib/",
     "data/",
     "scripts/generate-metadata.mjs",
-    "action.yml",
     "types.d.ts",
     "README.md"
   ],
@@ -95,7 +94,7 @@
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/abap2UI5/abap2UI5/issues"
+    "url": "https://github.com/abap2UI5/linter/issues"
   },
   "homepage": "https://github.com/abap2UI5/linter#readme",
   "workspaces": [
