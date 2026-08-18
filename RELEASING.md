@@ -85,8 +85,10 @@ git ls-remote --tags origin | grep vX.Y.Z
 The tag push runs the release workflow: it re-runs the full test suite
 (including the render half, so a published version is one that rendered),
 packs both tarballs, installs the linter tarball in a clean directory and
-smoke-tests it the way `npx` would, publishes runtime-then-linter, and finally
-moves the `v0` tag onto the release so `uses: abap2UI5/linter@v0` resolves.
+smoke-tests it the way `npx` would, publishes runtime-then-linter, and then
+moves the `v0` tag onto the release so `uses: abap2UI5/linter@v0` resolves and
+writes the GitHub release, with the matching `CHANGELOG.md` section as its
+notes.
 
 Useful properties when something goes wrong:
 
@@ -96,9 +98,10 @@ Useful properties when something goes wrong:
   publish step is skipped, so a re-run finishes the rest instead of failing.
 - **A wrong tag is not a release.** As long as the publish step has not run,
   `git push --delete origin vX.Y.Z` undoes it completely.
-- **A red `major-tag` job does not undo a publish.** It runs after the packages
-  are on npm and only maintains the `v0` alias, so the fix is to move that
-  alias, not to re-release. By hand, the same call the job makes:
+- **A red `after-publish` job does not undo a publish.** It runs after the
+  packages are on npm and only maintains the `v0` alias and the GitHub release,
+  so the fix is to repair those, not to re-release. By hand, the same call the
+  alias step makes:
 
   ```sh
   gh api -X PATCH repos/abap2UI5/linter/git/refs/tags/v0 \
@@ -108,3 +111,13 @@ Useful properties when something goes wrong:
   Not `git push -f`: a push that moves a ref across workflow-file changes is
   refused outright, and for the workflow's own token that refusal cannot be
   waived — `workflows` is not a permission `GITHUB_TOKEN` can be granted.
+
+- **The release notes come from `CHANGELOG.md`.** `after-publish` copies the
+  section whose heading matches the tag, which is why step 2 renames
+  `## Unreleased` to the version. A tag pushed without that rename still gets a
+  release — pointing at the file rather than quoting it — and the run carries a
+  warning saying so. Fix it by editing the release, not by re-tagging.
+
+  Releases for `v0.1.0`–`v0.2.2` were written by hand on 2026-08-18, because
+  this workflow made none before then: `releases/latest` answered 404 and the
+  releases page showed only rolling `render-gate-bundle` prereleases.
