@@ -2633,6 +2633,34 @@ ENDCLASS.`;
     'icons: a removed glyph is still a name that once existed, so it carries a since as well');
 }
 
+// ------------------------------------------------ the snapshot pairing ----
+/* Two npm packages come out of one tag, and the split is only safe while they
+ * describe the SAME OpenUI5 release: data/properties.json and data/icons.json
+ * answer `@since` from the version they were generated at, while the render
+ * gate loads whatever @openui5 the render-runtime workspace pins. Let those
+ * drift and the two gates disagree about the same control - the property gate
+ * calling a member too new for a runtime that already ships it, or worse, the
+ * silent direction: staying quiet about a member the loaded runtime does not
+ * have. Nothing else enforces the pairing; RELEASING.md only says it must
+ * hold, and a hand-written release step is exactly what forgets it. */
+{
+  const dir = path.join(FIX, '..', '..');
+  const props = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'properties.json'), 'utf8'));
+  const iconData = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'icons.json'), 'utf8'));
+  const runtime = JSON.parse(fs.readFileSync(path.join(dir, 'render-runtime', 'package.json'), 'utf8'));
+  const pinned = Object.entries(runtime.dependencies || {})
+    .filter(([n]) => n.startsWith('@openui5/'))
+    .map(([n, v]) => [n, String(v).replace(/^[\^~]/, '')]);
+
+  assert(props.ui5Version === iconData.ui5Version,
+    `snapshots: the property and icon data are generated at one release (properties ${props.ui5Version}, icons ${iconData.ui5Version})`);
+
+  const off = pinned.filter(([, v]) => v !== props.ui5Version);
+  assert(pinned.length > 0 && off.length === 0,
+    `snapshots: render-runtime loads the release the data describes - ${props.ui5Version} (${
+      off.length ? off.map(([n, v]) => `${n}@${v}`).join(', ') : `${pinned.length} @openui5 pins agree`})`);
+}
+
 // ------------------------------------------------------------------- fix ----
 {
   const os = await import('node:os');

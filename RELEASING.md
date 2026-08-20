@@ -65,6 +65,15 @@ npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag
 #     range looking untidy. (A missing `less-openui5` is NOT such a reason: a
 #     screenshot then comes back unstyled and the gate does not care.)
 
+# 1c. Moving to a new OpenUI5 release is THREE files, not one: the @openui5
+#     pins in render-runtime/package.json, data/properties.json
+#     (npm run generate-metadata) and data/icons.json
+#     (npm run generate-icons, needs network). `npm test` fails while the
+#     three disagree - the two data files answer `@since` from the version
+#     they were generated at, and the render gate loads whatever the runtime
+#     pins, so a half-moved release makes the two gates judge the same
+#     control differently.
+
 # 2. Rename the CHANGELOG.md "Unreleased" heading to the new version, then
 git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
 git push --follow-tags && git push origin vX.Y.Z

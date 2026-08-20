@@ -1,0 +1,77 @@
+name: refresh-icons
+
+# Drift gate for data/icons.json — the one data file `npm test` cannot keep
+# honest. properties.json has a --check mode that runs in the suite, because it
+# is read out of node_modules and costs ~2 seconds. The icon snapshot is built
+# by scanning the icon registry of every OpenUI5 minor from the floor up, which
+# needs network, so the committed file IS the contract and the suite only
+# checks its shape.
+#
+# That leaves one blind spot: glyphs that arrive in a release published AFTER
+# the snapshot was taken. The rules then answer "does this icon exist?" from a
+# registry that has moved on, and the failure is the silent kind — unknown-icon
+# firing on a name that is perfectly real, or icon-too-new naming a floor that
+# is no longer the truth. Nothing reports it, because nothing looks.
+#
+# Monthly, and a PR rather than a red run: a new icon is not a defect, it is
+# data to take in, and the diff is what a reviewer needs to see.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 6 1 * *'   # monthly, 1st at 06:41 UTC (clear of the Monday bump crons)
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install (the generator resolves @openui5 releases through npm)
+        run: npm ci --no-audit --no-fund
+
+      - name: Rebuild the icon snapshot
+        run: npm run generate-icons
+
+      # The shape assertions in test/run.mjs are the gate on the regenerated
+      # file: a scan that came back half-empty, or one that moved a glyph the
+      # README names by hand, fails here instead of in the PR.
+      - name: Prove the new snapshot against the suite
+        run: |
+          npx playwright install chromium --with-deps
+          npm test
+
+      - name: Open a PR when the registry moved
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          add-paths: data/icons.json
+          branch: refresh-icons/snapshot
+          delete-branch: true
+          commit-message: 'data: refresh the icon snapshot from the registry'
+          title: 'Refresh the icon snapshot'
+          body: |
+            `npm run generate-icons` rescanned the OpenUI5 icon registry and the
+            committed snapshot moved.
+
+            A diff here is normally new glyphs to take in. Two shapes deserve a
+            second look before merging:
+
+            - a name that **disappeared** — it renders nothing from that release
+              on, and belongs in `removed` with a replacement named in the rule
+              message;
+            - a `since` that moved **down** for an existing name — the scan
+              reached further back than last time, so check the floor.
+
+            The suite ran against the regenerated file, so the documented
+            arrivals and the floor still hold.
