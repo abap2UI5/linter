@@ -3,6 +3,23 @@
 
 ## Unreleased
 
+- **`scripts/check-upstream.mjs` is published.** The three hand-maintained
+  mirrors in `lib/` — `formatters.mjs`, `frontend-actions.mjs`,
+  `released-api.mjs` — are compared against abap2UI5 weekly *here*, which is the
+  wrong end of that contract: the pull request that renames a formatter or
+  splits an action module is in the other repository, green, and nothing tells
+  it. Nothing was broken by that yet only because the drift always surfaced
+  within the week; the mirror check had already been broken once by an upstream
+  refactor it could not see coming. Shipping the script lets abap2UI5 run the
+  same comparison against its own working tree, on the change that moves the
+  source — `--local`, the mode it already had. No second implementation, and
+  nothing about the script's behaviour changes for this repository.
+
+  Consumers can call it as
+  `node node_modules/@abap2ui5/linter/scripts/check-upstream.mjs --local <dir>`;
+  it exits 0 in sync, 1 on drift and 2 when the sources cannot be read, so a
+  caller can treat unreachable sources as a skip rather than a failure.
+
 ## 0.2.2 - 2026-08-18
 
 - **The render-runtime peer range forbade the pairing both READMEs prescribe.**
