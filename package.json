@@ -76,6 +76,7 @@
     "lib/",
     "data/",
     "scripts/generate-metadata.mjs",
+    "scripts/check-upstream.mjs",
     "types.d.ts",
     "README.md"
   ],
