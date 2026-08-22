@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Unreleased
+## 0.3.0
 
 - **The companion-control mirrors are a knowledge file now, and gated.** The
   render harness has to KNOW a control class before it can create a view that
