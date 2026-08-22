@@ -139,11 +139,11 @@ npm run generate-schema      # data/abap2ui5lint.schema.json
 npm run generate-rules-page  # site/index.html
 ```
 
-`lib/frontend-actions.mjs`, `lib/formatters.mjs` and `lib/released-api.mjs`
-are the **hand-maintained** knowledge files (`lib/builders.mjs` is a fourth
-mirror of upstream, but of two class INTERFACES rather than of a closed set —
-it changes only when a builder does), and all three are watched by
-`scripts/check-upstream.mjs` (weekly via `upstream-sync.yml`, on drift an
+`lib/frontend-actions.mjs`, `lib/formatters.mjs`, `lib/released-api.mjs` and
+`lib/cc-controls.mjs` are the **hand-maintained** knowledge files
+(`lib/builders.mjs` is a fifth mirror of upstream, but of two class INTERFACES
+rather than of a closed set — it changes only when a builder does), and all
+four are watched by `scripts/check-upstream.mjs` (weekly via `upstream-sync.yml`, on drift an
 issue): it re-derives the curated formatter exports and the `GLOBAL_TARGETS`
 map from the abap2UI5 sources and fails on any difference — so an upstream
 change becomes an issue here instead of a silent false positive at some
@@ -559,6 +559,7 @@ all**:
 | Origin | Rule |
 | --- | --- |
 | abap2UI5 releases exactly ONE package, and says so in the package descriptions themselves: `src/02` is "released APIs", `src/01` is "internal use only", `src/99` is "FROZEN legacy code … ships solely so existing downstream installations keep compiling" | `non-released-api` + `lib/released-api.mjs`, the third hand-maintained mirror, gated by `check-upstream` |
+| the bundled companion controls a view can name declaratively (`<z2ui5:MultiInputExt …/>`) exist only in `app/webapp/cc/*.js`; the harness has to KNOW a control class before it can create a view naming one | `lib/cc-controls.mjs`, the fourth hand-maintained mirror — metadata only, the harness script is generated from it, gated by `check-upstream` |
 
 Everything about that rule follows from one property of the boundary it
 guards: **neither side announces a change.** Upstream commit `db10b13`

@@ -1,7 +1,39 @@
 # Changelog
 
 
-## Unreleased
+## 0.3.0
+
+- **The companion-control mirrors are a knowledge file now, and gated.** The
+  render harness has to KNOW a control class before it can create a view that
+  names one, so it booted metadata-only mirrors of the two bundled abap2UI5
+  companion controls a view can name declaratively — written inline in
+  `lib/render.mjs`, and the one mirror `check-upstream` did not compare. It
+  rotted exactly the way the others did before they were gated: abap2UI5 added
+  `TokenKeyCell` / `TokenTextCells` to `MultiInputExt` (the suggestion-row half
+  of `MultiInput.addValidator`) and every view using them failed view
+  **CREATION** here — which is worse than a property finding, because a
+  downstream deviation can carry a property finding and cannot carry a dead
+  document. The mirrors move to `lib/cc-controls.mjs`, the harness script is
+  **generated** from that one source, and `check-upstream` compares each
+  control's property names against `app/webapp/cc/<Name>.js` — in both
+  directions, plus the case where the control is gone upstream and the mirror
+  has no source any more.
+
+- **`lib/released-api.mjs` follows upstream's interface move.** abap2UI5 put
+  every type on the object that USES it — `ty_s_get`, `ty_s_event_control` and
+  `cs_device` onto `z2ui5_if_client`, the three HTTP-config types onto
+  `z2ui5_if_ui5_exit` — and retired the shared `z2ui5_if_types` into `src/99`
+  together with `z2ui5_if_exit`, the exit interface's superseded name. The
+  mirror still said the old thing, in both damaging directions at once:
+  `z2ui5_if_ui5_exit` was reported as not released (correct code, flagged), and
+  the two retired interfaces passed as released (an app naming them told
+  nothing). They ship, so naming one compiles — which is exactly why it has to
+  be reported, with the object the types moved to. Measured on
+  `abap2UI5/samples-controls` app 252, which named `z2ui5_if_types=>cs_device`:
+  the transpiled backend answered HTTP 500 because the retired interface's
+  constants are not materialised there, and the corpus found it in an e2e
+  sweep. The rule reports it statically now. The corpus is otherwise unchanged
+  by the fix: 622 ports, 0 failing, before and after.
 
 - **`scripts/check-upstream.mjs` is published.** The three hand-maintained
   mirrors in `lib/` — `formatters.mjs`, `frontend-actions.mjs`,

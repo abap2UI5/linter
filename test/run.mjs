@@ -1838,11 +1838,19 @@ ENDCLASS.`;
   for (const name of RELEASED_OBJECTS) {
     assert(apiVerdict(name) === null, `non-released-api: the released ${name} is never reported`);
   }
-  // z2ui5_if_types ships in the released src/02 - which it has to, because the
-  // released client->get( ) returns z2ui5_if_types=>ty_s_get and an app that
-  // declares a variable of that type cannot avoid naming it
-  assert(!named.includes('z2ui5_if_types'),
-    'non-released-api: z2ui5_if_types is released — the released client->get( ) returns it');
+  // z2ui5_if_types WAS released, because the released client->get( ) returned
+  // z2ui5_if_types=>ty_s_get and an app declaring a variable of that type
+  // could not avoid the name. Upstream moved every type onto the object that
+  // uses it and retired the shared interface into src/99 - it still SHIPS, so
+  // an app naming it still compiles, which is exactly why it has to be
+  // reported now, with the object the types moved to.
+  assert(named.includes('z2ui5_if_types')
+    && apiVerdict('z2ui5_if_types').area === 'src/99'
+    && apiVerdict('z2ui5_if_types').replacement === 'z2ui5_if_client',
+    'non-released-api: the retired z2ui5_if_types is reported, pointing at z2ui5_if_client');
+  assert(apiVerdict('z2ui5_if_exit')?.replacement === 'z2ui5_if_ui5_exit'
+    && apiVerdict('z2ui5_if_ui5_exit') === null,
+    'non-released-api: the exit interface reports under its old name and is silent under the new one');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');
@@ -2588,6 +2596,33 @@ ENDCLASS.`;
     'upstream: the embedded JS is reassembled from the backtick literals');
   assert(parseFormatterExports('  return {\n    DateCreateObject(s) {\n      return s;\n    },\n    expandInlineIcons(text) {},\n  };').join() === 'DateCreateObject,expandInlineIcons',
     'upstream: the formatter export surface parses');
+
+  // the companion-control mirror: the fourth knowledge file, gated since
+  // MultiInputExt's TokenKeyCell / TokenTextCells arrived and every view
+  // naming them failed view CREATION rather than a property check
+  const { parseCcProperties } = await import('../scripts/check-upstream.mjs');
+  const ccSrc = `return Control.extend('z2ui5.cc.X', {
+      metadata: {
+        properties: {
+          MultiInputId: { type: 'string' },
+          // a comment carrying a fake: pair
+          checkInit: { type: 'boolean', defaultValue: false },
+          TokenTextCells: { type: 'string', defaultValue: '' },
+        },
+        events: { change: { allowPreventDefault: true, parameters: {} } },
+      },
+    });`;
+  assert(parseCcProperties(ccSrc).join() === 'MultiInputId,checkInit,TokenTextCells',
+    `upstream: a companion control's property names parse, nested types and comments skipped (got ${parseCcProperties(ccSrc).join()})`);
+  assert(parseCcProperties('return Control.extend("x", { metadata: {} });').length === 0,
+    'upstream: a control with no properties block parses as none rather than throwing');
+
+  const { CC_CONTROLS, ccMirrorScript } = await import('../lib/cc-controls.mjs');
+  const script = ccMirrorScript();
+  assert(Object.keys(CC_CONTROLS).every((n) => script.includes(`'z2ui5/cc/${n}'`)),
+    'cc-controls: the harness script is generated from CC_CONTROLS, one define per mirrored control');
+  assert(script.includes('TokenKeyCell') && script.includes('TokenTextCells'),
+    'cc-controls: the suggestion-row validator properties reach the harness');
 }
 
 // ------------------------------------------------- metadata drift gate ----
