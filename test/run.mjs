@@ -2588,6 +2588,33 @@ ENDCLASS.`;
     'upstream: the embedded JS is reassembled from the backtick literals');
   assert(parseFormatterExports('  return {\n    DateCreateObject(s) {\n      return s;\n    },\n    expandInlineIcons(text) {},\n  };').join() === 'DateCreateObject,expandInlineIcons',
     'upstream: the formatter export surface parses');
+
+  // the companion-control mirror: the fourth knowledge file, gated since
+  // MultiInputExt's TokenKeyCell / TokenTextCells arrived and every view
+  // naming them failed view CREATION rather than a property check
+  const { parseCcProperties } = await import('../scripts/check-upstream.mjs');
+  const ccSrc = `return Control.extend('z2ui5.cc.X', {
+      metadata: {
+        properties: {
+          MultiInputId: { type: 'string' },
+          // a comment carrying a fake: pair
+          checkInit: { type: 'boolean', defaultValue: false },
+          TokenTextCells: { type: 'string', defaultValue: '' },
+        },
+        events: { change: { allowPreventDefault: true, parameters: {} } },
+      },
+    });`;
+  assert(parseCcProperties(ccSrc).join() === 'MultiInputId,checkInit,TokenTextCells',
+    `upstream: a companion control's property names parse, nested types and comments skipped (got ${parseCcProperties(ccSrc).join()})`);
+  assert(parseCcProperties('return Control.extend("x", { metadata: {} });').length === 0,
+    'upstream: a control with no properties block parses as none rather than throwing');
+
+  const { CC_CONTROLS, ccMirrorScript } = await import('../lib/cc-controls.mjs');
+  const script = ccMirrorScript();
+  assert(Object.keys(CC_CONTROLS).every((n) => script.includes(`'z2ui5/cc/${n}'`)),
+    'cc-controls: the harness script is generated from CC_CONTROLS, one define per mirrored control');
+  assert(script.includes('TokenKeyCell') && script.includes('TokenTextCells'),
+    'cc-controls: the suggestion-row validator properties reach the harness');
 }
 
 // ------------------------------------------------- metadata drift gate ----

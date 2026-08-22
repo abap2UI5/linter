@@ -3,6 +3,22 @@
 
 ## Unreleased
 
+- **The companion-control mirrors are a knowledge file now, and gated.** The
+  render harness has to KNOW a control class before it can create a view that
+  names one, so it booted metadata-only mirrors of the two bundled abap2UI5
+  companion controls a view can name declaratively — written inline in
+  `lib/render.mjs`, and the one mirror `check-upstream` did not compare. It
+  rotted exactly the way the others did before they were gated: abap2UI5 added
+  `TokenKeyCell` / `TokenTextCells` to `MultiInputExt` (the suggestion-row half
+  of `MultiInput.addValidator`) and every view using them failed view
+  **CREATION** here — which is worse than a property finding, because a
+  downstream deviation can carry a property finding and cannot carry a dead
+  document. The mirrors move to `lib/cc-controls.mjs`, the harness script is
+  **generated** from that one source, and `check-upstream` compares each
+  control's property names against `app/webapp/cc/<Name>.js` — in both
+  directions, plus the case where the control is gone upstream and the mirror
+  has no source any more.
+
 - **`scripts/check-upstream.mjs` is published.** The three hand-maintained
   mirrors in `lib/` — `formatters.mjs`, `frontend-actions.mjs`,
   `released-api.mjs` — are compared against abap2UI5 weekly *here*, which is the

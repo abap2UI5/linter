@@ -2,7 +2,7 @@
 /*
  * check-upstream — drift gate for the HAND-MAINTAINED knowledge files.
  *
- * Two files in lib/ mirror closed sets that live in the abap2UI5 repo:
+ * Four files in lib/ mirror closed sets that live in the abap2UI5 repo:
  *
  *   lib/formatters.mjs        <- app/webapp/model/formatter.js
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
@@ -12,12 +12,17 @@
  *                                (the released package src/02, the frozen
  *                                package src/99, and the prefix families
  *                                everything else has to fall into)
+ *   lib/cc-controls.mjs       <- app/webapp/cc/*.js (the metadata-only
+ *                                mirrors the render harness boots with)
  *
  * Upstream is not a dependency here, so a change there is a SILENT breaking
  * change: a new CONTROL_GLOBAL target makes the linter report correct new
  * code as invalid-frontend-action (that is exactly how POPUP.setWithinArea
- * arrived), and a removed formatter makes the render harness pass views that
- * break live. This script compares the mirrors against the current upstream
+ * arrived), a removed formatter makes the render harness pass views that
+ * break live, and a property added to a companion control makes every view
+ * that uses it fail view CREATION here - not a property finding a downstream
+ * deviation can carry, but a dead view (that is exactly how MultiInputExt's
+ * TokenKeyCell arrived). This script compares the mirrors against the current upstream
  * sources and exits 1 on any drift — the scheduled workflow turns that into
  * an issue instead of waiting for a user to hit it.
  *
@@ -38,6 +43,7 @@ import {
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
 import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
+import { CC_CONTROLS } from '../lib/cc-controls.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
@@ -54,6 +60,11 @@ const FORMATTER_PATH = 'app/webapp/model/formatter.js';
  * WHICH class holds a given closed set is upstream's business, and the next
  * split must not blind the gate again. The parsers below each look for their
  * own `const NAME =`, so one blob is what they want. */
+/* The companion controls the render harness mirrors. Plain ES modules, one
+ * per control, each a `Control.extend` with a `metadata: { properties: {…} }`
+ * object literal - so the property NAMES parse out of the source directly. */
+const CC_DIR = 'app/webapp/cc';
+
 const ACTION_DIR = 'src/01/03';
 const ACTION_FILE_RE = /^z2ui5_cl_ui5f_\w+_js\.clas\.abap$/;
 
@@ -103,6 +114,27 @@ export function embeddedJs(abapSrc) {
   return [...abapSrc.matchAll(/`((?:[^`]|``)*)`/g)]
     .map((m) => m[1].replace(/``/g, '`'))
     .join('\n');
+}
+
+/** The property names a companion control declares: the keys of the
+ *  `metadata: { properties: { … } }` object literal. Nested `{ type: … }`
+ *  values are skipped by taking only the keys at depth 1 of that region. */
+export function parseCcProperties(src) {
+  const at = src.search(/properties\s*:\s*\{/);
+  if (at === -1) return [];
+  const body = braceRegion(src, src.indexOf('{', at));
+  const out = [];
+  let depth = 0;
+  // a `//` comment can carry `word:` pairs that are not properties
+  const code = body.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const re = /([A-Za-z_$][\w$]*)\s*:|[{}]/g;
+  let m;
+  while ((m = re.exec(code)) !== null) {
+    if (m[0] === '{') depth++;
+    else if (m[0] === '}') depth--;
+    else if (depth === 0) out.push(m[1]);
+  }
+  return out;
 }
 
 /** Body of the balanced { … } starting at src[open] === '{'. The region holds
@@ -293,12 +325,17 @@ if (invokedDirectly) {
   let actionSrc;
   let actionPaths = [];
   let srcPaths;
+  const ccSrc = {};
   try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
+      for (const name of Object.keys(CC_CONTROLS)) {
+        const at = path.join(LOCAL, CC_DIR, `${name}.js`);
+        if (fs.existsSync(at)) ccSrc[name] = fs.readFileSync(at, 'utf8');
+      }
     } else {
       [formatterSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
@@ -306,6 +343,9 @@ if (invokedDirectly) {
       ]);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
+      const names = Object.keys(CC_CONTROLS).filter((n) => srcPaths.includes(`${CC_DIR}/${n}.js`));
+      const sources = await Promise.all(names.map((n) => fetchText(`${RAW}/${CC_DIR}/${n}.js`)));
+      names.forEach((n, i) => { ccSrc[n] = sources[i]; });
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
@@ -332,6 +372,24 @@ if (invokedDirectly) {
   };
 
   report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
+
+  /* The companion-control mirrors the render harness boots with. A property
+   * upstream added and this file lacks is not a finding a downstream sidecar
+   * can declare away - the view fails to CREATE, so the whole document is
+   * dead. A property this file still has and upstream dropped is the other
+   * half: a view naming it renders green here and breaks live. Both are
+   * reported per control; a control whose source is GONE upstream is reported
+   * too, because a mirror of nothing is worse than no mirror. */
+  for (const name of Object.keys(CC_CONTROLS)) {
+    if (!ccSrc[name]) {
+      drift++;
+      console.log(`DRIFT companion control ${name} (lib/cc-controls.mjs):`);
+      console.log(`  ! ${CC_DIR}/${name}.js is gone upstream — the mirror has no source any more`);
+      continue;
+    }
+    report(`companion control ${name} (lib/cc-controls.mjs)`,
+      Object.keys(CC_CONTROLS[name].properties), parseCcProperties(ccSrc[name]));
+  }
 
   /* The object layout of `src/` — the third mirror, and the one that decides
    * what `non-released-api` calls a violation. Three separate questions:
