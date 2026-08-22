@@ -1838,11 +1838,19 @@ ENDCLASS.`;
   for (const name of RELEASED_OBJECTS) {
     assert(apiVerdict(name) === null, `non-released-api: the released ${name} is never reported`);
   }
-  // z2ui5_if_types ships in the released src/02 - which it has to, because the
-  // released client->get( ) returns z2ui5_if_types=>ty_s_get and an app that
-  // declares a variable of that type cannot avoid naming it
-  assert(!named.includes('z2ui5_if_types'),
-    'non-released-api: z2ui5_if_types is released — the released client->get( ) returns it');
+  // z2ui5_if_types WAS released, because the released client->get( ) returned
+  // z2ui5_if_types=>ty_s_get and an app declaring a variable of that type
+  // could not avoid the name. Upstream moved every type onto the object that
+  // uses it and retired the shared interface into src/99 - it still SHIPS, so
+  // an app naming it still compiles, which is exactly why it has to be
+  // reported now, with the object the types moved to.
+  assert(named.includes('z2ui5_if_types')
+    && apiVerdict('z2ui5_if_types').area === 'src/99'
+    && apiVerdict('z2ui5_if_types').replacement === 'z2ui5_if_client',
+    'non-released-api: the retired z2ui5_if_types is reported, pointing at z2ui5_if_client');
+  assert(apiVerdict('z2ui5_if_exit')?.replacement === 'z2ui5_if_ui5_exit'
+    && apiVerdict('z2ui5_if_ui5_exit') === null,
+    'non-released-api: the exit interface reports under its old name and is silent under the new one');
   // an app\'s own z2ui5_-prefixed class matches no framework family
   assert(!named.includes('z2ui5_cl_demo_app_042'),
     'non-released-api: a name outside every framework prefix family is somebody else\'s class');

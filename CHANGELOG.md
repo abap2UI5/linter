@@ -19,6 +19,22 @@
   directions, plus the case where the control is gone upstream and the mirror
   has no source any more.
 
+- **`lib/released-api.mjs` follows upstream's interface move.** abap2UI5 put
+  every type on the object that USES it — `ty_s_get`, `ty_s_event_control` and
+  `cs_device` onto `z2ui5_if_client`, the three HTTP-config types onto
+  `z2ui5_if_ui5_exit` — and retired the shared `z2ui5_if_types` into `src/99`
+  together with `z2ui5_if_exit`, the exit interface's superseded name. The
+  mirror still said the old thing, in both damaging directions at once:
+  `z2ui5_if_ui5_exit` was reported as not released (correct code, flagged), and
+  the two retired interfaces passed as released (an app naming them told
+  nothing). They ship, so naming one compiles — which is exactly why it has to
+  be reported, with the object the types moved to. Measured on
+  `abap2UI5/samples-controls` app 252, which named `z2ui5_if_types=>cs_device`:
+  the transpiled backend answered HTTP 500 because the retired interface's
+  constants are not materialised there, and the corpus found it in an e2e
+  sweep. The rule reports it statically now. The corpus is otherwise unchanged
+  by the fix: 622 ports, 0 failing, before and after.
+
 - **`scripts/check-upstream.mjs` is published.** The three hand-maintained
   mirrors in `lib/` — `formatters.mjs`, `frontend-actions.mjs`,
   `released-api.mjs` — are compared against abap2UI5 weekly *here*, which is the
