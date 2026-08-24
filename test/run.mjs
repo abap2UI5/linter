@@ -2625,6 +2625,27 @@ ENDCLASS.`;
     'cc-controls: the suggestion-row validator properties reach the harness');
 }
 
+// ------------------------------------------------ relative asset URLs ----
+/* A demo-kit sample is served from the SDK page and resolves `./test-resources/…`
+ * there; an abap2UI5 app is served from the ICF node and has no document root,
+ * so the asset 404s and the control shows its placeholder - a failure with no
+ * error anywhere. The fixture carries the three broken shapes and six that must
+ * stay silent, because the scope is what decides whether this is a rule or a
+ * nuisance. Found in abap2UI5/samples-controls apps 401/402/412/587, ten paths. */
+{
+  const found = checkXmlSource(fs.readFileSync(f('relativeasset.view.xml'), 'utf8'), { minUi5: '1.71' })
+    .findings.filter((x) => x.type === 'relative-asset-url');
+  assert(found.length === 3,
+    `relative-asset-url: the three document-relative UI5 paths are reported (${found.length})`);
+  assert(found.some((x) => x.value.startsWith('./test-resources/'))
+      && found.some((x) => x.value.startsWith('test-resources/'))
+      && found.some((x) => x.value.startsWith('../resources/sap/')),
+    'relative-asset-url: ./, bare and ../ forms are all caught');
+  const quiet = ['https://', 'sap-icon://', 'data:', '//example.org', '{/', './img/'];
+  assert(quiet.every((q) => !found.some((x) => x.value.startsWith(q))),
+    'relative-asset-url: absolute, icon, data, protocol-relative, bound and non-UI5-tree paths stay silent');
+}
+
 // ------------------------------------------------- metadata drift gate ----
 // generate-metadata --check took ~3 minutes before the extend-scan fix and
 // lived in its own CI step; at ~2 seconds it belongs in the suite
@@ -2636,6 +2657,23 @@ ENDCLASS.`;
     cp.execFileSync('node', [path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs'), '--check'], { encoding: 'utf8' });
   } catch (e) { ok = false; msg = (e.stderr || e.stdout || '').trim(); }
   assert(ok, `metadata: data/properties.json is in sync — npm run generate-metadata (${msg})`);
+}
+
+/* `@ui5-experimental-since` is a version tag like any other and the snapshot has
+ * to carry it. It used to be read at CLASS level only, so a MEMBER carrying it
+ * landed with no version at all and was treated as base version - i.e. silently
+ * passed at any floor. 55 members were in that state; these three pin the two
+ * halves of the fix (the version, and the flag that says which tag it came
+ * from) against a member whose own JSDoc carries the tag today. */
+{
+  const props = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8'));
+  const tok = props.controls['sap.m.Tokenizer']?.properties ?? {};
+  assert(tok.multiLine?.since === '1.142',
+    `metadata: an @ui5-experimental-since member carries its version (Tokenizer.multiLine ${tok.multiLine?.since})`);
+  assert(tok.multiLine?.experimental === true,
+    'metadata: an @ui5-experimental-since member is flagged experimental, so a consumer can tell it from a plain @since');
+  assert(tok.width?.since === undefined && tok.width?.experimental === undefined,
+    'metadata: a member with neither tag stays version-less — absent still means base version');
 }
 
 // --------------------------------------------------- icon data integrity ----

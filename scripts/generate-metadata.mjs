@@ -197,6 +197,22 @@ function section(body, key) {
   return braceBody(body, at);
 }
 
+/* `@ui5-experimental-since` is a version tag like any other: the member exists
+ * and needs at least that release. UI5 uses it where the API may still change.
+ * The class-level reader below has always matched both spellings; the three
+ * member-level readers matched only `@since`, so an experimental member landed
+ * in the snapshot with NO version and was therefore treated as base version -
+ * i.e. silently passed by the property gate at any floor. Found via
+ * abap2UI5/samples-controls app 432, which binds two @ui5-experimental-since
+ * 1.142 properties of sap.m.Tokenizer and passed every gate while declaring a
+ * floor of 1.82. One matcher now, so the four sites cannot drift again. */
+const SINCE_RE = /@(?:ui5-experimental-)?since\s+(?:version\s+)?([\d.]+)/i;
+const sinceOf = (doc) => doc?.match(SINCE_RE)?.[1];
+/* Whether the tag was the experimental one - carried separately because "too
+ * new for your floor" and "this API may change under you" are different things
+ * to tell a consumer, and only the first is a version question. */
+const EXPERIMENTAL_RE = /@ui5-experimental-since\s/i;
+
 function declEntry(decl, doc) {
   const entry = {};
   const type = decl.match(/\btype\s*:\s*["']([\w.:/]+)["']/)?.[1];
@@ -212,8 +228,9 @@ function declEntry(decl, doc) {
     const parsed = declarations(params);
     if (Object.keys(parsed).length) entry.params = parsed;
   }
-  const since = doc?.match(/@since\s+(?:version\s+)?([\d.]+)/i)?.[1];
+  const since = sinceOf(doc);
   if (since) entry.since = since;
+  if (doc && EXPERIMENTAL_RE.test(doc)) entry.experimental = true;
   const dep = doc?.match(/@deprecated(?:\s+As of(?:\s+version)?\s+([\d.]+))?([^\n]*)/i);
   if (dep) {
     // keep the version: a member deprecated in 1.120 is fine for a 1.71 target
@@ -280,7 +297,7 @@ function classMeta(src, name) {
   const header = last && !/[;}]/.test(before.slice(last.index + last[0].length))
     ? last[1]
     : '';
-  const sinceM = header.match(/@(?:ui5-experimental-)?since\s+(?:version\s+)?([\d.]+)/i);
+  const sinceM = header.match(SINCE_RE);
   const depM = header.match(/@deprecated(?:\s+As of(?:\s+version)?\s+([\d.]+))?([^\n]*)/i);
   return {
     since: sinceM ? sinceM[1] : null,
@@ -359,7 +376,7 @@ function parseClass(src, region, meta, name, parent) {
   }
   // event PARAMETERS and other nested @since members the old parser saw too
   for (const m of region.matchAll(/\/\*\*((?:[^*]|\*(?!\/))*?)\*\/\s*(\w+)\s*:\s*\{/g)) {
-    const since = m[1].match(/@since\s+(?:version\s+)?([\d.]+)/i)?.[1];
+    const since = sinceOf(m[1]);
     if (since && members[m[2]] === undefined) members[m[2]] = since;
   }
 
@@ -393,7 +410,7 @@ function enumSinces(body) {
     }
     const m = /^["']?\w+["']?\s*:\s*["']([^"']*)["']/.exec(body.slice(i, i + 200));
     if (m) {
-      const since = doc.match(/@since\s+(?:version\s+)?([\d.]+)/i)?.[1];
+      const since = sinceOf(doc);
       if (since && m[1] && out[m[1]] === undefined) out[m[1]] = since;
       doc = '';
       i += m[0].length - 1;
