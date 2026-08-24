@@ -73,11 +73,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">49 error</span>
-      <span class="badge warning">28 warning</span>
+      <span class="badge warning">29 warning</span>
       <span class="badge hint">10 hint</span>
       <span class="badge fix">8 autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter 87 rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 88 rules — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -324,6 +324,15 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">property, event or aggregation introduced after your target version</p>
         <p class="detail">Same as <code>control-too-new</code>, one level down. Members without an <code>@since</code> count as always available — they predate version tracking. Waive with <code>--allow sap.m.Control.member</code>.</p>
+      </article>
+      <article class="rule" id="relative-asset-url" data-search="relative-asset-url a document-relative asset url, which an abap2ui5 app has no root to resolve a ui5 demo-kit sample is served from the sdk page, so ./test-resources/sap/uxap/images/x.png resolves there. an abap2ui5 app is served from the abap icf node and has no such document root: the request 404s and the control silently falls back to its placeholder — the view renders, and nothing is logged where anyone looks. judged on the metadata type (sap.ui.core.uri), not on attribute names, so src, icon, backgroundimage, objectimageuri and fonturi are reached alike. scoped to the two demo-kit trees that are always wrong (test-resources/…, resources/sap/…): a project serving its own icf resources may legitimately write a relative path. a binding is never judged — what the model holds is a runtime question. warning">
+        <h3><a href="#relative-asset-url">relative-asset-url</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a document-relative asset URL, which an abap2UI5 app has no root to resolve</p>
+        <p class="detail">A UI5 demo-kit sample is served from the SDK page, so <code>./test-resources/sap/uxap/images/x.png</code> resolves there. An abap2UI5 app is served from the ABAP ICF node and has no such document root: the request 404s and the control silently falls back to its placeholder — the view renders, and nothing is logged where anyone looks. Judged on the metadata type (<code>sap.ui.core.URI</code>), not on attribute names, so <code>src</code>, <code>icon</code>, <code>backgroundImage</code>, <code>objectImageURI</code> and <code>fontURI</code> are reached alike. Scoped to the two demo-kit trees that are always wrong (<code>test-resources/…</code>, <code>resources/sap/…</code>): a project serving its own ICF resources may legitimately write a relative path. A binding is never judged — what the model holds is a runtime question.</p>
+        <pre><code>&lt;Image src="./test-resources/sap/uxap/images/imageID.png"/&gt;
+" -&gt; prefix the OpenUI5 host (sdk.openui5.org) so the path is absolute</code></pre>
       </article>
       <article class="rule" id="sapui5-only-control" data-search="sapui5-only-control needs sapui5, absent from openui5 only with --distribution openui5. sapui5 ships libraries openui5 does not — sap.ui.comp (smart controls), sap.suite., sap.ushell, sap.fe, sap.viz — so a smarttable is fine on sapui5 and a guaranteed runtime error on openui5. error">
         <h3><a href="#sapui5-only-control">sapui5-only-control</a>

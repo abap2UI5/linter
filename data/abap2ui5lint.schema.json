@@ -334,6 +334,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'raw-javascript-to-frontend' — default severity: warning"
         },
+        "relative-asset-url": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'relative-asset-url' — default severity: warning"
+        },
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'relative-binding-without-context' — default severity: error"

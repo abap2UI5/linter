@@ -1,0 +1,21 @@
+<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc" xmlns:core="sap.ui.core">
+  <Page title="Asset URLs">
+    <content>
+      <!-- broken: the demo kit resolves these against its own page, an
+           abap2UI5 app has no document root and they 404 -->
+      <Image src="./test-resources/sap/uxap/images/imageID_275314.png"/>
+      <Image src="test-resources/sap/m/images/logo.png"/>
+      <Image src="../resources/sap/ui/core/themes/base/img/1x1.gif"/>
+      <!-- fine: absolute, icon URI, data URI, protocol-relative, and a
+           binding whose value is only known at runtime -->
+      <Image src="https://sdk.openui5.org/test-resources/sap/m/images/logo.png"/>
+      <core:Icon src="sap-icon://accept"/>
+      <Image src="data:image/gif;base64,R0lGODlhAQABAAAAACw="/>
+      <Image src="//example.org/test-resources/x.png"/>
+      <Image src="{/PICTURE_URL}"/>
+      <!-- fine: relative, but not into a UI5 resource tree - a project may
+           serve its own ICF path -->
+      <Image src="./img/company-logo.png"/>
+    </content>
+  </Page>
+</mvc:View>
