@@ -3138,6 +3138,71 @@ ENDCLASS.`;
 }
 
 
+// ------------------------------------------------------- used-by block ----
+/* The README's "Used by" list is scraped off GitHub's dependents page, which
+ * is markup nobody here owns and no API replaces. The suite cannot regenerate
+ * it (that needs network), so what it pins instead is the parser against a
+ * saved copy of that page, and the shape of the committed block — the two
+ * halves that would fail silently: a layout change that parses to nothing,
+ * and a block that quietly stopped naming anyone.
+ */
+{
+  const dep = await import('../scripts/generate-dependents.mjs');
+  const page = fs.readFileSync(f('dependents-page.html'), 'utf8');
+  const rows = dep.parseDependents(page);
+
+  assert(rows.length === 3 && rows.every((r) => r.owner && r.repo),
+    `used-by: every Box-row on the saved page yields one owner/repo (${rows.length} of 3)`);
+  assert(rows.some((r) => r.owner === 'abap2UI5-addons' && r.repo === 'se16n')
+    && !rows.some((r) => r.repo === 'abap2UI5-addons'),
+    'used-by: the repository anchor is read, not the owner anchor beside it');
+  assert(dep.parseDependents(page + page).length === 3,
+    'used-by: a repository listed twice across pages is counted once');
+
+  // the pager carries an opaque cursor, and "Previous" carries one too
+  assert(/dependents_after=Y3Vyc29yOjMw$/.test(dep.nextPage(page) ?? ''),
+    `used-by: the Next cursor is followed, the Previous one is not (${dep.nextPage(page)})`);
+  assert(dep.nextPage(page.replace(/>\s*Next/, '>Done')) === null,
+    'used-by: the last page ends the walk');
+
+  const block = dep.renderBlock(rows);
+  assert(block.startsWith(dep.START) && block.endsWith(dep.END)
+    && block.includes('**3 public repositories**')
+    && block.includes('- [abap2UI5/samples](https://github.com/abap2UI5/samples)'),
+    'used-by: the block counts what it lists and links every entry');
+  assert(dep.renderBlock([{ owner: 'a', repo: 'b' }]).includes('**1 public repository**'),
+    'used-by: one dependent is not "1 repositories"');
+
+  /* Walking the pager is the other half nothing else covers: the cursor cuts
+   * a list that keeps moving, so a repository can appear on two pages and
+   * would be listed twice. Stubbed fetch — the point is the walk, not GitHub.
+   */
+  {
+    const realFetch = globalThis.fetch;
+    const asked = [];
+    const secondPage = page.replace(/>\s*Next/, '>Done');
+    globalThis.fetch = async (url) => {
+      asked.push(url);
+      return { ok: true, status: 200, text: async () => (asked.length === 1 ? page : secondPage) };
+    };
+    const walked = await dep.collect();
+    globalThis.fetch = realFetch;
+    assert(asked.length === 2 && walked.length === 3,
+      `used-by: the walk follows the cursor and counts each repository once (${asked.length} pages, ${walked.length} rows)`);
+  }
+
+  const readme = fs.readFileSync(dep.README_FILE, 'utf8');
+  assert(dep.applyToReadme(readme, block) !== readme
+    && dep.applyToReadme(dep.applyToReadme(readme, block), block) === dep.applyToReadme(readme, block),
+    'used-by: rewriting the block replaces it rather than stacking copies');
+
+  const committed = readme.slice(readme.indexOf(dep.START), readme.indexOf(dep.END));
+  assert(committed.includes('do not edit by hand')
+    && (committed.match(/^- \[[^\]]+\]\(https:\/\/github\.com\//gm) ?? []).length >= 1,
+    'used-by: the committed block is generated and still names dependents');
+}
+
+
 // -------------------------------------------------------- robustness ----
 /* The VS Code extension checks LIVE while the user types, so half-written
  * source is a normal input, not an edge case - and a throw there kills the

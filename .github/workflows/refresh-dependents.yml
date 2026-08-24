@@ -1,0 +1,73 @@
+name: refresh-dependents
+
+# Keeps the "Used by" block in README.md honest.
+#
+# GitHub shows that list itself — on the dependents page, and, on repositories
+# big enough for it, as the "Used by" panel in the sidebar. That panel needs
+# **100 dependents** before it appears; we are in single digits, and no
+# repository setting changes that. Everything else is already in place: the
+# package is published, its `repository` field resolves back here, and the
+# dependency graph has indexed the dependents. So the list is rendered where we
+# do decide what is shown, and this keeps it current.
+#
+# Monthly, and a PR rather than a commit: a repository arriving or leaving is
+# news about the project, and the diff is the thing worth reading. Nothing here
+# gates CI — a stale list is never a broken build, which is also why the suite
+# cannot check it (that would need network in `npm test`).
+#
+# The page is scraped, so its markup is the contract. The generator exits 1 on
+# an empty parse rather than publishing "0 repositories", and the step below
+# fails on a block that lists nothing — a silent emptying is the one failure
+# mode that would otherwise land as a plausible-looking PR.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 7 1 * *'   # monthly, 1st at 07:17 UTC (after refresh-icons)
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      # no install: the generator has no dependencies, it reads one HTML page
+      - name: Rebuild the "Used by" block
+        run: npm run generate-dependents
+
+      - name: The block has to still name repositories
+        run: |
+          sed -n '/dependents:start/,/dependents:end/p' README.md | grep -q '^- \[' || {
+            echo 'the regenerated block lists no repository - refusing to open a PR that empties it'
+            exit 1
+          }
+
+      - name: Open a PR when the list moved
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          add-paths: README.md
+          branch: refresh-dependents/list
+          delete-branch: true
+          commit-message: 'docs: refresh the "Used by" list from the dependents page'
+          title: 'Refresh the "Used by" list'
+          body: |
+            `npm run generate-dependents` re-read
+            [GitHub's dependents page](https://github.com/abap2UI5/linter/network/dependents)
+            and the list in `README.md` moved.
+
+            A name **arriving** is a repository that now declares
+            `@abap2ui5/linter` in a manifest. A name **leaving** is worth a
+            look before merging: a consumer that dropped the dependency, or
+            one that moved to `npx --yes` / the Action, which the dependency
+            graph cannot see at all.

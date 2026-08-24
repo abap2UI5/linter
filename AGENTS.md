@@ -19,6 +19,9 @@ npm run generate-rules-page       # ditto: site/index.html, the published refere
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
+npm run generate-dependents       # the README "Used by" list - NEEDS NETWORK
+                                  # too (GitHub's dependents page), same deal:
+                                  # monthly workflow, committed block is truth
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
 # settings can be pinned in the checked repo's abap2ui5lint.jsonc (lib/config.mjs;
 # CLI flag > config > default; unknown keys and unknown rule ids fail loudly)
@@ -863,6 +866,24 @@ never reaches the package. Treat it as documentation that happens to execute.
   downstream workflow is what says a bump is safe. npm additionally serves the
   consumers that have no such workflow — a developer linting their own app,
   and anyone who wants a pinnable version instead of `@main`.
+- **The README's "Used by" list is ours; GitHub's sidebar panel is not going
+  to appear.** That panel — the one abaplint has — shows only once the selected
+  package has **100 dependents**. It is a threshold, not a setting: the package
+  is published, its `repository` field resolves back here, the dependency graph
+  is on and the dependents ARE indexed (they are listed at
+  https://github.com/abap2UI5/linter/network/dependents), so there is nothing
+  to enable and nothing to fix. Do not go looking for the setting again. The
+  only lever is the number, and the one thing that moves it is a **manifest
+  entry**: `npx --yes @abap2ui5/linter` and the composite Action are invisible
+  to the dependency graph, so a repo using the linter either way is a user but
+  never a dependent — a consumer that wants to count runs `npm i -D` and
+  commits the lockfile. `scripts/generate-dependents.mjs` renders the same list
+  into README.md between the `dependents:start`/`:end` markers, refreshed
+  monthly by `.github/workflows/refresh-dependents.yml`. There is no API for
+  the page, so it is scraped and its markup is the contract: an empty parse
+  exits 1 instead of publishing "0 repositories", and `npm test` pins the
+  parser against `test/fixtures/dependents-page.html` — a saved copy of that
+  page, which is what to update when GitHub moves the markup.
 - **`site/index.html` is published on merge** to
   https://abap2ui5.github.io/linter/ by `.github/workflows/pages.yml` — a
   reworded rule detail is live the moment it lands on main. The workflow only
