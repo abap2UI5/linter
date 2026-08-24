@@ -887,6 +887,38 @@ ENDCLASS.`;
   assert(!checkAbapSource(fs.readFileSync(f('rowpaths.clas.abap'), 'utf8'))
     .findings.some((x) => x.type === 'relative-binding-without-context'),
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
+  {
+    const agg = checkAbapSource(fs.readFileSync(f('orphanbind.clas.abap'), 'utf8'))
+      .findings.filter((x) => x.type === 'relative-aggregation-without-context');
+    assert(agg.length === 1 && agg[0].value === 'T_ROWS',
+      `relative-aggregation-without-context: only the root-level one is reported (got ${agg.map((x) => x.value).join() || 'none'})`);
+    assert(!checkAbapSource(fs.readFileSync(f('rowpaths.clas.abap'), 'utf8'))
+      .findings.some((x) => x.type === 'relative-aggregation-without-context'),
+      'relative-aggregation-without-context: a relative aggregation inside a row template is the normal form');
+  }
+
+  // --- an attribute the reconstructor could not resolve is still versioned --
+  // A COND #( ) value is dropped from the document rather than invented, so
+  // the member used to be invisible to every version rule. app 454 hid a
+  // UI5 >= 1.117 floor behind exactly this and view-gates reported pass.
+  {
+    const cond = checkAbapSource(fs.readFileSync(f('condattr.clas.abap'), 'utf8'))
+      .findings.filter((x) => x.type === 'member-too-new' && x.member === 'initialFocus');
+    assert(cond.length === 1 && cond[0].since === '1.117.0',
+      `member-too-new: a COND-valued attribute is still judged for its version (got ${cond.map((x) => x.since).join() || 'none'})`);
+  }
+
+  // --- a member with no own @since inherits its DECLARING class's version ---
+  // sap.f.cards.BaseHeader is @1.86 and its `press` carries no member-level
+  // @since, so the walk used to stop at "base version" and pass a press on the
+  // @1.64 sap.f.cards.Header at a 1.71 floor. A member cannot predate the class
+  // that declares it.
+  {
+    const inh = checkAbapSource(fs.readFileSync(f('inheritedsince.clas.abap'), 'utf8'))
+      .findings.filter((x) => x.type === 'member-too-new' && x.member === 'press');
+    assert(inh.length === 1 && inh[0].since === '1.86',
+      `member-too-new: press inherits BaseHeader's 1.86 (got ${inh.map((x) => x.since).join() || 'none'})`);
+  }
 
   // --- a value the reconstruction had to guess at is not judged ------------
   // ids and binding paths built inside a LOOP from the loop variable: the
@@ -1063,7 +1095,7 @@ ENDCLASS.`);
     'compound filter groups: the correct nested form is fine');
   {
     const { checkAbapRules } = await import('./observe.mjs');
-    const withEnum = (src) => checkAbapRules(src, { enumFields: new Set(['TYPE']) });
+    const withEnum = (src) => checkAbapRules(src, { enumFields: new Map([['T_APPOINTMENTS', new Set(['TYPE'])]]) });
     assert(withEnum('INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t_appointments.')
       .some((x) => x.type === 'enum-field-unset-on-insert' && x.member === 'TYPE'),
       'enum-field-unset-on-insert: a row built without the enum-fed field ships "" and throws');

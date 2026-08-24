@@ -346,6 +346,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'raw-javascript-to-frontend' — default severity: warning"
         },
+        "relative-aggregation-without-context": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'relative-aggregation-without-context' — default severity: error"
+        },
         "relative-asset-url": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'relative-asset-url' — default severity: warning"

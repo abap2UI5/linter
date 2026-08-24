@@ -40,7 +40,14 @@ CLASS zcl_fixture_orphanbind IMPLEMENTATION.
             )->tag( `Text`
                 )->a( n = `text` v = client->_bind( supplier )
 
-            " not judged - inside a bound aggregation the row is the context
+            " reported - a ROOT-level aggregation bound relatively: nothing to
+            " resolve against, so the list renders empty
+            )->ele( `List`
+                )->a( n = `items` v = `{path: 'T_ROWS'}`
+            )->end(
+
+            " not judged - inside a bound aggregation the row is the context,
+            " and the nested aggregation's relative path is the normal form
             )->ele( `List`
                 )->a( n = `items` v = client->_bind( t_rows )
 
