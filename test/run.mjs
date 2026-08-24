@@ -1061,6 +1061,44 @@ ENDCLASS.`);
   assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","Contains","x"],["NAME","EQ","y"]]]` ) ) ).')
     .some((x) => x.type === 'invalid-action-payload' || x.type === 'invalid-frontend-action'),
     'compound filter groups: the correct nested form is fine');
+  {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const withEnum = (src) => checkAbapRules(src, { enumFields: new Set(['TYPE']) });
+    assert(withEnum('INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t_appointments.')
+      .some((x) => x.type === 'enum-field-unset-on-insert' && x.member === 'TYPE'),
+      'enum-field-unset-on-insert: a row built without the enum-fed field ships "" and throws');
+    assert(!withEnum('INSERT VALUE #( title = `New` type = `None` start_at = s ) INTO TABLE t_appointments.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: seeding the default is the repair');
+    assert(!withEnum('DATA(p) = VALUE #( ( `TYPE` ) ).\nclient->_bind( val = t omit_initial_paths = VALUE #( ( `TYPE` ) ) ).\nINSERT VALUE #( title = `New` ) INTO TABLE t_appointments.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: omit_initial_paths is the other repair and is honoured');
+    assert(!checkAbapRules('INSERT VALUE #( title = `New` ) INTO TABLE t_appointments.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: with no enum-bound field in the view there is nothing to report');
+  }
+
+  assert(act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `t` ) ( `expand` ) ( `$event.oSource.getSelectedItems().map(function (o) { return o.getId(); })` ) ) ).')
+    .some((x) => x.type === 'event-arg-js-callback'),
+    'event-arg-js-callback: a function literal in a resolved argument loses the whole handler');
+  assert(act('client->_event( val = `X` t_arg = VALUE #( ( `${x}.filter(a => a.id)` ) ) ).')
+    .some((x) => x.type === 'event-arg-js-callback'),
+    'event-arg-js-callback: an arrow function fails the same way');
+  assert(!act('client->follow_up_action( val = client->cs_event-control_global t_arg = VALUE #( ( `MESSAGE_TOAST` ) ( `show` ) ( `the function was called` ) ) ).')
+    .some((x) => x.type === 'event-arg-js-callback'),
+    'event-arg-js-callback: the word in a quoted string argument is shipped as text, not parsed');
+  assert(!act('client->_event( val = `X` t_arg = VALUE #( ( `${$parameters>/value}` ) ) ).')
+    .some((x) => x.type === 'event-arg-js-callback'),
+    'event-arg-js-callback: a plain resolved expression is fine');
+  assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[{"path":"NAME","operator":"Contains","value1":"x"}]` ) ) ).')
+    .some((x) => x.type === 'filter-groups-not-arrays'),
+    'filter-groups-not-arrays: the object form is dropped whole and clears the binding instead of filtering it');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[]` ) ) ).')
+    .some((x) => x.type === 'filter-groups-not-arrays'),
+    'filter-groups-not-arrays: an empty payload IS the clear form and is not reported');
+  assert(!act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[[["NAME","Contains","x"]]]` ) ) ).')
+    .some((x) => x.type === 'filter-groups-not-arrays'),
+    'filter-groups-not-arrays: the correct nested form is not reported');
   assert(act('client->follow_up_action( val = client->cs_event-binding_call t_arg = VALUE #( ( `tbl` ) ( `items` ) ( `filter` ) ( `[oops` ) ) ).')
     .some((x) => x.type === 'invalid-action-payload' && x.control === 'BINDING_CALL'),
     'invalid-action-payload: malformed filter-groups JSON is rejected with a log upstream');
