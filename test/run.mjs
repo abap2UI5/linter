@@ -895,6 +895,10 @@ ENDCLASS.`;
     assert(!checkAbapSource(fs.readFileSync(f('rowpaths.clas.abap'), 'utf8'))
       .findings.some((x) => x.type === 'relative-aggregation-without-context'),
       'relative-aggregation-without-context: a relative aggregation inside a row template is the normal form');
+    assert(!agg.some((x) => String(x.value).includes('message')),
+      'relative-aggregation-without-context: a named model prefix is stripped before asking whether the path is absolute - `message>/` is not relative');
+    assert(!agg.some((x) => String(x.value) === 'T_CHILDREN'),
+      'relative-aggregation-without-context: an aggregation whose value the reconstructor could not resolve still makes its children a row template - the blind spot is not a defect');
   }
 
   // --- an attribute the reconstructor could not resolve is still versioned --

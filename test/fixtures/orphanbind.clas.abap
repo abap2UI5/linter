@@ -24,6 +24,8 @@ CLASS zcl_fixture_orphanbind IMPLEMENTATION.
     supplier = `Very Best Screens`.
     t_rows   = VALUE #( ( productid = `HT-1000` ) ).
 
+    DATA(agg_binding) = client->_bind( val = t_rows path = abap_true ).
+
     DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
     view->ele( n = `View` ns = `mvc`
@@ -44,6 +46,28 @@ CLASS zcl_fixture_orphanbind IMPLEMENTATION.
             " resolve against, so the list renders empty
             )->ele( `List`
                 )->a( n = `items` v = `{path: 'T_ROWS'}`
+            )->end(
+
+            " not judged - the outer aggregation's value is a VARIABLE the
+            " reconstructor cannot resolve, so it lands in unresolvedAttrs and
+            " appears in no aggRows. The inner list is a row template all the
+            " same (app 585's shared nav_list( ) fragment shape)
+            )->ele( `List`
+                )->a( n = `items` v = agg_binding
+
+                )->ele( `items`
+                    )->ele( `CustomListItem`
+                        )->ele( `List`
+                            )->a( n = `items` v = `{T_CHILDREN}`
+                        )->end(
+                    )->end(
+                )->end(
+            )->end(
+
+            " not judged - a NAMED model rides in front of the path, and
+            " `message>/` is absolute once the model name is off it
+            )->ele( `MessagePopover`
+                )->a( n = `items` v = `{path: 'message>/'}`
             )->end(
 
             " not judged - inside a bound aggregation the row is the context,
