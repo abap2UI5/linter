@@ -87,6 +87,7 @@
     "generate-icons": "node scripts/generate-icons.mjs",
     "check-upstream": "node scripts/check-upstream.mjs",
     "generate-schema": "node scripts/generate-schema.mjs",
+    "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs"
   },
   "repository": {

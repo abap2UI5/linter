@@ -1,0 +1,65 @@
+<!--
+  A trimmed copy of https://github.com/abap2UI5/linter/network/dependents —
+  three rows and a pager, with the surrounding chrome cut away. It exists so
+  the parser in scripts/generate-dependents.mjs is testable without network:
+  the markup is GitHub's, and this fixture is what "the markup we parse" means
+  in the suite. When the real page changes shape, this file changes with it.
+-->
+<div id="dependents">
+  <div class="Box">
+    <div class="Box-row d-flex flex-items-center" >
+      <span class="f5 color-fg-muted">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-repo mr-1"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75Z"></path></svg>
+      </span>
+      <span class="f5 color-fg-muted">
+        <a data-hovercard-type="user" data-hovercard-url="/users/abap2UI5/hovercard" href="/abap2UI5">abap2UI5</a> /
+        <a data-hovercard-type="repository" data-hovercard-url="/abap2UI5/abap2UI5/hovercard" href="/abap2UI5/abap2UI5" class="text-bold">abap2UI5</a>
+      </span>
+      <div class="d-flex flex-auto"></div>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-star"><path d="M8 .25a.75.75 0 0 1 .673.418Z"></path></svg>
+        1,024
+      </span>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="octicon octicon-repo-forked"><path d="M5 5.372v.878Z"></path></svg>
+        137
+      </span>
+    </div>
+    <div class="Box-row d-flex flex-items-center" >
+      <span class="f5 color-fg-muted">
+        <a data-hovercard-type="user" data-hovercard-url="/users/abap2UI5/hovercard" href="/abap2UI5">abap2UI5</a> /
+        <a data-hovercard-type="repository" data-hovercard-url="/abap2UI5/samples/hovercard" href="/abap2UI5/samples" class="text-bold">samples</a>
+      </span>
+      <div class="d-flex flex-auto"></div>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" class="octicon octicon-star"><path d="M8 .25Z"></path></svg>
+        42
+      </span>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" class="octicon octicon-repo-forked"><path d="M5 5.372Z"></path></svg>
+        8
+      </span>
+    </div>
+    <div class="Box-row d-flex flex-items-center" >
+      <span class="f5 color-fg-muted">
+        <a data-hovercard-type="user" data-hovercard-url="/users/abap2UI5-addons/hovercard" href="/abap2UI5-addons">abap2UI5-addons</a> /
+        <a data-hovercard-type="repository" data-hovercard-url="/abap2UI5-addons/se16n/hovercard" href="/abap2UI5-addons/se16n" class="text-bold">se16n</a>
+      </span>
+      <div class="d-flex flex-auto"></div>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" class="octicon octicon-star"><path d="M8 .25Z"></path></svg>
+        0
+      </span>
+      <span class="color-fg-muted text-bold pl-3">
+        <svg aria-hidden="true" class="octicon octicon-repo-forked"><path d="M5 5.372Z"></path></svg>
+        0
+      </span>
+    </div>
+  </div>
+  <div class="paginate-container d-none d-md-flex flex-justify-center">
+    <div class="BtnGroup" data-test-selector="pagination">
+      <a class="btn BtnGroup-item" rel="nofollow" href="/abap2UI5/linter/network/dependents?dependents_before=Y3Vyc29yOjA%3D">Previous</a>
+      <a class="btn BtnGroup-item" rel="nofollow" href="/abap2UI5/linter/network/dependents?dependents_after=Y3Vyc29yOjMw">Next</a>
+    </div>
+  </div>
+</div>
