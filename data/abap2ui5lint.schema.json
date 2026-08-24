@@ -182,6 +182,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'duplicate-property' — default severity: error"
         },
+        "enum-field-unset-on-insert": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-field-unset-on-insert' — default severity: error"
+        },
         "enum-value-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'enum-value-too-new' — default severity: warning"
@@ -189,6 +193,10 @@
         "escaped-brace-in-backtick": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'escaped-brace-in-backtick' — default severity: error"
+        },
+        "event-arg-js-callback": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'event-arg-js-callback' — default severity: error"
         },
         "event-arg-out-of-range": {
           "$ref": "#/definitions/rule",
@@ -217,6 +225,10 @@
         "excess-shut": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'excess-shut' — default severity: error"
+        },
+        "filter-groups-not-arrays": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'filter-groups-not-arrays' — default severity: error"
         },
         "frontend-action-unknown-id": {
           "$ref": "#/definitions/rule",
@@ -333,6 +345,10 @@
         "raw-javascript-to-frontend": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'raw-javascript-to-frontend' — default severity: warning"
+        },
+        "relative-aggregation-without-context": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'relative-aggregation-without-context' — default severity: error"
         },
         "relative-asset-url": {
           "$ref": "#/definitions/rule",
