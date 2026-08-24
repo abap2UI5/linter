@@ -2638,6 +2638,23 @@ ENDCLASS.`;
   assert(ok, `metadata: data/properties.json is in sync — npm run generate-metadata (${msg})`);
 }
 
+/* `@ui5-experimental-since` is a version tag like any other and the snapshot has
+ * to carry it. It used to be read at CLASS level only, so a MEMBER carrying it
+ * landed with no version at all and was treated as base version - i.e. silently
+ * passed at any floor. 55 members were in that state; these three pin the two
+ * halves of the fix (the version, and the flag that says which tag it came
+ * from) against a member whose own JSDoc carries the tag today. */
+{
+  const props = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8'));
+  const tok = props.controls['sap.m.Tokenizer']?.properties ?? {};
+  assert(tok.multiLine?.since === '1.142',
+    `metadata: an @ui5-experimental-since member carries its version (Tokenizer.multiLine ${tok.multiLine?.since})`);
+  assert(tok.multiLine?.experimental === true,
+    'metadata: an @ui5-experimental-since member is flagged experimental, so a consumer can tell it from a plain @since');
+  assert(tok.width?.since === undefined && tok.width?.experimental === undefined,
+    'metadata: a member with neither tag stays version-less — absent still means base version');
+}
+
 // --------------------------------------------------- icon data integrity ----
 /* The icon snapshot cannot have a drift gate like properties.json: it is built
  * by packing 79 OpenUI5 releases from the registry, so --check would need
