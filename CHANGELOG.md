@@ -1,6 +1,55 @@
 # Changelog
 
 
+## 0.4.0
+
+- **Four rules from re-reading a whole corpus against its originals.** Every
+  one is a defect `abap2UI5/samples-controls` was carrying where no gate could
+  see it, found by reading the 173 machine-generated ports against the archived
+  demo-kit samples they came from.
+
+  - `filter-groups-not-arrays` — a compound `binding_call` `filter` payload
+    written as an array of **objects**. `buildFilterGroups` keeps only
+    `Array.isArray(g) && g.length`, so the whole list empties and the binding is
+    **cleared**, not filtered. Nothing logs it.
+  - `event-arg-js-callback` — a JS callback in a `t_arg`. UI5's
+    `ExpressionParser` has no `function` keyword and reads `{` as an object
+    literal, so the **entire** handler fails to parse: not one bad argument, but
+    every argument of that event, and the event never reaches the backend.
+  - `enum-field-unset-on-insert` — a row built by `INSERT`/`APPEND VALUE #( … )`
+    without a field the view binds to an **enum** property. A JS original omits
+    the key and UI5 falls back to the default; ABAP has no absent field, so it
+    ships as `""`, `validateProperty` throws inside a binding update, and
+    `ManagedObjectBindingSupport` re-throws — the view dies. It fired once on
+    637 files and that one hit was real, in a port eleven readers had passed.
+  - `relative-aggregation-without-context` — a **root-level** aggregation bound
+    with a relative path. `Model.resolve` returns `undefined`, `bindList` never
+    resolves, and the aggregation renders empty with no error. It fell between
+    `hardcoded-binding-path` (only matches paths starting with `/`) and
+    `relative-binding-without-context` (deliberately skips aggregations).
+
+- **Two version checks were looking at the wrong thing.** `member-too-new` now
+  falls back to the **declaring class's** `@since` when a member carries none of
+  its own — a member cannot predate the class that declares it, and
+  `cards.BaseHeader` is @1.86 while its `press` has no own tag, so `press` was
+  silently treated as ancient on a 1.71 floor. And an attribute whose value is a
+  `COND #( )` / `SWITCH #( )` is recorded in `node.unresolvedAttrs` rather than
+  invented, which made it invisible to every version rule; those attributes are
+  now version-judged by name, which is all a `@since` check needs.
+
+- **One rule was built and dropped rather than shipped.** A
+  `bound-aggregation-over-size-limit` (a bound aggregation seeded past the
+  JSONModel's 100-entry cap) worked exactly as specified and produced **101
+  findings on 637 files, about one of them worth having** — almost all the
+  123-row shared product mock, in ports whose *original* also caps at 100 and
+  which are therefore faithful. Separating those needs knowledge of the
+  original's own limit, which nothing in the source, the view or the sidecar
+  records. The reasoning is written up in abap2UI5's backlog rather than lost.
+
+- **`relative-asset-url`** — a document-relative asset URL in a view, which an
+  abap2UI5 app has no root to resolve against. Merged after 0.3.0 was cut and
+  therefore unpublished until now.
+
 ## 0.3.0
 
 - **The companion-control mirrors are a knowledge file now, and gated.** The
