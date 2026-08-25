@@ -1,6 +1,23 @@
 # Changelog
 
 
+## 0.4.1
+
+- **`relative-aggregation-without-context` no longer fires on an element-bound
+  slot.** A class that issues `cs_event-bind_element` sets a binding **context
+  on a whole view slot at runtime**, so every relative path under it resolves
+  against a row the document never names — which is the entire point of that
+  idiom and invisible to a static walk over the document. `abap2UI5/samples`
+  app 470 is the sample that *teaches* it: a popup element-bound to the pressed
+  product row, whose component list binds `{T_ITEM}` relatively and correctly.
+  0.4.0 called it broken. Which slot was bound is a second question, and a
+  wrong second guess is worse than silence, so any `cs_event-bind_element` in
+  the class silences the rule.
+
+  Found the way it should be: the corpus bump workflow ran the new linter over
+  `samples` before opening its PR, so the false positive failed the bump
+  instead of landing on main.
+
 ## 0.4.0
 
 - **Four rules from re-reading a whole corpus against its originals.** Every

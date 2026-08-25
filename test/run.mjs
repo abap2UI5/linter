@@ -899,7 +899,14 @@ ENDCLASS.`;
       'relative-aggregation-without-context: a named model prefix is stripped before asking whether the path is absolute - `message>/` is not relative');
     assert(!agg.some((x) => String(x.value) === 'T_CHILDREN'),
       'relative-aggregation-without-context: an aggregation whose value the reconstructor could not resolve still makes its children a row template - the blind spot is not a defect');
-  }
+
+    const bound = checkAbapSource(fs.readFileSync(f('elementbind.clas.abap'), 'utf8'))
+      .findings.filter((x) => x.type === 'relative-aggregation-without-context');
+    assert(bound.length === 0,
+      `relative-aggregation-without-context: cs_event-bind_element sets a context on a whole slot at runtime, so nothing in the class is contextless (got ${bound.map((x) => x.value).join() || 'none'})`);
+    assert(checkAbapSource(fs.readFileSync(f('elementbind.clas.abap'), 'utf8').replace('cs_event-bind_element', 'cs_event-popup_close'))
+      .findings.some((x) => x.type === 'relative-aggregation-without-context'),
+      'relative-aggregation-without-context: the same fixture without the element bind IS reported - the suppression is the bind, not the shape');  }
 
   // --- an attribute the reconstructor could not resolve is still versioned --
   // A COND #( ) value is dropped from the document rather than invented, so
