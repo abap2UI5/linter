@@ -848,6 +848,31 @@ ENDCLASS.`;
   assert(!setters.some((x) => x.member === 'asyncURLHandler'),
     'settable-property-via-action: a function-typed property cannot travel in a JSON model');
 
+  // --- the inverse: a setter no binding can carry, issued off the display path
+  const rebuild = checkAbapSource(fs.readFileSync(f('rebuildstate.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'control-state-lost-on-rebuild');
+  const rebuiltAt = (id, m) => rebuild.find((x) => x.value === id && x.member === m);
+  assert(rebuild.length === 2,
+    `control-state-lost-on-rebuild: two wires survive no rebuild (got ${rebuild.map((x) => `${x.value}.${x.member}`).join() || 'none'})`);
+  assert(rebuiltAt('objectPage', 'setSelectedSection')?.control === 'sap.uxap.ObjectPageLayout',
+    'control-state-lost-on-rebuild: an ASSOCIATION cannot be bound, so re-issuing is the only remedy');
+  assert(rebuiltAt('badged', 'setBadgeMinValue')?.control === 'sap.m.Button',
+    'control-state-lost-on-rebuild: a method that is no member at all (Button keeps the badge bounds in private fields)');
+  assert(!rebuild.some((x) => x.member === 'setNextStep'),
+    'control-state-lost-on-rebuild: the same id+setter re-issued from view_display( ) is silent');
+  assert(!rebuild.some((x) => x.member === 'setActivePage'),
+    'control-state-lost-on-rebuild: a helper view_display( ) calls is ON the display path');
+  assert(!rebuild.some((x) => x.member === 'setExpanded'),
+    'control-state-lost-on-rebuild: a bindable property belongs to settable-property-via-action');
+  assert(!rebuild.some((x) => x.member === 'setCurrentStep'),
+    'control-state-lost-on-rebuild: a LITERAL value carries no class state for the rebuild to contradict');
+  assert(!rebuild.some((x) => x.member === 'focus'),
+    'control-state-lost-on-rebuild: only a set…( ) is judged');
+  const setterFixture = checkAbapSource(fs.readFileSync(f('setters.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'control-state-lost-on-rebuild');
+  assert(setterFixture.length === 0,
+    `control-state-lost-on-rebuild: the sibling rule's fixture sets only CONSTANTS (got ${setterFixture.length})`);
+
   // --- the three silent wires: denied method, bound association, named model
   const wires = checkAbapSource(fs.readFileSync(f('wires.clas.abap'), 'utf8')).findings;
 

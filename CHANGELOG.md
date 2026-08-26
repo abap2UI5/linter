@@ -2,6 +2,74 @@
 
 ## Unreleased
 
+- **`control-state-lost-on-rebuild` (hint) — the inverse of
+  `settable-property-via-action`, and exactly its blind spot.** That rule
+  fires when a `CONTROL_BY_ID` `set…( )` names a **bindable property** and
+  says *bind it instead*; it is deliberately silent for the three shapes where
+  that answer does not exist — an **association** (`setNextStep`,
+  `setSelectedSection`, `setActivePage`, `setCurrentStep`), a
+  **function-typed property** (`sap.m.MessagePopover.asyncURLHandler`), and a
+  method that is **no member at all** (`setBadgeMinValue`: `sap.m.Button`
+  declares `badgeStyle` as its only badge property and keeps the bounds in the
+  private fields `Button.init` resets to 1/9999).
+
+  Those three are live control state, and abap2UI5 does not patch a view.
+  `view_display( )` hands new XML to the VIEW_SLOTS action, whose `displayMain`
+  destroys the MAIN slot — POPUP and POPOVER with it — and builds a fresh tree
+  with `XMLView.create`; every control in it is a NEW object carrying what the
+  XML declares and nothing else. A bound property survives that because the
+  binding re-applies. This state does not. So a class that sets it from an
+  event handler and never re-issues it from the display path loses it on the
+  next rebuild — a restored draft, a called app handing control back, any later
+  `view_display( )` — while the ABAP field describing it survives as class
+  state, and the app then claims a state it does not show.
+
+  Statement order in ABAP is irrelevant to this, which is why the rule reads
+  METHODS rather than lines: `View1._processAfterRendering` awaits the whole
+  T_SYSTEM phase (the displays) before it runs T_CUSTOM (`follow_up_action`),
+  so a follow-up always lands *after* the rebuild of its own roundtrip — and is
+  gone at the next one.
+
+  Three conditions keep it quiet, each measured on the 637-file corpus before
+  it shipped:
+
+  - **The value has to be non-literal.** A constant carries no class state, so
+    there is nothing for the rebuilt view to contradict — app 101's
+    `setCurrentStep( 'ProductInfoStep' )` is a one-shot corrective jump and
+    app 263's `setSelectedSection( '' )` a reset to null, and re-issuing
+    either on every rebuild would BE the defect. Without this the rule reported
+    both.
+  - **Being on the display path is transitive.** App 534 ends `view_display( )`
+    on `path_apply( )` and keeps the setters there, so the enclosing method is
+    followed a few levels up; the same walk `missing-view-display-on-navigated`
+    already uses. A wire is silent too when any method on that path issues the
+    same **id + setter** — app 249's remedy, where `view_display( )` re-sends
+    both badge bounds from the accepted values it kept.
+  - **A control the snapshot cannot resolve falls back to a GLOBAL answer**
+    ("is this a bindable property on *any* control?"), never to a guess — so a
+    runtime id (`( step )` inside app 534's loop) is still judged, and a
+    companion or custom-namespace control is not.
+
+  Measured, pre-fix (`samples-controls` at `823e6dc`): **10 findings**, and it
+  names every one of the four defects that repo fixed by hand this week, each
+  at its own line — 249 `setBadgeMinValue`/`setBadgeMaxValue`, 534
+  `setNextStep` in `path_apply( )`, 535 and 560 `setNextStep` on both wizard
+  branch points. On the branch tip the 249 and 534 sites are silent and
+  **7 remain**, all real residuals of the same class: 012's two Carousels
+  (`first_item` survives, the rebuilt Carousels are back at page 0), 535/560's
+  four `setNextStep` wires (the fix moved the branch *earlier*, it did not make
+  it survive — `billing_validated` is bound and survives, so the rebuilt
+  BillingStep shows a Next button with no branch at all) and 588's
+  `setSelectedSection`. A **hint** for the same reason its sibling is one: the
+  wire is not broken, it is incomplete, and only the app knows whether the
+  state still matters once the screen has been rebuilt.
+
+  Out of scope on purpose: `binding_call` filters and sorters and the
+  `NavContainer.to( )` / `goToStep( )` family lose their state to the same
+  rebuild, but they are not `set…( )` calls and their transient half
+  (`focus`, `open`, `close`) has nothing to restore — reporting them would put
+  the rule's precision where its evidence is not.
+
 ### Added
 
 - **`picker-value-without-format`** — a date/time picker (`sap.m.DatePicker`,
