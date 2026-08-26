@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+- **`relative-binding-without-context` reads every shape a property binding
+  takes, and `cs_event-bind_element` is scoped to the ONE slot it names.**
+  `samples-controls` app 592 shipped **42 dead address bindings across 21
+  sections** past a green gate. The shape was `text="{STREET} {HOUSENUMBER}"`
+  — a COMPOSITE binding at the view root, no element binding anywhere, over
+  root fields the class declares correctly — and the rule was silent, because
+  `relativePath( )` is anchored `^{NAME}$`. So were the complex form
+  (`{ path: 'PRICE', type: … }`, which only the AGGREGATION branch had ever
+  matched) and the expression form (`{= ${STATUS} ? … }`). All four resolve a
+  slashless path against a context that does not exist and render blank.
+
+  A fourth hole sat between two rules: a relative name the model root does not
+  have was "left to `unknown-binding-path`", whose relative arm needs a `ctx`
+  that cannot exist here by construction. It is reported now, under a stricter
+  gate — the verdict never depended on the NAME (a slashless path with no
+  context resolves against nothing whatever it says), only the confidence that
+  there is no context does.
+
+  Widening the rule meant teaching it the contexts it could not see first, and
+  the 637-file corpus named two — untaught, the widened rule reported **70**
+  relative bindings across 11 correct ports:
+
+  - **`binding="{/SUPPLIERS/0}"` IS a context.** Not a control property but a
+    ManagedObject special setting handed to `bindObject( )` — the DECLARATIVE
+    form of the `cs_event-bind_element` wire, and the form the corpus writes
+    far more often. The context it opens is deliberately opaque: a row is set
+    here, and the gate does not claim to know its fields.
+  - **A per-row template aggregation is not only `template`.**
+    `rowActionTemplate` and `rowSettingsTemplate` (and `creationTemplate`) are
+    cloned per row by the same mechanism and take their context from the
+    parent's own rows binding in a sibling aggregation this walk never
+    descends into.
+
+  And `cs_event-bind_element` was computed **per CLASS** from the source text,
+  so one popup wire disarmed `relative-aggregation-without-context` for every
+  document of that class — the main slot included, which was never
+  element-bound. The wire's `view` parameter names the slot it binds (default
+  `cs_view-main`; the constant NAMES are not their values — `cs_view-nested`
+  is `NEST`), and a document knows the slot it lands in from its own display
+  call. A wire whose slot is not a literal still suppresses everywhere: a
+  wrong second guess is worse than silence.
+
+  **0 findings added and 0 removed** across the 637-file `samples-controls`
+  corpus, `view-gates` still 622 ports / 0 failing — and proven to see what it
+  is for: the pre-fix app 592 reports its four distinct dead bindings, where
+  v0.4.1 reports none of them.
+
 - **`enum-field-unset-on-insert` reads the two construction sites it was blind
   to, and the aggregation it could not resolve.** A corpus sweep over
   `abap2UI5/samples-controls` found **ten** rows of this exact class by hand,
