@@ -1354,6 +1354,37 @@ ENDCLASS.`).findings;
   assert(!dates.findings.some((x) => x.type === 'date-type-without-source' && x.value === 'sap.ui.model.type.Float'),
     'date-type-without-source: a non-date type never needs a source format');
 
+  // --- a picker whose value has neither a binding type nor a valueFormat ----
+  const picker = checkAbapSource(fs.readFileSync(f('pickerformat.clas.abap'), 'utf8'));
+  const locale = picker.findings.filter((x) => x.type === 'picker-value-without-format');
+  assert(locale.length === 3,
+    `picker-value-without-format: three unformatted picker values (got ${locale.length}: ${locale.map((x) => x.value).join()})`);
+  assert(locale.every((x) => x.severity === 'warning' && x.member === 'value'),
+    'picker-value-without-format: a warning on the value property');
+  assert(locale.map((x) => x.value).sort().join() === 'END_AT,REC_END,START_AT',
+    `picker-value-without-format: the three fields the class itself authors (got ${locale.map((x) => x.value).sort().join()})`);
+  assert(locale.some((x) => x.control === 'sap.m.DateTimePicker')
+    && locale.some((x) => x.control === 'sap.m.DatePicker')
+    && locale.some((x) => x.control === 'sap.m.DateRangeSelection'),
+    'picker-value-without-format: the family comes from the metadata (value + valueFormat), not from a name list');
+  assert(!locale.some((x) => x.value === 'TYPED_AT'),
+    'picker-value-without-format: a TYPED binding owns the pattern — valueFormat is moot, not missing');
+  assert(!locale.some((x) => x.value === 'FORMATTED'),
+    'picker-value-without-format: a declared valueFormat is the fix, never the defect');
+  assert(!locale.some((x) => x.value === 'MADE_ON'),
+    'picker-value-without-format: a field the class writes as digit-free text (`n/a`) is not a date in any locale');
+  assert(!locale.some((x) => x.value === 'EXPIRES'),
+    'picker-value-without-format: a field the class never writes has only ONE author — the picker reads back what it wrote');
+  assert(!locale.some((x) => x.control === 'sap.m.TimePicker'),
+    'picker-value-without-format: no value binding, so nothing can be written back');
+  assert(!locale.some((x) => x.value === 'NOTE'),
+    'picker-value-without-format: sap.m.Input has no valueFormat — it is not a picker and formats nothing');
+  // the same view as a raw XML document: there is no ABAP class to ask who
+  // else writes the field, so the rule has nothing to judge and says nothing
+  assert(!checkXmlSource('<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><DateTimePicker value="{/START_AT}"/></mvc:View>')
+    .findings.some((x) => x.type === 'picker-value-without-format'),
+    'picker-value-without-format: a raw view.xml has no class to read the second author from');
+
   // --- frontend-action wires and CSS braces ---------------------------------
   const wire = checkAbapSource(fs.readFileSync(f('wire.clas.abap'), 'utf8'));
   const actions = wire.findings.filter((x) => x.type === 'invalid-frontend-action');

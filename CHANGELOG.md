@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Added
+
+- **`picker-value-without-format`** — a date/time picker (`sap.m.DatePicker`,
+  `DateTimePicker`, `TimePicker`, `DateRangeSelection`, `TimePickerSliders`, …)
+  that binds `value` with neither a binding **type** nor a `valueFormat`. The
+  control then formats the string it writes BACK through the two-way binding
+  from the browser LOCALE, and `client->_bind( )`'s write-back is a bare ABAP
+  assignment, so that string lands in the field. Measured on OpenUI5 (en-US,
+  seed `"2018-07-09T09:00:00"`): a `DateTimePicker` still READS the ISO string
+  but writes back `"Jul 12, 2018, 2:30:00 PM"`; a `DatePicker` does not read it
+  at all and writes back `"7/12/18"`. In de-DE the field returns as
+  `"04.03.2025, 10:15:00"`, which `new Date( )` parses month-first — an
+  appointment picked for 4 March is drawn on 3 April, silently.
+
+  The picker family is derived from the metadata (a control declaring both
+  `value` and `valueFormat`), so a subclass is covered without a name list. A
+  **warning**, and deliberately narrow: a typed binding is exempt (the type
+  owns the pattern), a declared `valueFormat` is exempt, and the class must
+  itself be an AUTHOR of the field — a field only the picker ever writes is
+  self-consistent whatever the locale does, and one the class writes as
+  digit-free text (`N/A`) is not a date. That last gate needs a new view of
+  the class: `prepareAbap` now also returns `rootWrites`, what the ABAP writes
+  into each root attribute, which the seeded `model` cannot stand in for.
+
+  On the samples-controls corpus it reports 16 bindings across ports 547, 548,
+  549, 555 and 609 at the pre-fix revision and **zero** once those declare an
+  ISO `valueFormat`; the four untyped, format-less pickers that remain (ports
+  101, 533, 535, 560, bound to `N/A`/never-written fields) are silent, as are
+  all 20 typed bindings and the 18 pickers that bind no `value` at all.
+
 - **`relative-binding-without-context` reads every shape a property binding
   takes, and `cs_event-bind_element` is scoped to the ONE slot it names.**
   `samples-controls` app 592 shipped **42 dead address bindings across 21

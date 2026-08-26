@@ -334,6 +334,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-model-update' — default severity: warning"
         },
+        "picker-value-without-format": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'picker-value-without-format' — default severity: warning"
+        },
         "popover-anchor-unknown-id": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'popover-anchor-unknown-id' — default severity: error"
