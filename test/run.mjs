@@ -19,6 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
+import { elementBoundSlots } from '../lib/index.mjs';
 import { severityOf } from '../lib/findings.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -882,8 +883,30 @@ ENDCLASS.`;
   // --- a relative binding with no context to resolve against ----------------
   const orphan = checkAbapSource(fs.readFileSync(f('orphanbind.clas.abap'), 'utf8'))
     .findings.filter((x) => x.type === 'relative-binding-without-context');
-  assert(orphan.length === 1 && orphan[0].value === 'NAME',
-    `relative-binding-without-context: only the contextless root field is reported (got ${orphan.map((x) => x.value).join() || 'none'})`);
+  const at = (control, member) => orphan.filter((x) => x.control === control && x.member === member)
+    .map((x) => x.value).sort().join();
+  assert(at('sap.m.Text', 'text') === 'NAME',
+    `relative-binding-without-context: the contextless root field is reported (got ${at('sap.m.Text', 'text') || 'none'})`);
+  /* The four shapes a PROPERTY binding takes. Only the first was judged until
+   * samples-controls app 592 shipped 42 dead address bindings in the second:
+   * `{STREET} {HOUSENUMBER}` is two relative paths in one attribute, and the
+   * anchored ^{NAME}$ matcher the rule started on could see neither. */
+  assert(at('sap.m.Title', 'text') === 'NAME,SUPPLIER',
+    `relative-binding-without-context: a COMPOSITE binding is reported once per path - app 592's literal shape (got ${at('sap.m.Title', 'text') || 'none'})`);
+  assert(at('sap.m.ObjectNumber', 'number') === 'PRICE',
+    `relative-binding-without-context: the COMPLEX form on a property, which only the aggregation branch used to match (got ${at('sap.m.ObjectNumber', 'number') || 'none'})`);
+  assert(at('sap.m.ObjectStatus', 'text') === 'STATUS',
+    `relative-binding-without-context: an EXPRESSION binding resolves its embedded paths against the same missing context (got ${at('sap.m.ObjectStatus', 'text') || 'none'})`);
+  assert(at('sap.m.Label', 'text') === 'NOSUCHFIELD',
+    `relative-binding-without-context: a relative name the model root does not have is dead too - it used to fall between this rule and unknown-binding-path, whose relative arm needs a context to check against (got ${at('sap.m.Label', 'text') || 'none'})`);
+  assert(!orphan.some((x) => x.control === 'sap.ui.table.RowSettings'),
+    'relative-binding-without-context: a per-row template aggregation is not only `template` - rowSettingsTemplate is cloned per row the same way');
+  assert(!orphan.some((x) => x.control === 'sap.m.Text' && x.value === 'PRODUCTID'),
+    'relative-binding-without-context: a `binding` attribute IS a context - XMLTemplateProcessor hands it to bindObject( ), the declarative cs_event-bind_element');
+  assert(!orphan.some((x) => ['0', '1'].includes(String(x.value)) || String(x.value).includes('device')),
+    'relative-binding-without-context: a message placeholder and a named model are neither of them a relative path');
+  assert(orphan.length === 6,
+    `relative-binding-without-context: nothing else in the fixture is reported (got ${orphan.map((x) => `${x.control}.${x.member}=${x.value}`).join(' ') || 'none'})`);
   assert(!checkAbapSource(fs.readFileSync(f('rowpaths.clas.abap'), 'utf8'))
     .findings.some((x) => x.type === 'relative-binding-without-context'),
     'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
@@ -906,7 +929,27 @@ ENDCLASS.`;
       `relative-aggregation-without-context: cs_event-bind_element sets a context on a whole slot at runtime, so nothing in the class is contextless (got ${bound.map((x) => x.value).join() || 'none'})`);
     assert(checkAbapSource(fs.readFileSync(f('elementbind.clas.abap'), 'utf8').replace('cs_event-bind_element', 'cs_event-popup_close'))
       .findings.some((x) => x.type === 'relative-aggregation-without-context'),
-      'relative-aggregation-without-context: the same fixture without the element bind IS reported - the suppression is the bind, not the shape');  }
+      'relative-aggregation-without-context: the same fixture without the element bind IS reported - the suppression is the bind, not the shape');
+
+    /* The wire binds ONE slot. Asked of the whole CLASS, a single popup wire
+     * disarmed the check for every document including the main slot that was
+     * never element-bound - one popup wire silencing a whole port. */
+    const slot = checkAbapSource(fs.readFileSync(f('slotbind.clas.abap'), 'utf8')).findings;
+    assert(slot.filter((x) => x.type.startsWith('relative-')).length === 2
+      && slot.some((x) => x.type === 'relative-binding-without-context' && x.value === 'HEADLINE')
+      && slot.some((x) => x.type === 'relative-aggregation-without-context' && x.value === 'T_PRODUCT'),
+      `bind_element scopes to the slot it names: the MAIN document is still judged (got ${slot.map((x) => `${x.type}=${x.value}`).join(' ') || 'none'})`);
+    assert(!slot.some((x) => ['NAME', 'T_ITEM'].includes(String(x.value))),
+      'bind_element: the POPUP document it does name is suppressed, relative paths and all');
+    assert(elementBoundSlots('client->follow_up_action( val = client->cs_event-bind_element view = client->cs_view-nested ).').slots.has('NEST'),
+      'bind_element: the cs_view constant NAME is not its value - cs_view-nested is NEST');
+    assert(elementBoundSlots('client->follow_up_action( val = client->cs_event-bind_element t_arg = VALUE #( ( `0` ) ) ).').slots.has('MAIN'),
+      'bind_element: with no view parameter the ABAP DEFAULT applies, and it is cs_view-main');
+    assert(elementBoundSlots('client->follow_up_action( val = client->cs_event-bind_element view = lv_slot ).').all,
+      'bind_element: a slot that is not a literal could be any of them, so it suppresses everywhere - a wrong second guess is worse than silence');
+    assert(!elementBoundSlots('" client->follow_up_action( val = client->cs_event-bind_element )').slots.size,
+      'bind_element: a wire in a COMMENT is not a wire');
+  }
 
   // --- an attribute the reconstructor could not resolve is still versioned --
   // A COND #( ) value is dropped from the document rather than invented, so
@@ -1107,8 +1150,8 @@ ENDCLASS.`);
   {
     const { checkAbapRules } = await import('./observe.mjs');
     const withEnum = (src) => checkAbapRules(src, { enumFields: new Map([['T_APPOINTMENTS', new Set(['TYPE'])]]) });
-    assert(withEnum('INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t_appointments.')
-      .some((x) => x.type === 'enum-field-unset-on-insert' && x.member === 'TYPE'),
+    const hit = (src) => withEnum(src).some((x) => x.type === 'enum-field-unset-on-insert' && x.member === 'TYPE');
+    assert(hit('INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t_appointments.'),
       'enum-field-unset-on-insert: a row built without the enum-fed field ships "" and throws');
     assert(!withEnum('INSERT VALUE #( title = `New` type = `None` start_at = s ) INTO TABLE t_appointments.')
       .some((x) => x.type === 'enum-field-unset-on-insert'),
@@ -1119,6 +1162,76 @@ ENDCLASS.`);
     assert(!checkAbapRules('INSERT VALUE #( title = `New` ) INTO TABLE t_appointments.')
       .some((x) => x.type === 'enum-field-unset-on-insert'),
       'enum-field-unset-on-insert: with no enum-bound field in the view there is nothing to report');
+
+    /* The three construction sites, each of which the corpus sweep of
+     * 2026-08-26 found the rule blind to. `INSERT VALUE #( )` was the only one
+     * judged; the model_init seed hid three defects and the work area two. */
+    assert(hit('t_appointments = VALUE #( ( title = `A` type = `Type01` )\n( title = `B` ) ).'),
+      'enum-field-unset-on-insert: the model_init table seed is a row-build site too - it was the dominant one');
+    assert(hit('<person>-t_appointments = VALUE #( ( title = `B` ) ).'),
+      'enum-field-unset-on-insert: the seed of a NESTED table, written through a field symbol');
+    assert(hit('DATA(appt) = VALUE ty_s_appointment( title = `B` ).\nINSERT appt INTO TABLE t_appointments.'),
+      'enum-field-unset-on-insert: a row assembled in a work area is the same row');
+    assert(hit('APPEND VALUE #( title = `B` ) TO <person>-t_appointments.'),
+      'enum-field-unset-on-insert: APPEND into a nested table resolves to the aggregation path, not to a key that does not exist');
+    assert(!withEnum('DATA(appt) = VALUE ty_s_appointment( title = `B` ).\nappt-type = `Type01`.\nINSERT appt INTO TABLE t_appointments.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a work-area field filled after the constructor is set');
+
+    /* …and the four shapes that are NOT it. Every one of them is a real port
+     * in samples-controls that the widened rule reported before these guards. */
+    assert(!withEnum('t_appointments = VALUE #( type = `Type01` ( title = `A` ) ( title = `B` ) ).')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a component set ONCE before the rows is ABAP\'s per-table default and every row carries it (app 407)');
+    assert(!withEnum('t_appointments = VALUE #( FOR row IN t_all WHERE ( name = x ) ( row ) ).')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a comprehension copies a whole row - there is no field list to read (app 505)');
+    assert(!withEnum('t_appointments = VALUE #( ( title = `A` ) ).\nLOOP AT t_appointments REFERENCE INTO DATA(r).\nr->type = `Type01`.\nENDLOOP.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a seed a LOOP completes afterwards is not a row built without the field (apps 009/208/505)');
+    assert(!withEnum('t_appointments = VALUE #( ( title = `A` ) ).\nt_appointments[ 1 ]-type = `Type01`.')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a component written through a table expression counts as set (app 549)');
+    assert(!withEnum('t_others = VALUE #( ( title = `A` ) ).')
+      .some((x) => x.type === 'enum-field-unset-on-insert'),
+      'enum-field-unset-on-insert: a seed of a table the view does not bind that way is not judged against it');
+  }
+
+  /* The VIEW half, end to end: which table each enum-fed field belongs to.
+   *
+   * The fixture is the shape of the seven ports the 2026-08-26 corpus sweep
+   * had to fix by hand. A PlanningCalendar binds THREE tables - `rows`,
+   * `specialDates`, and the `appointments` NESTED one row deeper - and only
+   * the innermost template carries `ariaHasPopup`. Before this the rule saw
+   * one absolute path and pooled every enum field below it, so the seed of
+   * `t_special` was reported for an ARIA it has no business carrying, and the
+   * nested `T_APPOINTMENTS` resolved to no key at all.
+   */
+  {
+    const src = fs.readFileSync(f('enumseed.clas.abap'), 'utf8');
+    const seeds = (text) => checkAbapSource(text).findings
+      .filter((x) => x.type === 'enum-field-unset-on-insert');
+    assert(seeds(src).length === 0,
+      `enum-field-unset-on-insert: the fixture as written is CORRECT - every row carries its enum seed (got ${seeds(src).map((x) => `${x.member}@${x.line}`).join() || 'none'})`);
+    /* Each repair removed on its own. A rule that fires once for a class
+     * proves nothing about the site the fix was written at - and every one of
+     * these is a shape the rule was blind to before 2026-08. */
+    const site = (find, repl, member, why) => {
+      const broken = src.replace(find, repl);
+      assert(broken !== src, `enum-field-unset-on-insert fixture: the seed "${why}" is there to remove`);
+      const got = seeds(broken);
+      assert(got.some((x) => x.member === member), `enum-field-unset-on-insert: ${why} (got ${got.map((x) => x.member).join() || 'none'})`);
+    };
+    site('type = `Type06` aria = `None`', 'type = `Type06`', 'ARIA',
+      'the model_init seed of a NESTED table is judged row by row (apps 531/536/538)');
+    site('type     = `Type09`\n                    aria     = `None`', 'type     = `Type09`', 'ARIA',
+      'an INSERT into <fs>-t_appointments resolves through the RELATIVE aggregation path (apps 108/547)');
+    site('type     = `Type09`\n                                                aria     = `None`', 'type     = `Type09`', 'ARIA',
+      'a row assembled in a work area is judged where it is built (apps 537/538)');
+    site('type = `NonWorking`', 'title = `NonWorking`', 'TYPE',
+      'the sibling `specialDates` template keeps its OWN field - T_SPECIAL is judged for TYPE, never for the ARIA two levels below it');
+    site('lr_product->weightstate =', 'lr_product->weight =', 'WEIGHTSTATE',
+      'a second table in the same view is judged against its own template once nothing fills it later');
   }
 
   assert(act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `t` ) ( `expand` ) ( `$event.oSource.getSelectedItems().map(function (o) { return o.getId(); })` ) ) ).')

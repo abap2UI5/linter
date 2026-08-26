@@ -419,12 +419,22 @@ function enumSinces(body) {
   return out;
 }
 
-/** Enum values from a library.js: `thisLib.Name = { Key: "Value" }`. */
+/** Enum values from a library.js: `thisLib.Name = { Key: "Value" }`.
+ *
+ *  The name may be DOTTED. A library groups part of its enums under a
+ *  sub-namespace object it creates first (`thisLib.aria = thisLib.aria || {}`)
+ *  and then writes `thisLib.aria.HasPopup = { … }`. UI5 registers those with
+ *  `DataType.registerEnum("sap.ui.core.aria.HasPopup", …)` exactly like the
+ *  flat ones, so `validateProperty` is every bit as strict about them — but a
+ *  single-segment pattern here does not see them, and a type the snapshot has
+ *  no entry for is a type no rule can judge. That is what hid
+ *  `ariaHasPopup` (and 15 more) from `invalid-property-value` and from
+ *  `enum-field-unset-on-insert`. */
 function parseLibraryEnums(file, lib) {
   const src = fs.readFileSync(file, 'utf8');
   const out = {};
   const sinces = {};
-  for (const m of src.matchAll(/thisLib\.(\w+)\s*=\s*\{/g)) {
+  for (const m of src.matchAll(/thisLib\.((?:\w+\.)*\w+)\s*=\s*\{/g)) {
     const body = braceBody(src, src.indexOf('{', m.index + m[0].length - 1));
     const values = enumValues(body);
     if (!values.length) continue;

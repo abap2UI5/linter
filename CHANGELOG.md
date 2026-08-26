@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased
+
+- **`enum-field-unset-on-insert` reads the two construction sites it was blind
+  to, and the aggregation it could not resolve.** A corpus sweep over
+  `abap2UI5/samples-controls` found **ten** rows of this exact class by hand,
+  across seven ports, that the rule reported none of. Four things were wrong,
+  and each one alone was enough to hide a defect:
+
+  - Only `INSERT`/`APPEND` of an inline `VALUE #( … )` was judged. The
+    **dominant** seeding form in the corpus is `t = VALUE #( ( … ) ( … ) )` in
+    `model_init` — including a table nested inside a row (`groups = VALUE #(
+    ( elements = VALUE #( … ) ) )`) — and it was never scanned. A row assembled
+    in a **work area** (`DATA(x) = VALUE ty_s( … ). … INSERT x INTO TABLE t.`)
+    was out of scope by construction; two ports use exactly that.
+  - A table only entered the field map when its aggregation binding was an
+    **absolute** `/PATH`. Every nested aggregation (`{path: 'T_APPOINTMENTS'}`,
+    `{path: 'GROUPS'}`) was dropped, so `INSERT … INTO TABLE
+    <row>-t_appointments` resolved to a key that did not exist.
+  - The fields under one bound aggregation were **pooled**, not keyed per
+    aggregation. A PlanningCalendar binds `rows`, `specialDates` and a nested
+    `appointments` at once, and pooling handed `specialDates` an `ariaHasPopup`
+    from two levels down — a false positive the moment the seeds were read.
+  - `sap.ui.core.aria.HasPopup` was **missing from the snapshot entirely**, and
+    with it fifteen more enums, so `ariaHasPopup` had no type any rule could
+    judge. That gap alone hid six of the ten findings.
+
+  With the four fixed the rule reports all ten (and every one of the eleven
+  seed sites individually, checked by removing each repair on its own), and
+  still reports **zero** on the corpus with them fixed.
+
+- **The metadata generator reads DOTTED enum names.** `parseLibraryEnums`
+  matched `thisLib.<Name> = {` only, while a library groups part of its enums
+  under a sub-namespace (`thisLib.aria.HasPopup = { … }`,
+  `thisLib.dnd.DropPosition`, `thisLib.cards.SemanticRole`). UI5 registers those
+  through `DataType.registerEnum` exactly like the flat ones and
+  `validateProperty` is every bit as strict about them. The snapshot goes from
+  **219 to 235 enums**; nothing was removed and no control entry changed.
+
+- **Four false-positive guards, each a real port that reported clean before.**
+  A component set once *before* the rows of a `VALUE` table is ABAP's per-table
+  default and every row carries it (app 407). A comprehension row
+  (`FOR row IN t_all … ( row )`) copies a whole structure and has no field list
+  to read (app 505). A field the class fills **afterwards** — `LOOP … r->state
+  = …`, or `t[ i ]-type = …` — is not missing, which is how a dozen ports move
+  an original's frontend formatter server-side. And a **mixed-case** binding
+  path is not an ABAP component name at all: `type="{Text}"` is the demo kit's
+  own quirk, ported verbatim, and it resolves to nothing so UI5 keeps the
+  default.
+
 
 ## 0.4.1
 
