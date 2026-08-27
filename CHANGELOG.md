@@ -2,6 +2,24 @@
 
 ## 0.5.0 - 2026-08-27
 
+- **The `pageId` argument kind, so the mirror stops calling `to` stale.**
+  abap2UI5 moved `CONTROL_METHODS.to` from the `controlId` kind to a new
+  `pageId` kind, because `sap.f.FlexibleColumnLayout.to` and
+  `sap.m.SplitContainer.to` probe their columns with
+  `aPages[i].getId() == pageId` — a comparison a Control can never win, so
+  every probe missed and the trailing `else` navigated the last column.
+
+  `check-upstream` derived the id-argument list from the `controlId` /
+  `anchor` / `controlIdOrNull` kinds only, so the new kind read as *`to` is
+  gone upstream* and failed the consumer's `check:mirrors`. But `pageId`
+  still resolves a control id — `resolveControl( )` first, `.getId( )` after
+  — so what an app writes on the ABAP side is unchanged and still has to
+  exist in the view. The kind records a fact about the **container**, not
+  about the argument this list checks, so `to` belongs in
+  `CONTROL_METHOD_ID_ARG` exactly as before and the derivation now admits
+  `pageId`. Without this, abap2UI5 cannot merge the fix that introduced the
+  kind: its mirror gate is red until a linter that knows about it ships.
+
 - **`date-type-without-source` reads the QUOTED key spelling.** A binding-info
   may be written `{ 'type': 'sap.ui.model.type.Date' }` as legitimately as with
   bare keys, and samples-controls apps 017/018 write all eight of their date

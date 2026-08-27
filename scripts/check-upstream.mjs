@@ -526,7 +526,11 @@ if (invokedDirectly) {
       console.error('check-upstream: could not find CONTROL_METHODS — the embedding changed, update parseControlMethodKinds');
       process.exit(2);
     }
-    const idArg = Object.keys(kinds).filter((k) => ['controlId', 'anchor', 'controlIdOrNull'].includes(kinds[k][0]));
+    // `pageId` resolves a control id exactly as `controlId` does and only
+    // differs in what it hands the container afterwards (the id, not the
+    // control), so a method carrying it still takes an id argument.
+    const ID_KINDS = ['controlId', 'pageId', 'anchor', 'controlIdOrNull'];
+    const idArg = Object.keys(kinds).filter((k) => ID_KINDS.includes(kinds[k][0]));
     report('CONTROL_BY_ID id-argument methods (lib/frontend-actions.mjs)', [...CONTROL_METHOD_ID_ARG], idArg);
     const objArg = Object.keys(kinds).filter((k) => kinds[k][0] === 'object');
     report('CONTROL_BY_ID object-payload methods (lib/frontend-actions.mjs)', Object.keys(OBJECT_ARG_METHODS), objArg);
