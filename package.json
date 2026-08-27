@@ -1,6 +1,6 @@
 {
   "name": "@abap2ui5/linter",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Validate abap2UI5 app classes without an SAP system: the ABAP and the view it builds, checked together.",
   "type": "module",
   "bin": {
@@ -106,7 +106,7 @@
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0 || ^0.3.0 || ^0.4.0"
+    "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0"
   },
   "peerDependenciesMeta": {
     "@abap2ui5/render-runtime": {

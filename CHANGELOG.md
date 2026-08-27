@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-08-27
 
 - **`date-type-without-source` reads the QUOTED key spelling.** A binding-info
   may be written `{ 'type': 'sap.ui.model.type.Date' }` as legitimately as with
