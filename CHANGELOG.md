@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **`date-type-without-source` reads the QUOTED key spelling.** A binding-info
+  may be written `{ 'type': 'sap.ui.model.type.Date' }` as legitimately as with
+  bare keys, and samples-controls apps 017/018 write all eight of their date
+  bindings that way. The matcher required a bare `type:`, so it stopped at the
+  first test and never judged them — blind, not wrong.
+
+  The fix has to move **both** halves together, which is the whole point: the
+  source test required a bare `source:` too, so teaching the rule the quoted
+  `'type'` alone would have turned those eight correct bindings into findings,
+  because their `'source'` is quoted as well. Value quotes may now be single or
+  double for the same reason. Corpus after the change: 0 findings, total
+  unchanged at 747 — the eight are now read and correctly cleared by their own
+  source pattern, rather than skipped because the rule could not see them.
+
 - **`control-state-lost-on-rebuild` (hint) — the inverse of
   `settable-property-via-action`, and exactly its blind spot.** That rule
   fires when a `CONTROL_BY_ID` `set…( )` names a **bindable property** and

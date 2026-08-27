@@ -1372,10 +1372,15 @@ ENDCLASS.`).findings;
   // --- date/time model types over a JSON model ------------------------------
   const dates = checkAbapSource(fs.readFileSync(f('datetype.clas.abap'), 'utf8'));
   const noSource = dates.findings.filter((x) => x.type === 'date-type-without-source');
-  assert(noSource.length === 3,
-    `date-type-without-source: three sourceless date bindings (got ${noSource.length})`);
-  assert(noSource.map((x) => x.value).sort().join() === 'DateType,TimeType,sap.ui.model.type.DateTime',
-    `date-type-without-source: the alias and the full module name are both judged (got ${noSource.map((x) => x.value).sort().join()})`);
+  assert(noSource.length === 4,
+    `date-type-without-source: four sourceless date bindings (got ${noSource.length})`);
+  assert(noSource.map((x) => x.value).sort().join() === 'DateType,TimeType,sap.ui.model.type.Date,sap.ui.model.type.DateTime',
+    `date-type-without-source: the alias, the full module name and the quoted-key spelling are all judged (got ${noSource.map((x) => x.value).sort().join()})`);
+  // the two halves have to move together: a quoted 'type' with a quoted
+  // 'source' is CORRECT, and teaching the rule only the first spelling would
+  // turn every one of apps 017/018's date bindings into a finding
+  assert(noSource.filter((x) => x.value === 'sap.ui.model.type.Date').length === 1,
+    `date-type-without-source: a QUOTED source counts, so only the sourceless quoted binding is reported (got ${noSource.filter((x) => x.value === 'sap.ui.model.type.Date').length})`);
   assert(!dates.findings.some((x) => x.type === 'date-type-without-source' && x.value === 'sap.ui.model.type.Float'),
     'date-type-without-source: a non-date type never needs a source format');
 
