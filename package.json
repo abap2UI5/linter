@@ -1,6 +1,6 @@
 {
   "name": "@abap2ui5/linter",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Validate abap2UI5 app classes without an SAP system: the ABAP and the view it builds, checked together.",
   "type": "module",
   "bin": {

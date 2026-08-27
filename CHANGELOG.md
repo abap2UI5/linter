@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.1 - 2026-08-27
+
+- **`backToPage` joins the id-argument mirror.** abap2UI5 gave it the `pageId`
+  kind ([#2670]) after measuring that an unprefixed page id is a **silent
+  no-op**, so `check-upstream` re-derived the list and `CONTROL_METHOD_ID_ARG`
+  was one entry short — turning a consumer's `check:mirrors` red on correct
+  new code, which is the failure mode that gate exists to make loud.
+
+  Worth keeping apart from `to`, and the comment now says so: `backToPage`
+  **does** normalise a Control (`NavContainer.js:1065`, the same guard `to`
+  has), so the kind is not there to rescue a Control. It is there because the
+  id is matched against `_pageStack`, whose every entry was pushed as
+  `page.getId()`, so `_findClosestPreviousPageInfo` compares with `===`
+  (`NavContainer.js:1203`) and an unprefixed literal matches nothing, logs,
+  and returns without navigating.
+
+  Patch rather than minor: measured on samples-controls before shipping —
+  **0** findings added, 60 advisory unchanged, so no consumer's verdict moves.
+
 ## 0.5.0 - 2026-08-27
 
 - **The `pageId` argument kind, so the mirror stops calling `to` stale.**
