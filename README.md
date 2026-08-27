@@ -3,7 +3,7 @@
 **Validate abap2UI5 app classes without an SAP system** — a CLI, library and
 GitHub Action extracted from the CI gates of
 [samples-controls](https://github.com/abap2UI5/samples-controls), where they
-guard 416 generated ports of the official UI5 demo kit samples.
+guard 622 generated ports of the official UI5 demo kit samples.
 
 It checks a **whole app class**, not just the XML it emits: the ABAP source and
 the view it builds are validated together. The defects that matter most are the

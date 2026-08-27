@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   samples-controls:
-    # The corpus: 416 generated ports. Runs the consumer's own gate wrapper
+    # The corpus: 622 generated ports. Runs the consumer's own gate wrapper
     # (view-gates.mjs), so the corpus POLICY applies - POST_171 deviations,
     # declared render skips, advisory rules - and a failure means a real port
     # regressed, not that a deviation went unread.
