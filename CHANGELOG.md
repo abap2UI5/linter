@@ -1,5 +1,231 @@
 # Changelog
 
+## 0.5.0 - 2026-08-27
+
+- **The `pageId` argument kind, so the mirror stops calling `to` stale.**
+  abap2UI5 moved `CONTROL_METHODS.to` from the `controlId` kind to a new
+  `pageId` kind, because `sap.f.FlexibleColumnLayout.to` and
+  `sap.m.SplitContainer.to` probe their columns with
+  `aPages[i].getId() == pageId` — a comparison a Control can never win, so
+  every probe missed and the trailing `else` navigated the last column.
+
+  `check-upstream` derived the id-argument list from the `controlId` /
+  `anchor` / `controlIdOrNull` kinds only, so the new kind read as *`to` is
+  gone upstream* and failed the consumer's `check:mirrors`. But `pageId`
+  still resolves a control id — `resolveControl( )` first, `.getId( )` after
+  — so what an app writes on the ABAP side is unchanged and still has to
+  exist in the view. The kind records a fact about the **container**, not
+  about the argument this list checks, so `to` belongs in
+  `CONTROL_METHOD_ID_ARG` exactly as before and the derivation now admits
+  `pageId`. Without this, abap2UI5 cannot merge the fix that introduced the
+  kind: its mirror gate is red until a linter that knows about it ships.
+
+- **`date-type-without-source` reads the QUOTED key spelling.** A binding-info
+  may be written `{ 'type': 'sap.ui.model.type.Date' }` as legitimately as with
+  bare keys, and samples-controls apps 017/018 write all eight of their date
+  bindings that way. The matcher required a bare `type:`, so it stopped at the
+  first test and never judged them — blind, not wrong.
+
+  The fix has to move **both** halves together, which is the whole point: the
+  source test required a bare `source:` too, so teaching the rule the quoted
+  `'type'` alone would have turned those eight correct bindings into findings,
+  because their `'source'` is quoted as well. Value quotes may now be single or
+  double for the same reason. Corpus after the change: 0 findings, total
+  unchanged at 747 — the eight are now read and correctly cleared by their own
+  source pattern, rather than skipped because the rule could not see them.
+
+- **`control-state-lost-on-rebuild` (hint) — the inverse of
+  `settable-property-via-action`, and exactly its blind spot.** That rule
+  fires when a `CONTROL_BY_ID` `set…( )` names a **bindable property** and
+  says *bind it instead*; it is deliberately silent for the three shapes where
+  that answer does not exist — an **association** (`setNextStep`,
+  `setSelectedSection`, `setActivePage`, `setCurrentStep`), a
+  **function-typed property** (`sap.m.MessagePopover.asyncURLHandler`), and a
+  method that is **no member at all** (`setBadgeMinValue`: `sap.m.Button`
+  declares `badgeStyle` as its only badge property and keeps the bounds in the
+  private fields `Button.init` resets to 1/9999).
+
+  Those three are live control state, and abap2UI5 does not patch a view.
+  `view_display( )` hands new XML to the VIEW_SLOTS action, whose `displayMain`
+  destroys the MAIN slot — POPUP and POPOVER with it — and builds a fresh tree
+  with `XMLView.create`; every control in it is a NEW object carrying what the
+  XML declares and nothing else. A bound property survives that because the
+  binding re-applies. This state does not. So a class that sets it from an
+  event handler and never re-issues it from the display path loses it on the
+  next rebuild — a restored draft, a called app handing control back, any later
+  `view_display( )` — while the ABAP field describing it survives as class
+  state, and the app then claims a state it does not show.
+
+  Statement order in ABAP is irrelevant to this, which is why the rule reads
+  METHODS rather than lines: `View1._processAfterRendering` awaits the whole
+  T_SYSTEM phase (the displays) before it runs T_CUSTOM (`follow_up_action`),
+  so a follow-up always lands *after* the rebuild of its own roundtrip — and is
+  gone at the next one.
+
+  Three conditions keep it quiet, each measured on the 637-file corpus before
+  it shipped:
+
+  - **The value has to be non-literal.** A constant carries no class state, so
+    there is nothing for the rebuilt view to contradict — app 101's
+    `setCurrentStep( 'ProductInfoStep' )` is a one-shot corrective jump and
+    app 263's `setSelectedSection( '' )` a reset to null, and re-issuing
+    either on every rebuild would BE the defect. Without this the rule reported
+    both.
+  - **Being on the display path is transitive.** App 534 ends `view_display( )`
+    on `path_apply( )` and keeps the setters there, so the enclosing method is
+    followed a few levels up; the same walk `missing-view-display-on-navigated`
+    already uses. A wire is silent too when any method on that path issues the
+    same **id + setter** — app 249's remedy, where `view_display( )` re-sends
+    both badge bounds from the accepted values it kept.
+  - **A control the snapshot cannot resolve falls back to a GLOBAL answer**
+    ("is this a bindable property on *any* control?"), never to a guess — so a
+    runtime id (`( step )` inside app 534's loop) is still judged, and a
+    companion or custom-namespace control is not.
+
+  Measured, pre-fix (`samples-controls` at `823e6dc`): **10 findings**, and it
+  names every one of the four defects that repo fixed by hand this week, each
+  at its own line — 249 `setBadgeMinValue`/`setBadgeMaxValue`, 534
+  `setNextStep` in `path_apply( )`, 535 and 560 `setNextStep` on both wizard
+  branch points. On the branch tip the 249 and 534 sites are silent and
+  **7 remain**, all real residuals of the same class: 012's two Carousels
+  (`first_item` survives, the rebuilt Carousels are back at page 0), 535/560's
+  four `setNextStep` wires (the fix moved the branch *earlier*, it did not make
+  it survive — `billing_validated` is bound and survives, so the rebuilt
+  BillingStep shows a Next button with no branch at all) and 588's
+  `setSelectedSection`. A **hint** for the same reason its sibling is one: the
+  wire is not broken, it is incomplete, and only the app knows whether the
+  state still matters once the screen has been rebuilt.
+
+  Out of scope on purpose: `binding_call` filters and sorters and the
+  `NavContainer.to( )` / `goToStep( )` family lose their state to the same
+  rebuild, but they are not `set…( )` calls and their transient half
+  (`focus`, `open`, `close`) has nothing to restore — reporting them would put
+  the rule's precision where its evidence is not.
+
+### Added
+
+- **`picker-value-without-format`** — a date/time picker (`sap.m.DatePicker`,
+  `DateTimePicker`, `TimePicker`, `DateRangeSelection`, `TimePickerSliders`, …)
+  that binds `value` with neither a binding **type** nor a `valueFormat`. The
+  control then formats the string it writes BACK through the two-way binding
+  from the browser LOCALE, and `client->_bind( )`'s write-back is a bare ABAP
+  assignment, so that string lands in the field. Measured on OpenUI5 (en-US,
+  seed `"2018-07-09T09:00:00"`): a `DateTimePicker` still READS the ISO string
+  but writes back `"Jul 12, 2018, 2:30:00 PM"`; a `DatePicker` does not read it
+  at all and writes back `"7/12/18"`. In de-DE the field returns as
+  `"04.03.2025, 10:15:00"`, which `new Date( )` parses month-first — an
+  appointment picked for 4 March is drawn on 3 April, silently.
+
+  The picker family is derived from the metadata (a control declaring both
+  `value` and `valueFormat`), so a subclass is covered without a name list. A
+  **warning**, and deliberately narrow: a typed binding is exempt (the type
+  owns the pattern), a declared `valueFormat` is exempt, and the class must
+  itself be an AUTHOR of the field — a field only the picker ever writes is
+  self-consistent whatever the locale does, and one the class writes as
+  digit-free text (`N/A`) is not a date. That last gate needs a new view of
+  the class: `prepareAbap` now also returns `rootWrites`, what the ABAP writes
+  into each root attribute, which the seeded `model` cannot stand in for.
+
+  On the samples-controls corpus it reports 16 bindings across ports 547, 548,
+  549, 555 and 609 at the pre-fix revision and **zero** once those declare an
+  ISO `valueFormat`; the four untyped, format-less pickers that remain (ports
+  101, 533, 535, 560, bound to `N/A`/never-written fields) are silent, as are
+  all 20 typed bindings and the 18 pickers that bind no `value` at all.
+
+- **`relative-binding-without-context` reads every shape a property binding
+  takes, and `cs_event-bind_element` is scoped to the ONE slot it names.**
+  `samples-controls` app 592 shipped **42 dead address bindings across 21
+  sections** past a green gate. The shape was `text="{STREET} {HOUSENUMBER}"`
+  — a COMPOSITE binding at the view root, no element binding anywhere, over
+  root fields the class declares correctly — and the rule was silent, because
+  `relativePath( )` is anchored `^{NAME}$`. So were the complex form
+  (`{ path: 'PRICE', type: … }`, which only the AGGREGATION branch had ever
+  matched) and the expression form (`{= ${STATUS} ? … }`). All four resolve a
+  slashless path against a context that does not exist and render blank.
+
+  A fourth hole sat between two rules: a relative name the model root does not
+  have was "left to `unknown-binding-path`", whose relative arm needs a `ctx`
+  that cannot exist here by construction. It is reported now, under a stricter
+  gate — the verdict never depended on the NAME (a slashless path with no
+  context resolves against nothing whatever it says), only the confidence that
+  there is no context does.
+
+  Widening the rule meant teaching it the contexts it could not see first, and
+  the 637-file corpus named two — untaught, the widened rule reported **70**
+  relative bindings across 11 correct ports:
+
+  - **`binding="{/SUPPLIERS/0}"` IS a context.** Not a control property but a
+    ManagedObject special setting handed to `bindObject( )` — the DECLARATIVE
+    form of the `cs_event-bind_element` wire, and the form the corpus writes
+    far more often. The context it opens is deliberately opaque: a row is set
+    here, and the gate does not claim to know its fields.
+  - **A per-row template aggregation is not only `template`.**
+    `rowActionTemplate` and `rowSettingsTemplate` (and `creationTemplate`) are
+    cloned per row by the same mechanism and take their context from the
+    parent's own rows binding in a sibling aggregation this walk never
+    descends into.
+
+  And `cs_event-bind_element` was computed **per CLASS** from the source text,
+  so one popup wire disarmed `relative-aggregation-without-context` for every
+  document of that class — the main slot included, which was never
+  element-bound. The wire's `view` parameter names the slot it binds (default
+  `cs_view-main`; the constant NAMES are not their values — `cs_view-nested`
+  is `NEST`), and a document knows the slot it lands in from its own display
+  call. A wire whose slot is not a literal still suppresses everywhere: a
+  wrong second guess is worse than silence.
+
+  **0 findings added and 0 removed** across the 637-file `samples-controls`
+  corpus, `view-gates` still 622 ports / 0 failing — and proven to see what it
+  is for: the pre-fix app 592 reports its four distinct dead bindings, where
+  v0.4.1 reports none of them.
+
+- **`enum-field-unset-on-insert` reads the two construction sites it was blind
+  to, and the aggregation it could not resolve.** A corpus sweep over
+  `abap2UI5/samples-controls` found **ten** rows of this exact class by hand,
+  across seven ports, that the rule reported none of. Four things were wrong,
+  and each one alone was enough to hide a defect:
+
+  - Only `INSERT`/`APPEND` of an inline `VALUE #( … )` was judged. The
+    **dominant** seeding form in the corpus is `t = VALUE #( ( … ) ( … ) )` in
+    `model_init` — including a table nested inside a row (`groups = VALUE #(
+    ( elements = VALUE #( … ) ) )`) — and it was never scanned. A row assembled
+    in a **work area** (`DATA(x) = VALUE ty_s( … ). … INSERT x INTO TABLE t.`)
+    was out of scope by construction; two ports use exactly that.
+  - A table only entered the field map when its aggregation binding was an
+    **absolute** `/PATH`. Every nested aggregation (`{path: 'T_APPOINTMENTS'}`,
+    `{path: 'GROUPS'}`) was dropped, so `INSERT … INTO TABLE
+    <row>-t_appointments` resolved to a key that did not exist.
+  - The fields under one bound aggregation were **pooled**, not keyed per
+    aggregation. A PlanningCalendar binds `rows`, `specialDates` and a nested
+    `appointments` at once, and pooling handed `specialDates` an `ariaHasPopup`
+    from two levels down — a false positive the moment the seeds were read.
+  - `sap.ui.core.aria.HasPopup` was **missing from the snapshot entirely**, and
+    with it fifteen more enums, so `ariaHasPopup` had no type any rule could
+    judge. That gap alone hid six of the ten findings.
+
+  With the four fixed the rule reports all ten (and every one of the eleven
+  seed sites individually, checked by removing each repair on its own), and
+  still reports **zero** on the corpus with them fixed.
+
+- **The metadata generator reads DOTTED enum names.** `parseLibraryEnums`
+  matched `thisLib.<Name> = {` only, while a library groups part of its enums
+  under a sub-namespace (`thisLib.aria.HasPopup = { … }`,
+  `thisLib.dnd.DropPosition`, `thisLib.cards.SemanticRole`). UI5 registers those
+  through `DataType.registerEnum` exactly like the flat ones and
+  `validateProperty` is every bit as strict about them. The snapshot goes from
+  **219 to 235 enums**; nothing was removed and no control entry changed.
+
+- **Four false-positive guards, each a real port that reported clean before.**
+  A component set once *before* the rows of a `VALUE` table is ABAP's per-table
+  default and every row carries it (app 407). A comprehension row
+  (`FOR row IN t_all … ( row )`) copies a whole structure and has no field list
+  to read (app 505). A field the class fills **afterwards** — `LOOP … r->state
+  = …`, or `t[ i ]-type = …` — is not missing, which is how a dozen ports move
+  an original's frontend formatter server-side. And a **mixed-case** binding
+  path is not an ABAP component name at all: `type="{Text}"` is the demo kit's
+  own quirk, ported verbatim, and it resolves to nothing so UI5 keeps the
+  default.
+
 
 ## 0.4.1
 

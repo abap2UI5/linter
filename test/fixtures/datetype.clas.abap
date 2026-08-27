@@ -39,6 +39,17 @@ CLASS zcl_fixture_datetype IMPLEMENTATION.
           )->tag( `Text`
             )->a( n = `text` v = |\{ path: '{ client->_bind( val = clock path = abap_true ) }', type: 'TimeType' \}|
 
+          " ok - the QUOTED key spelling, WITH a quoted source. Apps 017/018
+          " write every one of their date bindings this way, and the rule used
+          " to be blind to both halves at once: it saw no 'type' and stopped,
+          " which is the only reason it never reported these as sourceless
+          )->tag( `Text`
+            )->a( n = `text` v = |\{ 'path': '{ client->_bind( val = day path = abap_true ) }', 'type': 'sap.ui.model.type.Date', 'formatOptions': \{ 'source': \{ 'pattern': 'yyyy-MM-dd' \} \} \}|
+
+          " reported - the same quoted spelling, but no source anywhere
+          )->tag( `Text`
+            )->a( n = `text` v = |\{ 'path': '{ client->_bind( val = day path = abap_true ) }', 'type': 'sap.ui.model.type.Date', 'formatOptions': \{ 'style': 'short' \} \}|
+
         )->end( ).
 
     client->view_display( view->stringify( ) ).

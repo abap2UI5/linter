@@ -150,6 +150,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'control-deprecated' — default severity: warning"
         },
+        "control-state-lost-on-rebuild": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'control-state-lost-on-rebuild' — default severity: hint"
+        },
         "control-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'control-too-new' — default severity: warning"
@@ -333,6 +337,10 @@
         "obsolete-model-update": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-model-update' — default severity: warning"
+        },
+        "picker-value-without-format": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'picker-value-without-format' — default severity: warning"
         },
         "popover-anchor-unknown-id": {
           "$ref": "#/definitions/rule",
