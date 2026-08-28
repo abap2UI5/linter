@@ -666,6 +666,22 @@ ENDCLASS.`;
   assert(JSON.stringify(JSON.parse(stripJsonc('{"a":[1, 2, ], "b":{"c":1, }, }'))) === '{"a":[1,2],"b":{"c":1}}',
     'config: stripJsonc still drops the structural trailing commas');
 
+  /* A comma offset is a UTF-16 CODE UNIT index. Rebuilding the string by code
+   * POINT (`[...out]`) shifts every index past the first astral character, so
+   * one config with an emoji anywhere in it lost an unrelated character and
+   * kept the comma it was supposed to lose. Three consumers read this loader
+   * (CLI, VS Code extension, the App prototype), and all three saw a
+   * SyntaxError instead of a config. */
+  const astral = '{ "paths": ["src/\u{1F3AF}app"], "ui5": "1.71", }';
+  assert(stripJsonc(astral) === '{ "paths": ["src/\u{1F3AF}app"], "ui5": "1.71" }',
+    `config: stripJsonc drops the right comma past a non-BMP character (got ${stripJsonc(astral)})`);
+  assert(JSON.parse(stripJsonc(astral)).paths[0] === 'src/\u{1F3AF}app',
+    'config: a config carrying an emoji still parses, path intact');
+  // two of them, so the drift is measured beyond a single 2-unit shift
+  const astral2 = '{ "a": ["\u{1F3AF}", "\u{1F600}"], "b": [1, ], }';
+  assert(JSON.stringify(JSON.parse(stripJsonc(astral2))) === '{"a":["\u{1F3AF}","\u{1F600}"],"b":[1]}',
+    'config: several non-BMP characters do not shift the comma offsets');
+
   const cfg = loadConfig(cfgFile);
   assert(cfg.minUi5 === '1.96' && cfg.failOn === 'hint' && cfg.render === false,
     'config: jsonc parsed with comments and trailing commas');
