@@ -19,11 +19,22 @@ updates:
       time: "06:30"
     open-pull-requests-limit: 5
     groups:
+      # The @openui5 pins get a group of their own because they are not a
+      # dependency bump, they are a KNOWLEDGE bump: moving them makes
+      # data/properties.json and data/icons.json stale, which `npm test` fails
+      # on by design. `dependabot-openui5.yml` regenerates both onto the branch,
+      # and that self-heal only produces a coherent diff when the pull request
+      # carries the pins and nothing else. Listed FIRST: a dependency joins the
+      # first group it matches.
+      openui5:
+        patterns: ["@openui5/*"]
       toolchain:
         patterns: ["*"]
+        exclude-patterns: ["@openui5/*"]
         update-types: ["minor", "patch"]
       toolchain-major:
         patterns: ["*"]
+        exclude-patterns: ["@openui5/*"]
         update-types: ["major"]
 
   - package-ecosystem: github-actions
