@@ -14,12 +14,21 @@
   platform: the suite now spells a `\`-separated path by hand, so the
   regression is reproducible on Linux rather than visible on one leg only.
 
-- **The `data/properties.json` drift gate says what drifted.** "Stale" is
-  enough when you just edited the generator and useless on a machine you cannot
-  reach. It now names the controls or enums that were added, lost or changed —
-  and, when both sides carry the same keys with the same values, says that only
-  their *order* differs, which is a walk-order difference rather than a content
-  one and wants the opposite fix.
+- **`data/properties.json` no longer depends on readdir order.** The walk that
+  builds the snapshot took `readdirSync` order as given, and that is a property
+  of the *filesystem*: ext4 hands back `Dialog.js` before `delegate/`, NTFS
+  sorts case-insensitively and hands back `delegate/` first. So Windows
+  generated the same 973 controls with the same values in another sequence and
+  the drift gate called the snapshot stale — on a tree byte-identical to the
+  green ubuntu one. The walk sorts now, in the code-unit order the committed
+  file already has, so no regeneration and no 473 KB of churn.
+
+- **The drift gate says what drifted.** "Stale" is enough when you just edited
+  the generator and useless on a machine you cannot reach — it is what left the
+  cause above unknown for seven red runs. It now names the controls or enums
+  added, lost or changed, and, when both sides carry the same keys with the same
+  values, says that only their *order* differs. That is what identified the
+  walk-order cause on the first Windows run after it shipped.
 
 [#35]: https://github.com/abap2UI5/linter/issues/35
 [#67]: https://github.com/abap2UI5/linter/pull/67

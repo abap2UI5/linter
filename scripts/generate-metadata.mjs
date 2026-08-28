@@ -118,8 +118,20 @@ function libDirs() {
   return out;
 }
 
+/* Sorted, because `readdirSync` order is a property of the FILESYSTEM and this
+ * walk decides the key order of a committed artefact. ext4 hands back
+ * `Dialog.js` before `delegate/`; NTFS sorts case-insensitively and hands back
+ * `delegate/` first, so the windows-latest leg generated the same 973 controls
+ * with the same values in another sequence and the drift gate called the
+ * snapshot stale — on a tree byte-identical to the green ubuntu one.
+ *
+ * Code-unit order, which is what the committed file already has (uppercase
+ * sorts before lowercase, so `Dialog.js` keeps its place): this pins the order
+ * that exists rather than renumbering 473 KB to a new convention. */
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
 function collect(dir, moduleBase, acc) {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort(byName)) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) collect(p, `${moduleBase}/${e.name}`, acc);
     else if (e.name.endsWith('.js') && !e.name.endsWith('Renderer.js')) acc.push([p, moduleBase]);

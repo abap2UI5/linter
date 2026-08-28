@@ -1036,6 +1036,21 @@ section('rules block', async () => {
       'rules: a typo inside a rule object fails loudly');
     assert(loadConfig(write('{"$schema": "x", "rules": {"duplicate-id": {"severity": "hint", "exclude": ["/test/"]}}}')).rules['duplicate-id'].severity === 'hint',
       'rules: $schema is accepted and a full rule object survives loading');
+
+    /* A config that is not there was named by hand: `findConfig` only returns a
+     * file it has already seen, so `loadConfig` is only ever handed a missing
+     * path by `--config`. It used to rethrow node's own text — an errno and a
+     * syscall at somebody who mistyped a path. */
+    const failed = (p) => { try { loadConfig(p); return ''; } catch (e) { return e.message; } };
+    const gone = failed(path.join(dir, 'nope.jsonc'));
+    assert(/no such file/.test(gone) && /--config/.test(gone),
+      `config: a missing --config path says so and names the flag (got ${JSON.stringify(gone)})`);
+    assert(!/ENOENT|syscall/.test(gone),
+      `config: and does not hand node's errno to the reader (got ${JSON.stringify(gone)})`);
+    const isDir = failed(dir);
+    assert(/is a directory/.test(isDir) && !/EISDIR/.test(isDir),
+      `config: --config pointed at a directory says that, not EISDIR (got ${JSON.stringify(isDir)})`);
+
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -3373,6 +3388,44 @@ section('metadata drift gate', async () => {
       cp.execFileSync('node', [path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs'), '--check'], { encoding: 'utf8' });
     } catch (e) { ok = false; msg = (e.stderr || e.stdout || '').trim(); }
     assert(ok, `metadata: data/properties.json is in sync — npm run generate-metadata (${msg})`);
+
+    /* And in sync from a filesystem that hands the walk back in another order.
+     *
+     * `readdirSync` order is a property of the FILESYSTEM: ext4 hands back
+     * `Dialog.js` before `delegate/`, NTFS sorts case-insensitively and hands
+     * back `delegate/` first. That order decided the key order of the snapshot,
+     * so windows-latest generated the same 973 controls with the same values in
+     * another sequence and this gate called it stale - on a tree byte-identical
+     * to the green ubuntu one (linter#67).
+     *
+     * The walk sorts now, and this is what says so on every platform: run the
+     * generator with readdir wrapped to return NTFS order and require the same
+     * bytes. Without the sort in collect() this run differs; asserting it here
+     * is what keeps the regression off one leg of the matrix. */
+    const ntfs = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'a2u5-ntfs-')), 'run.mjs');
+    const out = `${ntfs}.json`;
+    fs.writeFileSync(ntfs, `import fs from 'fs';
+const real = fs.readdirSync;
+fs.readdirSync = (dir, opts) => {
+  const r = real(dir, opts);
+  if (!Array.isArray(r)) return r;
+  return [...r].sort((a, b) => {
+    const x = (a.name ?? a).toLowerCase(); const y = (b.name ?? b).toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+};
+await import(${JSON.stringify(pathToFileURL(path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs')).href)});
+`);
+    let reordered = true;
+    let why = '';
+    try {
+      cp.execFileSync('node', [ntfs, '--out', out], { encoding: 'utf8' });
+      const a = fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8');
+      reordered = fs.readFileSync(out, 'utf8') === a;
+    } catch (e) { reordered = false; why = (e.stderr || e.message || '').trim(); }
+    finally { fs.rmSync(path.dirname(ntfs), { recursive: true, force: true }); }
+    assert(reordered,
+      `metadata: the snapshot does not depend on readdir order — a case-insensitive (NTFS) walk produces the same bytes ${why}`);
 });
 
 /* `@ui5-experimental-since` is a version tag like any other and the snapshot has
@@ -3621,7 +3674,27 @@ section('report', async () => {
     try { cp.execFileSync('node', [CLI, '--nope'], { encoding: 'utf8' }); }
     catch (e) { usage = e.stderr ?? ''; }
     assert(/^abap2ui5lint: unknown option '--nope'/.test(usage) && /\[paths\.\.\.\]/.test(usage),
-      'report: a bad flag still gets the one-line usage reminder');
+      'report: a bad flag still gets the usage reminder');
+
+    /* …wrapped, and pointing at the help that says what the flags DO.
+     *
+     * The reminder is one 679-character string. Printed as one line it reached
+     * the reader as nine ragged terminal-wrapped lines with bracketed groups
+     * split down the middle - and that reader has just mistyped a flag, so it
+     * is the worst moment for a wall. `--help` was moved off this same string
+     * for the same reason; the error path had kept it.
+     *
+     * Wrapped rather than shortened on purpose: the full list is what the two
+     * assertions below compare against `--help`, in both directions, and that
+     * gate has already caught a stale header once. A short usage line would
+     * leave them nothing to compare. */
+    const usageLines = usage.split('\n').filter((l) => /^(usage:|\s+\[)/.test(l));
+    assert(usageLines.length > 1 && usageLines.every((l) => l.length <= 78),
+      `report: the usage reminder is wrapped, not one long line (longest ${Math.max(0, ...usageLines.map((l) => l.length))})`);
+    assert(usageLines.every((l) => (l.match(/\[/g) || []).length === (l.match(/\]/g) || []).length),
+      'report: and no bracketed group is split across a line boundary');
+    assert(/try `abap2ui5lint --help`/.test(usage),
+      'report: the reminder points at --help, which is where the flags are explained');
     const flagsIn = (text) => new Set([...text.matchAll(/--[a-z][a-z0-9-]+/g)].map((m) => m[0]));
     const inUsage = [...flagsIn(usage)].filter((x) => x !== '--nope');
     const undocumented = inUsage.filter((flag) => !help.includes(flag));

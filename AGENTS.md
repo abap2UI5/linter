@@ -13,6 +13,8 @@ CLI, library and GitHub Action, no SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
+npm run check                     # npm test + the github-app dry run: the two CI
+                                  # jobs a pull request has to pass on a plain checkout
 npm test                          # node --test test/run.mjs: node:test, over 700 assertions
                                   # in ~84 isolated sections. One of them:
                                   #   node --test-name-pattern=fix test/run.mjs
@@ -32,6 +34,16 @@ node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
 `npm test` fails with an unhelpful Chromium error after a bare `npm ci` —
 the playwright install is mandatory, not optional. CI
 (`.github/workflows/ci.yml`) runs exactly these steps on Node 22.
+
+`npm run check` is the entry point CONVENTIONS section 3 asks every repository
+for, and it names what it leaves out: `codeql`, the `action` job (it runs the
+composite action, which does its own `npm ci` into a separate tree) and
+`package` (an `npm audit` of the published dependency set plus a tarball
+export check — both facts about a *publish*, not about a checkout). Everything
+else a pull request must pass is in it. It ran `node cli.mjs` until
+2026-08-28, which lints `src` — a directory this repository does not have, so
+the one command an outside developer types first answered `no such file or
+directory`.
 
 Changing a **severity, a finding type or the reconstructor** additionally
 needs the consumers checked — `.github/workflows/downstream.yml` does that on

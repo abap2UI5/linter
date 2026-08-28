@@ -149,6 +149,35 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--screenshot-model <file.json>] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
 
+/* USAGE is one 679-character string, and it was printed as one line. `--help`
+ * was moved off it for exactly that reason ("800 characters of bracketed flag
+ * names on a single line"), but the error path kept it — so the reader who has
+ * just mistyped a flag is the one who gets the wall, ragged-wrapped by their
+ * terminal across nine lines with brackets split down the middle.
+ *
+ * Wrapped rather than shortened, deliberately. The full list is what the
+ * two-way sync gate in the suite compares against `--help`, and that gate has
+ * already caught a stale header once; a short usage line would leave nothing to
+ * compare. So the content stays exactly as it is and only its shape changes,
+ * with a pointer to the structured help that lists what each flag does.
+ *
+ * 78 columns, breaking between bracketed groups only, so no `[--fail-on
+ * error|warning|hint|never]` is ever split across a line boundary. */
+const wrapUsage = (text, width = 78) => {
+  const [head, ...groups] = text.split(/ (?=\[)/);
+  const lines = [head];
+  const indent = ' '.repeat('usage: '.length);
+  for (const g of groups) {
+    const last = lines[lines.length - 1];
+    if (`${last} ${g}`.length <= width) lines[lines.length - 1] = `${last} ${g}`;
+    else lines.push(indent + g);
+  }
+  return lines.join('\n');
+};
+
+const usageBlock = () =>
+  `${wrapUsage(USAGE)}\ntry \`abap2ui5lint --help\` for what each flag does.`;
+
 const die = (message) => {
   console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
@@ -220,7 +249,7 @@ for (let i = 0; i < args.length; i++) {
   // a flag that takes a value must actually have one - `--allow` as the last
   // argument would otherwise push undefined and crash deep in the gate
   const value = () => {
-    if (i + 1 >= args.length) die(`${a} needs a value\n${USAGE}`);
+    if (i + 1 >= args.length) die(`${a} needs a value\n${usageBlock()}`);
     return args[++i];
   };
   if (a === '--min-ui5' || a === '--ui5') {
@@ -375,7 +404,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--help' || a === '-h') {
     console.log(helpText());
     process.exit(0);
-  } else if (a.startsWith('-')) die(`unknown option '${a}'\n${USAGE}`);
+  } else if (a.startsWith('-')) die(`unknown option '${a}'\n${usageBlock()}`);
   else paths.push(a);
 }
 
