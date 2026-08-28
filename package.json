@@ -85,7 +85,7 @@
     "README.md"
   ],
   "scripts": {
-    "check": "node cli.mjs",
+    "check": "npm test && node experimental/github-app/dryrun.mjs test/fixtures",
     "test": "node --test test/run.mjs",
     "generate-metadata": "node scripts/generate-metadata.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
