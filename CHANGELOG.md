@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+- **`rules[id].exclude` works on Windows.** The pattern is a path regex and
+  both spellings the README gives are written with `/`, but the file was also
+  matched in the forms `path.resolve` and `path.relative` return — which on
+  Windows carry `\`. So `"^src/00/98/"` matched none of the three forms and the
+  config silently waived **nothing**: the run that looked stricter was the
+  broken one, the same failure mode as [#35], now on the other axis. Every form
+  is matched with forward slashes as well.
+
+  Found by the `windows-latest` leg added in [#67], and asserted on every
+  platform: the suite now spells a `\`-separated path by hand, so the
+  regression is reproducible on Linux rather than visible on one leg only.
+
+- **The `data/properties.json` drift gate says what drifted.** "Stale" is
+  enough when you just edited the generator and useless on a machine you cannot
+  reach. It now names the controls or enums that were added, lost or changed —
+  and, when both sides carry the same keys with the same values, says that only
+  their *order* differs, which is a walk-order difference rather than a content
+  one and wants the opposite fix.
+
+[#35]: https://github.com/abap2UI5/linter/issues/35
+[#67]: https://github.com/abap2UI5/linter/pull/67
+
 ## 0.5.1 - 2026-08-27
 
 - **`backToPage` joins the id-argument mirror.** abap2UI5 gave it the `pageId`

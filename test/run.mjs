@@ -44,7 +44,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { test, after } from 'node:test';
 import nodeAssert from 'node:assert';
 import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
@@ -2716,10 +2716,27 @@ section('separate-lifecycle-ifs', async () => {
           assert(applyRules([...one], rules, form).length === 0,
             `rules.exclude: "${pattern}" (${what}) excludes the file when it arrives as ${how}`);
         }
+        /* The Windows spelling, asserted on every platform. `path.resolve` and
+         * `path.relative` hand back `\` there, so all three forms above carried
+         * backslashes and a `/`-written pattern matched none of them - three of
+         * the windows-latest failures in linter#67. Writing the separator by
+         * hand is what makes that reproducible on Linux; without this the
+         * regression is only visible on one leg of the matrix.
+         *
+         * The relative form is the one that carries: a `\`-separated path under
+         * the cwd reaches both patterns (itself for `^src/`, its resolved form
+         * for `/src/`). A fabricated `C:\...` cannot - `path.relative` has no
+         * way to reduce a foreign drive to `src/00/98/`, on either platform -
+         * so asserting it here would test the fixture, not the fix. */
+        assert(applyRules([...one], rules, 'src\\00\\98\\app.clas.abap').length === 0,
+          `rules.exclude: "${pattern}" excludes a backslash-separated path (Windows)`);
+
         assert(applyRules([...one], rules, `${process.cwd()}/src/01/app.clas.abap`).length === 1,
           `rules.exclude: "${pattern}" still only excludes what it names`);
         assert(applyRules([...one], rules, 'src/01/app.clas.abap').length === 1,
           `rules.exclude: "${pattern}" still only excludes what it names, relative too`);
+        assert(applyRules([...one], rules, 'src\\01\\app.clas.abap').length === 1,
+          `rules.exclude: "${pattern}" still only excludes what it names, backslashes too`);
       }
     }
     // the guard idiom is exclusive by construction: good.clas.abap opens with
@@ -3906,7 +3923,11 @@ section('typings', async () => {
     const undeclaredNames = [];
     for (const [sub, cond] of subpaths) {
       const mod = sub === '.' ? '@abap2ui5/linter' : `@abap2ui5/linter/${sub.slice(2)}`;
-      const runtime = Object.keys(await import(path.join(ROOT, cond.default)));
+      /* pathToFileURL, not the path: the ESM loader takes file:// URLs, and on
+       * Windows an absolute path starts with a drive letter it reads as a
+       * protocol - ERR_UNSUPPORTED_ESM_URL_SCHEME, "Received protocol 'd:'"
+       * (one of the windows-latest failures in linter#67). */
+      const runtime = Object.keys(await import(pathToFileURL(path.join(ROOT, cond.default)).href));
       const declared = new Set(
         [...(bodies[mod] ?? '').matchAll(/export (?:declare )?(?:function|const|class|interface|type|enum)\s+(\w+)/g)]
           .map((m) => m[1]),
