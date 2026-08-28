@@ -25,7 +25,7 @@ service fetches the changed files over the API and lints them inside the
 request. No clone, no temp directory, no working tree to clean up after a
 crash. That is the whole reason a hosted App is feasible at all, and it is why
 the render gate deliberately stays out: it belongs in the consumer's own CI,
-where [the Action](../../README.md#github-action) already runs it. The check's
+where [the Action](../../README.md#where-it-runs) already runs it. The check's
 summary says so, so nobody reads a green check as more than it is.
 
 This split is not new — the VS Code extension already bundles the property
