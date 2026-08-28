@@ -425,8 +425,15 @@ the `client->nav_app_leave( )` a popup helper ends on (abap2UI5's own
 search would have named.
 
 Rollout note for this round, and it is a bigger one than any before it: this
-is the first rule that adds findings to every corpus at scale — `samples` 85,
-`samples-controls` 425, `samples-stack` 27, `app-template` 0, one per class.
+is the first rule that adds findings to every corpus at scale — when it
+shipped it was one finding per class across every corpus there is (hundreds on
+`samples` and on `samples-controls`, none on `app-template`, which had no
+navigation to lose). Those counts are **not** kept here as standing numbers,
+for the reason the corpus-size line at the end of this file gives: the
+`app-corpora` matrix in `downstream.yml` runs the property gate over `samples`
+and `app-template` on every push and prints the per-rule table into the job
+summary, and the samples-controls corpus job does the same through
+`view-gates.mjs`. Read the number off the run, not off this paragraph.
 The downstream job is red until the pin-bump PRs decide it, and both
 instruments already exist: `--update-baseline` for the two baselined corpora,
 `ADVISORY_BUDGET` for samples-controls. Unlike the ratchet note above, the
@@ -858,7 +865,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   rate limits, installation lifecycle, operations). That list, not the code,
   is why this is a spike: the missing work is ongoing, not one-time.
 - **The two pinned consumers no longer pin the same way.** samples-controls
-  moved to the **npm range `^0.2.1`** and lets `package-lock.json` decide which
+  moved to an **npm range** (`^0.5.1` as of 2026-08; its `bump_linter.yaml` raises it) and lets `package-lock.json` decide which
   published version its gates actually run, bumped weekly to `latest` by its
   own `bump_linter.yaml` (which runs the full strict view gates over the 416
   ports before the PR exists). The VS Code extension still pins
@@ -931,7 +938,7 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
 - **No consumer follows main.** samples-controls takes this repo from npm
-  (`"@abap2ui5/linter": "^0.2.1"`, resolved by its `package-lock.json`, moved
+  (`"@abap2ui5/linter": "^0.5.1"` at the time of writing, resolved by its `package-lock.json`, moved
   to the latest published version weekly by its `bump_linter.yaml`); the VS
   Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
   lock; mcp-server pins nothing and imports whatever checkout sits beside it. So a
