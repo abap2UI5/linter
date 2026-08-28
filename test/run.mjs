@@ -2608,6 +2608,37 @@ ENDCLASS.`;
     .some((x) => x.type.includes('icon')),
     'icon rules: a name in a COMMENT is prose, not a use');
 
+  /*
+   * The icon scan is reachable on its own, through the `./icons` subpath.
+   *
+   * Both entry points call it, so a consumer going through `checkAbapSource`
+   * or `checkXmlSource` never has to - but a consumer that assembles the
+   * pipeline itself does, and could not: `checkIcons` lived in a module the
+   * exports map did not name, and `exports` blocks a deep import. That is
+   * what left the VS Code extension's in-process gate without the icon rules
+   * on its XML path while its ABAP path (which goes through checkAbapRules)
+   * had them - the same file judged differently by the editor and by CI,
+   * which is the divergence that gate exists to close.
+   */
+  {
+    const icons = await import('@abap2ui5/linter/icons');
+    assert(typeof icons.checkIcons === 'function' && typeof icons.loadIcons === 'function',
+      'icons: the ./icons subpath exports checkIcons and loadIcons');
+    const xml = '<mvc:View xmlns="sap.m"><Button icon="sap-icon://nosuchglyph"/></mvc:View>';
+    assert(icons.checkIcons(xml).some((x) => x.type === 'unknown-icon'),
+      'icons: checkIcons judges raw XML text on its own');
+    assert(icons.checkIcons(xml, { minUi5: '1.120' }).some((x) => x.type === 'unknown-icon'),
+      'icons: ...and honours the target release it is given');
+    /* An empty registry reports nothing rather than throwing - the same "no
+     * guessing" the rest of the linter follows, and what a host without a
+     * filesystem falls back to. */
+    const empty = { floor: '1.71', ui5Version: '', since: new Map(), removed: new Map() };
+    assert(icons.checkIcons(xml, { iconData: empty }).length === 0,
+      'icons: an empty registry judges nothing instead of guessing');
+    assert(icons.loadIcons().since.size > 0,
+      'icons: loadIcons reads the committed registry');
+  }
+
   // --- toolbar-only controls in a sap.m.Bar ---------------------------------
   const inBar = (inner, minUi5 = '1.71') => checkAbapSource(view(inner), { minUi5 })
     .findings.filter((x) => x.type === 'toolbar-control-in-bar');
@@ -3361,21 +3392,89 @@ ENDCLASS.`;
     && pkg.files.includes('types.d.ts'),
     'typings: the types conditions, the top-level types field and files[] all carry types.d.ts');
 
+  /*
+   * The declarations describe what the runtime ACTUALLY takes.
+   *
+   * `tsc --noEmit` below proves the file is valid TypeScript; it cannot prove
+   * it is true. An option the runtime reads and the typings omit is worse than
+   * an undocumented one: a consumer in TypeScript cannot pass it without a
+   * cast, so it silently does not pass it - and the rules behind it never fire
+   * for that consumer while CI reports them. That is how the VS Code
+   * extension's in-process gate came to run five rules fewer than the CLI.
+   *
+   * So the option names are read out of the signatures and the returned keys
+   * out of a real call, and both are held against the declaration blocks.
+   */
+  const blockOf = (module) => {
+    const at = dts.indexOf(`declare module "${module}"`);
+    if (at < 0) return '';
+    // to the next declare-module, or the end
+    const next = dts.indexOf('\ndeclare module "', at + 1);
+    return dts.slice(at, next < 0 ? dts.length : next);
+  };
+  const optionsOf = (file, fn) => {
+    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const sig = new RegExp(`export function ${fn}\\([^)]*?\\{([^}]*)\\}`).exec(src);
+    if (!sig) return [];
+    // the NAME of each destructured entry, never the default value after `=`
+    return sig[1]
+      .split(',')
+      .map((part) => /^\s*(\w+)/.exec(part)?.[1])
+      .filter(Boolean);
+  };
+
+  for (const [file, fn, module] of [
+    ['lib/properties.mjs', 'checkNodes', '@abap2ui5/linter/properties'],
+    ['lib/abap-rules.mjs', 'checkAbapRules', '@abap2ui5/linter/abap-rules'],
+  ]) {
+    const declared = blockOf(module);
+    const opts = optionsOf(file, fn);
+    const missing = opts.filter((name) => !new RegExp(`\\b${name}\\??:`).test(declared));
+    assert(opts.length > 3 && !missing.length,
+      `typings: ${fn} declares every option it reads (missing: ${missing.join(', ') || 'none'})`);
+  }
+
+  {
+    // the reconstructor's result, from a real call rather than from a regex
+    const { prepareAbap } = await import('../lib/reconstruct.mjs');
+    const prepared = prepareAbap(fs.readFileSync(path.join(FIX, 'good.clas.abap'), 'utf8'));
+    const declared = blockOf('@abap2ui5/linter/reconstruct');
+    const missing = Object.keys(prepared)
+      .filter((key) => !new RegExp(`\\b${key}\\??:`).test(declared));
+    assert(Object.keys(prepared).length > 5 && !missing.length,
+      `typings: PreparedAbap declares every key prepareAbap returns (missing: ${missing.join(', ') || 'none'})`);
+  }
+
   // tsc --noEmit keeps the file syntactically and internally valid. typescript
   // is a devDependency used ONLY for this check - there is still no build step
+  /*
+   * Resolved through the package's own package.json, not through
+   * `typescript/bin/tsc`: TypeScript 7 does not name `bin/` in its exports
+   * map, so that specifier throws ERR_PACKAGE_PATH_NOT_EXPORTED and this
+   * check quietly reported "typescript not installed" while it was installed
+   * and the strict type-check had not run for any of the declarations below.
+   */
   const { createRequire } = await import('node:module');
   let tsc = null;
-  try { tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc'); } catch { /* not installed */ }
+  try {
+    const pkgPath = createRequire(import.meta.url).resolve('typescript/package.json');
+    const candidate = path.join(path.dirname(pkgPath), 'bin', 'tsc');
+    if (fs.existsSync(candidate)) tsc = candidate;
+  } catch { /* not installed */ }
   if (tsc) {
     let ok = true;
     let msg = '';
     try {
-      cp.execFileSync('node', [tsc, '--noEmit', '--strict', '--target', 'es2022', 'types.d.ts'],
+      /* `--types node`: the screenshot result is a Node Buffer, so the shipped
+       * declarations legitimately reference Node's globals - @types/node is a
+       * check-only devDependency for exactly that, like typescript itself. */
+      cp.execFileSync('node',
+        [tsc, '--noEmit', '--strict', '--target', 'es2022', '--types', 'node', 'types.d.ts'],
         { cwd: ROOT, encoding: 'utf8' });
     } catch (e) { ok = false; msg = (e.stdout || e.stderr || '').trim().slice(0, 400); }
     assert(ok, `typings: types.d.ts type-checks clean (${msg || 'tsc --noEmit'})`);
   } else {
-    assert(true, 'typings: typescript not installed - tsc check skipped (structural gate above still ran)');
+    assert(true, 'typings: typescript not resolvable - tsc check skipped (structural gate above still ran)');
   }
 }
 

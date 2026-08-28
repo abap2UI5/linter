@@ -69,6 +69,10 @@
       "types": "./types.d.ts",
       "default": "./lib/formatters.mjs"
     },
+    "./icons": {
+      "types": "./types.d.ts",
+      "default": "./lib/icons.mjs"
+    },
     "./schema": "./data/abap2ui5lint.schema.json"
   },
   "files": [
@@ -103,6 +107,7 @@
     "render-runtime"
   ],
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
