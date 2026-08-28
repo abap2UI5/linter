@@ -4089,6 +4089,39 @@ section('AGENTS.md', async () => {
       'AGENTS: the @openui5 pins are located in the workspace manifest, where they actually are');
 });
 
+// ------------------------------------------------- line endings ----
+/* The suite reads repository files at 93 call sites and cuts fixtures apart
+ * with \n-anchored patterns. On a Windows clone with the default
+ * core.autocrlf=true those patterns match nothing, and a pattern that stops
+ * matching does not fail - it passes by checking less. Six suites went red on
+ * the windows-latest job for exactly that reason, while the LINTER itself was
+ * measured to report identically on CRLF input.
+ *
+ * `.gitattributes` pins every checkout to LF. This is the gate that says so,
+ * because the alternative is trusting a setting nobody re-reads. */
+section('line endings', async () => {
+    const ROOT = path.join(FIX, '..', '..');
+    const attrs = fs.readFileSync(path.join(ROOT, '.gitattributes'), 'utf8');
+    assert(/^\*\s+text=auto\s+eol=lf$/m.test(attrs),
+      'line endings: .gitattributes pins the whole tree to LF');
+
+    const crlf = [];
+    const skip = new Set(['node_modules', '.git', '.playwright']);
+    const walk = (dir, rel = '') => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (skip.has(e.name)) continue;
+        const at = path.join(dir, e.name);
+        const key = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) { walk(at, key); continue; }
+        if (!/\.(abap|mjs|json|jsonc|md|yml|xml|html|ts|sh)$/.test(e.name)) continue;
+        if (fs.readFileSync(at).includes('\r\n')) crlf.push(key);
+      }
+    };
+    walk(ROOT);
+    assert(!crlf.length,
+      `line endings: no tracked text file carries CRLF (${crlf.slice(0, 5).join(', ') || 'none'})`);
+});
+
 // ------------------------------------- workflows and the composite action ----
 /* The Action is the surface every EXTERNAL consumer runs, and until it got a
  * CI job of its own nothing in this repository executed it: a broken `run:`
