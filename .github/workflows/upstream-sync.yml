@@ -1,11 +1,16 @@
 name: upstream-sync
 
-# Drift gate for the two HAND-MAINTAINED knowledge files: lib/formatters.mjs
-# mirrors abap2UI5's curated formatter module, lib/frontend-actions.mjs
-# mirrors the GLOBAL_TARGETS of its embedded FrontendAction JS. Upstream is
-# not a dependency, so a change there is silent here until a user hits it —
-# a new CONTROL_GLOBAL target makes the linter report correct new code
-# (that is exactly how POPUP.setWithinArea arrived), a removed formatter
+# Drift gate for the four HAND-MAINTAINED knowledge files:
+#
+#   lib/formatters.mjs      abap2UI5's curated formatter module
+#   lib/frontend-actions.mjs  GLOBAL_TARGETS, BINDING_METHODS and the
+#                           CONTROL_BY_ID denylist of its embedded FrontendAction JS
+#   lib/released-api.mjs    which abap2UI5 objects are released, frozen or internal
+#   lib/cc-controls.mjs     the bundled companion controls a view can name
+#
+# Upstream is not a dependency, so a change there is silent here until a user
+# hits it — a new CONTROL_GLOBAL target makes the linter report correct new
+# code (that is exactly how POPUP.setWithinArea arrived), a removed formatter
 # makes the render harness pass views that break live. Weekly, and an issue
 # instead of a red run nobody opens.
 
@@ -18,6 +23,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -29,16 +38,34 @@ jobs:
           node-version: 22
       - name: Compare the mirrors against upstream main
         id: check
-        run: node scripts/check-upstream.mjs | tee drift.txt
+        # The token is for the RATE LIMIT, not for access: every URL the script
+        # reads is public, but the git tree API unauthenticated shares 60
+        # requests an hour with every other job on the runner's IP - and this
+        # step is what then reported "the knowledge files drifted".
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          node scripts/check-upstream.mjs 2>&1 | tee drift.txt
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          exit "$STATUS"
+
+      # The script separates the two failures on purpose - exit 1 is real drift
+      # in a mirror, exit 2 is "cannot read the upstream sources" - and this
+      # step used to collapse them back together, filing "drifted from
+      # abap2UI5" on any network blip. They are different reports now, and the
+      # unreachable one is not a mirror problem at all.
       - name: Open or update the drift issue
-        if: failure()
+        if: ${{ failure() && steps.check.outputs.status == '1' }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -e
           title="hand-maintained knowledge files drifted from abap2UI5"
-          body="scripts/check-upstream.mjs found drift between lib/formatters.mjs / lib/frontend-actions.mjs and the abap2UI5 sources: ${RUN_URL}
+          body="scripts/check-upstream.mjs found drift between the mirrors (lib/formatters.mjs, lib/frontend-actions.mjs, lib/released-api.mjs, lib/cc-controls.mjs) and the abap2UI5 sources: ${RUN_URL}
 
           \`\`\`
           $(cat drift.txt 2>/dev/null || echo 'see the run log')
@@ -48,6 +75,33 @@ jobs:
           existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body "Still drifted: ${RUN_URL}"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+      # Exit 2 says nothing about the mirrors: either the network was
+      # unreachable (retried three times already, so this is not one blip) or a
+      # path moved upstream and the script no longer knows where to look. Both
+      # need a human, neither is drift - and calling it drift is how a weekly
+      # false alarm teaches everyone to close this issue unread.
+      - name: Open or update the unreachable-upstream issue
+        if: ${{ failure() && steps.check.outputs.status == '2' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          title="upstream-sync could not read the abap2UI5 sources"
+          body="scripts/check-upstream.mjs exited 2: it never got to compare a mirror. The mirrors are NOT known to have drifted — this is the check itself failing: ${RUN_URL}
+
+          \`\`\`
+          $(cat drift.txt 2>/dev/null || echo 'see the run log')
+          \`\`\`
+
+          Each read is already retried three times with a 20 s timeout, so a single blip does not reach here. The two causes worth checking, in order: a file or directory MOVED upstream (update FORMATTER_PATH / ACTION_DIR / ACTION_FILE_RE in the script — this is what a upstream refactor looks like from here), or GitHub was unreachable for the whole run. This issue is updated by each failing weekly run; close it when the run is green again."
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still unreadable: ${RUN_URL}"
           else
             gh issue create --title "$title" --body "$body"
           fi

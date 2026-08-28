@@ -8,7 +8,8 @@ name: Downstream
 #
 # Why substitution and not a plain `npm ci`: both pinning consumers install a
 # FIXED linter - samples-controls a published npm version through its
-# package-lock.json (range ^0.2.x, moved weekly by its bump_linter workflow),
+# package-lock.json (a caret range on the current minor, raised weekly by its bump_linter
+# workflow; substitute-linter.sh prints whether that range still admits this version),
 # the VS Code extension a commit SHA - which is exactly what makes them stable,
 # and exactly what would make this job test the pinned version instead of the
 # proposed one. So the consumer is installed normally (to get the hoisted
@@ -36,8 +37,10 @@ concurrency:
 
 jobs:
   samples-controls:
-    # The corpus: 622 generated ports. Runs the consumer's own gate wrapper
-    # (view-gates.mjs), so the corpus POLICY applies - POST_171 deviations,
+    # The corpus: every generated port in samples-controls (its STATUS.md has
+    # the current count - a number written here would go stale weekly). Runs the
+    # consumer's own gate wrapper (view-gates.mjs), so the corpus POLICY applies
+    # - POST_171 deviations,
     # declared render skips, advisory rules - and a failure means a real port
     # regressed, not that a deviation went unread.
     name: samples-controls corpus
@@ -167,3 +170,75 @@ jobs:
       - name: Bundle
         working-directory: vscode-extension
         run: npm run compile
+
+  # The two consumers with no gate wrapper of their own: they run this linter
+  # straight, so what they measure is the RULE SET on real app code rather
+  # than a corpus policy's verdict on it. Property gate only (--no-render):
+  # minutes of CI instead of a Chromium download each, and every property rule
+  # still runs. They are also where the rollout numbers in AGENTS.md come
+  # from - a finding count printed by a job beats one measured by hand once.
+  app-corpora:
+    name: ${{ matrix.repo }} property gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repo: abap2UI5/samples
+            paths: src
+          - repo: abap2UI5/app-template
+            paths: src
+    steps:
+      - name: Check out the linter (this change)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: linter
+
+      - name: Check out ${{ matrix.repo }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ matrix.repo }}
+          path: consumer
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      # No install and no substitution: these repos run the linter as a tool,
+      # not as a library, so the checkout IS the linter under test. Their own
+      # abap2ui5lint.jsonc is discovered from the checked path, so the run
+      # applies the settings the repo actually committed.
+      - name: Property gate over ${{ matrix.repo }}
+        working-directory: consumer
+        env:
+          LINT_PATHS: ${{ matrix.paths }}
+        run: |
+          read -r -a PATH_ARGS <<< "$LINT_PATHS"
+          node ../linter/cli.mjs "${PATH_ARGS[@]}" --no-render --advisory \
+            --json-out "$RUNNER_TEMP/report.json"
+
+      # --advisory above, so the step reports rather than gates: a new rule
+      # firing on a real corpus is a rollout decision, not automatically a
+      # defect (the same doctrine the samples-controls job runs on). What the
+      # job is FOR is the number, so the number is what it prints.
+      - name: Findings on ${{ matrix.repo }}
+        run: |
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/report.json", "utf8"));
+            const by = {};
+            for (const f of r.results.flatMap((x) => x.findings)) by[f.type] = (by[f.type] || 0) + 1;
+            const rows = Object.entries(by).sort((a, b) => b[1] - a[1]);
+            const lines = [
+              `## ${process.env.REPO} — property gate`,
+              "",
+              `${r.files} file(s), ${r.problems} finding(s): ${r.totals.error} error, ${r.totals.warning} warning, ${r.totals.hint} hint`,
+              "",
+              "| Rule | Findings |", "| --- | ---: |",
+              ...rows.map(([t, n]) => `| \`${t}\` | ${n} |`),
+            ].join("\n");
+            console.log(lines);
+            require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines + "\n");
+          '
+        env:
+          REPO: ${{ matrix.repo }}

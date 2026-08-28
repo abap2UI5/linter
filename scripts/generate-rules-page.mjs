@@ -25,6 +25,13 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PAGE_FILE = path.join(ROOT, 'site', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
 
+/* The page is served from main while every consumer pins a version, so a
+ * reader had no way to tell which release it describes - a rule card for a
+ * rule their pinned CLI does not have reads exactly like a rule card for one
+ * it does. The stamp is the version this build came from. */
+export const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+export const UI5_VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8')).ui5Version;
+
 /* Everything the page owes an anchor to. RULES plus the render gate's
  * pseudo-rule: `render-error` is emitted by no check, so it is deliberately
  * not in the registry — but it reaches reports and SARIF like any other id,
@@ -77,6 +84,8 @@ header p.lede { margin: 0 0 1.25rem; color: var(--muted); font-size: 1.05rem; }
   background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
 #filter:focus { outline: 2px solid var(--link); outline-offset: -1px; }
 .hint-line { margin: .4rem 0 2rem; color: var(--muted); font-size: .88rem; }
+/* which release this page describes - it follows main, every consumer pins */
+header p.stamp { margin: 0 0 1rem; color: var(--muted); font-size: .88rem; }
 section.cat { margin: 2.5rem 0 0; }
 section.cat > h2 { font-size: 1.3rem; margin: 0 0 .2rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
 section.cat > p.blurb { margin: 0 0 1.25rem; color: var(--muted); }
@@ -169,7 +178,10 @@ export function buildPage() {
       <span class="badge hint">${counts.hint} hint</span>
       <span class="badge fix">${FIXABLE.length} autofixable</span>
     </div>
-    <input id="filter" type="search" placeholder="Filter ${PAGE_RULES.length} rules — id, wording, severity" autocomplete="off" spellcheck="false">
+    <p class="stamp">Generated from <strong>v${VERSION}</strong>, against the OpenUI5 ${UI5_VERSION} metadata
+      snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
+      <code>npx abap2ui5lint --version</code> says which that is.</p>
+    <input id="filter" type="search" placeholder="Filter ${RULES.length} rules + ${RENDER_RULE} — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -203,9 +215,13 @@ ${sections}
 
   <footer>
     Generated from the rule registry of
-    <a href="${REPO}">abap2UI5 linter</a> — do not edit by hand.
-    Metadata snapshot and gate details are described in the
-    <a href="${REPO}#readme">README</a>.
+    <a href="${REPO}">abap2UI5 linter</a> <strong>v${VERSION}</strong> — do not edit by hand.
+    The two gates, the metadata snapshot and the config file are described in
+    <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
+    <br>
+    ${RULES.length} configurable rules, plus <code>${RENDER_RULE}</code> — the render gate's
+    pseudo-rule, which no check emits and every report can name. That is why
+    <code>--badge</code> says “${RULES.length} rules passed” while this page has ${PAGE_RULES.length} cards.
   </footer>
 </div>
 <script>${SCRIPT}</script>

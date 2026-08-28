@@ -13,7 +13,9 @@ CLI, library and GitHub Action, no SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
+npm test                          # node --test test/run.mjs: node:test, over 700 assertions
+                                  # in ~84 isolated sections. One of them:
+                                  #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
@@ -81,12 +83,16 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new` |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the one **opt-in** rule (`OPT_IN` in `lib/findings.mjs`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and would defer any other rule's fix inside it to a second `--fix` pass |
-| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half), `source-line-too-long` |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-nonpublic`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `event-arg-js-callback`, `trailing-empty-event-arg`, `enum-field-unset-on-insert`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `escaped-brace-in-backtick`, `unused-public-attribute`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `live-event-roundtrip`, `get-viewname-removed`, `ui5-internal-access`, `commercial-ui5-host`, `source-line-too-long` — plus `checkAbapRules( )` itself, the entry point every ABAP-side rule is called from and the order they run in |
+| `lib/frontend-wires.mjs` | every `client->_event_client( )` / `follow_up_action( )` wire: `invalid-frontend-action`, `unknown-frontend-action`, `frontend-action-unknown-id`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `filter-groups-not-arrays`, `denied-control-method`, `settable-property-via-action`, `control-state-lost-on-rebuild`, `raw-javascript-to-frontend` (escape-hatch half). Split out of `abap-rules.mjs` — one closed set after another, all mirrored in `lib/frontend-actions.mjs` and gated by `check-upstream.mjs` |
+| `lib/lifecycle-rules.mjs` | what the class does ACROSS a roundtrip: `view-never-displayed`, `missing-view-display-on-navigated`, `missing-on-navigated-branch`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`. Also split out of `abap-rules.mjs`, and called from exactly the points its code sat at: `report( )` collapses repeats and the FIRST finding of a shape wins, so the call ORDER is part of the output |
+| `lib/abap-source.mjs` | no findings — the readers those three share (`literalElements`, `methodSpans`, `displayPathMethods`, `bindableAnywhere`, `ifBranchEnd`, `ifBlockEnd`). Pure functions of a scrubbed source, so no module has to learn about another |
 | `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree. Exported as `./icons` too, for the consumers that assemble the pipeline themselves instead of calling an entry point — see **A consumer that cannot hand us a path** below |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors); also the screenshot session behind `--screenshot` — same harness, view kept and photographed, theme LESS compiled on demand |
+| `lib/index.mjs` | `frozen-view-builder` — the ONE finding a class on the retired `z2ui5_cl_xml_view` builder gets, emitted where the decision to judge it at all is made. Everything else about such a class is deliberately silent: the other rules are written for the current dialect, and running them over an API they do not model would trade a silent miss for confident noise |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
 | `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
@@ -216,7 +222,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `83 rules passed` green) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
+| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `N rules passed` green, N being the registry minus what the repo switched off) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
 
 Rules that hold for all three:
 
@@ -425,8 +431,15 @@ the `client->nav_app_leave( )` a popup helper ends on (abap2UI5's own
 search would have named.
 
 Rollout note for this round, and it is a bigger one than any before it: this
-is the first rule that adds findings to every corpus at scale — `samples` 85,
-`samples-controls` 425, `samples-stack` 27, `app-template` 0, one per class.
+is the first rule that adds findings to every corpus at scale — when it
+shipped it was one finding per class across every corpus there is (hundreds on
+`samples` and on `samples-controls`, none on `app-template`, which had no
+navigation to lose). Those counts are **not** kept here as standing numbers,
+for the reason the corpus-size line at the end of this file gives: the
+`app-corpora` matrix in `downstream.yml` runs the property gate over `samples`
+and `app-template` on every push and prints the per-rule table into the job
+summary, and the samples-controls corpus job does the same through
+`view-gates.mjs`. Read the number off the run, not off this paragraph.
 The downstream job is red until the pin-bump PRs decide it, and both
 instruments already exist: `--update-baseline` for the two baselined corpora,
 `ADVISORY_BUDGET` for samples-controls. Unlike the ratchet note above, the
@@ -722,8 +735,9 @@ Now: unseeded tables are empty for the renderer and a declared row in the
 shape, the same split the scalars already had.
 
 **Measure a new rule against the samples-controls corpus before shipping it.**
-`node cli.mjs /path/to/samples-controls/src --no-render --json` over 282 real
-ports, diffed per finding type against `main`, is what caught three separate
+`node cli.mjs /path/to/samples-controls/src --no-render --json` over its ports
+(the count lives in that repo's generated `STATUS.md`, never here), diffed per
+finding type against `main`, is what caught three separate
 false-positive shapes: an event raised by a `message_box_display( onclose = )`
 callback rather than `client->_event( )`, dispatch leaking across an
 `ENDMETHOD`, and a `<style>` check scoped to the ABAP *statement* — which on
@@ -739,7 +753,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 468 KB one-line snapshot (`ui5Version` 1.151.0, 988 controls, 219
+The 473 KB one-line snapshot (`ui5Version` 1.151.0, 973 controls, 235
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
@@ -747,8 +761,10 @@ enums) is generated from the installed `@openui5/*` packages (or
 npm run generate-metadata
 ```
 
-Regenerate it **only** when bumping the `@openui5/*` pins in `package.json`
-(or when the generator itself changes shape), and commit both together. The
+Regenerate it **only** when bumping the `@openui5/*` pins — which live in
+**`render-runtime/package.json`**, the workspace, not in the root manifest
+(`RELEASING.md` step 1c is the authority; see the render-runtime section
+below) — or when the generator itself changes shape, and commit both together. The
 drift gate (`generate-metadata --check`) runs **inside `npm test`**: the
 generation dropped from ~3 minutes to ~2 seconds when the unanchored
 `(\w+)\.extend\(` scan — 167 of those 172 seconds — was replaced by a
@@ -769,8 +785,12 @@ a `render` load failure, and **no consumer can excuse those**: they are the
 shape a real typo has. So a stale pin does not under-report, it *mis*-reports,
 and it blocks every consumer building on a control released after it
 (`sap.tnt.SideNavigationSearchField` @1.151 was the case that surfaced this).
-Bumping is one PR: the pins, `npm install`, `npm run generate-metadata`, and
-the snapshot header numbers above.
+Bumping is one PR: the pins in `render-runtime/package.json`, `npm install`,
+`npm run generate-metadata`, `npm run generate-icons` (needs network — the
+icon snapshot is generated at the same release and `npm test` pairs the two),
+and the snapshot header numbers above. A Dependabot bump does this to itself:
+`.github/workflows/dependabot-openui5.yml` regenerates both files onto the
+branch, because the pins and the data are one change.
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
@@ -794,6 +814,53 @@ in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
 two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
 frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
+
+## `@abap2ui5/render-runtime` — the second package, and why it exists
+
+Two packages come out of this repository, from one tag:
+
+| Package | What it is |
+| --- | --- |
+| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~240 kB |
+| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`render-runtime/` — an npm **workspace** of this repo) |
+
+**The split is not tidiness, it is the advertised install.** The README's first
+line is `npx @abap2ui5/linter src`, and the whole promise of it is that it is
+fast. The `@openui5` packages weigh ~118 MB, and npm installs
+`optionalDependencies` **by default** — so while they were declared that way,
+that one line downloaded ~123 MB before it linted anything, and
+`--omit=optional`, the documented way out, is not a flag `npx` accepts. An
+**optional peer** is the one kind npm does not install on its own, which is
+what the render runtime is now (`peerDependenciesMeta.optional`).
+
+What follows from that, and each of these has bitten:
+
+- **The `@openui5/*` pins live in `render-runtime/package.json`**, not in the
+  root manifest — `RELEASING.md` step 1c is the authority. Bumping a UI5
+  release is three files: those pins, `data/properties.json`
+  (`npm run generate-metadata`) and `data/icons.json`
+  (`npm run generate-icons`, needs network). `npm test` fails while they
+  disagree, through the snapshot-pairing assertion.
+- **The peer RANGE is generated** (`npm run sync-peer-range`,
+  `scripts/peer-range.mjs`). It used to be a hand-extended union
+  (`^0.1.0 || ^0.2.0 || …`, one clause per minor) and the step was missed for
+  three releases running. An out-of-range optional peer is an ERESOLVE
+  **error**, not a warning: a stale range forbade exactly the pairing both
+  READMEs tell people to install. Only the FLOOR is a judgement now, and it
+  lives in the script.
+- **A missing runtime is not a silent pass.** A default-on render gate whose
+  runtime is absent steps aside for the property gate and says so on stderr
+  (`renderFallback`); an **asked-for** gate (`--render`, or `"render": true` in
+  the config) keeps the hard refusal. Naming the gate in the config is how a
+  job promises it ran.
+- The composite Action installs the workspace or not, by input:
+  `npm ci --prefix "$ACTION_PATH"` with `render: true`,
+  `--workspaces=false` with `render: false`. That is what makes a
+  property-only job skip the download rather than pay it and then pass
+  `--no-render`.
+- `.github/scripts/substitute-linter.sh` deliberately does **not** copy the
+  runtime into a consumer: it comes from the consumer's own install and stays
+  hoisted at its top level.
 
 ## Release model — merging to main IS a release, except on npm
 
@@ -858,7 +925,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   rate limits, installation lifecycle, operations). That list, not the code,
   is why this is a spike: the missing work is ongoing, not one-time.
 - **The two pinned consumers no longer pin the same way.** samples-controls
-  moved to the **npm range `^0.2.1`** and lets `package-lock.json` decide which
+  moved to an **npm range** (`^0.5.1` as of 2026-08; its `bump_linter.yaml` raises it) and lets `package-lock.json` decide which
   published version its gates actually run, bumped weekly to `latest` by its
   own `bump_linter.yaml` (which runs the full strict view gates over the 416
   ports before the PR exists). The VS Code extension still pins
@@ -931,7 +998,7 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
 - **No consumer follows main.** samples-controls takes this repo from npm
-  (`"@abap2ui5/linter": "^0.2.1"`, resolved by its `package-lock.json`, moved
+  (`"@abap2ui5/linter": "^0.5.1"` at the time of writing, resolved by its `package-lock.json`, moved
   to the latest published version weekly by its `bump_linter.yaml`); the VS
   Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
   lock; mcp-server pins nothing and imports whatever checkout sits beside it. So a

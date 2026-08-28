@@ -282,20 +282,60 @@ export function parseShortcutAliases(abapSrc) {
 
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
+/*
+ * Every network read goes through this: a timeout and a bounded retry.
+ *
+ * This script's exit 2 ("cannot read the upstream sources") opens the same
+ * issue drift does, so a transient blip published "the knowledge files drifted
+ * from abap2UI5" once a week for no reason. A `fetch` with no signal waits on
+ * the operating system's timeout, and a single 502 or a rate-limit refusal
+ * ended the whole run. generate-dependents.mjs already had both; this is the
+ * same shape, one retry deeper because the tree API is the rate-limited one.
+ */
+const TIMEOUT_MS = 20_000;
+const ATTEMPTS = 3;
+
+async function fetchRetrying(url, init = {}) {
+  for (let attempt = 1; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (err) {
+      // a timeout, a DNS failure, a reset connection - none of them is drift
+      if (attempt >= ATTEMPTS) throw new Error(`${url}: ${err.message}`);
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+      continue;
+    }
+    if (res.ok) return res;
+    // 429 is the rate limit, 5xx is GitHub having a moment; a 404 is real
+    if ((res.status === 429 || res.status >= 500) && attempt < ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, attempt * 5000));
+      continue;
+    }
+    throw new Error(`${url}: HTTP ${res.status}`);
+  }
+}
+
+/** A token is used wherever the environment offers one, purely for the rate
+ *  limit — every URL here is public. Unauthenticated, a shared Actions runner
+ *  shares 60 requests an hour with every other job on that IP, and this script
+ *  makes one request per mirrored file. */
+const authHeaders = () => {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  return token ? { authorization: `Bearer ${token}` } : {};
+};
+
+/** Raw file content. Deliberately UNauthenticated: raw.githubusercontent.com
+ *  serves public files without a token and rejects some tokens outright, so
+ *  the header would trade one failure mode for another. */
 async function fetchText(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return res.text();
+  return (await fetchRetrying(url)).text();
 }
 
 /** The repository's file list. Over the network that is the git tree API
- *  (one request for the whole repo); a token is used when the environment
- *  offers one, purely for the rate limit — the repository is public. */
+ *  (one request for the whole repo). */
 async function fetchTree(url) {
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  const res = await fetch(url, { headers: token ? { authorization: `Bearer ${token}` } : {} });
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  const body = await res.json();
+  const body = await (await fetchRetrying(url, { headers: authHeaders() })).json();
   if (body.truncated) throw new Error(`${url}: the tree came back truncated`);
   return (body.tree || []).filter((e) => e.type === 'blob').map((e) => e.path);
 }

@@ -29,12 +29,28 @@
  *   --fail-on <level>  lowest severity that fails the build: error, warning
  *                      (default), hint, or never. Every finding is always
  *                      reported - this only decides the exit code.
- *   --format <f>       stylish (default), json or markdown. --json is a
- *                      shorthand for --format json.
+ *   --format <f>       stylish (default), json, markdown or sarif. --json is a
+ *                      shorthand for --format json. sarif is the shape
+ *                      github/codeql-action/upload-sarif ingests, so findings
+ *                      land in the repository's code-scanning tab.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
  *                      reports what it would change without touching a file.
+ *   --sarif-out <file>  ALSO write the SARIF document to this file, whatever
+ *                      --format prints on stdout. The way to keep the
+ *                      annotated human report in the log and still hand a
+ *                      file to github/codeql-action/upload-sarif, without
+ *                      running the (expensive) render gate a second time
+ *   --json-out <file>  the same for the --json document, e.g. for a later
+ *                      workflow step that wants the counts
+ *   --fix-dry-run      the same pass, reporting what it would change and
+ *                      writing nothing (the flag form of that env variable)
+ *   --baseline <file>  suppress the findings recorded in this file - the way
+ *                      to adopt the linter on a codebase that already exists.
+ *                      A NEW finding still fails; a recorded one that no
+ *                      longer occurs fails too, as a stale entry
+ *   --update-baseline  write/refresh that file from this run and exit 0
  *   --quiet            report errors only - the counts still show everything,
  *                      and the run summary and progress go quiet too
  *   --stats            print the run summary: what was checked (files, views,
@@ -43,10 +59,11 @@
  *                      for more than one file, --no-stats switches it off
  *   --progress         report the gates while they run, on stderr (stdout stays
  *                      pipeable). Default: on a terminal and inside GitHub
- *                      Actions, where it becomes one collapsed log group
+ *                      Actions, where it becomes one collapsed log group;
+ *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      83 rules passed" green, "7 errors" red)
+ *                      93 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -94,7 +111,11 @@
  *                      directory and from each given path (eslint-style).
  *                      Precedence: explicit CLI flag > config file > default.
  *   --no-config        ignore any config file
+ *   --init             write a commented abap2ui5lint.jsonc into the current
+ *                      directory, with $schema resolved against the version
+ *                      actually installed, and exit
  *   --version, -v      print version and script location
+ *   --help, -h         print this text
  *
  * A single line can waive a rule where it stands, ui5lint-style:
  *   " abap2ui5lint-disable-next-line unknown-binding-path -- filled in a LOOP
@@ -117,17 +138,38 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] '
-  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version]';
+  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
 
 const die = (message) => {
   console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
 };
+
+/*
+ * `--help` prints the header block of this file.
+ *
+ * It was the one-line USAGE string above - 800 characters of bracketed flag
+ * names on a single line - while the man page describing every one of them sat
+ * at the top of this file and was never printed anywhere. Both peers this tool
+ * is modelled on (ui5lint, abaplint) print structured help, and the structured
+ * help already existed here.
+ *
+ * Reading the source rather than duplicating it is the point: a second copy of
+ * the option list is a third place to forget, and this file has already been
+ * the place that drifted. USAGE stays as the one-line reminder a bad flag gets.
+ */
+function helpText() {
+  const self = fileURLToPath(import.meta.url);
+  const block = fs.readFileSync(self, 'utf8').match(/^#![^\n]*\n\/\*\n([\s\S]*?)\n \*\//);
+  if (!block) return USAGE; // a stripped/bundled copy still answers --help
+  return block[1].split('\n').map((l) => l.replace(/^ \* ?/, '').replace(/^ \*$/, '')).join('\n');
+}
 
 /* The two value flags whose wrong value would otherwise be SILENT. Both name
  * a closed set the run is judged against, and a value outside it does not
@@ -256,6 +298,8 @@ for (let i = 0; i < args.length; i++) {
     opt.failOn = level;
     seen.add('failOn');
   }
+  else if (a === '--sarif-out') opt.sarifOut = value();
+  else if (a === '--json-out') opt.jsonOut = value();
   else if (a === '--verbose') opt.verbose = true;
   else if (a === '--init') {
     /* The documented way to a config was: read the README, copy the block,
@@ -279,6 +323,12 @@ for (let i = 0; i < args.length; i++) {
 
   // where the app classes and views are
   "paths": ["src"],
+
+  // trees under those paths that are not yours to fix: generated ABAP,
+  // vendored copies, a frozen legacy package. Regex, matched against the path.
+  // This is the repo-level counterpart of rules[id].exclude - a generated
+  // directory is not a rule to waive, it is a tree not to read.
+  // "ignore": ["/generated/", "/vendor/"],
 
   // the UI5 version your system serves. 1.71 is abap2UI5's own floor and the
   // safe default: anything that arrived later is reported here instead of
@@ -318,7 +368,7 @@ for (let i = 0; i < args.length; i++) {
     process.exit(0);
   }
   else if (a === '--help' || a === '-h') {
-    console.log(USAGE);
+    console.log(helpText());
     process.exit(0);
   } else if (a.startsWith('-')) die(`unknown option '${a}'\n${USAGE}`);
   else paths.push(a);
@@ -373,7 +423,9 @@ if (!paths.length) paths.push('src');
 
 let files;
 try {
-  files = collectFiles(paths);
+  // `ignore` is repo-level and config-only on purpose: it describes the tree,
+  // which is a property of the repo rather than of one invocation
+  files = collectFiles(paths, { ignore: opt.ignore ?? [] });
 } catch (e) {
   // a mistyped path is bad usage, not a crash - exit 2 with one clean line
   die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
@@ -471,10 +523,13 @@ if (opt.fix) {
   let files_ = 0;
   let fixed = 0;
   let deferred = 0;
+  let dropped = 0;
+  const droppedIn = [];
   for (const r of await checkFiles(files, { ...opt, render: false })) {
     const source = fs.readFileSync(r.file, 'utf8');
     const result = applyFixes(source, r.findings);
     deferred += result.deferred;
+    if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
     if (!result.applied) continue;
     files_++;
     fixed += result.applied;
@@ -483,6 +538,16 @@ if (opt.fix) {
   if (fixed && opt.format === 'stylish') {
     console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
       `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
+  }
+  /* A dropped span is a defect in a RULE, not in the checked repo, and it is
+   * the one outcome `--fix` used to keep to itself: the finding survives every
+   * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
+   * a piped --json run stays parseable. */
+  if (dropped) {
+    console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
+      + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`
+      + ' This is a linter bug, not a defect in your source - please report it at'
+      + ' https://github.com/abap2UI5/linter/issues');
   }
 }
 
@@ -569,6 +634,22 @@ if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportO
 else if (opt.format === 'sarif') console.log(formatSarif(results));
 else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
 else console.log(formatStylish(results, summary, reportOpt));
+
+/* A machine report written BESIDE the human one, in the same run.
+ *
+ * Without this a workflow that wants both - the annotated stylish report in
+ * the log AND a SARIF file for code scanning, or the counts for a later step -
+ * has to run the whole thing twice, and the second run pays the render gate
+ * again. The formatters are pure functions of `results`, so the sidecar costs
+ * a serialization and nothing else. */
+for (const [file, text] of [
+  [opt.sarifOut, () => formatSarif(results)],
+  [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
+]) {
+  if (!file) continue;
+  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+  fs.writeFileSync(file, `${text()}\n`);
+}
 
 emitBadge(summary, stats);
 

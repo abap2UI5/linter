@@ -86,13 +86,14 @@
   ],
   "scripts": {
     "check": "node cli.mjs",
-    "test": "node test/run.mjs",
+    "test": "node --test test/run.mjs",
     "generate-metadata": "node scripts/generate-metadata.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "check-upstream": "node scripts/check-upstream.mjs",
     "generate-schema": "node scripts/generate-schema.mjs",
     "generate-dependents": "node scripts/generate-dependents.mjs",
-    "generate-rules-page": "node scripts/generate-rules-page.mjs"
+    "generate-rules-page": "node scripts/generate-rules-page.mjs",
+    "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {
     "type": "git",
@@ -107,11 +108,11 @@
     "render-runtime"
   ],
   "devDependencies": {
-    "@types/node": "^26.4.0",
+    "@types/node": "^22.20.1",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0"
+    "@abap2ui5/render-runtime": ">=0.1.0 <0.6.0"
   },
   "peerDependenciesMeta": {
     "@abap2ui5/render-runtime": {

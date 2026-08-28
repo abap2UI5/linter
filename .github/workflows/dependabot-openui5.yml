@@ -1,0 +1,119 @@
+name: dependabot-openui5
+
+# Every Dependabot pull request that moves an @openui5 pin lands RED by
+# construction, and neither gate is wrong to fail it.
+#
+# The pins live in the render-runtime workspace, and two committed data files
+# are generated from exactly that release:
+#
+#   data/properties.json  gated by `generate-metadata --check` inside npm test
+#   data/icons.json       gated by the snapshot-pairing assertion in npm test
+#                         (properties.ui5Version === icons.ui5Version === pins)
+#
+# `npm version`-style bumps move the pins and neither file, so the suite fails
+# saying the snapshot is stale - correctly. Until now the only way out was a
+# human running two generators by hand on every bump, one of which needs
+# network and so cannot live in the suite.
+#
+# This workflow does what refresh-icons.yml already does for the registry:
+# regenerate and commit, here onto the Dependabot branch itself, so the PR
+# fixes itself and the reviewer sees one coherent diff - the pins and the data
+# they describe, together, which is also exactly how RELEASING.md step 1c says
+# the three files must move.
+#
+# pull_request_target, deliberately: a workflow triggered by Dependabot on the
+# plain `pull_request` event gets a READ-ONLY token and could not push the
+# regenerated files. The usual danger of that trigger - running a fork's code
+# with a write token - is bounded here by the actor guard below (only
+# Dependabot's own branches, which live in this repository) and by the fact
+# that the branch is checked out explicitly rather than merged into main.
+
+on:
+  pull_request_target:
+    paths:
+      - 'render-runtime/package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-openui5-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    # Dependabot's branches only. Anything else touching these paths is a human
+    # change, and a human who bumps the pins is told by npm test what to run.
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the PR branch itself - this job's whole purpose is to add a commit
+          # to it, so a merge commit of main would be the wrong tree
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Did an @openui5 pin actually move?
+        id: pins
+        run: |
+          set -e
+          # the data files describe ONE release, and that release is what the
+          # workspace pins - so the question is only ever "did that change"
+          PINNED=$(node -p "
+            const d = require('./render-runtime/package.json').dependencies;
+            [...new Set(Object.entries(d).filter(([n]) => n.startsWith('@openui5/')).map(([, v]) => String(v).replace(/^[\^~]/, '')))].join(',')
+          ")
+          DESCRIBED=$(node -p "require('./data/properties.json').ui5Version")
+          echo "pinned=$PINNED described=$DESCRIBED"
+          if [ "$PINNED" = "$DESCRIBED" ]; then
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+            echo "the snapshot already describes the pinned release - nothing to regenerate"
+          else
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the pinned @openui5 sources
+        if: steps.pins.outputs.moved == 'true'
+        run: npm ci --no-audit --no-fund
+
+      # properties.json is read out of node_modules and takes ~2 s; icons.json
+      # scans the icon registry of every minor from the floor up and needs
+      # network, which is why it is not in the suite and has to happen here.
+      - name: Regenerate the metadata snapshot
+        if: steps.pins.outputs.moved == 'true'
+        run: npm run generate-metadata
+
+      - name: Regenerate the icon snapshot
+        if: steps.pins.outputs.moved == 'true'
+        run: npm run generate-icons
+
+      - name: Prove the regenerated pair against the suite
+        if: steps.pins.outputs.moved == 'true'
+        run: |
+          npx playwright install chromium --with-deps
+          npm test
+
+      - name: Commit the regenerated data onto the Dependabot branch
+        if: steps.pins.outputs.moved == 'true'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -e
+          if git diff --quiet -- data/properties.json data/icons.json; then
+            echo "the generators produced no change - nothing to push"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/properties.json data/icons.json
+          git commit -m 'data: regenerate the snapshots for the bumped @openui5 release'
+          git push origin "HEAD:$HEAD_REF"

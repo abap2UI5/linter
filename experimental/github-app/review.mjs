@@ -10,8 +10,9 @@
  * where the Action already runs it.
  */
 import { checkAbapSource, checkXmlSource } from '../../lib/index.mjs';
-import { describe, severityOf, severityRank } from '../../lib/findings.mjs';
-import { stripJsonc } from '../../lib/config.mjs';
+import { severityRank } from '../../lib/findings.mjs';
+import { parseConfig } from '../../lib/config.mjs';
+import { problemsOf, summarize as summarizeResults } from '../../lib/report.mjs';
 import { api, fileAt, paginate } from './github.mjs';
 
 /** The abapGit naming convention the CLI scans a directory by. A file the
@@ -47,48 +48,64 @@ export function lintSource(path, source, config = {}) {
  * request's diff is accepted by the API and then not shown on the Files tab
  * (it only appears in the check's own output), and columns are rejected
  * unless the annotation is a single line.
+ *
+ * The severity, the wording and the ORDER all come from `problemsOf`
+ * (lib/report.mjs) rather than from a second walk over the findings: the App
+ * exists to say the same thing the CLI says, and this file had drifted into
+ * its own copy of that decision. Only the payload SHAPE is App business —
+ * check-run annotation objects, not the workflow-command strings
+ * `githubAnnotations` writes for the Action.
  */
 export function toAnnotations(path, findings) {
-  return findings.map((f) => {
-    const line = Math.max(1, f.line || 1);
+  return problemsOf({ findings, renderErrors: [] }).map((p) => {
+    const line = Math.max(1, p.line || 1);
     const a = {
       path,
       start_line: line,
       end_line: line,
-      annotation_level: LEVEL[severityOf(f)] || 'notice',
-      message: describe(f).slice(0, 65000),
-      title: String(f.type || 'finding').slice(0, 255),
+      annotation_level: LEVEL[p.severity] || 'notice',
+      message: String(p.message).slice(0, 65000),
+      title: String(p.rule || 'finding').slice(0, 255),
     };
-    if (f.column > 0) {
-      a.start_column = f.column;
-      a.end_column = f.column;
+    if (p.column > 0) {
+      a.start_column = p.column;
+      a.end_column = p.column;
     }
     return a;
   });
 }
 
 /** The repo's own `abap2ui5lint.jsonc`, so the App agrees with what the CLI
- *  and the Action would say. Absent is fine - the defaults apply. */
+ *  and the Action would say. Absent is fine - the defaults apply.
+ *
+ *  Through `parseConfig`, which is the CLI's own loader: parsing the text here
+ *  by hand meant an unknown key or an unknown rule id - both of which stop the
+ *  CLI dead - was silently ignored by the App, so the two disagreed about the
+ *  very file that exists to make them agree. */
 export async function configAt(token, owner, repo, ref) {
   for (const name of ['abap2ui5lint.jsonc', 'abap2ui5lint.json']) {
     const raw = await fileAt(token, owner, repo, name, ref);
     if (raw === null) continue;
-    try {
-      return JSON.parse(stripJsonc(raw));
-    } catch (e) {
-      // a broken config is the repo's problem, but silently linting with
-      // different settings than they configured would be ours
-      throw new Error(`${name} is not valid JSONC: ${e.message}`);
-    }
+    // a broken config is the repo's problem, but silently linting with
+    // different settings than they configured would be ours
+    return parseConfig(name, raw);
   }
   return {};
 }
 
-/** conclusion + the human sentence at the top of the check. */
+/** conclusion + the human sentence at the top of the check. The COUNTS come
+ *  from lib/report.mjs's summarize, so a severity override or a render-error
+ *  waiver weighs here exactly what it weighs in the CLI's count line. */
 export function summarize(files, findings, failOn = 'warning') {
-  const counts = { error: 0, warning: 0, hint: 0 };
-  for (const f of findings) counts[severityOf(f)] = (counts[severityOf(f)] || 0) + 1;
-  const failing = findings.filter((f) => severityRank(severityOf(f)) >= severityRank(failOn));
+  const { totals: counts } = summarizeResults([{ findings, renderErrors: [] }]);
+  /* `never` is a threshold above every severity, not a severity: severityRank
+   * floors an unknown name at 0, so reading it as a rank made "never fail"
+   * mean "fail on a hint" - the App reporting a red check on exactly the
+   * config that tells the CLI to stay green. cli.mjs has always used Infinity
+   * here; this is the same line. */
+  const threshold = failOn === 'never' ? Infinity : severityRank(failOn);
+  const failing = problemsOf({ findings, renderErrors: [] })
+    .filter((p) => severityRank(p.severity) >= threshold);
 
   if (!files.length) {
     return { conclusion: 'neutral', title: 'nothing to check', summary: 'No abap2UI5 app class, view or fragment changed in this pull request.' };

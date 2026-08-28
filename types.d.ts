@@ -132,8 +132,30 @@ declare module "@abap2ui5/linter" {
   export function mockModelFor(file: string): Record<string, unknown> | null;
   /** The suffix that convention uses. */
   export const MOCK_SUFFIX: string;
-  /** Recursively collect checkable files (builder classes + view/fragment XML). */
-  export function collectFiles(paths: string[]): string[];
+
+  /** Which view SLOTS the class element-binds at runtime
+   *  (`cs_event-bind_element`). Every relative path in a bound slot's document
+   *  resolves against a row the document never names, so the rules that ask
+   *  "is there a context here" have to be told. `all` is the honest half: a
+   *  wire whose slot is not a literal could bind any of them, and a wrong
+   *  second guess is worse than silence — it suppresses everywhere. */
+  export function elementBoundSlots(source: string): {
+    slots: Set<string>;
+    all: boolean;
+  };
+  /** Recursively collect checkable files (builder classes + view/fragment XML).
+   *
+   *  A directory WALK skips `node_modules` and every dot-entry (`.git`,
+   *  `.github`, and a dot-named ABAP file too) - deliberately, but silently:
+   *  a class parked under a dot-directory is not checked and nothing says so.
+   *  `opts.ignore` are regex patterns matched against each walked path; a path
+   *  named explicitly still gets checked, because ignoring an argument is the
+   *  same silence. Symlink cycles terminate (the walk keys directories by
+   *  realpath). */
+  export function collectFiles(
+    paths: string[],
+    opts?: { ignore?: (string | RegExp)[] }
+  ): string[];
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -185,6 +207,72 @@ declare module "@abap2ui5/linter/reconstruct" {
 
   /** Serialize a reconstructed node tree back to XML ('' for an empty tree). */
   export function toXml(node: ViewNode): string;
+
+  /** What a resolver returns for an expression it could not compute
+   *  statically. Distinct from `null` and from '': a piece that contributed
+   *  the empty string would make `|{ col }_{ i }|` collapse to "_" for every
+   *  row, so rules that judge the VALUE must not fire on it. */
+  export const SKIP: unique symbol;
+
+  /** The client-side binding a `client->_bind( … )` / `_bind_edit( … )` call
+   *  produces, or null when the expression is not a lone bind call (or passes
+   *  a shape-CHANGING named argument, which stays unresolved on purpose). */
+  export function bindingOf(expr: string): {
+    root: string;
+    /** The client path, e.g. `/MS_VIEW/TITLE`. */
+    path: string;
+    /** `path = abap_true` asked for the bare path, not a `{binding}`. */
+    bare: boolean;
+    /** `json = abap_true` splices a JSON node (outbound only). */
+    json: boolean;
+    omit: { initial: boolean; paths: Set<string> };
+  } | null;
+
+  /** Build the expression resolver the extractors run every builder argument
+   *  through: literals, `&&` chains, `|…{ }…|` templates, bind calls and event
+   *  stubs come back as strings, anything not statically computable as SKIP. */
+  export function makeResolver(
+    content: string,
+    boundVars: Set<string>,
+    notes: string[],
+    bindMeta?: unknown
+  ): (expr: string) => string | typeof SKIP;
+
+  /** The `client->*_display( … )` call a document is handed to (the method
+   *  name, e.g. "popup_display"), or null. The consumer has to sit in the SAME
+   *  statement as the `stringify( )`. */
+  export function consumerIn(statement: string): string | null;
+
+  /** Walk the builder calls of a source and return the reconstructed roots.
+   *  `structure` collects the chain's own structural defects as it goes. */
+  export function extractDocs(
+    content: string,
+    resolveExpr: (expr: string) => string | typeof SKIP,
+    notes: string[],
+    structure: PropertyFinding[],
+    dialect?: unknown
+  ): { docs: ViewNode[]; helperTokens: number };
+
+  /** extractDocs plus the handle-taking helper methods replayed into the
+   *  chain that calls them. `helperTokens > 0` means the reconstruction is
+   *  incomplete and the render gate must skip the file. */
+  export function extractDocsWithHelpers(
+    content: string,
+    resolveExpr: (expr: string) => string | typeof SKIP,
+    notes: string[],
+    structure: PropertyFinding[],
+    dialect?: unknown
+  ): { docs: ViewNode[]; helperTokens: number };
+
+  /** The two pictures of the class's data, from one parse: what a literal
+   *  seed actually sets (`model`, what the renderer gets) and every declared
+   *  field of every declared structure (`modelShape`, what the property gate
+   *  judges binding paths against). */
+  export function deriveModel(
+    content: string,
+    boundVars: Set<string>,
+    notes: string[]
+  ): { model: Record<string, unknown>; modelShape: Record<string, unknown> };
 }
 
 declare module "@abap2ui5/linter/properties" {
@@ -251,15 +339,9 @@ declare module "@abap2ui5/linter/properties" {
    *  ABAP-side rules judge CONTROL_BY_ID wires against it. */
   export function collectControlIds(root: ViewNode): Record<string, string>;
 
-  /**
-   * The enum-typed fields a view exposes through a bound aggregation, keyed on
-   * the table each aggregation names — what `checkAbapRules` needs for
-   * `enum-row-field-empty`.
-   *
-   * Exported because a consumer that assembles the pipeline itself has to
-   * build this before it can call `checkAbapRules`: `checkAbapSource` does it
-   * over every reconstructed document and hands the merged map on.
-   */
+  /** Per bound TABLE path, the fields a view binds to an enum-typed property.
+   *  What `enum-field-unset-on-insert` needs: a row appended without setting
+   *  one of them reaches UI5 as '' and fails strict validation. */
   export function collectEnumBoundFields(
     root: ViewNode,
     data: unknown
@@ -323,6 +405,30 @@ declare module "@abap2ui5/linter/render" {
    *  package's optionalDependencies (playwright + @openui5/*). */
   export const RENDER_DEPS: readonly string[];
 
+  /** The package name every render dep ships in: an OPTIONAL PEER, so npm
+   *  never installs its ~118 MB on its own. */
+  export const RENDER_RUNTIME: string;
+
+  /** What only the PICTURE needs on top of the gate's runtime (the theme
+   *  compiler). Deliberately not part of RENDER_DEPS — a missing compiler
+   *  must never be a reason for the GATE to refuse to run. */
+  export const SCREENSHOT_DEPS: readonly string[];
+
+  /** The theme the gate loads: the cheapest one that still resolves every
+   *  library's theme parameters. */
+  export const GATE_THEME: string;
+
+  /** Whether a default-on render gate should step aside for the property gate,
+   *  and the sentence to say when it does — null when the gate runs. An
+   *  ASKED-for gate (`--render`, `"render": true`) keeps the hard refusal:
+   *  quietly not running a configured gate is how a green CI stops meaning
+   *  anything. Needs no I/O, so it is testable without uninstalling anything. */
+  export function renderFallback(input: {
+    render: boolean;
+    asked: boolean;
+    missing: string[];
+  }): string | null;
+
   /** The render deps this install is missing ([] = render gate available).
    *  `resolve` is injectable for testing the not-installed path. */
   export function missingRenderDeps(resolve?: (id: string) => unknown): string[];
@@ -359,14 +465,14 @@ declare module "@abap2ui5/linter/abap-rules" {
       data?: unknown;
       /** id -> control name from the class's own views (collectControlIds). */
       controlIds?: Record<string, string> | null;
-      /** Enum-typed fields the view exposes through a bound aggregation, by
-       *  table (collectEnumBoundFields) — without it enum-row-field-empty
-       *  never fires. */
-      enumFields?: Map<string, Set<string>> | null;
       /** The config's `rules` block. Only opt-in rules read it here (they are
        *  not emitted at all unless it asks); every other rule is filtered
        *  later by applyRules. */
       rules?: Record<string, unknown> | null;
+      /** Enum-typed fields the view exposes through a bound aggregation, by
+       *  table (collectEnumBoundFields) — without it the enum-row rule never
+       *  fires. */
+      enumFields?: Map<string, Set<string>> | null;
       /** The target release. The ABAP-side icon scan judges against it;
        *  without it every repository is judged against the 1.71 default,
        *  whatever floor it configured. */
@@ -388,7 +494,16 @@ declare module "@abap2ui5/linter/fix" {
   export function applyFixes(
     source: string,
     findings: PropertyFinding[]
-  ): { output: string; applied: number; deferred: number };
+  ): {
+    output: string;
+    applied: number;
+    /** Overlapping spans, left for the next `--fix` pass. */
+    deferred: number;
+    /** Spans that do not address this source at all - a rule computing offsets
+     *  against different text. A DEFECT in the linter, surfaced rather than
+     *  swallowed; `ABAP2UI5LINT_STRICT_FIXES=true` makes it throw. */
+    dropped: number;
+  };
 }
 
 declare module "@abap2ui5/linter/findings" {
@@ -409,6 +524,49 @@ declare module "@abap2ui5/linter/findings" {
 
   /** The pseudo-rule id render-gate failures are reported under. */
   export const RENDER_RULE: string;
+
+  /** The severity a rule carries before any `rules` override. An id nothing
+   *  classified answers "error" — a new rule is loud until it is deliberately
+   *  quietened, never silently ignored. */
+  export function defaultSeverityOf(type: string): Severity;
+
+  /** The rule ids that are NOT emitted unless a `rules` entry asks for them.
+   *  A house style handed to every consumer as a default is precisely what
+   *  such a rule's own documentation argues against, and its fixes span a
+   *  whole chain, so it would defer every other rule's fix inside one. */
+  export const OPT_IN: ReadonlySet<string>;
+
+  /** Whether a `rules` block switches an opt-in rule on. */
+  export function isOptInEnabled(
+    rules: Record<string, unknown> | null | undefined,
+    type: string
+  ): boolean;
+
+  /** The parsed `rules` entry for the render gate's pseudo-rule, or null.
+   *  Render errors are strings rather than findings, so applyRules never sees
+   *  them and the caller applies this to a result's `renderErrors` instead. */
+  export function renderRuleConfig(rules: Record<string, unknown> | null | undefined): {
+    off?: boolean;
+    severity?: string;
+    exclude?: RegExp[];
+  } | null;
+
+  /** 1-based line/column of a character offset, or null when the offset is
+   *  not a position in the source. */
+  export function positionAt(
+    source: string,
+    offset: number
+  ): { line: number; column: number } | null;
+
+  /** ABAP's hard limit on a source line, and therefore abapGit's. Not a style
+   *  setting and not configurable: over it the object does not import. */
+  export const LINE_LIMIT: number;
+
+  /** The conventional namespace-prefix -> library pairs an
+   *  undeclared-namespace fix may assume. Closed by convention: anything else
+   *  could mean any library, and a fix that has to guess is worse than the
+   *  finding. */
+  export const KNOWN_NS: Readonly<Record<string, string>>;
 
   export function severityOf(finding: { type: string; severity?: Severity }): Severity;
 
@@ -479,6 +637,10 @@ declare module "@abap2ui5/linter/config" {
   export const CONFIG_NAMES: string[];
   export const CONFIG_NAME: string;
 
+  /** Every key the config file recognizes. A key outside this set fails
+   *  loudly — a typo that silently changes nothing is worse than an error. */
+  export const KNOWN: ReadonlySet<string>;
+
   /** JSONC -> JSON: strips comments and trailing commas, string-safe. */
   export function stripJsonc(text: string): string;
 
@@ -490,6 +652,10 @@ declare module "@abap2ui5/linter/config" {
 
   export interface LintConfig {
     paths?: string[];
+    /** Repo-level regex patterns: a path a directory walk reaches and one of
+     *  these matches is not collected. The counterpart of `rules[id].exclude`,
+     *  which is per rule. */
+    ignore?: string[];
     minUi5?: string;
     distribution?: string;
     allow?: string[];
@@ -504,6 +670,12 @@ declare module "@abap2ui5/linter/config" {
   /** Parses and validates a config file. Throws with a precise message on
    *  bad input - an unknown key or rule id fails loudly by design. */
   export function loadConfig(file: string): LintConfig;
+
+  /** The same parse and the same validation, from TEXT rather than from a
+   *  file - for a consumer that fetched `abap2ui5lint.jsonc` over an API and
+   *  still has to reach the verdict the CLI would. `name` only appears in the
+   *  error messages. */
+  export function parseConfig(name: string, text: string): LintConfig;
 
   /** Fills `opt` from the config, never overriding a key in `seen` (the
    *  options the CLI set explicitly). allow lists merge. */
