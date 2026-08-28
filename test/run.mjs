@@ -1036,6 +1036,21 @@ section('rules block', async () => {
       'rules: a typo inside a rule object fails loudly');
     assert(loadConfig(write('{"$schema": "x", "rules": {"duplicate-id": {"severity": "hint", "exclude": ["/test/"]}}}')).rules['duplicate-id'].severity === 'hint',
       'rules: $schema is accepted and a full rule object survives loading');
+
+    /* A config that is not there was named by hand: `findConfig` only returns a
+     * file it has already seen, so `loadConfig` is only ever handed a missing
+     * path by `--config`. It used to rethrow node's own text — an errno and a
+     * syscall at somebody who mistyped a path. */
+    const failed = (p) => { try { loadConfig(p); return ''; } catch (e) { return e.message; } };
+    const gone = failed(path.join(dir, 'nope.jsonc'));
+    assert(/no such file/.test(gone) && /--config/.test(gone),
+      `config: a missing --config path says so and names the flag (got ${JSON.stringify(gone)})`);
+    assert(!/ENOENT|syscall/.test(gone),
+      `config: and does not hand node's errno to the reader (got ${JSON.stringify(gone)})`);
+    const isDir = failed(dir);
+    assert(/is a directory/.test(isDir) && !/EISDIR/.test(isDir),
+      `config: --config pointed at a directory says that, not EISDIR (got ${JSON.stringify(isDir)})`);
+
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -3659,7 +3674,27 @@ section('report', async () => {
     try { cp.execFileSync('node', [CLI, '--nope'], { encoding: 'utf8' }); }
     catch (e) { usage = e.stderr ?? ''; }
     assert(/^abap2ui5lint: unknown option '--nope'/.test(usage) && /\[paths\.\.\.\]/.test(usage),
-      'report: a bad flag still gets the one-line usage reminder');
+      'report: a bad flag still gets the usage reminder');
+
+    /* …wrapped, and pointing at the help that says what the flags DO.
+     *
+     * The reminder is one 679-character string. Printed as one line it reached
+     * the reader as nine ragged terminal-wrapped lines with bracketed groups
+     * split down the middle - and that reader has just mistyped a flag, so it
+     * is the worst moment for a wall. `--help` was moved off this same string
+     * for the same reason; the error path had kept it.
+     *
+     * Wrapped rather than shortened on purpose: the full list is what the two
+     * assertions below compare against `--help`, in both directions, and that
+     * gate has already caught a stale header once. A short usage line would
+     * leave them nothing to compare. */
+    const usageLines = usage.split('\n').filter((l) => /^(usage:|\s+\[)/.test(l));
+    assert(usageLines.length > 1 && usageLines.every((l) => l.length <= 78),
+      `report: the usage reminder is wrapped, not one long line (longest ${Math.max(0, ...usageLines.map((l) => l.length))})`);
+    assert(usageLines.every((l) => (l.match(/\[/g) || []).length === (l.match(/\]/g) || []).length),
+      'report: and no bracketed group is split across a line boundary');
+    assert(/try `abap2ui5lint --help`/.test(usage),
+      'report: the reminder points at --help, which is where the flags are explained');
     const flagsIn = (text) => new Set([...text.matchAll(/--[a-z][a-z0-9-]+/g)].map((m) => m[0]));
     const inUsage = [...flagsIn(usage)].filter((x) => x !== '--nope');
     const undocumented = inUsage.filter((flag) => !help.includes(flag));
