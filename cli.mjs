@@ -280,6 +280,12 @@ for (let i = 0; i < args.length; i++) {
   // where the app classes and views are
   "paths": ["src"],
 
+  // trees under those paths that are not yours to fix: generated ABAP,
+  // vendored copies, a frozen legacy package. Regex, matched against the path.
+  // This is the repo-level counterpart of rules[id].exclude - a generated
+  // directory is not a rule to waive, it is a tree not to read.
+  // "ignore": ["/generated/", "/vendor/"],
+
   // the UI5 version your system serves. 1.71 is abap2UI5's own floor and the
   // safe default: anything that arrived later is reported here instead of
   // failing in a browser. Raise it once you know the system.
@@ -373,7 +379,9 @@ if (!paths.length) paths.push('src');
 
 let files;
 try {
-  files = collectFiles(paths);
+  // `ignore` is repo-level and config-only on purpose: it describes the tree,
+  // which is a property of the repo rather than of one invocation
+  files = collectFiles(paths, { ignore: opt.ignore ?? [] });
 } catch (e) {
   // a mistyped path is bad usage, not a crash - exit 2 with one clean line
   die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);

@@ -132,8 +132,19 @@ declare module "@abap2ui5/linter" {
   export function mockModelFor(file: string): Record<string, unknown> | null;
   /** The suffix that convention uses. */
   export const MOCK_SUFFIX: string;
-  /** Recursively collect checkable files (builder classes + view/fragment XML). */
-  export function collectFiles(paths: string[]): string[];
+  /** Recursively collect checkable files (builder classes + view/fragment XML).
+   *
+   *  A directory WALK skips `node_modules` and every dot-entry (`.git`,
+   *  `.github`, and a dot-named ABAP file too) - deliberately, but silently:
+   *  a class parked under a dot-directory is not checked and nothing says so.
+   *  `opts.ignore` are regex patterns matched against each walked path; a path
+   *  named explicitly still gets checked, because ignoring an argument is the
+   *  same silence. Symlink cycles terminate (the walk keys directories by
+   *  realpath). */
+  export function collectFiles(
+    paths: string[],
+    opts?: { ignore?: (string | RegExp)[] }
+  ): string[];
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -444,6 +455,10 @@ declare module "@abap2ui5/linter/config" {
 
   export interface LintConfig {
     paths?: string[];
+    /** Repo-level regex patterns: a path a directory walk reaches and one of
+     *  these matches is not collected. The counterpart of `rules[id].exclude`,
+     *  which is per rule. */
+    ignore?: string[];
     minUi5?: string;
     distribution?: string;
     allow?: string[];

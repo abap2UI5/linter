@@ -51,6 +51,11 @@ export function buildSchema() {
         items: { type: 'string' },
         description: 'Files or directories to check. Used only when the CLI got no positional paths.',
       },
+      ignore: {
+        type: 'array',
+        items: { type: 'string', format: 'regex' },
+        description: 'Regex patterns; a path reached by a directory walk that one of them matches is not collected at all. Repo-level counterpart of rules[id].exclude, which is per rule. A path named explicitly on the command line is still checked.',
+      },
       ui5: {
         type: 'string',
         pattern: '^\\d+\\.\\d+(\\.\\d+)?$',

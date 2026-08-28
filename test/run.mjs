@@ -695,6 +695,20 @@ ENDCLASS.`;
   assert(opt.allow.includes('sap.m.Avatar') && opt.allow.includes('sap.m.Page.x'),
     'config: allow lists merge');
 
+  // ignore: repo-level, and validated the same way an exclude pattern is
+  fs.writeFileSync(path.join(dir, 'ign.jsonc'), '{"ignore": ["/generated/"]}');
+  assert(loadConfig(path.join(dir, 'ign.jsonc')).ignore[0] === '/generated/',
+    'config: ignore survives loading as a pattern list');
+  fs.writeFileSync(path.join(dir, 'ignbad.jsonc'), '{"ignore": ["[unclosed"]}');
+  let ignThrew = '';
+  try { loadConfig(path.join(dir, 'ignbad.jsonc')); } catch (e) { ignThrew = e.message; }
+  assert(/ignore pattern '\[unclosed' is not a valid regex/.test(ignThrew),
+    'config: an uncompilable ignore pattern fails loudly instead of suppressing nothing');
+  fs.writeFileSync(path.join(dir, 'ignstr.jsonc'), '{"ignore": "generated"}');
+  let ignType = '';
+  try { loadConfig(path.join(dir, 'ignstr.jsonc')); } catch (e) { ignType = e.message; }
+  assert(/'ignore' must be an array/.test(ignType), 'config: ignore must be a list, not a single string');
+
   let threw = '';
   fs.writeFileSync(path.join(dir, 'bad.jsonc'), '{"tpyo": 1}');
   try { loadConfig(path.join(dir, 'bad.jsonc')); }
@@ -1894,6 +1908,34 @@ ENDCLASS.`;
   const abs = collectFiles([path.resolve(f('good.clas.abap'))]);
   assert(abs.length === 1 && path.isAbsolute(abs[0]),
     `collectFiles: an absolute path stays absolute (${abs[0]})`);
+
+  /* A symlink cycle. `statSync` follows links, so `deep/loop -> deep` used to
+   * be an unbounded descent: the walk never finished, the run reported
+   * nothing, and there is no output at all to read that from. Everything else
+   * this gate can get wrong is at least visible as a verdict. */
+  const deep = path.join(dir, 'deep');
+  fs.mkdirSync(deep, { recursive: true });
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(deep, 'inner.clas.abap'));
+  let linked = true;
+  try { fs.symlinkSync(deep, path.join(deep, 'loop'), 'dir'); } catch { linked = false; }
+  if (linked) {
+    const cyc = collectFiles([deep]);
+    assert(cyc.length === 1, `collectFiles: a symlink cycle terminates and collects each file once (${cyc.length})`);
+    // a second link to the same directory is the same directory, not a copy
+    fs.symlinkSync(deep, path.join(deep, 'again'), 'dir');
+    assert(collectFiles([deep]).length === 1,
+      'collectFiles: two links to one directory collapse onto its realpath');
+  }
+
+  // ignore: the repo-level counterpart of rules[id].exclude
+  const gen = path.join(dir, 'generated');
+  fs.mkdirSync(gen, { recursive: true });
+  fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(gen, 'gen.clas.abap'));
+  assert(collectFiles([gen]).length === 1, 'ignore: the generated tree is collected without a pattern');
+  assert(collectFiles([dir], { ignore: ['generated'] }).every((p) => !p.includes('generated')),
+    'ignore: a matching pattern drops the tree from a directory walk');
+  assert(collectFiles([path.join(gen, 'gen.clas.abap')], { ignore: ['generated'] }).length === 1,
+    'ignore: a path named on the command line is still checked - ignore filters a scan, not an argument');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -3406,6 +3448,17 @@ ENDCLASS.`;
   assert(Object.keys(schema.properties.rules.properties).length === RULES.length + 1
     && RULES.includes('duplicate-id') && schema.properties.rules.properties[RENDER_RULE],
     'schema: every rule id plus the render pseudo-rule is offered to the editor');
+
+  /* The loader's KNOWN set and the schema's properties are the same list seen
+   * from two sides: a key only the loader knows is a red squiggle over a
+   * working config, a key only the schema knows is completion for something
+   * that then fails loudly. */
+  const { KNOWN } = await import('../lib/config.mjs');
+  const offered = new Set(Object.keys(schema.properties));
+  const missing = [...KNOWN].filter((k) => !offered.has(k));
+  const extra = [...offered].filter((k) => !KNOWN.has(k));
+  assert(!missing.length && !extra.length,
+    `schema: the offered keys are exactly the ones the loader accepts (loader-only: ${missing.join(', ') || 'none'}; schema-only: ${extra.join(', ') || 'none'})`);
 }
 
 // ----------------------------------------------------------- rules page ----
