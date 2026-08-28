@@ -75,7 +75,7 @@ export function buildSchema() {
       minUi5: { type: 'string', pattern: '^\\d+\\.\\d+(\\.\\d+)?$', description: 'Alias of "ui5".' },
       distribution: {
         enum: ['sapui5', 'openui5'],
-        description: 'Which distribution the target system serves. On "openui5", controls from SAPUI5-only libraries are reported.',
+        description: 'Which distribution the target system serves. On "openui5", controls from SAPUI5-only libraries are errors; on "sapui5" they are not reported at all. Leave the key out and they are hints - the run cannot tell which system you deploy to.',
       },
       allow: {
         type: 'array',
@@ -98,7 +98,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 93 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 94 rules passed").',
       },
       rules: {
         type: 'object',

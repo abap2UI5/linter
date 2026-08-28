@@ -30,7 +30,10 @@ const PER_REQUEST = 50;
 export function lintSource(path, source, config = {}) {
   const opts = {
     minUi5: config.ui5 || config.minUi5 || '1.71',
-    distribution: config.distribution || 'sapui5',
+    // null, not 'sapui5': a repo that never wrote `distribution` has not
+    // said its system ships sap.ui.comp, and the gate reports that as a
+    // hint rather than as nothing at all
+    distribution: config.distribution || null,
     allow: config.allow || [],
     rules: config.rules || {},
     file: path,

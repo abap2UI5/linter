@@ -19,8 +19,10 @@ declare module "@abap2ui5/linter" {
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */
     minUi5?: string;
-    /** Which distribution the target serves (default "sapui5"). */
-    distribution?: "sapui5" | "openui5";
+    /** Which distribution the target serves. Unset (the default) is its own
+     *  answer, not a synonym for "sapui5": a SAPUI5-only control is then a
+     *  hint rather than an error ("openui5") or nothing at all ("sapui5"). */
+    distribution?: "sapui5" | "openui5" | null;
     /** control[.member] names allowed despite the version floor. */
     allow?: string[];
     /** Run the render gate (default true — needs the optional deps). */
@@ -172,6 +174,11 @@ declare module "@abap2ui5/linter/reconstruct" {
      *  offsets are valid offsets into the original source (scrub( ) is
      *  offset-preserving). Absent on parseXml( ) nodes. */
     offset?: number;
+    /** Which view SLOT this document is displayed into, when its statement
+     *  named a consumer (`view_display`, `popup_display`, …). Absent when no
+     *  consumer was in the same statement - a caller comparing it against
+     *  `elementBoundSlots` treats that as "any slot". Set on the ROOT node. */
+    displaySlot?: string;
   }
 
   export interface PreparedAbap {
@@ -186,6 +193,16 @@ declare module "@abap2ui5/linter/reconstruct" {
     /** Every attribute name the class declares (uppercased) - what the
      *  relative-binding-without-context rule judges against. */
     rootFields: Set<string>;
+    /** What the CLASS ITSELF writes into those fields - the second author of
+     *  every two-way-bound string, which the model cannot stand in for. */
+    rootWrites: Map<string, { any: boolean; allPlainText: boolean }>;
+    /** The full paths bound with `json = abap_true`, for
+     *  json-bind-on-scalar-property. */
+    jsonPaths: Set<string>;
+    /** Index-aligned with `docs`: how each document is LOADED, taken from the
+     *  consuming call rather than sniffed from its root tag. `undefined` where
+     *  no consumer was in the same statement - the renderer sniffs then. */
+    docKinds: Array<"view" | "fragment" | undefined>;
     notes: string[];
     helperTokens: number;
     /** Structural defects of the builder chain itself (excess-shut,
@@ -289,6 +306,8 @@ declare module "@abap2ui5/linter/properties" {
     count?: number;
     /** sapui5-only-control */
     library?: string;
+    /** sapui5-only-control: the configured distribution, absent when none was */
+    distribution?: string;
     /** unknown-binding-path: the aggregation binding the row context came from */
     context?: string;
     /** non-released-api: which package the object lives in, what that package
@@ -369,9 +388,23 @@ declare module "@abap2ui5/linter/properties" {
       shape?: Record<string, unknown> | null;
       /** Without this the relative-binding-without-context rule stays silent. */
       rootFields?: Set<string> | null;
+      /** What the class writes into its own fields (prepareAbap) — without it
+       *  picker-value-without-format cannot run. */
+      rootWrites?: Map<string, { any: boolean; allPlainText: boolean }> | null;
       /** The `name>` prefixes the class registers (namedModels) — null when
        *  the class widens its models non-literally, silencing unknown-model. */
       models?: Set<string> | null;
+      /** The paths bound as JSON (prepareAbap) — without it
+       *  json-bind-on-scalar-property never fires. */
+      jsonPaths?: Set<string> | null;
+      /** The source was ABAP, not raw XML. Both halves of
+       *  raw-javascript-to-frontend judge a value as authored only when this
+       *  says so. */
+      fromAbap?: boolean;
+      /** The class element-binds the slot this document is displayed into, so
+       *  a relative binding path HAS a context at runtime that no static walk
+       *  can see. */
+      boundElement?: boolean;
     }
   ): PropertyFinding[];
 }
@@ -433,6 +466,23 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  judged about model names at all. */
   export function namedModels(source: string): Set<string> | null;
 
+  /**
+   * Which view SLOTS the class element-binds at runtime
+   * (`cs_event-bind_element`), so a relative path in a document displayed
+   * into one of them HAS a context no static walk can see.
+   *
+   * `all` is the honest half: a wire whose slot is not a literal could bind
+   * any of them, and a wrong second guess is worse than silence.
+   *
+   * Re-exported here as well as from the package entry point: this is the
+   * subpath a consumer assembling the pipeline can import without pulling the
+   * renderer - and `http`/`os`/`module` with it - into a browser bundle.
+   */
+  export function elementBoundSlots(source: string): {
+    slots: Set<string>;
+    all: boolean;
+  };
+
   export function checkAbapRules(
     source: string,
     opts?: {
@@ -445,6 +495,14 @@ declare module "@abap2ui5/linter/abap-rules" {
        *  not emitted at all unless it asks); every other rule is filtered
        *  later by applyRules. */
       rules?: Record<string, unknown> | null;
+      /** Enum-typed fields the view exposes through a bound aggregation, by
+       *  table (collectEnumBoundFields) — without it the enum-row rule never
+       *  fires. */
+      enumFields?: Map<string, Set<string>> | null;
+      /** The target release. The ABAP-side icon scan judges against it;
+       *  without it every repository is judged against the 1.71 default,
+       *  whatever floor it configured. */
+      minUi5?: string;
     }
   ): PropertyFinding[];
 }
@@ -817,4 +875,55 @@ declare module "@abap2ui5/linter/formatters" {
   /** The curated formatter export surface — mirrored by the render harness,
    *  judged by the uncurated-formatter rule. */
   export const CURATED_FORMATTERS: readonly string[];
+}
+
+declare module "@abap2ui5/linter/icons" {
+  import type { PropertyFinding } from "@abap2ui5/linter/properties";
+
+  /** The icon registry as `loadIcons` returns it: the release each name
+   *  arrived in, the ones that left again, and the oldest release the data
+   *  covers. */
+  export interface IconData {
+    /** Oldest release the registry was built from - nothing before it can be
+     *  judged. */
+    floor: string;
+    /** The UI5 version the data was generated from. */
+    ui5Version: string;
+    /** lower-cased icon name -> the release it appeared in. */
+    since: Map<string, string>;
+    /** lower-cased icon name -> the release it was removed in. */
+    removed: Map<string, string>;
+  }
+
+  /** The registry, parsed once per path. A file that cannot be read yields an
+   *  EMPTY registry rather than throwing: the icon rules are one gate among
+   *  many and a partial install must not take the property gate down with it.
+   *  An empty registry reports nothing, which is the same "no guessing" the
+   *  rest of the linter follows - so a caller that needs to KNOW the data
+   *  arrived checks `since.size` itself. */
+  export function loadIcons(file?: string): IconData;
+
+  /**
+   * Every `sap-icon://` in a piece of source - ABAP with comments already
+   * scrubbed, or raw view XML - judged against the target release.
+   *
+   * A text scan rather than a view-tree walk, on purpose: an icon name
+   * travels as data (a bound column, a constant, a status-to-icon mapping) at
+   * least as often as it travels as an attribute, and those never reach the
+   * tree the property gate walks.
+   *
+   * Both entry points call it - `checkAbapRules` for classes, `checkXmlSource`
+   * for raw XML - and it is exported for the callers that assemble the
+   * pipeline themselves rather than through `checkAbapSource`, which is what
+   * a consumer feeding the metadata snapshot in by hand has to do (the VS Code
+   * extension's in-process gate: its host may have no filesystem, so it cannot
+   * hand the linter a path).
+   *
+   * `iconData` overrides the registry, for a caller that loaded it from
+   * somewhere other than a file.
+   */
+  export function checkIcons(
+    text: string,
+    opts?: { minUi5?: string; iconData?: IconData }
+  ): PropertyFinding[];
 }
