@@ -88,7 +88,8 @@
     "check-upstream": "node scripts/check-upstream.mjs",
     "generate-schema": "node scripts/generate-schema.mjs",
     "generate-dependents": "node scripts/generate-dependents.mjs",
-    "generate-rules-page": "node scripts/generate-rules-page.mjs"
+    "generate-rules-page": "node scripts/generate-rules-page.mjs",
+    "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {
     "type": "git",
@@ -107,7 +108,7 @@
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0 || ^0.3.0 || ^0.4.0 || ^0.5.0"
+    "@abap2ui5/render-runtime": ">=0.1.0 <0.6.0"
   },
   "peerDependenciesMeta": {
     "@abap2ui5/render-runtime": {

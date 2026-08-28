@@ -3443,39 +3443,46 @@ ENDCLASS.`;
  *
  * So the range is gated against the workspace it ships with: a release that
  * bumps the workspace and forgets the range fails here instead of on a user's
- * install. Only that direction is gated. Whether an OLDER line stays in the
- * range is a compatibility judgement no test can make - dropping one is an
- * ERESOLVE for everybody still on it, so it needs a reason (a runtime the
- * linter cannot work without), not a tidy-up. */
+ * install.
+ *
+ * It is also GENERATED now (`npm run sync-peer-range`). The old union grew a
+ * `|| ^0.N.0` clause per minor and had to be extended by hand at every
+ * release, which is the step the three misses were; the bounded form
+ * `>=FLOOR <breakingAfter(runtime)` has one moving part and a script that
+ * moves it. Only the lower bound stays a judgement - dropping a supported line
+ * is an ERESOLVE for everybody still on it, so FLOOR needs a reason (a runtime
+ * the linter cannot work without), not a tidy-up. */
 {
   const ROOT = path.join(FIX, '..', '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const rt = JSON.parse(fs.readFileSync(path.join(ROOT, 'render-runtime', 'package.json'), 'utf8'));
   const range = pkg.peerDependencies[rt.name];
+  const { satisfies, expectedRange, breakingAfter } = await import('../scripts/peer-range.mjs');
 
-  /* npm's caret over the alternatives a range may list. Enough for the shapes
-   * this file can legitimately carry (`^x.y.z`, several of them joined by
-   * `||`); anything else is refused rather than guessed at, because a range
-   * this gate cannot read is a range it cannot keep honest. */
-  const caretAdmits = (spec, version) => {
-    const at = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(spec.trim());
-    if (!at) return null;
-    const [, lo, mid, low] = at.map(Number);
-    const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version).slice(1).map(Number);
-    // 0.x: the MINOR is the compatibility boundary; from 1.0.0 on it is the major
-    const upper = lo === 0 ? [lo, mid + 1, 0] : [lo + 1, 0, 0];
-    const ge = (a, b) => a[0] !== b[0] ? a[0] > b[0] : a[1] !== b[1] ? a[1] > b[1] : a[2] >= b[2];
-    return ge(v, [lo, mid, low]) && !ge(v, upper);
-  };
-  const verdicts = range.split('||').map((p) => caretAdmits(p, rt.version));
-  assert(verdicts.every((v) => v !== null),
-    `peer range: '${range}' is a shape this gate can read (^x.y.z, or several joined by ||)`);
-  assert(verdicts.some(Boolean),
+  assert(satisfies(range, rt.version) === true,
     `peer range: '${range}' admits the render runtime this repo releases with it (${rt.version})`
     + ' - npm refuses an out-of-range optional peer outright (ERESOLVE), so a stale range forbids'
     + ' exactly the pairing the READMEs tell everyone to install');
+  assert(range === expectedRange(rt.version),
+    `peer range: the committed range is the generated one (npm run sync-peer-range) - '${range}' vs '${expectedRange(rt.version)}'`);
+  assert(satisfies(range, breakingAfter(rt.version)) === false,
+    `peer range: and it STOPS at the next breaking runtime line (${breakingAfter(rt.version)})`);
   assert(pkg.peerDependenciesMeta[rt.name].optional === true,
     'peer range: the render runtime stays OPTIONAL - the property gate is the small install');
+
+  // the reader itself, since two gates and one CI script now trust it
+  assert(satisfies('^0.2.1', '0.2.9') === true && satisfies('^0.2.1', '0.3.0') === false
+    && satisfies('^0.2.1', '0.2.0') === false,
+  'peer range: the caret reader treats the minor as the 0.x compatibility boundary');
+  assert(satisfies('^1.2.0', '1.9.0') === true && satisfies('^1.2.0', '2.0.0') === false,
+    'peer range: …and the major from 1.0.0 on');
+  assert(satisfies('>=0.1.0 <0.6.0', '0.5.1') === true
+    && satisfies('>=0.1.0 <0.6.0', '0.6.0') === false,
+  'peer range: a two-term range is an AND');
+  assert(satisfies('^0.2.0 || ^0.5.0', '0.5.1') === true,
+    'peer range: alternatives are an OR, so an older union still reads correctly');
+  assert(satisfies('workspace:*', '0.5.1') === null && satisfies('~0.5.0', '0.5.1') === null,
+    'peer range: a shape the reader does not know answers null, never a confident false');
 }
 
 // --------------------------------------------------------------- typings ----

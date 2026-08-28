@@ -51,19 +51,22 @@ breaks, because nobody can have installed the broken one yet.
 npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
 
 # 1b. `npm version` moves versions and NO dependency range, so the optional
-#     peer range on @abap2ui5/render-runtime has to follow by hand - ADD the
-#     new line to it:
-#       "peerDependencies": { "@abap2ui5/render-runtime": "^0.1.0 || ^0.2.0" }
-#     `npm test` fails while the range does not admit the workspace version.
-#     That gate exists because the step was missed for three releases running,
-#     and an out-of-range OPTIONAL peer is an ERESOLVE error, not a warning:
-#     the matching pair was the one npm refused to install.
+#     peer range on @abap2ui5/render-runtime has to follow. It is GENERATED:
+npm run sync-peer-range
+#     which writes ">=<floor> <next breaking runtime line>", e.g.
+#       "peerDependencies": { "@abap2ui5/render-runtime": ">=0.1.0 <0.6.0" }
+#     `npm test` fails while the committed range is not the generated one.
+#     That gate exists because this step was missed for three releases running
+#     while the range was a hand-extended union (`^0.1.0 || ^0.2.0 || ...`,
+#     one clause per minor forever), and an out-of-range OPTIONAL peer is an
+#     ERESOLVE error, not a warning: the matching pair was the one npm refused
+#     to install.
 #
-#     Keep the older lines unless there is a reason to drop one. Removing a
-#     line is an install failure for everyone still on it, so it is justified
-#     only by something the linter genuinely cannot work without - not by the
-#     range looking untidy. (A missing `less-openui5` is NOT such a reason: a
-#     screenshot then comes back unstyled and the gate does not care.)
+#     Only the LOWER bound is a decision, and it lives in the script as FLOOR.
+#     Raising it is an install failure for everyone still on that line, so it
+#     is justified only by something the linter genuinely cannot work without -
+#     not by the range looking untidy. (A missing `less-openui5` is NOT such a
+#     reason: a screenshot then comes back unstyled and the gate does not care.)
 
 # 1c. Moving to a new OpenUI5 release is THREE files, not one: the @openui5
 #     pins in render-runtime/package.json, data/properties.json
