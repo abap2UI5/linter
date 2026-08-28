@@ -1,0 +1,29 @@
+# Every checkout gets LF, on every platform.
+#
+# Without this, a Windows clone with the default core.autocrlf=true checks the
+# tree out with CRLF, and six suites fail there - not because the linter is
+# wrong (it reports identically on CRLF input; that was measured) but because
+# the harness performs string surgery on fixtures and repo files with \n-anchored
+# patterns, which then match nothing. A gate that stops matching does not fail,
+# it passes by checking less, so the checkout is pinned rather than the 93
+# readFileSync call sites patched.
+#
+# This repository has particular reason to be explicit: it lints ABAP for an
+# ecosystem where a changed line ending is an abapGit round-trip defect, and it
+# ships .abap fixtures that stand in for real sources.
+* text=auto eol=lf
+
+*.abap  text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.jsonc text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.xml   text eol=lf
+*.html  text eol=lf
+*.ts    text eol=lf
+*.sh    text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
