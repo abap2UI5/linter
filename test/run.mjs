@@ -3821,6 +3821,31 @@ ENDCLASS.`;
   assert(!absent.length,
     `AGENTS: every rule id appears in the emit-site taxonomy (missing: ${absent.join(', ') || 'none'})`);
 
+  /* …in the ROW of the file that actually emits it. The table's whole use is
+   * "grep the id to find the exact line", so a rule listed under the wrong
+   * file is worse than one listed nowhere: it sends the reader somewhere.
+   * Derived from `type: '<id>'` in the sources, which is how every rule
+   * reports, rather than from a second list here. */
+  const libDir = path.join(ROOT, 'lib');
+  const rows = Object.fromEntries(agents.split('\n')
+    .filter((l) => /^\| `lib\/[\w-]+\.mjs` \|/.test(l))
+    .map((l) => [l.match(/^\| `lib\/([\w-]+\.mjs)`/)[1], l]));
+  const misfiled = [];
+  for (const file of fs.readdirSync(libDir).filter((n) => n.endsWith('.mjs'))) {
+    const text = fs.readFileSync(path.join(libDir, file), 'utf8');
+    for (const id of RULES) {
+      if (!new RegExp(`type: '${id}'`).test(text)) continue;
+      // a rule may legitimately be emitted from two files (the two halves of
+      // raw-javascript-to-frontend); it needs a row that names it, not all of them
+      const named = Object.entries(rows).some(([f, row]) => f === file && row.includes(`\`${id}\``));
+      const namedAnywhere = Object.values(rows).some((row) => row.includes(`\`${id}\``));
+      if (!named && !namedAnywhere) misfiled.push(`${id} emits in lib/${file}`);
+      else if (!named && !rows[file]) misfiled.push(`lib/${file} has no row (emits ${id})`);
+    }
+  }
+  assert(!misfiled.length,
+    `AGENTS: the taxonomy sends a reader to the file that emits the rule (${[...new Set(misfiled)].slice(0, 6).join('; ') || 'all correct'})`);
+
   // …and nothing in the table that is not a rule (a rename leaves the old name
   // behind, which reads exactly like a rule nobody can find the emit site for)
   // `render-error` and `open-levels` are real ids the registry deliberately
