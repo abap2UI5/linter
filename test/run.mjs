@@ -2932,6 +2932,46 @@ section('xmlns (6)', async () => {
         'icons: loadIcons reads the committed registry');
     }
 
+    /*
+     * elementBoundSlots is reachable WITHOUT the package entry point.
+     *
+     * checkAbapSource works `boundElement` out with it and passes it to
+     * checkNodes, where it SUPPRESSES the "this path has no context" findings.
+     * A consumer that assembles the pipeline itself and cannot call it is
+     * therefore STRICTER than the CLI - it reports a relative binding the
+     * linter accepts, a false positive in that consumer's editor.
+     *
+     * The entry point was its only route, and that route imports render.mjs:
+     * `http`, `os` and `module`. A browser bundle cannot resolve those, so the
+     * VS Code extension's web build failed outright on the import - which is
+     * at least loud. It lives in abap-source.mjs now and is re-exported from
+     * both here and ./abap-rules, which no renderer hangs off.
+     */
+    {
+      const wired = `client->follow_up_action( client->_event_client(
+          action = z2ui5_if_client=>cs_event-bind_element
+          t_arg  = VALUE #( ( \`/MT_ROWS/1\` ) ) ) ).`;
+      const viaEntry = await import('@abap2ui5/linter');
+      const viaLeaf = await import('@abap2ui5/linter/abap-rules');
+      assert(typeof viaLeaf.elementBoundSlots === 'function',
+        'elementBoundSlots: reachable through ./abap-rules, without the renderer');
+      assert(typeof viaEntry.elementBoundSlots === 'function',
+        'elementBoundSlots: still on the entry point it has always been on');
+      const a = viaLeaf.elementBoundSlots(wired);
+      const b = viaEntry.elementBoundSlots(wired);
+      assert(a.all === b.all && [...a.slots].join() === [...b.slots].join(),
+        'elementBoundSlots: both routes are the same function');
+      assert(!a.all && a.slots.has('MAIN'),
+        `elementBoundSlots: a wire with no view= binds the MAIN slot (got ${[...a.slots].join() || 'none'})`);
+      /* the leaf module may not grow a path to the renderer - that is the
+       * whole point of the move, and an import is how it would come back */
+      const lib = path.join(FIX, '..', '..', 'lib');
+      const leafSrc = fs.readFileSync(path.join(lib, 'abap-source.mjs'), 'utf8');
+      const rulesSrc = fs.readFileSync(path.join(lib, 'abap-rules.mjs'), 'utf8');
+      assert(!/from '\.\/(render|index)\.mjs'/.test(leafSrc + rulesSrc),
+        'elementBoundSlots: neither module reaches the renderer or the entry point');
+    }
+
     // --- toolbar-only controls in a sap.m.Bar ---------------------------------
     const inBar = (inner, minUi5 = '1.71') => checkAbapSource(view(inner), { minUi5 })
       .findings.filter((x) => x.type === 'toolbar-control-in-bar');
