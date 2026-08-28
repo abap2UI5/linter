@@ -3753,6 +3753,38 @@ ENDCLASS.`;
     assert(new RegExp(`^  ${name}:$`, 'm').test(outputs), `action: declares the '${name}' output`);
   }
 
+  /* One Node version, said in four places: package.json engines, .nvmrc,
+   * .node-version, and every workflow's `node-version:`. The version managers
+   * read the dotfiles and nothing read them back, so they could say anything. */
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const floor = pkg.engines.node.replace(/^>=\s*/, '').split('.')[0];
+  for (const name of ['.nvmrc', '.node-version']) {
+    const at = path.join(ROOT, name);
+    assert(fs.existsSync(at) && fs.readFileSync(at, 'utf8').trim().split('.')[0] === floor,
+      `workflows: ${name} names the engines floor (${floor})`);
+  }
+  const wrongNode = [];
+  for (const name of workflows) {
+    const text = fs.readFileSync(path.join(WF, name), 'utf8');
+    for (const m of text.matchAll(/node-version:\s*(\S+)/g)) {
+      if (m[1].startsWith('${{')) continue;          // a matrix entry, checked by its own list
+      if (String(m[1]).split('.')[0] !== floor) wrongNode.push(`${name}: ${m[1]}`);
+    }
+  }
+  assert(!wrongNode.length,
+    `workflows: every hardcoded node-version is the engines floor (off: ${wrongNode.join(', ') || 'none'})`);
+
+  // the hygiene files a package published with provenance and consumed by nine
+  // repositories owes a reader looking for where to report something
+  for (const name of ['SECURITY.md', 'CONTRIBUTING.md']) {
+    assert(fs.existsSync(path.join(ROOT, name)), `repo: ${name} exists`);
+  }
+  assert(fs.readFileSync(path.join(ROOT, 'SECURITY.md'), 'utf8').includes('security/advisories/new'),
+    'repo: SECURITY.md names the private reporting path, not a public issue');
+  for (const name of ['CODEOWNERS', 'pull_request_template.md', 'ISSUE_TEMPLATE/config.yml']) {
+    assert(fs.existsSync(path.join(ROOT, '.github', name)), `repo: .github/${name} exists`);
+  }
+
   // the badge wording drifts with the rule count, and it is user-visible
   const { RULES } = await import('../lib/findings.mjs');
   const quoted = action.match(/check-abap2UI5 \| (\d+) rules passed/);

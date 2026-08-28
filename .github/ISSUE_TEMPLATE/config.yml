@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Rule reference
+    url: https://abap2ui5.github.io/linter/
+    about: Every rule id, what it means and how to waive it — the id at the end of a finding is the anchor.
+  - name: Security report
+    url: https://github.com/abap2UI5/linter/security/advisories/new
+    about: Never in a public issue. See SECURITY.md.
+  - name: abap2UI5 questions
+    url: https://github.com/abap2UI5/abap2UI5/discussions
+    about: About the framework itself rather than about this linter.
