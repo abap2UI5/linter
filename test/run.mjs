@@ -2,8 +2,18 @@
 /*
  * test/run — fixture-based self-test of the two gates.
  *
- *   good.clas.abap      reconstructs, no findings, renders clean
- *   viewbuilder.clas.abap  the same view, built through a helper handle
+ * The LOAD-BEARING few, the ones every other section leans on. This is a
+ * sample and says so: `test/fixtures/` holds far more, one or two per rule
+ * family, and each is introduced by the section that reads it. A header
+ * pretending to list them all is a header that goes stale on the next rule.
+ *
+ *   good.clas.abap      reconstructs, no findings, renders clean — the
+ *                       reference every "…and the legal form is left alone"
+ *                       assertion is written against
+ *   viewbuilder.clas.abap  the same view, built through a helper handle. The
+ *                       PAIR is the proof: the two reconstruct byte-identical
+ *                       documents, which is what makes one reconstructor
+ *                       enough for both builder dialects
  *   post171.clas.abap   property gate: GenericTile.systemInfo @since 1.92
  *   broken.clas.abap    render gate: typo property + unknown control
  *   structure.clas.abap unknown control/property/aggregation, bad enum and
@@ -12,6 +22,12 @@
  *   rowpaths.clas.abap  relative binding paths inside a bound aggregation
  *   nested.clas.abap    nested structures and nested aggregation bindings
  *   sample.view.xml     raw XML path: no findings, renders clean
+ *
+ * What the suite is FOR, beyond the rules: the last sections gate everything
+ * generated or written down — the schema, the rules page, types.d.ts against
+ * the exports map, AGENTS.md against the artefacts, the workflows and the
+ * composite action — and the rule-coverage gate at the end asserts that every
+ * registered rule actually fired somewhere above.
  */
 import fs from 'fs';
 import os from 'os';
@@ -3859,11 +3875,22 @@ ENDCLASS.`;
     assert(fs.existsSync(path.join(ROOT, '.github', name)), `repo: .github/${name} exists`);
   }
 
-  // the badge wording drifts with the rule count, and it is user-visible
+  /* The badge wording drifts with the rule count and it is user-visible - the
+   * action's input description said 83 while the registry had 93. Everywhere
+   * that quotes the number rather than counting it is checked here; the badge
+   * ITSELF counts (lib/report.mjs), which is why that file quotes nothing. */
   const { RULES } = await import('../lib/findings.mjs');
-  const quoted = action.match(/check-abap2UI5 \| (\d+) rules passed/);
-  assert(quoted && Number(quoted[1]) === RULES.length,
-    `action: the badge description quotes today's rule count (says ${quoted?.[1]}, registry has ${RULES.length})`);
+  const stale = [];
+  for (const name of ['action.yml', 'cli.mjs', 'scripts/generate-schema.mjs', 'data/abap2ui5lint.schema.json']) {
+    const text = fs.readFileSync(path.join(ROOT, name), 'utf8');
+    for (const m of text.matchAll(/(\d+) rules passed/g)) {
+      if (Number(m[1]) !== RULES.length) stale.push(`${name}: ${m[1]}`);
+    }
+  }
+  assert(!stale.length,
+    `action: every quoted rule count is today's (registry has ${RULES.length}; stale: ${stale.join(', ') || 'none'})`);
+  assert(!/\d+ rules passed/.test(fs.readFileSync(path.join(ROOT, 'lib', 'report.mjs'), 'utf8')),
+    'report: the badge writer quotes no count of its own - it counts the registry at run time');
 }
 
 // ------------------------------------------------------- used-by block ----

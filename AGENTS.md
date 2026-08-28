@@ -216,7 +216,7 @@ own silence, so three things describe the run instead of its findings:
 | --- | --- | --- |
 | **run summary** — sources, documents, controls/bindings/icons judged, the control histogram, gates, baseline shape, phase times | under the count line (`stylish`), `### Run summary` (`markdown`), `stats` (`json`) | on above one file; `--stats` / `--no-stats` |
 | **progress** — one rewriting line per gate, or one log line per file inside a collapsed `::group::` in Actions | **stderr**, so stdout stays pipeable | on a TTY and in Actions; `--progress` / `--no-progress` |
-| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `83 rules passed` green) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
+| **badges** — two shields.io endpoint JSONs: the corpus (`abap2UI5` grey \| `148 apps · 172 views · 2,176 controls` blue) and the verdict (`check-abap2UI5` grey \| `N rules passed` green, N being the registry minus what the repo switched off) | the files `--badge-corpus` / `--badge`, or config `badge` (a list, one entry per kind) | off |
 
 Rules that hold for all three:
 
@@ -729,8 +729,9 @@ Now: unseeded tables are empty for the renderer and a declared row in the
 shape, the same split the scalars already had.
 
 **Measure a new rule against the samples-controls corpus before shipping it.**
-`node cli.mjs /path/to/samples-controls/src --no-render --json` over 282 real
-ports, diffed per finding type against `main`, is what caught three separate
+`node cli.mjs /path/to/samples-controls/src --no-render --json` over its ports
+(the count lives in that repo's generated `STATUS.md`, never here), diffed per
+finding type against `main`, is what caught three separate
 false-positive shapes: an event raised by a `message_box_display( onclose = )`
 callback rather than `client->_event( )`, dispatch leaking across an
 `ENDMETHOD`, and a `<style>` check scoped to the ABAP *statement* — which on
