@@ -83,13 +83,13 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (an error with `--distribution openui5`, a hint with no `distribution` configured, silent with `sapui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new` |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the one **opt-in** rule (`OPT_IN` in `lib/findings.mjs`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and would defer any other rule's fix inside it to a second `--fix` pass |
 | `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-nonpublic`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `event-arg-js-callback`, `trailing-empty-event-arg`, `enum-field-unset-on-insert`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `escaped-brace-in-backtick`, `unused-public-attribute`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `live-event-roundtrip`, `get-viewname-removed`, `ui5-internal-access`, `commercial-ui5-host`, `source-line-too-long` — plus `checkAbapRules( )` itself, the entry point every ABAP-side rule is called from and the order they run in |
-| `lib/frontend-wires.mjs` | every `client->_event_client( )` / `follow_up_action( )` wire: `invalid-frontend-action`, `unknown-frontend-action`, `frontend-action-unknown-id`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `filter-groups-not-arrays`, `denied-control-method`, `settable-property-via-action`, `control-state-lost-on-rebuild`, `raw-javascript-to-frontend` (escape-hatch half). Split out of `abap-rules.mjs` — one closed set after another, all mirrored in `lib/frontend-actions.mjs` and gated by `check-upstream.mjs` |
+| `lib/frontend-wires.mjs` | every `client->_event_client( )` / `follow_up_action( )` wire: `invalid-frontend-action`, `unknown-frontend-action`, `frontend-action-unknown-id`, `unknown-view-slot`, `literal-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `filter-groups-not-arrays`, `denied-control-method`, `settable-property-via-action`, `control-state-lost-on-rebuild`, `raw-javascript-to-frontend` (escape-hatch half). Split out of `abap-rules.mjs` — one closed set after another, all mirrored in `lib/frontend-actions.mjs` and gated by `check-upstream.mjs` |
 | `lib/lifecycle-rules.mjs` | what the class does ACROSS a roundtrip: `view-never-displayed`, `missing-view-display-on-navigated`, `missing-on-navigated-branch`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`. Also split out of `abap-rules.mjs`, and called from exactly the points its code sat at: `report( )` collapses repeats and the FIRST finding of a shape wins, so the call ORDER is part of the output |
 | `lib/abap-source.mjs` | no findings — the readers those three share (`literalElements`, `methodSpans`, `displayPathMethods`, `bindableAnywhere`, `ifBranchEnd`, `ifBlockEnd`). Pure functions of a scrubbed source, so no module has to learn about another |
-| `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree |
+| `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree. Exported as `./icons` too, for the consumers that assemble the pipeline themselves instead of calling an entry point — see **A consumer that cannot hand us a path** below |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors); also the screenshot session behind `--screenshot` — same harness, view kept and photographed, theme LESS compiled on demand |
 | `lib/index.mjs` | `frozen-view-builder` — the ONE finding a class on the retired `z2ui5_cl_xml_view` builder gets, emitted where the decision to judge it at all is made. Everything else about such a class is deliberately silent: the other rules are written for the current dialect, and running them over an API they do not model would trade a silent miss for confident noise |
@@ -1008,6 +1008,49 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   at a **feature branch** of this repo is only ever temporary — it must become
   a SHA on main (or a published version) before that consumer's change is
   merged.
+
+## A consumer that cannot hand us a path
+
+`checkAbapSource` / `checkXmlSource` are the whole API for a consumer that has
+a filesystem: hand them a source and, if the default snapshot is not right, a
+`snapshot` PATH. Two consumers cannot do that, and both are ours:
+
+- the **VS Code extension** runs the property gate in-process in two hosts. On
+  the desktop it reads the snapshot from a file next to its own bundle; in the
+  browser host (vscode.dev, browser BAS) there is no `fs` at all and the
+  snapshot arrives as TEXT through `workspace.fs`. A path-only option cannot
+  express that, so the extension assembles the pipeline itself out of the
+  subpath exports.
+- **mcp-server** does the same for the pieces it exposes as tools.
+
+That is why the low-level pieces are exported at all, and it is a real
+contract, not a convenience: **anything an entry point calls to produce a
+finding has to be reachable on its own, or a consumer assembling the pipeline
+silently loses that rule.** It happened: `checkIcons` lived in a module the
+exports map did not name, `exports` blocks a deep import, and the extension's
+XML path therefore had no icon rules while its ABAP path (which goes through
+`checkAbapRules`) had them — the same file judged differently by the editor
+and by CI, which is the divergence that gate exists to close. `./icons` is the
+fix.
+
+So when a new check is added to `checkAbapSource` or `checkXmlSource`, ask
+whether a consumer can reach it without them. If not, export the module the
+same way — the typings gate in `npm test` then requires a `declare module`
+block for it, and `downstream.yml`'s extension typecheck proves the shape
+against a real consumer.
+
+**Reachable means reachable from a BROWSER bundle, not just importable.**
+`lib/index.mjs` imports `render.mjs`, which imports `http`, `os` and
+`module` at load time. Anything only that entry point exports is therefore
+unreachable for the VS Code extension's web build: esbuild cannot resolve
+those for `platform: browser` and the build fails outright. That is how
+`elementBoundSlots` — which `checkAbapSource` uses to decide `boundElement`,
+and which SUPPRESSES the relative-binding findings — came to be unreachable,
+leaving a consumer stricter than the CLI and reporting a false positive it
+had no way to avoid. It lives in `lib/abap-source.mjs` now and is re-exported
+from `./abap-rules` (which no renderer hangs off) as well as from the entry
+point. A helper a consumer needs belongs in a leaf module; a test asserts
+that neither of those two reaches `render.mjs` or `index.mjs`.
 
 ## The downstream contract — `.github/workflows/downstream.yml`
 
