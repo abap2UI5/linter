@@ -3729,6 +3729,24 @@ ENDCLASS.`;
   assert(Object.values(RULE_DOCS).every((d) => known.has(d.category) && d.summary && d.detail),
     'rules page: every entry has a known category, a summary and a detail');
 
+  /* …and an EXAMPLE. The suite already gated example correctness (the builder
+   * verbs below); presence went ungated, and 36 of 94 rules had none - among
+   * them the highest-traffic errors there are. The README delegates all rule
+   * documentation to this page, so a rule without an example is a rule whose
+   * documentation says a shape is wrong without ever showing the shape. */
+  const exampleless = Object.entries(RULE_DOCS).filter(([, d]) => !d.example).map(([id]) => id);
+  assert(!exampleless.length,
+    `rules page: every rule shows the source that triggers it (no example: ${exampleless.join(', ') || 'none'})`);
+
+  // no category may become the page's dumping ground again: the abap2UI5 half
+  // was one flat group of 54, which on a searchable page is no grouping at all
+  const perCategory = CATEGORIES.map((c) => [c.id, Object.values(RULE_DOCS).filter((d) => d.category === c.id).length]);
+  const empty = perCategory.filter(([, n]) => n === 0).map(([id]) => id);
+  assert(!empty.length, `rules page: every category has rules in it (empty: ${empty.join(', ') || 'none'})`);
+  const biggest = perCategory.reduce((a, b) => (b[1] > a[1] ? b : a));
+  assert(biggest[1] <= pageRules.length / 3,
+    `rules page: no single category holds a third of the rule set (${biggest[0]} has ${biggest[1]} of ${pageRules.length})`);
+
   assert(FIXABLE.every((id) => RULES.includes(id) && RULE_DOCS[id].fixNote),
     'rules page: an autofixable rule says on the page what --fix does to it');
 
@@ -3736,8 +3754,17 @@ ENDCLASS.`;
   assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
   assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
     'rules page: every rule has an anchor to link to');
-  assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),
-    'rules page: self-contained - no external stylesheet, script or font');
+  /* Self-contained: nothing the browser has to FETCH. Asked of the attributes
+   * that fetch (src/href) rather than of the raw text, because a rule about a
+   * commercial UI5 host has to be able to print that host in its example -
+   * a URL inside a <code> block is documentation, not a request. */
+  const fetched = [...page.matchAll(/\b(?:src|href)\s*=\s*"([^"]*)"/g)].map((m) => m[1])
+    .filter((u) => /^https?:/.test(u) && !/^https:\/\/(github\.com|abap2ui5\.github\.io)\//.test(u));
+  assert(!/<script\s+src|<link\b[^>]*stylesheet/.test(page) && !fetched.length,
+    `rules page: self-contained - no external stylesheet, script or font (fetches: ${fetched.join(', ') || 'none'})`);
+  // and the offsite links that ARE there are links, not loads
+  assert(page.includes('https://github.com/abap2UI5/linter'),
+    'rules page: …while still linking back to the repository');
 
   /* The page is served from main and every consumer pins, so without a stamp a
    * reader cannot tell which release it describes - a card for a rule their CLI

@@ -121,6 +121,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">a control the aggregation's type does not accept</p>
         <p class="detail">The aggregation declares a type, and the control put inside it does not inherit from it. UI5 refuses to add the child, so the part of the view below it silently disappears.</p>
+        <pre><code>view-&gt;ele( `Table` )-&gt;ele( `columns` )-&gt;tag( `Button` )   " columns takes sap.m.Column</code></pre>
       </article>
       <article class="rule" id="invalid-property-value" data-search="invalid-property-value button type="emphasised" — outside sap.m.buttontype the literal is not a member of the enum the property is typed with, or it is not a number on an int/float property, or not a boolean on a boolean one. ui5 in future mode refuses the view rather than falling back to a default. bindings and expressions are never value-checked — their value is a runtime matter. error">
         <h3><a href="#invalid-property-value">invalid-property-value</a>
@@ -128,6 +129,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary"><code>Button type="Emphasised"</code> — outside <code>sap.m.ButtonType</code></p>
         <p class="detail">The literal is not a member of the enum the property is typed with, or it is not a number on an int/float property, or not a boolean on a boolean one. UI5 in future mode refuses the view rather than falling back to a default. Bindings and expressions are never value-checked — their value is a runtime matter.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasised` )   " Emphasized</code></pre>
       </article>
       <article class="rule" id="too-many-children" data-search="too-many-children two controls in a 0..1 aggregation a single-cardinality aggregation was filled more than once. only one child survives — which one is not something to rely on. error">
         <h3><a href="#too-many-children">too-many-children</a>
@@ -135,6 +137,10 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">two controls in a 0..1 aggregation</p>
         <p class="detail">A single-cardinality aggregation was filled more than once. Only one child survives — which one is not something to rely on.</p>
+        <pre><code>view-&gt;ele( `Page`
+    )-&gt;ele( `customHeader`
+        )-&gt;tag( `Bar`
+        )-&gt;tag( `Bar` )   " customHeader is 0..1 - one of the two is gone</code></pre>
       </article>
       <article class="rule" id="unknown-aggregation" data-search="unknown-aggregation page contentt — no such aggregation an aggregation tag the parent control does not declare. ui5 then looks for a control class by that name and fails. error">
         <h3><a href="#unknown-aggregation">unknown-aggregation</a>
@@ -142,6 +148,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary"><code>Page contentt</code> — no such aggregation</p>
         <p class="detail">An aggregation tag the parent control does not declare. UI5 then looks for a control class by that name and fails.</p>
+        <pre><code>view-&gt;ele( `Page` )-&gt;ele( `contentt` )-&gt;tag( `Button` )   " contentt: content</code></pre>
       </article>
       <article class="rule" id="unknown-control" data-search="unknown-control sap.m.shell2 — no such control the control name is not in the metadata snapshot under any known library. almost always a typo; ui5 fails to load the class and the view never appears. a control from a custom namespace is out of scope and never reported here. error">
         <h3><a href="#unknown-control">unknown-control</a>
@@ -178,6 +185,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">an aggregation directly inside another one</p>
         <p class="detail">Invalid XML, and the signature of a missing <code>end( )</code>: UI5 goes looking for a control class by that aggregation name and fails.</p>
+        <pre><code>view-&gt;ele( `Table` )-&gt;ele( `columns` )-&gt;ele( `footer` )   " a missing end( ) between them</code></pre>
       </article>
       <article class="rule" id="attribute-without-element" data-search="attribute-without-element a( ) on the bare factory root — nothing to attach it to an attribute call before any element was opened. there is no element to carry it, and the builder asserts. error">
         <h3><a href="#attribute-without-element">attribute-without-element</a>
@@ -185,6 +193,8 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary"><code>a( )</code> on the bare factory root — nothing to attach it to</p>
         <p class="detail">An attribute call before any element was opened. There is no element to carry it, and the builder asserts.</p>
+        <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
       </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
         <h3><a href="#display-root-mismatch">display-root-mismatch</a>
@@ -200,6 +210,9 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">the same aggregation opened twice under one control</p>
         <p class="detail">The second tag replaces the first, so everything built into the first one is gone from the rendered view — without a word from anywhere.</p>
+        <pre><code>view-&gt;ele( `Page`
+    )-&gt;ele( `content` )-&gt;tag( `Button` )-&gt;end(
+    )-&gt;ele( `content` )-&gt;tag( `Text` )   " the Button is gone</code></pre>
       </article>
       <article class="rule" id="duplicate-id" data-search="duplicate-id the same id twice a duplicate-id error at runtime — ui5 ids are unique per view. error">
         <h3><a href="#duplicate-id">duplicate-id</a>
@@ -207,6 +220,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">the same <code>id</code> twice</p>
         <p class="detail">A duplicate-ID error at runtime — UI5 IDs are unique per view.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `id` v = `go` )-&gt;tag( `Text` )-&gt;a( n = `id` v = `go` )</code></pre>
       </article>
       <article class="rule" id="duplicate-property" data-search="duplicate-property the same attribute written twice on one control the view builder asserts on a repeated attribute rather than letting the second value win silently. error">
         <h3><a href="#duplicate-property">duplicate-property</a>
@@ -214,6 +228,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">the same attribute written twice on one control</p>
         <p class="detail">The view builder asserts on a repeated attribute rather than letting the second value win silently.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `text` v = `A` )-&gt;a( n = `text` v = `B` )</code></pre>
       </article>
       <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root — one end( ) too many. the builder asserts on it (parent is bound), so the app dumps before it renders. the rule id keeps the older spelling shut: renaming it would silently invalidate every baseline entry and rule override that names it. error">
         <h3><a href="#excess-shut">excess-shut</a>
@@ -221,6 +236,11 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">one <code>shut( )</code> more than the builder tree is deep</p>
         <p class="detail">The builder ascends past the root — one <code>end( )</code> too many. The builder asserts on it (<code>parent IS BOUND</code>), so the app dumps before it renders. The rule id keeps the older spelling <code>shut</code>: renaming it would silently invalidate every baseline entry and rule override that names it.</p>
+        <pre><code>view-&gt;ele( `Page`
+    )-&gt;tag( `Button`
+    )-&gt;end(
+    )-&gt;end(
+    )-&gt;end( )   " one end( ) past the root</code></pre>
       </article>
       <article class="rule" id="invalid-expression-binding" data-search="invalid-expression-binding unbalanced braces or parens in {= … } the expression binding cannot be parsed. ui5 reports a parse error and the attribute stays unbound. error">
         <h3><a href="#invalid-expression-binding">invalid-expression-binding</a>
@@ -228,6 +248,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">unbalanced braces or parens in <code>{= … }</code></p>
         <p class="detail">The expression binding cannot be parsed. UI5 reports a parse error and the attribute stays unbound.</p>
+        <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/N} &gt; 1 ? `many` : `one` }}` )   " one } too many</code></pre>
       </article>
       <article class="rule" id="render-error" data-search="render-error the reconstructed view did not survive a real ui5 render not a pattern the rules above match, but the outcome of actually loading the view in a headless ui5: whatever the browser said — a control class that will not load, an aggregation ui5 refuses, a binding it cannot parse. it is the render gate's pseudo-rule rather than an entry in rules, so it is never emitted by a check; it appears only when --render ran and the browser objected. address it in the config like any other id: rules: { 'render-error': false } or an exclude waives it per file (a waived file that then renders clean is reported as a stale waiver), a severity re-weighs it. error">
         <h3><a href="#render-error">render-error</a>
@@ -243,6 +264,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">a source line over 255 characters — the class does not import</p>
         <p class="detail">ABAP holds 255 characters per source line, and over it the defect is not a lint finding but a failed <strong>import</strong>: abapGit reports "Literals across more than one line are not allowed" for the object and carries on with the next one, so what stays behind in the system is an <strong>empty class stub</strong>. The tree looks imported and the app is gone. Nothing else sees it — every check runs against the files, where the line is merely long. Split the literal into <code>&amp;&amp;</code> chunks; when the file is generated, fix the generator, or the next generation restores the line.</p>
+        <pre><code>DATA(html) = `&lt;div class="a"&gt;…&lt;/div&gt;` &amp;&amp; `…`.   " one source line over 255 characters</code></pre>
       </article>
       <article class="rule" id="undeclared-namespace" data-search="undeclared-namespace ns = 'form' without an xmlns:form the prefix is used but never declared on the view root, so the parser cannot resolve the control at all. error">
         <h3><a href="#undeclared-namespace">undeclared-namespace</a>
@@ -252,6 +274,8 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="summary"><code>ns = 'form'</code> without an <code>xmlns:form</code></p>
         <p class="detail">The prefix is used but never declared on the view root, so the parser cannot resolve the control at all.</p>
         <p class="fixnote"><strong>--fix:</strong> For the conventional prefixes (<code>core</code>, <code>mvc</code>, <code>l</code>/<code>layout</code>, <code>form</code>, <code>f</code>, <code>table</code>, <code>u</code>/<code>unified</code>, <code>uxap</code>, <code>tnt</code>, <code>html</code>, <code>cc</code>) the missing declaration is inserted next to the root's first <code>xmlns</code> write; an unconventional prefix could mean any library and is left alone.</p>
+        <pre><code>view-&gt;ele( n = `View` ns = `mvc` )-&gt;a( n = `xmlns` v = `sap.m` )
+    )-&gt;ele( n = `SimpleForm` ns = `form` )   " no xmlns:form on the root</code></pre>
       </article>
     </section>
     <section class="cat" id="cat-version">
@@ -271,6 +295,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">a URL pinned to the commercial SAPUI5 host</p>
         <p class="detail">The same portability family as <code>sapui5-only-control</code>: <code>sdk.openui5.org</code> serves the open distribution, <code>ui5.sap.com</code> / <code>*.hana.ondemand.com</code> serve SAPUI5. An app whose assets or bootstrap point at the commercial host breaks the moment it runs against an OpenUI5-only landscape.</p>
+        <pre><code>DATA(url) = `https://ui5.sap.com/resources/sap-ui-core.js`.   " sdk.openui5.org serves the open one</code></pre>
       </article>
       <article class="rule" id="control-deprecated" data-search="control-deprecated control already deprecated at your target version reported only once the deprecation is in effect at the version you target — a control deprecated as of 1.149 stays silent for a 1.71 target. warning">
         <h3><a href="#control-deprecated">control-deprecated</a>
@@ -278,6 +303,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">control already deprecated at your target version</p>
         <p class="detail">Reported only once the deprecation is in effect at the version you target — a control deprecated as of 1.149 stays silent for a 1.71 target.</p>
+        <pre><code>view-&gt;tag( `Carousel` )-&gt;a( n = `loop` v = `true` )   " with --ui5 at or above the deprecating release</code></pre>
       </article>
       <article class="rule" id="control-too-new" data-search="control-too-new control introduced after your target ui5 version the control does not exist on the system you are targeting (--ui5, default 1.71), so the view will not load there — however well it works on a newer one. waive a deliberate case with --allow sap.m.control. warning">
         <h3><a href="#control-too-new">control-too-new</a>
@@ -285,6 +311,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">control introduced after your target UI5 version</p>
         <p class="detail">The control does not exist on the system you are targeting (<code>--ui5</code>, default 1.71), so the view will not load there — however well it works on a newer one. Waive a deliberate case with <code>--allow sap.m.Control</code>.</p>
+        <pre><code>view-&gt;tag( `Avatar` )   " @since 1.73, target 1.71</code></pre>
       </article>
       <article class="rule" id="enum-value-too-new" data-search="enum-value-too-new an enum value introduced after your target version the property predates version tracking, the type is old — but the specific value is not: sap.m.buttontype.critical is @since 1.73 on a property that existed forever. the member-level @since sits on the property, never on the value, so this was invisible to every gate (and a documented manual-check burden downstream). the snapshot now keeps the per-value @since from the enum's jsdoc; a value without one predates version tracking and stays silent. waive a deliberate case with --allow sap.m.control.member, like the other floor rules. warning">
         <h3><a href="#enum-value-too-new">enum-value-too-new</a>
@@ -300,6 +327,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">a <code>${$parameters&gt;/name}</code> the event only gained later</p>
         <p class="detail">An event parameter read back in a <code>t_arg</code> that the event did not carry yet at your floor. Resolved per event, not per parameter name, so an identically named parameter on another event does not mask it.</p>
+        <pre><code>client-&gt;_event( val = `SEARCH` t_arg = VALUE #( ( `${$parameters&gt;/searchButtonPressed}` ) ) )   " @since 1.114</code></pre>
       </article>
       <article class="rule" id="icon-removed" data-search="icon-removed an icon that left the font again the font is nearly, but not quite, additive. binary was in the font for exactly one release — 1.104 — and gone again after it; the glyph is spelled non-binary (in the font since 1.96) everywhere else. a view written against that one release renders no icon on every release after it. since a target version is a floor, the app also runs on the releases where the name is gone, which is why this is reported independently of the target. warning">
         <h3><a href="#icon-removed">icon-removed</a>
@@ -307,6 +335,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">an icon that left the font again</p>
         <p class="detail">The font is nearly, but not quite, additive. <code>binary</code> was in the font for exactly one release — 1.104 — and gone again after it; the glyph is spelled <code>non-binary</code> (in the font since 1.96) everywhere else. A view written against that one release renders no icon on every release after it. Since a target version is a <strong>floor</strong>, the app also runs on the releases where the name is gone, which is why this is reported independently of the target.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://binary` )   " in the font for 1.104 only; it is non-binary</code></pre>
       </article>
       <article class="rule" id="icon-too-new" data-search="icon-too-new an icon that reached the font after your target version the same silence as unknown-icon, one release boundary later: the glyph exists today and did not exist on the release you target, so the control renders without an icon there and nowhere else. information arrived in 1.80 (use message-information) and clear-all in 1.86 (use eraser) — both shipped past a green ci and were found by a user on 1.71. the registry's floor is 1.71, so a name already present there is recorded as "at or before" and a target below 1.71 is never judged. warning">
         <h3><a href="#icon-too-new">icon-too-new</a>
@@ -322,6 +351,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">property or event already deprecated at your target version</p>
         <p class="detail">As <code>control-deprecated</code>, per member. The replacement is usually named in the deprecation text the finding quotes.</p>
+        <pre><code>view-&gt;tag( `Bar` )-&gt;a( n = `translucent` v = `true` )</code></pre>
       </article>
       <article class="rule" id="member-too-new" data-search="member-too-new property, event or aggregation introduced after your target version same as control-too-new, one level down. members without an @since count as always available — they predate version tracking. waive with --allow sap.m.control.member. warning">
         <h3><a href="#member-too-new">member-too-new</a>
@@ -329,6 +359,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">property, event or aggregation introduced after your target version</p>
         <p class="detail">Same as <code>control-too-new</code>, one level down. Members without an <code>@since</code> count as always available — they predate version tracking. Waive with <code>--allow sap.m.Control.member</code>.</p>
+        <pre><code>view-&gt;tag( `GenericTile` )-&gt;a( n = `systemInfo` v = `PRD` )   " @since 1.92</code></pre>
       </article>
       <article class="rule" id="relative-asset-url" data-search="relative-asset-url a document-relative asset url, which an abap2ui5 app has no root to resolve a ui5 demo-kit sample is served from the sdk page, so ./test-resources/sap/uxap/images/x.png resolves there. an abap2ui5 app is served from the abap icf node and has no such document root: the request 404s and the control silently falls back to its placeholder — the view renders, and nothing is logged where anyone looks. judged on the metadata type (sap.ui.core.uri), not on attribute names, so src, icon, backgroundimage, objectimageuri and fonturi are reached alike. scoped to the two demo-kit trees that are always wrong (test-resources/…, resources/sap/…): a project serving its own icf resources may legitimately write a relative path. a binding is never judged — what the model holds is a runtime question. warning">
         <h3><a href="#relative-asset-url">relative-asset-url</a>
@@ -345,6 +376,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </h3>
         <p class="summary">needs SAPUI5, absent from OpenUI5</p>
         <p class="detail">Only with <code>--distribution openui5</code>. SAPUI5 ships libraries OpenUI5 does not — <code>sap.ui.comp</code> (Smart controls), <code>sap.suite.*</code>, <code>sap.ushell</code>, <code>sap.fe</code>, <code>sap.viz</code> — so a SmartTable is fine on SAPUI5 and a guaranteed runtime error on OpenUI5.</p>
+        <pre><code>view-&gt;tag( n = `SmartTable` ns = `smart` )   " sap.ui.comp: SAPUI5 only, with --distribution openui5</code></pre>
       </article>
       <article class="rule" id="toolbar-control-in-bar" data-search="toolbar-control-in-bar toolbarspacer/toolbarseparator inside a sap.m.bar the nastiest kind of version defect: every control and every property in the view exists on the target release, and it still renders wrong — only the css changed. toolbarspacer and toolbarseparator render a &lt;div&gt; and are laid out as intended only inside a sap.m.toolbar, which is a flex container. sap.m.bar is not, before 1.76: .sapmbarleft/.sapmbarright were position: absolute + text-align with the children in normal flow, where a block-level child starts a new line — and .sapmbarcontainer { overflow: hidden } at the bar's 3rem height cuts away everything from that line on. so a separator between two groups of icons does not draw a rule: it deletes every icon after it, without a word. and a bar is rarely written on purpose — sap.m.page headercontent is forwarded into the internal bar's contentright, which is how this reached three overview headers at once. the fix is not a different separator, it is no separator: put only inline controls in a bar and express the grouping with a margin class (sapuimediummarginbegin on the first control of the next group). reported only for a target below 1.76. warning">
         <h3><a href="#toolbar-control-in-bar">toolbar-control-in-bar</a>
@@ -363,207 +395,17 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://textFormatting` )</code></pre>
       </article>
     </section>
-    <section class="cat" id="cat-abap2ui5">
-      <h2>abap2UI5 semantics</h2>
-      <p class="blurb">The defects that stay silent at runtime, because they live in the relationship between the ABAP class and the view it builds. No UI5 tooling can see them.</p>
-      <article class="rule" id="binding-for-event" data-search="binding-for-event _bind( ) on an event — a dead control the slot is an event, so a data binding in it never becomes a handler. the control renders and does nothing. use client-&gt;_event( ). error">
-        <h3><a href="#binding-for-event">binding-for-event</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary"><code>_bind( )</code> on an event — a dead control</p>
-        <p class="detail">The slot is an event, so a data binding in it never becomes a handler. The control renders and does nothing. Use <code>client-&gt;_event( )</code>.</p>
-      </article>
-      <article class="rule" id="binding-on-association" data-search="binding-on-association a binding written into an association attribute only properties and aggregations can be data-bound. xmltemplateprocessor handles an association attribute by taking its value verbatim as a control id (createid(svalue), or a comma/space split for a 0..n association) — bindinginfo.parse is never called on it. so the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. drive an association imperatively instead, with a control_by_id setter — which is also why settable-property-via-action deliberately never pushes an association towards a binding. error">
-        <h3><a href="#binding-on-association">binding-on-association</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a binding written into an association attribute</p>
-        <p class="detail">Only properties and aggregations can be data-bound. <code>XMLTemplateProcessor</code> handles an association attribute by taking its value <strong>verbatim as a control ID</strong> (<code>createId(sValue)</code>, or a comma/space split for a 0..n association) — <code>BindingInfo.parse</code> is never called on it. So the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. Drive an association imperatively instead, with a <code>CONTROL_BY_ID</code> setter — which is also why <code>settable-property-via-action</code> deliberately never pushes an association towards a binding.</p>
-        <pre><code>a( n = `selectedSection` v = client-&gt;_bind( section ) )   " association -&gt; id "{/SECTION}"
-" follow_up_action( … t_arg = VALUE #( ( `opl` ) ( `setSelectedSection` ) ( section ) ) )</code></pre>
-      </article>
-      <article class="rule" id="binding-to-local" data-search="binding-to-local a local variable bound the instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. bind an instance attribute. warning">
-        <h3><a href="#binding-to-local">binding-to-local</a>
-          <span class="badge warning">warning</span>
-        </h3>
-        <p class="summary">a local variable bound</p>
-        <p class="detail">The instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. Bind an instance attribute.</p>
-      </article>
-      <article class="rule" id="binding-to-nonpublic" data-search="binding-to-nonpublic a protected/private attribute bound only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so binding one from another section fails the first roundtrip with binding_error — no class attribute for binding found. move the attribute to the public section. judged by the root of the bound name (a structure component travels with its root), and only when the class declares a public section to compare against. found live: an samples-controls port bound expanded from its protected section and had never worked in a running system — its live_test deviation was telling the truth the whole time. error">
-        <h3><a href="#binding-to-nonpublic">binding-to-nonpublic</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a PROTECTED/PRIVATE attribute bound</p>
-        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so binding one from another section fails the <strong>first roundtrip</strong> with <code>BINDING_ERROR — No class attribute for binding found</code>. Move the attribute to the <code>PUBLIC SECTION</code>. Judged by the root of the bound name (a structure component travels with its root), and only when the class declares a <code>PUBLIC SECTION</code> to compare against. Found live: an samples-controls port bound <code>expanded</code> from its PROTECTED section and had never worked in a running system — its <code>LIVE_TEST</code> deviation was telling the truth the whole time.</p>
-        <pre><code>PROTECTED SECTION.
-  DATA expanded TYPE abap_bool.   " BINDING_ERROR on the first roundtrip
-" … )-&gt;a( n = `expanded` v = client-&gt;_bind( expanded ) )</code></pre>
-      </article>
-      <article class="rule" id="binding-to-reference" data-search="binding-to-reference a type ref to attribute bound without dereferencing the model serializer walks data, not references — client-&gt;_bind( ) on an attribute declared type ref to … throws at runtime. bind the dereferenced data (client-&gt;_bind( ref-&gt; )) or a plain data attribute. both sample fixes that established this pattern were found by users hitting the exception in a running system. error">
-        <h3><a href="#binding-to-reference">binding-to-reference</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a <code>TYPE REF TO</code> attribute bound without dereferencing</p>
-        <p class="detail">The model serializer walks DATA, not references — <code>client-&gt;_bind( )</code> on an attribute declared <code>TYPE REF TO …</code> throws at runtime. Bind the dereferenced data (<code>client-&gt;_bind( ref-&gt;* )</code>) or a plain data attribute. Both sample fixes that established this pattern were found by users hitting the exception in a running system.</p>
-        <pre><code>DATA mt_data TYPE REF TO data.
-" …
-)-&gt;a( n = `items` v = client-&gt;_bind( mt_data )      " throws
-)-&gt;a( n = `items` v = client-&gt;_bind( mt_data-&gt;* )   " binds the table</code></pre>
-      </article>
-      <article class="rule" id="chain-element-per-line" data-search="chain-element-per-line several controls on one line of a multi-line chain one element per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. only elements count: an attribute on the same line as the control it belongs to hides nothing, so )-&gt;tag( text )-&gt;a( n = text v = {title} ) is the compact one-control form half the samples (and abap2ui5's own startup app) are written in and is never reported. closing calls do not count either, because )-&gt;end( )-&gt;end( ). as a chain's last line is an established ending. reported only for a chain already written across several lines, so the one-liner stays available. a hint, like its neighbour. hint">
-        <h3><a href="#chain-element-per-line">chain-element-per-line</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">several controls on one line of a multi-line chain</p>
-        <p class="detail">One element per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. Only ELEMENTS count: an attribute on the same line as the control it belongs to hides nothing, so <code>)-&gt;tag( </code>Text<code> )-&gt;a( n = </code>text<code> v = </code>{TITLE}<code> )</code> is the compact one-control form half the samples (and abap2UI5's own startup app) are written in and is never reported. Closing calls do not count either, because <code>)-&gt;end( )-&gt;end( ).</code> as a chain's last line is an established ending. Reported only for a chain already written across several lines, so the one-liner stays available. A hint, like its neighbour.</p>
-        <pre><code>)-&gt;tag( `Input` )-&gt;tag( `Button` )-&gt;tag( `Text` )   " three controls, one line</code></pre>
-      </article>
-      <article class="rule" id="chain-house-layout" data-search="chain-house-layout a chain not in the abap2ui5 house layout (opt-in) the only rule here that encodes a house style rather than an inconsistency, and the only one that names a step. its two neighbours judge a chain against itself and stay silent on any layout that is merely a choice; this one judges it against one canonical form: one call per line including attributes (stricter than chain-element-per-line, which lets an attribute share its control's line), four spaces per level of the tree, and the closing call alone in the column of the element it closes. it exists because that form now has a corpus behind it — abap2ui5, abap2ui5/samples and abap2ui5/samples-controls were unified onto it in 2026-08, and the drift it catches had passed every other gate: 77 ports whose whole chain sat one level too deep, which chain-indentation cannot see because a uniformly wrong rhythm is still a rhythm. if your house style is a different one, switch it off — "chain-house-layout": false — rather than reformatting to somebody else's taste. every finding carries fixes, so --fix rewrites the chain; the rewrite only ever touches whitespace between chain segments and the indent of a continuation line that is not itself content, so it cannot change what the view builds. hint">
-        <h3><a href="#chain-house-layout">chain-house-layout</a>
-          <span class="badge hint">hint</span>
-          <span class="badge fix">--fix</span>
-        </h3>
-        <p class="summary">a chain not in the abap2UI5 house layout (opt-in)</p>
-        <p class="detail">The only rule here that encodes a HOUSE STYLE rather than an inconsistency, and the only one that names a step. Its two neighbours judge a chain against itself and stay silent on any layout that is merely a choice; this one judges it against one canonical form: <strong>one call per line including attributes</strong> (stricter than <code>chain-element-per-line</code>, which lets an attribute share its control's line), <strong>four spaces per level of the tree</strong>, and the closing call alone in the column of the element it closes. It exists because that form now has a corpus behind it — abap2UI5, abap2UI5/samples and abap2UI5/samples-controls were unified onto it in 2026-08, and the drift it catches had passed every other gate: 77 ports whose whole chain sat one level too deep, which <code>chain-indentation</code> cannot see because a uniformly wrong rhythm is still a rhythm. <strong>If your house style is a different one, switch it off</strong> — <code>"chain-house-layout": false</code> — rather than reformatting to somebody else's taste. Every finding carries fixes, so <code>--fix</code> rewrites the chain; the rewrite only ever touches whitespace between chain segments and the indent of a continuation line that is not itself content, so it cannot change what the view builds.</p>
-        <p class="fixnote"><strong>--fix:</strong> The chain is rewritten into the canonical layout: each call moved onto its own line at the column its depth in the tree gives it, and the continuation lines of a call's arguments moved with it. Only whitespace BETWEEN chain segments is touched — a literal, a comment's text and the inside of an argument list are copied through, and blank lines and comment lines between segments are kept where they are. The rewrite is checked to be whitespace-only before it is offered, so it cannot change what the view builds.</p>
-        <pre><code>)-&gt;ele( `Shell` )-&gt;ele( `Page` )      " two levels on one line, and the step is 0
-)-&gt;tag( `Text` )-&gt;a( n = `text` v = `x` )   " attribute on its control's line</code></pre>
-      </article>
-      <article class="rule" id="chain-indentation" data-search="chain-indentation a builder call whose indentation contradicts the tree it builds a builder chain is the one part of an abap2ui5 class that nothing else formats: abaplint has indentation and in_statement_indentation switched off (a chain is a single statement spanning fifty lines), so neither abaplint --fix nor the auto-format workflow ever touches its inner lines. and the reader has no other picture of the view — the xml the builder emits is one long line by construction, so the abap indentation is the view's structure. when it drifts, the tree in the file stops matching the tree in the browser. what is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the left of the element it belongs to. the size of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. neither is the column of end( ) (the hanging close is established), nor v = alignment, nor line length, nor a chain written entirely on one line. a hint: the view renders identically either way. hint">
-        <h3><a href="#chain-indentation">chain-indentation</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">a builder call whose indentation contradicts the tree it builds</p>
-        <p class="detail">A builder chain is the one part of an abap2UI5 class that nothing else formats: abaplint has <code>indentation</code> and <code>in_statement_indentation</code> switched off (a chain is a single statement spanning fifty lines), so neither <code>abaplint --fix</code> nor the auto-format workflow ever touches its inner lines. And the reader has no other picture of the view — the XML the builder emits is one long line by construction, so <strong>the ABAP indentation IS the view's structure</strong>. When it drifts, the tree in the file stops matching the tree in the browser. What is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the LEFT of the element it belongs to. The SIZE of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. Neither is the column of <code>end( )</code> (the hanging close is established), nor <code>v =</code> alignment, nor line length, nor a chain written entirely on one line. A hint: the view renders identically either way.</p>
-        <pre><code>)-&gt;ele( `Page`
-    )-&gt;tag( `Input`
-  )-&gt;tag( `Button`   " a sibling of Input, written a level out</code></pre>
-      </article>
-      <article class="rule" id="collapsed-brace-in-style" data-search="collapsed-brace-in-style an escaped css brace written inside a |…| template an escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. inside an abap string template the backslash is the template's own escape: \{ collapses to a bare { before the builder ever sees it, and the view dies exactly as if nothing had been escaped. write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (\\\{). invisible to unescaped-brace-in-style, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart. error">
-        <h3><a href="#collapsed-brace-in-style">collapsed-brace-in-style</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">an escaped CSS brace written inside a <code>|…|</code> template</p>
-        <p class="detail">An escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. Inside an ABAP string template the backslash is the template's own escape: <code>\{</code> collapses to a bare <code>{</code> before the builder ever sees it, and the view dies exactly as if nothing had been escaped. Write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (<code>\\\{</code>). Invisible to <code>unescaped-brace-in-style</code>, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart.</p>
-        <pre><code>DATA(css) = |&lt;style&gt;.a \{color:red\}&lt;/style&gt;|.  " collapses
-DATA(ok)  = `&lt;style&gt;.a \{color:red\}&lt;/style&gt;`.  " survives</code></pre>
-      </article>
-      <article class="rule" id="control-state-lost-on-rebuild" data-search="control-state-lost-on-rebuild a control_by_id set…( ) that no binding can carry, issued only off the display path the exact inverse of settable-property-via-action, and its blind spot. that rule fires when the setter matches a bindable property and says "bind it instead"; it is silent for the three shapes where that answer does not exist — an association (setnextstep, setselectedsection, setactivepage, setcurrentstep), a function-typed property (sap.m.messagepopover.asyncurlhandler) and a method that is no member at all (setbadgeminvalue: sap.m.button declares badgestyle as its only badge property and keeps the bounds in private fields button.init resets to 1/9999). those three are live control state, and abap2ui5 does not patch a view — view_display( ) hands new xml to the view_slots action, whose displaymain destroys the main slot (taking popup and popover with it) and builds a fresh tree with xmlview.create. every control in it is a new object carrying what the xml declares and nothing else. a bound property survives that, because the binding re-applies; this state does not. so a class that sets it from an event handler and never re-issues it from the display path loses it on the next rebuild — a restored draft, a called app handing control back, any later view_display( ) — while the abap field describing it survives as class state, and the app then contradicts itself. the remedy is to re-issue the call from the method that displays the view (samples-controls app 249 re-sends both badge bounds from the values it kept; app 534 ends view_display( ) on the path_apply( ) that wires the whole wizard path). deliberately narrow: only a non-literal value is judged, because a constant carries no class state for the rebuilt view to contradict — setcurrentstep( 'productinfostep' ) is a one-shot corrective jump and setselectedsection( '' ) a reset to null, and re-issuing either on every rebuild would be the defect. a wire is silent when its own method issues a display call, when any method on that path (a helper it calls, a few levels deep) issues the same id+setter, and — the same thing seen from the other side — when it is queued next to a popup_display( )/popover_display( ), since the system-action phase is awaited before the follow-up actions run. hint">
-        <h3><a href="#control-state-lost-on-rebuild">control-state-lost-on-rebuild</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">a <code>CONTROL_BY_ID</code> <code>set…( )</code> that no binding can carry, issued only off the display path</p>
-        <p class="detail">The exact inverse of <code>settable-property-via-action</code>, and its blind spot. That rule fires when the setter matches a <strong>bindable property</strong> and says "bind it instead"; it is silent for the three shapes where that answer does not exist — an <strong>association</strong> (<code>setNextStep</code>, <code>setSelectedSection</code>, <code>setActivePage</code>, <code>setCurrentStep</code>), a <strong>function-typed property</strong> (<code>sap.m.MessagePopover.asyncURLHandler</code>) and a method that is <strong>no member at all</strong> (<code>setBadgeMinValue</code>: <code>sap.m.Button</code> declares <code>badgeStyle</code> as its only badge property and keeps the bounds in private fields <code>Button.init</code> resets to 1/9999). Those three are live control state, and abap2UI5 does not patch a view — <code>view_display( )</code> hands new XML to the VIEW_SLOTS action, whose <code>displayMain</code> destroys the MAIN slot (taking POPUP and POPOVER with it) and builds a fresh tree with <code>XMLView.create</code>. Every control in it is a new object carrying what the XML declares and nothing else. A bound property survives that, because the binding re-applies; this state does not. So a class that sets it from an event handler and never re-issues it from the display path loses it on the next rebuild — a restored draft, a called app handing control back, any later <code>view_display( )</code> — while the ABAP field describing it survives as class state, and the app then contradicts itself. The remedy is to re-issue the call from the method that displays the view (samples-controls app 249 re-sends both badge bounds from the values it kept; app 534 ends <code>view_display( )</code> on the <code>path_apply( )</code> that wires the whole wizard path). Deliberately narrow: only a <strong>non-literal</strong> value is judged, because a constant carries no class state for the rebuilt view to contradict — <code>setCurrentStep( 'ProductInfoStep' )</code> is a one-shot corrective jump and <code>setSelectedSection( '' )</code> a reset to null, and re-issuing either on every rebuild would be the defect. A wire is silent when its own method issues a display call, when any method on that path (a helper it calls, a few levels deep) issues the same id+setter, and — the same thing seen from the other side — when it is queued next to a <code>popup_display( )</code>/<code>popover_display( )</code>, since the system-action phase is awaited before the follow-up actions run.</p>
-        <pre><code>METHOD on_event.
-  client-&gt;follow_up_action( val   = client-&gt;cs_event-control_by_id
-                            t_arg = VALUE #( ( `step1` ) ( `setNextStep` ) ( next ) ) ).
-ENDMETHOD.
-" -&gt; re-issue the same call from view_display( ), after client-&gt;view_display( )</code></pre>
-      </article>
-      <article class="rule" id="denied-control-method" data-search="denied-control-method a control_by_id wire naming a method the frontend denylist refuses the wire's allowed side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. the denied side is a closed set, and it is silent in the same way a wrong id is: frontendaction logs "method not allowed" and returns, so the abap compiles, the view renders and the button does nothing. denied are the methods that would break the framework's own invariants — teardown and reparenting (destroy, exit, setparent, adddependent, placeat), model and binding swaps (setmodel, setbinding, bind/unbind), event-handler tampering (attach/detach, fireevent), the render lifecycle (rerender, invalidate) and the generic reflection mutators that take the member name as an argument (addaggregation, removeallaggregation, setassociation, …). the named per-aggregation methods are allowed and are never reported: removeallitems and destroycontent touch only children the control itself owns, exactly like the long-allowed removeitem. error">
-        <h3><a href="#denied-control-method">denied-control-method</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a <code>CONTROL_BY_ID</code> wire naming a method the frontend denylist refuses</p>
-        <p class="detail">The wire's ALLOWED side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. The DENIED side is a closed set, and it is silent in the same way a wrong id is: <code>FrontendAction</code> logs "method not allowed" and returns, so the ABAP compiles, the view renders and the button does nothing. Denied are the methods that would break the framework's own invariants — teardown and reparenting (<code>destroy</code>, <code>exit</code>, <code>setParent</code>, <code>addDependent</code>, <code>placeAt</code>), model and binding swaps (<code>setModel</code>, <code>setBinding*</code>, <code>bind*</code>/<code>unbind*</code>), event-handler tampering (<code>attach*</code>/<code>detach*</code>, <code>fireEvent</code>), the render lifecycle (<code>rerender</code>, <code>invalidate</code>) and the GENERIC reflection mutators that take the member name as an argument (<code>addAggregation</code>, <code>removeAllAggregation</code>, <code>setAssociation</code>, …). The NAMED per-aggregation methods are allowed and are never reported: <code>removeAllItems</code> and <code>destroyContent</code> touch only children the control itself owns, exactly like the long-allowed <code>removeItem</code>.</p>
-        <pre><code>follow_up_action( val = client-&gt;cs_event-control_by_id
-                  t_arg = VALUE #( ( `list` ) ( `destroy` ) ) )</code></pre>
-      </article>
+    <section class="cat" id="cat-lifecycle">
+      <h2>abap2UI5 — the app class</h2>
+      <p class="blurb">The lifecycle and the API surface of the class itself: whether the view is ever displayed, whether the roundtrip finds it again, and whether the objects it names are ones abap2UI5 released.</p>
       <article class="rule" id="duplicate-for-iterator" data-search="duplicate-for-iterator the same for iterator name twice in one method fine on abap 7.50+, where the iterator is local to its value #( ) expression — but a 7.02 downport (abaplint --fix, and the transpiler behind a node-based runtime) materializes each one as data &lt;name&gt; type i in the method body, and the second declaration fails activation with "variable already defined". use distinct names (i, j, k) per value block. warning">
         <h3><a href="#duplicate-for-iterator">duplicate-for-iterator</a>
           <span class="badge warning">warning</span>
         </h3>
         <p class="summary">the same <code>FOR</code> iterator name twice in one method</p>
         <p class="detail">Fine on ABAP 7.50+, where the iterator is local to its <code>VALUE #( )</code> expression — but a 7.02 downport (abaplint <code>--fix</code>, and the transpiler behind a Node-based runtime) materializes each one as <code>DATA &lt;name&gt; TYPE i</code> in the method body, and the second declaration fails activation with "variable already defined". Use distinct names (<code>i</code>, <code>j</code>, <code>k</code>) per <code>VALUE</code> block.</p>
-      </article>
-      <article class="rule" id="enum-field-unset-on-insert" data-search="enum-field-unset-on-insert a row built at runtime without a field the view binds to an enum — the empty string takes the view down the demo-kit originals push a js object with the key absent, and ui5 falls back to the property default. abap has no absent: an unset field ships as "", which is not a member of any enum, so managedobject.validateproperty throws — and managedobjectbindingsupport re-throws anything that is not a formatexception, so the binding update dies and takes the view with it. both repairs are already in the framework: seed the default (type = 'none'), or name the field in omit_initial_paths. three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an insert/append of a value #( … ) literal, the t = value #( ( … ) ( … ) ) seed a model_init writes (including the nested elements = value #( … ) inside one), and a row assembled in a work area and inserted a few statements later. a row copied wholesale — value #( for row in t_all … ( row ) ) — has no field list to read and is not judged. fields are keyed on the table each bound aggregation names, absolute ({/t_pages}) and relative ({path: 't_appointments'}) alike, and each key gets only the fields of its own row template: a planningcalendar binds rows, specialdates and a nested appointments at once, and only the innermost carries ariahaspopup. not reported where the class fills the field afterwards — a loop … r-&gt;state = … completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an abap component name at all (type="{text}" is the demo kit's own quirk, ported verbatim: it resolves to nothing, so ui5 keeps the default). the widening came from a corpus sweep in 2026-08, where the insert-only reading had missed ten real defects across seven ports, every one of which took its view down. error">
-        <h3><a href="#enum-field-unset-on-insert">enum-field-unset-on-insert</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a row built at runtime without a field the view binds to an enum — the empty string takes the view down</p>
-        <p class="detail">The demo-kit originals push a JS object with the key <strong>absent</strong>, and UI5 falls back to the property default. ABAP has no absent: an unset field ships as <code>""</code>, which is not a member of any enum, so <code>ManagedObject.validateProperty</code> throws — and <code>ManagedObjectBindingSupport</code> re-throws anything that is not a <code>FormatException</code>, so the binding update dies and takes the view with it. Both repairs are already in the framework: seed the default (<code>type = 'None'</code>), or name the field in <code>omit_initial_paths</code>. Three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an <code>INSERT</code>/<code>APPEND</code> of a <code>VALUE #( … )</code> literal, the <code>t = VALUE #( ( … ) ( … ) )</code> seed a <code>model_init</code> writes (including the nested <code>elements = VALUE #( … )</code> inside one), and a row assembled in a work area and inserted a few statements later. A row copied wholesale — <code>VALUE #( FOR row IN t_all … ( row ) )</code> — has no field list to read and is not judged. Fields are keyed on the table each <strong>bound aggregation</strong> names, absolute (<code>{/T_PAGES}</code>) and relative (<code>{path: 'T_APPOINTMENTS'}</code>) alike, and each key gets only the fields of its OWN row template: a PlanningCalendar binds <code>rows</code>, <code>specialDates</code> and a nested <code>appointments</code> at once, and only the innermost carries <code>ariaHasPopup</code>. Not reported where the class fills the field afterwards — a <code>LOOP … r-&gt;state = …</code> completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an ABAP component name at all (<code>type="{Text}"</code> is the demo kit's own quirk, ported verbatim: it resolves to nothing, so UI5 keeps the default). The widening came from a corpus sweep in 2026-08, where the <code>INSERT</code>-only reading had missed ten real defects across seven ports, every one of which took its view down.</p>
-        <pre><code>INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t.        " type unset -&gt; "" -&gt; throws
-INSERT VALUE #( title = `New` type = `None` start_at = s ) INTO TABLE t.
-t = VALUE #( ( title = `A` type = `Type01` ) ( title = `B` ) ).             " the seed is a build site too</code></pre>
-      </article>
-      <article class="rule" id="escaped-brace-in-backtick" data-search="escaped-brace-in-backtick a binding written with escaped braces inside a backtick literal brace escaping is a |…| template rule. in a template the backslash is abap's own escape, so \{ reaches the builder as a bare { — which is exactly what a binding needs. a backtick literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where ui5 reads \{ path: … \} as text rather than a binding and either renders it raw or fails to parse the view. write plain braces in a backtick literal; keep the escapes for the template form. error">
-        <h3><a href="#escaped-brace-in-backtick">escaped-brace-in-backtick</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a binding written with escaped braces inside a <code>backtick</code> literal</p>
-        <p class="detail">Brace escaping is a |…| TEMPLATE rule. In a template the backslash is ABAP's own escape, so <code>\{</code> reaches the builder as a bare <code>{</code> — which is exactly what a binding needs. A <code>backtick</code> literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where UI5 reads <code>\{ path: … \}</code> as text rather than a binding and either renders it raw or fails to parse the view. Write plain braces in a backtick literal; keep the escapes for the template form.</p>
-        <pre><code>a( n = `items` v = `\{ path: 'message&gt;/' \}` )   " the backslash reaches the XML
-a( n = `items` v = `{ path: 'message&gt;/' }` )     " correct in a backtick literal
-a( n = `items` v = |\{ path: '{ p }' \}| )       " correct in a template</code></pre>
-      </article>
-      <article class="rule" id="event-arg-js-callback" data-search="event-arg-js-callback a js callback in a t_arg — the whole event handler fails to parse a $- or {-opening argument is sent to the frontend verbatim and resolved by ui5, which parses the entire handler string with bindingparser.parseexpression. expressionparser has no function keyword — its token table knows only false/null/true/in/typeof — and { is the object-literal nud, so .map(function (o) { … }) throws before any argument is read. this is not a wrong argument value: the exception is on the handler, so every argument is lost and the event never reaches the backend. an arrow function fails identically (=&gt; is not a token). an argument that does not open with $ or { is shipped as a js string literal, so the word "function" inside a toast template is not reported. error">
-        <h3><a href="#event-arg-js-callback">event-arg-js-callback</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a JS callback in a <code>t_arg</code> — the whole event handler fails to parse</p>
-        <p class="detail">A <code>$</code>- or <code>{</code>-opening argument is sent to the frontend verbatim and resolved by UI5, which parses the <strong>entire</strong> handler string with <code>BindingParser.parseExpression</code>. <code>ExpressionParser</code> has no <code>function</code> keyword — its token table knows only <code>false</code>/<code>null</code>/<code>true</code>/<code>in</code>/<code>typeof</code> — and <code>{</code> is the object-literal <code>nud</code>, so <code>.map(function (o) { … })</code> throws before any argument is read. This is not a wrong argument value: the exception is on the handler, so every argument is lost and the event never reaches the backend. An arrow function fails identically (<code>=&gt;</code> is not a token). An argument that does not open with <code>$</code> or <code>{</code> is shipped as a JS string literal, so the word "function" inside a toast template is not reported.</p>
-        <pre><code>t_arg = VALUE #( ( `$event.oSource.getSelectedRows().map(function(r){return r.getId();})` ) )   " dead
-" bind the state instead - PlanningCalendarRow.selected and CalendarAppointment.selected are bindable</code></pre>
-      </article>
-      <article class="rule" id="event-arg-out-of-range" data-search="event-arg-out-of-range get_event_arg( n ) past the t_arg the event declares the arguments are static — they are written at the raise site — so reading past them is never anything but a mistake: initial in abap, a 500 in the transpiled runtime, and either way not the value the handler works with. judged only for a literal index, inside the handler of an event the class raises itself with client-&gt;_event( ), and never across a method boundary: an event arriving from a message_box_display( onclose = ) callback or a frontend action carries arguments from a source this pass cannot see. error">
-        <h3><a href="#event-arg-out-of-range">event-arg-out-of-range</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary"><code>get_event_arg( n )</code> past the <code>t_arg</code> the event declares</p>
-        <p class="detail">The arguments are static — they are written at the raise site — so reading past them is never anything but a mistake: initial in ABAP, a 500 in the transpiled runtime, and either way not the value the handler works with. Judged only for a literal index, inside the handler of an event the class raises itself with <code>client-&gt;_event( )</code>, and never across a method boundary: an event arriving from a <code>message_box_display( onclose = )</code> callback or a frontend action carries arguments from a source this pass cannot see.</p>
-        <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${$source&gt;/id}` ) ) )
-" … WHEN `PICK`. client-&gt;get_event_arg( 2 )</code></pre>
-      </article>
-      <article class="rule" id="event-arg-unresolved" data-search="event-arg-unresolved a bare-brace t_arg literal ( {col} ) the runtime sends it verbatim, but only $-prefixed expressions are resolved by ui5 — so get_event_arg( ) receives an empty value, with no error anywhere. write  ${col} . a template that starts with a {0} placeholder is fine: that form is quoted. warning">
-        <h3><a href="#event-arg-unresolved">event-arg-unresolved</a>
-          <span class="badge warning">warning</span>
-          <span class="badge fix">--fix</span>
-        </h3>
-        <p class="summary">a bare-brace <code>t_arg</code> literal (`<code> </code>{COL}<code> </code>`)</p>
-        <p class="detail">The runtime sends it verbatim, but only <code>$</code>-prefixed expressions are resolved by UI5 — so <code>get_event_arg( )</code> receives an <strong>empty</strong> value, with no error anywhere. Write `<code> </code>${COL}<code> </code><code>. A template that starts with a </code>{0}` placeholder is fine: that form is quoted.</p>
-        <p class="fixnote"><strong>--fix:</strong> The missing <code>$</code> is inserted in the literal form; a <code>|…|</code> template is left alone.</p>
-      </article>
-      <article class="rule" id="event-for-property" data-search="event-for-property _event( ) on a property the mirror image: an event handler written into a data slot. use client-&gt;_bind( ). error">
-        <h3><a href="#event-for-property">event-for-property</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary"><code>_event( )</code> on a property</p>
-        <p class="detail">The mirror image: an event handler written into a data slot. Use <code>client-&gt;_bind( )</code>.</p>
-      </article>
-      <article class="rule" id="event-on-disabled-control" data-search="event-on-disabled-control an event handler on a control hard-disabled with a literal a bound enabled can flip at runtime, but a literal enabled="false" never does — the control can never fire, so the handler wired next to it is dead code that reads like a live wire. a hint, because a 1:1 port of a sample demonstrating the disabled state legitimately carries the original's handler. bind enabled if it should ever flip. hint">
-        <h3><a href="#event-on-disabled-control">event-on-disabled-control</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">an event handler on a control hard-disabled with a literal</p>
-        <p class="detail">A bound <code>enabled</code> can flip at runtime, but a literal <code>enabled="false"</code> never does — the control can never fire, so the handler wired next to it is dead code that reads like a live wire. A hint, because a 1:1 port of a sample demonstrating the disabled *state* legitimately carries the original's handler. Bind <code>enabled</code> if it should ever flip.</p>
-        <pre><code>)-&gt;tag( `Button`
-    )-&gt;a( n = `press`   v = client-&gt;_event( `SAVE` )
-    )-&gt;a( n = `enabled` v = `false`   " SAVE can never fire</code></pre>
-      </article>
-      <article class="rule" id="event-without-handler" data-search="event-without-handler an event nothing reacts to usually a dead control — but in abap2ui5 an event also forces a roundtrip, and that alone synchronises the model back into abap. so this is a hint, never an error, and it is skipped entirely when handler names are not literals. hint">
-        <h3><a href="#event-without-handler">event-without-handler</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">an event nothing reacts to</p>
-        <p class="detail">Usually a dead control — but in abap2UI5 an event also forces a roundtrip, and that alone synchronises the model back into ABAP. So this is a hint, never an error, and it is skipped entirely when handler names are not literals.</p>
-      </article>
-      <article class="rule" id="filter-groups-not-arrays" data-search="filter-groups-not-arrays a binding_call filter payload whose groups are objects — it clears the binding instead of filtering it the compound filter form is an array of groups, each an array of [path, operator, value1, value2?] rows. buildfiltergroups keeps only elements that pass array.isarray, so an array of objects — [{"path":…,"operator":…,"value1":…}] — is dropped whole, the group list empties, and control falls into binding.filter([]): the filter is cleared, never applied. nothing is logged on that path, because the root is an array so the malformed-json guard passes and the per-group drop is silent by construction. an intentional clear is [], which is empty to begin with and is not reported. error">
-        <h3><a href="#filter-groups-not-arrays">filter-groups-not-arrays</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a <code>BINDING_CALL</code> filter payload whose groups are objects — it clears the binding instead of filtering it</p>
-        <p class="detail">The compound filter form is an array of GROUPS, each an array of <code>[path, operator, value1, value2?]</code> ROWS. <code>buildFilterGroups</code> keeps only elements that pass <code>Array.isArray</code>, so an array of OBJECTS — <code>[{"path":…,"operator":…,"value1":…}]</code> — is dropped whole, the group list empties, and control falls into <code>binding.filter([])</code>: the filter is <strong>cleared</strong>, never applied. Nothing is logged on that path, because the root *is* an array so the malformed-JSON guard passes and the per-group drop is silent by construction. An intentional clear is <code>[]</code>, which is empty to begin with and is not reported.</p>
-        <pre><code>t_arg = VALUE #( ( `d` ) ( `items` ) ( `filter` ) ( `[{"path":"NAME","operator":"Contains","value1":"x"}]` ) )   " cleared
-t_arg = VALUE #( ( `d` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `Contains` ) ( term ) )                            " positional</code></pre>
-      </article>
-      <article class="rule" id="frontend-action-unknown-id" data-search="frontend-action-unknown-id an id-addressed wire naming an id no view declares the frontend resolves the first t_arg as a control id. when no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does nothing: no exception, no failed render, a button that looks connected. control_by_id at least logs the miss; set_focus, scroll_to, scroll_into_view and keyboard_set_mode return without even a console line. judged only when every id attribute of the class is a literal; a class that builds ids at runtime is left alone. error">
-        <h3><a href="#frontend-action-unknown-id">frontend-action-unknown-id</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">an id-addressed wire naming an id no view declares</p>
-        <p class="detail">The frontend resolves the first <code>t_arg</code> as a control id. When no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does <strong>nothing</strong>: no exception, no failed render, a button that looks connected. <code>CONTROL_BY_ID</code> at least logs the miss; <code>SET_FOCUS</code>, <code>SCROLL_TO</code>, <code>SCROLL_INTO_VIEW</code> and <code>KEYBOARD_SET_MODE</code> <code>return</code> without even a console line. Judged only when every <code>id</code> attribute of the class is a literal; a class that builds ids at runtime is left alone.</p>
-        <pre><code>a( n = `id` v = `messageView` )
-" … follow_up_action( val = client-&gt;cs_event-control_by_id t_arg = VALUE #( ( `messageview` ) ( `navigateBack` ) ) )</code></pre>
+        <pre><code>DATA(a) = VALUE ty_t( FOR i = 1 WHILE i &lt;= 3 ( i ) ).
+DATA(b) = VALUE ty_t( FOR i = 1 WHILE i &lt;= 3 ( i ) ).   " downported: i declared twice</code></pre>
       </article>
       <article class="rule" id="frozen-view-builder" data-search="frozen-view-builder the class builds its view with the frozen z2ui5_cl_xml_view, so the view was not checked at all this is the only finding here about what was not judged. z2ui5_cl_xml_view was the abap2ui5 view builder until z2ui5_cl_ui5_view_builder replaced it, and it moved into the frozen src/99 rather than being deleted — so a class written on it still compiles and still renders, and nothing anywhere raises an eyebrow. this linter reconstructs a view from the current builder's five verbs (ele, tag, a, end, stringify); the old api is a different one, so there is no view to judge and every other rule is silent for lack of anything to read. until this rule existed the file was not even collected: an entire app on the retired builder came back as "no checkable app classes" and exit 0, which reads like approval. it matters more than it used to, because the old api is what almost all public abap2ui5 material shows and therefore what a language model reproduces when asked to write an app — the wrong answer arrives already looking like the right one. rewrite the chain on z2ui5_cl_ui5_view_builder and the whole gate applies again. an app that is deliberately staying on the old builder for now says so once, in its config: "rules": { "frozen-view-builder": "warning" }. error">
         <h3><a href="#frozen-view-builder">frozen-view-builder</a>
@@ -581,69 +423,6 @@ view-&gt;page( )-&gt;button( text = `hi` ).</code></pre>
         <p class="summary"><code>client-&gt;get( )-viewname</code> — removed from <code>ty_s_get</code></p>
         <p class="detail">The <code>VIEWNAME</code> component was removed from <code>z2ui5_if_types=&gt;ty_s_get</code> (it always carried an empty string), so the read <strong>no longer compiles</strong> — but nothing in a systemless pipeline says so before activation: abaplint has no signature knowledge of the framework interfaces, and the render gate never sees the class fail. The same blindness <code>popover-display-val</code> covers.</p>
         <pre><code>DATA(viewname) = client-&gt;get( )-viewname.   " no longer compiles</code></pre>
-      </article>
-      <article class="rule" id="hardcoded-binding-path" data-search="hardcoded-binding-path an absolute binding path written as text — {/path} or path: '/path' the runtime only registers what client-&gt;_bind( ) was given, so a textual path either addresses nothing (that half is unknown-binding-path) or duplicates a bind that exists elsewhere — and then silently breaks the moment the attribute is renamed, because no compiler follows a string. derive the path instead: client-&gt;_bind( var ) for the {binding}, or the bare-path form client-&gt;_bind( val = var path = abap_true ) interpolated into a binding-info template. an odata entity path with a key predicate ({/products('4711')}) in a class that switches its default model to an odata service is exempt — that path addresses the service, not an abap variable. warning">
-        <h3><a href="#hardcoded-binding-path">hardcoded-binding-path</a>
-          <span class="badge warning">warning</span>
-        </h3>
-        <p class="summary">an absolute binding path written as text — <code>{/PATH}</code> or <code>path: '/PATH'</code></p>
-        <p class="detail">The runtime only registers what <code>client-&gt;_bind( )</code> was given, so a textual path either addresses nothing (that half is <code>unknown-binding-path</code>) or duplicates a bind that exists elsewhere — and then silently breaks the moment the attribute is renamed, because no compiler follows a string. Derive the path instead: <code>client-&gt;_bind( var )</code> for the <code>{binding}</code>, or the bare-path form <code>client-&gt;_bind( val = var path = abap_true )</code> interpolated into a binding-info template. An OData entity path with a key predicate (<code>{/Products('4711')}</code>) in a class that switches its default model to an OData service is exempt — that path addresses the service, not an ABAP variable.</p>
-        <pre><code>a( n = `title` v = `{/TITLE}` )                        " breaks on rename
-a( n = `title` v = client-&gt;_bind( title ) )            " moves with the variable</code></pre>
-      </article>
-      <article class="rule" id="invalid-action-payload" data-search="invalid-action-payload a json action payload the runtime silently downgrades the object-kind control methods (setsticky, sethiddeninpopin, setp13ndata) run their argument through castarg, whose catch turns a literal that does not parse as json into {} — a setsticky with a typo'd payload then un-sticks everything instead of failing. for the enum-array payloads the values are judged too: an unknown sap.m.sticky / sap.ui.core.priority key is dropped by ui5 with the same silence. binding_call's compound filter-groups json is judged the same way, including each row's operator. error">
-        <h3><a href="#invalid-action-payload">invalid-action-payload</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a JSON action payload the runtime silently downgrades</p>
-        <p class="detail">The <code>object</code>-kind control methods (<code>setSticky</code>, <code>setHiddenInPopin</code>, <code>setP13nData</code>) run their argument through <code>castArg</code>, whose catch turns a literal that does not parse as JSON into <code>{}</code> — a <code>setSticky</code> with a typo'd payload then *un-sticks* everything instead of failing. For the enum-array payloads the values are judged too: an unknown <code>sap.m.Sticky</code> / <code>sap.ui.core.Priority</code> key is dropped by UI5 with the same silence. <code>BINDING_CALL</code>'s compound filter-groups JSON is judged the same way, including each row's operator.</p>
-        <pre><code>t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `ColumnHeaders` ) )      " not JSON -&gt; {}
-t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `["ColumnHeaders"]` ) )</code></pre>
-      </article>
-      <article class="rule" id="invalid-frontend-action" data-search="invalid-frontend-action a frontend-action t_arg outside the set the runtime accepts a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: frontendaction logs to the console and the control does nothing when pressed. judged only for literal arguments and only where the runtime's set is closed — the control_global object and its method, the binding_call method, and control_by_id's obsolete empty view slot (which shifts the method out of position). control_by_id's method list is open by design and is never judged. error">
-        <h3><a href="#invalid-frontend-action">invalid-frontend-action</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a frontend-action <code>t_arg</code> outside the set the runtime accepts</p>
-        <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: FrontendAction logs to the console and the control does nothing when pressed. Judged only for literal arguments and only where the runtime's set is closed — the <code>CONTROL_GLOBAL</code> object and its method, the <code>BINDING_CALL</code> method, and <code>CONTROL_BY_ID</code>'s obsolete empty view slot (which shifts the method out of position). <code>CONTROL_BY_ID</code>'s method list is open by design and is never judged.</p>
-        <pre><code>client-&gt;_event_client( val   = client-&gt;cs_event-control_global
-                       t_arg = VALUE #( ( `MESSAGE_TOASTER` ) ( `show` ) ( `hi` ) ) )</code></pre>
-      </article>
-      <article class="rule" id="invalid-keyboard-shortcut" data-search="invalid-keyboard-shortcut a shortcut combo that names no key the registration normalizes the combo (ctrl+shift+s → ctrl+shift+s, aliases like cmd/return included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. the scope argument is judged separately: a slot key or a declared control id (via frontend-action-unknown-id). error">
-        <h3><a href="#invalid-keyboard-shortcut">invalid-keyboard-shortcut</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a shortcut combo that names no key</p>
-        <p class="detail">The registration normalizes the combo (<code>Ctrl+Shift+S</code> → <code>ctrl+shift+s</code>, aliases like <code>cmd</code>/<code>return</code> included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. The scope argument is judged separately: a slot key or a declared control id (via <code>frontend-action-unknown-id</code>).</p>
-        <pre><code>t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) )   " modifiers only — binds nothing
-t_arg = VALUE #( ( `Ctrl+Shift+S` ) ( `SAVE` ) )</code></pre>
-      </article>
-      <article class="rule" id="json-bind-on-scalar-property" data-search="json-bind-on-scalar-property a json = abap_true bind on a scalar-typed property _bind( json = abap_true ) splices the bound string into the model as a json node — built for properties typed object/any (an integration card's manifest), which no typed abap value can be. on a string/int/float/boolean property the spliced node arrives as the wrong json type — strict mode and ui5 2.x reject it — and the splice is outbound-only: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. bind the plain attribute instead; json is for objects. warning">
-        <h3><a href="#json-bind-on-scalar-property">json-bind-on-scalar-property</a>
-          <span class="badge warning">warning</span>
-        </h3>
-        <p class="summary">a <code>json = abap_true</code> bind on a scalar-typed property</p>
-        <p class="detail"><code>_bind( json = abap_true )</code> splices the bound string into the model as a JSON <strong>node</strong> — built for properties typed <code>object</code>/<code>any</code> (an integration Card's manifest), which no typed ABAP value can be. On a <code>string</code>/<code>int</code>/<code>float</code>/<code>boolean</code> property the spliced node arrives as the wrong JSON type — strict mode and UI5 2.x reject it — and the splice is <strong>outbound-only</strong>: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. Bind the plain attribute instead; json is for objects.</p>
-        <pre><code>DATA manifest TYPE string.   " contains JSON
-)-&gt;a( n = `value` v = client-&gt;_bind( val = manifest json = abap_true )   " Input.value is string-typed</code></pre>
-      </article>
-      <article class="rule" id="json-literal-in-attribute" data-search="json-literal-in-attribute a raw json literal written into a view attribute ui5 parses an attribute value starting with { as a binding, so a json object literal ({"sap.card":…) is read as a binding path and the attribute ends up empty — the classic way to lose an integration card's manifest. keep the json in the model and bind it: client-&gt;_bind( manifest ). error">
-        <h3><a href="#json-literal-in-attribute">json-literal-in-attribute</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a raw JSON literal written into a view attribute</p>
-        <p class="detail">UI5 parses an attribute value starting with <code>{</code> as a binding, so a JSON object literal (<code>{"sap.card":…</code>) is read as a binding path and the attribute ends up empty — the classic way to lose an integration Card's manifest. Keep the JSON in the model and bind it: <code>client-&gt;_bind( manifest )</code>.</p>
-      </article>
-      <article class="rule" id="live-event-roundtrip" data-search="live-event-roundtrip a livechange wire that round-trips per keystroke abap2ui5 serializes round-trips: an event fired while one is in flight is dropped, not queued. a livechange wired to client-&gt;_event( ) therefore sees the value of the last completed trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. prefer a two-way binding (the model updates without any event) or the control's final-value event (change/search/submit); keep the live wire only when every intermediate value genuinely must reach abap. _event_client and follow_up_action are frontend-only and are not judged. hint">
-        <h3><a href="#live-event-roundtrip">live-event-roundtrip</a>
-          <span class="badge hint">hint</span>
-        </h3>
-        <p class="summary">a <code>liveChange</code> wire that round-trips per keystroke</p>
-        <p class="detail">abap2UI5 serializes round-trips: an event fired while one is in flight is <strong>dropped</strong>, not queued. A <code>liveChange</code> wired to <code>client-&gt;_event( )</code> therefore sees the value of the last *completed* trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. Prefer a two-way binding (the model updates without any event) or the control's final-value event (<code>change</code>/<code>search</code>/<code>submit</code>); keep the live wire only when every intermediate value genuinely must reach ABAP. <code>_event_client</code> and <code>follow_up_action</code> are frontend-only and are not judged.</p>
-        <pre><code>)-&gt;a( n = `liveChange` v = client-&gt;_event( `SEARCH` )   " lossy under fast typing
-" instead: bind two-way and react to the final-value event
-)-&gt;a( n = `value`  v = client-&gt;_bind( search_term )
-)-&gt;a( n = `change` v = client-&gt;_event( `SEARCH` )</code></pre>
       </article>
       <article class="rule" id="manual-init-flag" data-search="manual-init-flag a hand-rolled init flag instead of client-&gt;check_on_init( ) the framework already knows whether this is the first run of the app instance — client-&gt;check_on_init( ) is the lifecycle contract. a boolean attribute that gates the first render duplicates that knowledge as serialized state: it ships to the browser on every roundtrip for nothing, and subtle ordering bugs grow around the moment it flips. one mass migration replaced this pattern in 111 sample classes at once. only the unambiguous shape is reported: an if on the attribute being initial/false whose branch both sets it true and hands a view over — a lazy-load guard that displays nothing is left alone. warning">
         <h3><a href="#manual-init-flag">manual-init-flag</a>
@@ -726,6 +505,166 @@ a( n = `press` v = client-&gt;follow_up_action( val = client-&gt;cs_event-popup_
         <p class="fixnote"><strong>--fix:</strong> The call is deleted, together with the line when it has that line to itself; a line shared with other code or a trailing comment keeps everything but the call.</p>
         <pre><code>client-&gt;popup_model_update( ).   " does nothing — delete it</code></pre>
       </article>
+      <article class="rule" id="separate-lifecycle-ifs" data-search="separate-lifecycle-ifs lifecycle checks in separate if blocks instead of one if/elseif chain the lifecycle flags (check_on_init, check_on_event, check_on_navigated, …) are not all mutually exclusive, so separate if blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. one if/elseif chain makes the branches exclusive by construction. the guard idiom is exclusive too and is never reported: an if block that leaves the method (if client-&gt;check_on_event( \go\ ). … return. endif.) cannot flow into the next block. warning">
+        <h3><a href="#separate-lifecycle-ifs">separate-lifecycle-ifs</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">lifecycle checks in separate <code>IF</code> blocks instead of one <code>IF</code>/<code>ELSEIF</code> chain</p>
+        <p class="detail">The lifecycle flags (<code>check_on_init</code>, <code>check_on_event</code>, <code>check_on_navigated</code>, …) are not all mutually exclusive, so separate <code>IF</code> blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. One <code>IF</code>/<code>ELSEIF</code> chain makes the branches exclusive by construction. The guard idiom is exclusive too and is never reported: an <code>IF</code> block that leaves the method (<code>IF client-&gt;check_on_event( \</code>GO\<code> ). … RETURN. ENDIF.</code>) cannot flow into the next block.</p>
+        <pre><code>IF client-&gt;check_on_init( ).
+  " …
+ELSEIF client-&gt;check_on_navigated( ).  " ELSEIF, not a second IF
+  " …
+ENDIF.</code></pre>
+      </article>
+      <article class="rule" id="unused-public-attribute" data-search="unused-public-attribute a public attribute nothing in the class ever touches only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so every one of them is shipped to the browser on every roundtrip. one that is never bound, never read and never written is pure transport weight. deliberately narrower than "not bound in any view": an attribute used only in abap code is not dead, it is state — public is precisely how a value survives the roundtrip. only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see. hint">
+        <h3><a href="#unused-public-attribute">unused-public-attribute</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a PUBLIC attribute nothing in the class ever touches</p>
+        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so every one of them is shipped to the browser on every roundtrip. One that is never bound, never read and never written is pure transport weight. Deliberately narrower than "not bound in any view": an attribute used only in ABAP code is not dead, it is *state* — PUBLIC is precisely how a value survives the roundtrip. Only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see.</p>
+        <pre><code>PUBLIC SECTION.
+  DATA mv_note TYPE string.   " and mv_note appears nowhere else in the class</code></pre>
+      </article>
+      <article class="rule" id="view-never-displayed" data-search="view-never-displayed a view is built but never handed to the client an empty page and no error: the builder ran, the result was never passed to client-&gt;view_display( ) (or a nested-view, popup, popover or nav call). error">
+        <h3><a href="#view-never-displayed">view-never-displayed</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a view is built but never handed to the client</p>
+        <p class="detail">An empty page and no error: the builder ran, the result was never passed to <code>client-&gt;view_display( )</code> (or a nested-view, popup, popover or nav call).</p>
+        <pre><code>METHOD z2ui5_if_app~main.
+  DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+  view-&gt;ele( `Page` )-&gt;tag( `Button` ).
+ENDMETHOD.   " no client-&gt;view_display( view-&gt;stringify( ) )</code></pre>
+      </article>
+    </section>
+    <section class="cat" id="cat-frontend-wires">
+      <h2>abap2UI5 — frontend wires</h2>
+      <p class="blurb">Everything travelling to the browser as an event or an action. The frontend resolves these against closed sets and, on a miss, mostly returns without a log — so a wrong wire is the quietest defect in the framework.</p>
+      <article class="rule" id="control-state-lost-on-rebuild" data-search="control-state-lost-on-rebuild a control_by_id set…( ) that no binding can carry, issued only off the display path the exact inverse of settable-property-via-action, and its blind spot. that rule fires when the setter matches a bindable property and says "bind it instead"; it is silent for the three shapes where that answer does not exist — an association (setnextstep, setselectedsection, setactivepage, setcurrentstep), a function-typed property (sap.m.messagepopover.asyncurlhandler) and a method that is no member at all (setbadgeminvalue: sap.m.button declares badgestyle as its only badge property and keeps the bounds in private fields button.init resets to 1/9999). those three are live control state, and abap2ui5 does not patch a view — view_display( ) hands new xml to the view_slots action, whose displaymain destroys the main slot (taking popup and popover with it) and builds a fresh tree with xmlview.create. every control in it is a new object carrying what the xml declares and nothing else. a bound property survives that, because the binding re-applies; this state does not. so a class that sets it from an event handler and never re-issues it from the display path loses it on the next rebuild — a restored draft, a called app handing control back, any later view_display( ) — while the abap field describing it survives as class state, and the app then contradicts itself. the remedy is to re-issue the call from the method that displays the view (samples-controls app 249 re-sends both badge bounds from the values it kept; app 534 ends view_display( ) on the path_apply( ) that wires the whole wizard path). deliberately narrow: only a non-literal value is judged, because a constant carries no class state for the rebuilt view to contradict — setcurrentstep( 'productinfostep' ) is a one-shot corrective jump and setselectedsection( '' ) a reset to null, and re-issuing either on every rebuild would be the defect. a wire is silent when its own method issues a display call, when any method on that path (a helper it calls, a few levels deep) issues the same id+setter, and — the same thing seen from the other side — when it is queued next to a popup_display( )/popover_display( ), since the system-action phase is awaited before the follow-up actions run. hint">
+        <h3><a href="#control-state-lost-on-rebuild">control-state-lost-on-rebuild</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a <code>CONTROL_BY_ID</code> <code>set…( )</code> that no binding can carry, issued only off the display path</p>
+        <p class="detail">The exact inverse of <code>settable-property-via-action</code>, and its blind spot. That rule fires when the setter matches a <strong>bindable property</strong> and says "bind it instead"; it is silent for the three shapes where that answer does not exist — an <strong>association</strong> (<code>setNextStep</code>, <code>setSelectedSection</code>, <code>setActivePage</code>, <code>setCurrentStep</code>), a <strong>function-typed property</strong> (<code>sap.m.MessagePopover.asyncURLHandler</code>) and a method that is <strong>no member at all</strong> (<code>setBadgeMinValue</code>: <code>sap.m.Button</code> declares <code>badgeStyle</code> as its only badge property and keeps the bounds in private fields <code>Button.init</code> resets to 1/9999). Those three are live control state, and abap2UI5 does not patch a view — <code>view_display( )</code> hands new XML to the VIEW_SLOTS action, whose <code>displayMain</code> destroys the MAIN slot (taking POPUP and POPOVER with it) and builds a fresh tree with <code>XMLView.create</code>. Every control in it is a new object carrying what the XML declares and nothing else. A bound property survives that, because the binding re-applies; this state does not. So a class that sets it from an event handler and never re-issues it from the display path loses it on the next rebuild — a restored draft, a called app handing control back, any later <code>view_display( )</code> — while the ABAP field describing it survives as class state, and the app then contradicts itself. The remedy is to re-issue the call from the method that displays the view (samples-controls app 249 re-sends both badge bounds from the values it kept; app 534 ends <code>view_display( )</code> on the <code>path_apply( )</code> that wires the whole wizard path). Deliberately narrow: only a <strong>non-literal</strong> value is judged, because a constant carries no class state for the rebuilt view to contradict — <code>setCurrentStep( 'ProductInfoStep' )</code> is a one-shot corrective jump and <code>setSelectedSection( '' )</code> a reset to null, and re-issuing either on every rebuild would be the defect. A wire is silent when its own method issues a display call, when any method on that path (a helper it calls, a few levels deep) issues the same id+setter, and — the same thing seen from the other side — when it is queued next to a <code>popup_display( )</code>/<code>popover_display( )</code>, since the system-action phase is awaited before the follow-up actions run.</p>
+        <pre><code>METHOD on_event.
+  client-&gt;follow_up_action( val   = client-&gt;cs_event-control_by_id
+                            t_arg = VALUE #( ( `step1` ) ( `setNextStep` ) ( next ) ) ).
+ENDMETHOD.
+" -&gt; re-issue the same call from view_display( ), after client-&gt;view_display( )</code></pre>
+      </article>
+      <article class="rule" id="denied-control-method" data-search="denied-control-method a control_by_id wire naming a method the frontend denylist refuses the wire's allowed side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. the denied side is a closed set, and it is silent in the same way a wrong id is: frontendaction logs "method not allowed" and returns, so the abap compiles, the view renders and the button does nothing. denied are the methods that would break the framework's own invariants — teardown and reparenting (destroy, exit, setparent, adddependent, placeat), model and binding swaps (setmodel, setbinding, bind/unbind), event-handler tampering (attach/detach, fireevent), the render lifecycle (rerender, invalidate) and the generic reflection mutators that take the member name as an argument (addaggregation, removeallaggregation, setassociation, …). the named per-aggregation methods are allowed and are never reported: removeallitems and destroycontent touch only children the control itself owns, exactly like the long-allowed removeitem. error">
+        <h3><a href="#denied-control-method">denied-control-method</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a <code>CONTROL_BY_ID</code> wire naming a method the frontend denylist refuses</p>
+        <p class="detail">The wire's ALLOWED side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. The DENIED side is a closed set, and it is silent in the same way a wrong id is: <code>FrontendAction</code> logs "method not allowed" and returns, so the ABAP compiles, the view renders and the button does nothing. Denied are the methods that would break the framework's own invariants — teardown and reparenting (<code>destroy</code>, <code>exit</code>, <code>setParent</code>, <code>addDependent</code>, <code>placeAt</code>), model and binding swaps (<code>setModel</code>, <code>setBinding*</code>, <code>bind*</code>/<code>unbind*</code>), event-handler tampering (<code>attach*</code>/<code>detach*</code>, <code>fireEvent</code>), the render lifecycle (<code>rerender</code>, <code>invalidate</code>) and the GENERIC reflection mutators that take the member name as an argument (<code>addAggregation</code>, <code>removeAllAggregation</code>, <code>setAssociation</code>, …). The NAMED per-aggregation methods are allowed and are never reported: <code>removeAllItems</code> and <code>destroyContent</code> touch only children the control itself owns, exactly like the long-allowed <code>removeItem</code>.</p>
+        <pre><code>follow_up_action( val = client-&gt;cs_event-control_by_id
+                  t_arg = VALUE #( ( `list` ) ( `destroy` ) ) )</code></pre>
+      </article>
+      <article class="rule" id="event-arg-js-callback" data-search="event-arg-js-callback a js callback in a t_arg — the whole event handler fails to parse a $- or {-opening argument is sent to the frontend verbatim and resolved by ui5, which parses the entire handler string with bindingparser.parseexpression. expressionparser has no function keyword — its token table knows only false/null/true/in/typeof — and { is the object-literal nud, so .map(function (o) { … }) throws before any argument is read. this is not a wrong argument value: the exception is on the handler, so every argument is lost and the event never reaches the backend. an arrow function fails identically (=&gt; is not a token). an argument that does not open with $ or { is shipped as a js string literal, so the word "function" inside a toast template is not reported. error">
+        <h3><a href="#event-arg-js-callback">event-arg-js-callback</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a JS callback in a <code>t_arg</code> — the whole event handler fails to parse</p>
+        <p class="detail">A <code>$</code>- or <code>{</code>-opening argument is sent to the frontend verbatim and resolved by UI5, which parses the <strong>entire</strong> handler string with <code>BindingParser.parseExpression</code>. <code>ExpressionParser</code> has no <code>function</code> keyword — its token table knows only <code>false</code>/<code>null</code>/<code>true</code>/<code>in</code>/<code>typeof</code> — and <code>{</code> is the object-literal <code>nud</code>, so <code>.map(function (o) { … })</code> throws before any argument is read. This is not a wrong argument value: the exception is on the handler, so every argument is lost and the event never reaches the backend. An arrow function fails identically (<code>=&gt;</code> is not a token). An argument that does not open with <code>$</code> or <code>{</code> is shipped as a JS string literal, so the word "function" inside a toast template is not reported.</p>
+        <pre><code>t_arg = VALUE #( ( `$event.oSource.getSelectedRows().map(function(r){return r.getId();})` ) )   " dead
+" bind the state instead - PlanningCalendarRow.selected and CalendarAppointment.selected are bindable</code></pre>
+      </article>
+      <article class="rule" id="event-arg-out-of-range" data-search="event-arg-out-of-range get_event_arg( n ) past the t_arg the event declares the arguments are static — they are written at the raise site — so reading past them is never anything but a mistake: initial in abap, a 500 in the transpiled runtime, and either way not the value the handler works with. judged only for a literal index, inside the handler of an event the class raises itself with client-&gt;_event( ), and never across a method boundary: an event arriving from a message_box_display( onclose = ) callback or a frontend action carries arguments from a source this pass cannot see. error">
+        <h3><a href="#event-arg-out-of-range">event-arg-out-of-range</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>get_event_arg( n )</code> past the <code>t_arg</code> the event declares</p>
+        <p class="detail">The arguments are static — they are written at the raise site — so reading past them is never anything but a mistake: initial in ABAP, a 500 in the transpiled runtime, and either way not the value the handler works with. Judged only for a literal index, inside the handler of an event the class raises itself with <code>client-&gt;_event( )</code>, and never across a method boundary: an event arriving from a <code>message_box_display( onclose = )</code> callback or a frontend action carries arguments from a source this pass cannot see.</p>
+        <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${$source&gt;/id}` ) ) )
+" … WHEN `PICK`. client-&gt;get_event_arg( 2 )</code></pre>
+      </article>
+      <article class="rule" id="event-arg-unresolved" data-search="event-arg-unresolved a bare-brace t_arg literal ( {col} ) the runtime sends it verbatim, but only $-prefixed expressions are resolved by ui5 — so get_event_arg( ) receives an empty value, with no error anywhere. write  ${col} . a template that starts with a {0} placeholder is fine: that form is quoted. warning">
+        <h3><a href="#event-arg-unresolved">event-arg-unresolved</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a bare-brace <code>t_arg</code> literal (`<code> </code>{COL}<code> </code>`)</p>
+        <p class="detail">The runtime sends it verbatim, but only <code>$</code>-prefixed expressions are resolved by UI5 — so <code>get_event_arg( )</code> receives an <strong>empty</strong> value, with no error anywhere. Write `<code> </code>${COL}<code> </code><code>. A template that starts with a </code>{0}` placeholder is fine: that form is quoted.</p>
+        <p class="fixnote"><strong>--fix:</strong> The missing <code>$</code> is inserted in the literal form; a <code>|…|</code> template is left alone.</p>
+        <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `{/ID}` ) ) )    " arrives empty
+client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${/ID}` ) ) )   " resolved</code></pre>
+      </article>
+      <article class="rule" id="event-on-disabled-control" data-search="event-on-disabled-control an event handler on a control hard-disabled with a literal a bound enabled can flip at runtime, but a literal enabled="false" never does — the control can never fire, so the handler wired next to it is dead code that reads like a live wire. a hint, because a 1:1 port of a sample demonstrating the disabled state legitimately carries the original's handler. bind enabled if it should ever flip. hint">
+        <h3><a href="#event-on-disabled-control">event-on-disabled-control</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">an event handler on a control hard-disabled with a literal</p>
+        <p class="detail">A bound <code>enabled</code> can flip at runtime, but a literal <code>enabled="false"</code> never does — the control can never fire, so the handler wired next to it is dead code that reads like a live wire. A hint, because a 1:1 port of a sample demonstrating the disabled *state* legitimately carries the original's handler. Bind <code>enabled</code> if it should ever flip.</p>
+        <pre><code>)-&gt;tag( `Button`
+    )-&gt;a( n = `press`   v = client-&gt;_event( `SAVE` )
+    )-&gt;a( n = `enabled` v = `false`   " SAVE can never fire</code></pre>
+      </article>
+      <article class="rule" id="event-without-handler" data-search="event-without-handler an event nothing reacts to usually a dead control — but in abap2ui5 an event also forces a roundtrip, and that alone synchronises the model back into abap. so this is a hint, never an error, and it is skipped entirely when handler names are not literals. hint">
+        <h3><a href="#event-without-handler">event-without-handler</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">an event nothing reacts to</p>
+        <p class="detail">Usually a dead control — but in abap2UI5 an event also forces a roundtrip, and that alone synchronises the model back into ABAP. So this is a hint, never an error, and it is skipped entirely when handler names are not literals.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `press` v = client-&gt;_event( `SAVE` ) )   " and no SAVE in on_event</code></pre>
+      </article>
+      <article class="rule" id="filter-groups-not-arrays" data-search="filter-groups-not-arrays a binding_call filter payload whose groups are objects — it clears the binding instead of filtering it the compound filter form is an array of groups, each an array of [path, operator, value1, value2?] rows. buildfiltergroups keeps only elements that pass array.isarray, so an array of objects — [{"path":…,"operator":…,"value1":…}] — is dropped whole, the group list empties, and control falls into binding.filter([]): the filter is cleared, never applied. nothing is logged on that path, because the root is an array so the malformed-json guard passes and the per-group drop is silent by construction. an intentional clear is [], which is empty to begin with and is not reported. error">
+        <h3><a href="#filter-groups-not-arrays">filter-groups-not-arrays</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a <code>BINDING_CALL</code> filter payload whose groups are objects — it clears the binding instead of filtering it</p>
+        <p class="detail">The compound filter form is an array of GROUPS, each an array of <code>[path, operator, value1, value2?]</code> ROWS. <code>buildFilterGroups</code> keeps only elements that pass <code>Array.isArray</code>, so an array of OBJECTS — <code>[{"path":…,"operator":…,"value1":…}]</code> — is dropped whole, the group list empties, and control falls into <code>binding.filter([])</code>: the filter is <strong>cleared</strong>, never applied. Nothing is logged on that path, because the root *is* an array so the malformed-JSON guard passes and the per-group drop is silent by construction. An intentional clear is <code>[]</code>, which is empty to begin with and is not reported.</p>
+        <pre><code>t_arg = VALUE #( ( `d` ) ( `items` ) ( `filter` ) ( `[{"path":"NAME","operator":"Contains","value1":"x"}]` ) )   " cleared
+t_arg = VALUE #( ( `d` ) ( `items` ) ( `filter` ) ( `NAME` ) ( `Contains` ) ( term ) )                            " positional</code></pre>
+      </article>
+      <article class="rule" id="frontend-action-unknown-id" data-search="frontend-action-unknown-id an id-addressed wire naming an id no view declares the frontend resolves the first t_arg as a control id. when no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does nothing: no exception, no failed render, a button that looks connected. control_by_id at least logs the miss; set_focus, scroll_to, scroll_into_view and keyboard_set_mode return without even a console line. judged only when every id attribute of the class is a literal; a class that builds ids at runtime is left alone. error">
+        <h3><a href="#frontend-action-unknown-id">frontend-action-unknown-id</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">an id-addressed wire naming an id no view declares</p>
+        <p class="detail">The frontend resolves the first <code>t_arg</code> as a control id. When no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does <strong>nothing</strong>: no exception, no failed render, a button that looks connected. <code>CONTROL_BY_ID</code> at least logs the miss; <code>SET_FOCUS</code>, <code>SCROLL_TO</code>, <code>SCROLL_INTO_VIEW</code> and <code>KEYBOARD_SET_MODE</code> <code>return</code> without even a console line. Judged only when every <code>id</code> attribute of the class is a literal; a class that builds ids at runtime is left alone.</p>
+        <pre><code>a( n = `id` v = `messageView` )
+" … follow_up_action( val = client-&gt;cs_event-control_by_id t_arg = VALUE #( ( `messageview` ) ( `navigateBack` ) ) )</code></pre>
+      </article>
+      <article class="rule" id="invalid-action-payload" data-search="invalid-action-payload a json action payload the runtime silently downgrades the object-kind control methods (setsticky, sethiddeninpopin, setp13ndata) run their argument through castarg, whose catch turns a literal that does not parse as json into {} — a setsticky with a typo'd payload then un-sticks everything instead of failing. for the enum-array payloads the values are judged too: an unknown sap.m.sticky / sap.ui.core.priority key is dropped by ui5 with the same silence. binding_call's compound filter-groups json is judged the same way, including each row's operator. error">
+        <h3><a href="#invalid-action-payload">invalid-action-payload</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a JSON action payload the runtime silently downgrades</p>
+        <p class="detail">The <code>object</code>-kind control methods (<code>setSticky</code>, <code>setHiddenInPopin</code>, <code>setP13nData</code>) run their argument through <code>castArg</code>, whose catch turns a literal that does not parse as JSON into <code>{}</code> — a <code>setSticky</code> with a typo'd payload then *un-sticks* everything instead of failing. For the enum-array payloads the values are judged too: an unknown <code>sap.m.Sticky</code> / <code>sap.ui.core.Priority</code> key is dropped by UI5 with the same silence. <code>BINDING_CALL</code>'s compound filter-groups JSON is judged the same way, including each row's operator.</p>
+        <pre><code>t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `ColumnHeaders` ) )      " not JSON -&gt; {}
+t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `["ColumnHeaders"]` ) )</code></pre>
+      </article>
+      <article class="rule" id="invalid-frontend-action" data-search="invalid-frontend-action a frontend-action t_arg outside the set the runtime accepts a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: frontendaction logs to the console and the control does nothing when pressed. judged only for literal arguments and only where the runtime's set is closed — the control_global object and its method, the binding_call method, and control_by_id's obsolete empty view slot (which shifts the method out of position). control_by_id's method list is open by design and is never judged. error">
+        <h3><a href="#invalid-frontend-action">invalid-frontend-action</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a frontend-action <code>t_arg</code> outside the set the runtime accepts</p>
+        <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: FrontendAction logs to the console and the control does nothing when pressed. Judged only for literal arguments and only where the runtime's set is closed — the <code>CONTROL_GLOBAL</code> object and its method, the <code>BINDING_CALL</code> method, and <code>CONTROL_BY_ID</code>'s obsolete empty view slot (which shifts the method out of position). <code>CONTROL_BY_ID</code>'s method list is open by design and is never judged.</p>
+        <pre><code>client-&gt;_event_client( val   = client-&gt;cs_event-control_global
+                       t_arg = VALUE #( ( `MESSAGE_TOASTER` ) ( `show` ) ( `hi` ) ) )</code></pre>
+      </article>
+      <article class="rule" id="invalid-keyboard-shortcut" data-search="invalid-keyboard-shortcut a shortcut combo that names no key the registration normalizes the combo (ctrl+shift+s → ctrl+shift+s, aliases like cmd/return included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. the scope argument is judged separately: a slot key or a declared control id (via frontend-action-unknown-id). error">
+        <h3><a href="#invalid-keyboard-shortcut">invalid-keyboard-shortcut</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a shortcut combo that names no key</p>
+        <p class="detail">The registration normalizes the combo (<code>Ctrl+Shift+S</code> → <code>ctrl+shift+s</code>, aliases like <code>cmd</code>/<code>return</code> included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. The scope argument is judged separately: a slot key or a declared control id (via <code>frontend-action-unknown-id</code>).</p>
+        <pre><code>t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) )   " modifiers only — binds nothing
+t_arg = VALUE #( ( `Ctrl+Shift+S` ) ( `SAVE` ) )</code></pre>
+      </article>
+      <article class="rule" id="live-event-roundtrip" data-search="live-event-roundtrip a livechange wire that round-trips per keystroke abap2ui5 serializes round-trips: an event fired while one is in flight is dropped, not queued. a livechange wired to client-&gt;_event( ) therefore sees the value of the last completed trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. prefer a two-way binding (the model updates without any event) or the control's final-value event (change/search/submit); keep the live wire only when every intermediate value genuinely must reach abap. _event_client and follow_up_action are frontend-only and are not judged. hint">
+        <h3><a href="#live-event-roundtrip">live-event-roundtrip</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a <code>liveChange</code> wire that round-trips per keystroke</p>
+        <p class="detail">abap2UI5 serializes round-trips: an event fired while one is in flight is <strong>dropped</strong>, not queued. A <code>liveChange</code> wired to <code>client-&gt;_event( )</code> therefore sees the value of the last *completed* trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. Prefer a two-way binding (the model updates without any event) or the control's final-value event (<code>change</code>/<code>search</code>/<code>submit</code>); keep the live wire only when every intermediate value genuinely must reach ABAP. <code>_event_client</code> and <code>follow_up_action</code> are frontend-only and are not judged.</p>
+        <pre><code>)-&gt;a( n = `liveChange` v = client-&gt;_event( `SEARCH` )   " lossy under fast typing
+" instead: bind two-way and react to the final-value event
+)-&gt;a( n = `value`  v = client-&gt;_bind( search_term )
+)-&gt;a( n = `change` v = client-&gt;_event( `SEARCH` )</code></pre>
+      </article>
       <article class="rule" id="popover-anchor-unknown-id" data-search="popover-anchor-unknown-id popover_display( by_id = … ) anchored to an id no view declares a popover opens by a control — by_id names its anchor. with a literal id no view of the class declares, the fragment loads, displaypopover finds no openby control, logs it and destroys the fragment again: nothing opens, nothing renders red, and the property gate saw a perfectly valid fragment. judged under the same trust condition as frontend-action-unknown-id — only when every id attribute of the class is a literal. error">
         <h3><a href="#popover-anchor-unknown-id">popover-anchor-unknown-id</a>
           <span class="badge error">error</span>
@@ -758,27 +697,6 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) ).  " correct</code><
 " instead:
 client-&gt;follow_up_action( val = client-&gt;cs_event-set_focus t_arg = VALUE #( ( `x` ) ) ).</code></pre>
       </article>
-      <article class="rule" id="relative-aggregation-without-context" data-search="relative-aggregation-without-context a root-level aggregation bound with a relative path — it resolves against nothing and renders empty inside a bound row template a relative aggregation path is the normal and correct form. outside one there is no context: model.resolve returns undefined for a relative path with none (legacy syntax is off since 1.88), bindlist never resolves, and the aggregation stays empty with no error anywhere. the complex form hides it well — {path: 't_items'} looks deliberate, and the missing leading slash is the whole defect. it falls between two existing rules: hardcoded-binding-path only matches paths that start with /, and relative-binding-without-context deliberately skips aggregations. reported only where the control has neither a binding context nor an enclosing template, which is what separates the broken cases from the dominant correct ones. three narrowings came from running it on a 637-file corpus, where it first fired 81 times: the binding's own path only (a nested sorter: { path: … } is not it), a named model stripped before asking whether the path is absolute (message&gt;/ is absolute), and an aggregation whose value the reconstructor could not resolve — a _bind( ) handed in as a method parameter — still makes its children a row template, because a blind spot is not a defect. a fourth came from the abap2ui5/samples corpus after release: a class that issues cs_event-bind_element sets a binding context on a whole view slot at runtime, so every relative path under it resolves against a row the document never names — which is the entire point of that idiom, and invisible to a static walk. which slot was bound is a second question, and a wrong second guess is worse than silence. error">
-        <h3><a href="#relative-aggregation-without-context">relative-aggregation-without-context</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a root-level aggregation bound with a relative path — it resolves against nothing and renders empty</p>
-        <p class="detail">Inside a bound row template a relative aggregation path is the normal and correct form. Outside one there is no context: <code>Model.resolve</code> returns <code>undefined</code> for a relative path with none (legacy syntax is off since 1.88), <code>bindList</code> never resolves, and the aggregation stays <strong>empty</strong> with no error anywhere. The complex form hides it well — <code>{path: 'T_ITEMS'}</code> looks deliberate, and the missing leading slash is the whole defect. It falls between two existing rules: <code>hardcoded-binding-path</code> only matches paths that START with <code>/</code>, and <code>relative-binding-without-context</code> deliberately skips aggregations. Reported only where the control has neither a binding context nor an enclosing template, which is what separates the broken cases from the dominant correct ones. Three narrowings came from running it on a 637-file corpus, where it first fired 81 times: the binding's OWN path only (a nested <code>sorter: { path: … }</code> is not it), a named model stripped before asking whether the path is absolute (<code>message&gt;/</code> IS absolute), and an aggregation whose value the reconstructor could not resolve — a <code>_bind( )</code> handed in as a method parameter — still makes its children a row template, because a blind spot is not a defect. A fourth came from the <code>abap2UI5/samples</code> corpus after release: a class that issues <code>cs_event-bind_element</code> sets a binding <strong>context on a whole view slot at runtime</strong>, so every relative path under it resolves against a row the document never names — which is the entire point of that idiom, and invisible to a static walk. Which slot was bound is a second question, and a wrong second guess is worse than silence.</p>
-        <pre><code>)-&gt;a( n = `items` v = `{path: 'T_LEGEND'}` )                                    " empty
-)-&gt;a( n = `items` v = |\{ path: '{ client-&gt;_bind( val = t_legend path = abap_true ) }' \}| )</code></pre>
-      </article>
-      <article class="rule" id="separate-lifecycle-ifs" data-search="separate-lifecycle-ifs lifecycle checks in separate if blocks instead of one if/elseif chain the lifecycle flags (check_on_init, check_on_event, check_on_navigated, …) are not all mutually exclusive, so separate if blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. one if/elseif chain makes the branches exclusive by construction. the guard idiom is exclusive too and is never reported: an if block that leaves the method (if client-&gt;check_on_event( \go\ ). … return. endif.) cannot flow into the next block. warning">
-        <h3><a href="#separate-lifecycle-ifs">separate-lifecycle-ifs</a>
-          <span class="badge warning">warning</span>
-        </h3>
-        <p class="summary">lifecycle checks in separate <code>IF</code> blocks instead of one <code>IF</code>/<code>ELSEIF</code> chain</p>
-        <p class="detail">The lifecycle flags (<code>check_on_init</code>, <code>check_on_event</code>, <code>check_on_navigated</code>, …) are not all mutually exclusive, so separate <code>IF</code> blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. One <code>IF</code>/<code>ELSEIF</code> chain makes the branches exclusive by construction. The guard idiom is exclusive too and is never reported: an <code>IF</code> block that leaves the method (<code>IF client-&gt;check_on_event( \</code>GO\<code> ). … RETURN. ENDIF.</code>) cannot flow into the next block.</p>
-        <pre><code>IF client-&gt;check_on_init( ).
-  " …
-ELSEIF client-&gt;check_on_navigated( ).  " ELSEIF, not a second IF
-  " …
-ENDIF.</code></pre>
-      </article>
       <article class="rule" id="settable-property-via-action" data-search="settable-property-via-action a control_by_id set…( ) where the control has a bindable property of that name the project rule is prefer a bindable property over a frontend action: a two-way bound property keeps the state in the model, where it survives a view rebuild, a draft restore and the browser back button — a frontend action does not, and it also needs a round-trip to be re-applied. only properties are reported: an association (sap.uxap.objectpagelayout.selectedsection) and an aggregation cannot be data-bound at all, so driving those imperatively is the only way and is never flagged. a hint, not an error — an imperative call can still be the right answer when the sample's point is the imperative api itself. hint">
         <h3><a href="#settable-property-via-action">settable-property-via-action</a>
           <span class="badge hint">hint</span>
@@ -795,6 +713,7 @@ ENDIF.</code></pre>
         </h3>
         <p class="summary">the last <code>t_arg</code> entry is empty and never arrives</p>
         <p class="detail"><code>get_t_arg</code> buffers an empty argument and flushes it only when a later non-empty one follows, so an empty entry between filled ones keeps its slot and a TRAILING one disappears. The handler's <code>get_event_arg( n )</code> for that position reads initial, with no error anywhere. The framework pads a missing trailing argument only for a nullable declared kind on a control method, which does not apply to a backend <code>_event</code>.</p>
+        <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${/ID}` ) ( `` ) ) )   " get_event_arg( 2 ) reads initial</code></pre>
       </article>
       <article class="rule" id="ui5-internal-access" data-search="ui5-internal-access mproperties &amp; friends — private ui5 internals the mproperties/maggregations/mbindinginfos/meventregistry member tables are ui5 implementation details with no api contract — they are renamed or restructured across ui5 patches without notice, so a wire or expression that reads them works on the version it was written against and breaks silently on the next one. restructure to a two-way binding or a public parameter. warning">
         <h3><a href="#ui5-internal-access">ui5-internal-access</a>
@@ -802,6 +721,153 @@ ENDIF.</code></pre>
         </h3>
         <p class="summary"><code>mProperties</code> &amp; friends — private UI5 internals</p>
         <p class="detail">The <code>mProperties</code>/<code>mAggregations</code>/<code>mBindingInfos</code>/<code>mEventRegistry</code> member tables are UI5 implementation details with no API contract — they are renamed or restructured across UI5 patches without notice, so a wire or expression that reads them works on the version it was written against and breaks silently on the next one. Restructure to a two-way binding or a public parameter.</p>
+        <pre><code>client-&gt;follow_up_action( client-&gt;_event_client(
+    val   = client-&gt;cs_event-control_by_id
+    t_arg = VALUE #( ( `list` ) ( `mProperties` ) ) ) )</code></pre>
+      </article>
+      <article class="rule" id="unknown-frontend-action" data-search="unknown-frontend-action a literal action name outside the frontend dispatch table a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) naming its action as a string literal is dispatched exactly like the cs_event- constant — but the constant is compile-checked and the literal is not, and frontendaction.execute looks the name up in its handler table and does nothing at all on a miss: no exception, not even a console line. case matters — the runtime never upper-cases, so set_title misses where set_title works. anything not name-shaped is follow_up_action's raw-javascript escape hatch and is not judged. error">
+        <h3><a href="#unknown-frontend-action">unknown-frontend-action</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a literal action name outside the frontend dispatch table</p>
+        <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> naming its action as a string literal is dispatched exactly like the <code>cs_event-</code> constant — but the constant is compile-checked and the literal is not, and <code>FrontendAction.execute</code> looks the name up in its handler table and does <strong>nothing at all</strong> on a miss: no exception, not even a console line. Case matters — the runtime never upper-cases, so <code>set_title</code> misses where <code>SET_TITLE</code> works. Anything not name-shaped is <code>follow_up_action</code>'s raw-JavaScript escape hatch and is not judged.</p>
+        <pre><code>client-&gt;follow_up_action( val = `SET_TITEL` t_arg = VALUE #( ( `Hi` ) ) ).   " swallowed silently
+" instead:
+client-&gt;follow_up_action( val = client-&gt;cs_event-set_title t_arg = VALUE #( ( `Hi` ) ) ).</code></pre>
+      </article>
+      <article class="rule" id="unknown-view-slot" data-search="unknown-view-slot a literal view slot outside main / nest / nest2 / popup / popover the view parameter (and set_size_limit's view key) names one of the five slots, case-sensitively: the server compares it as an abap string and the browser uses it as an object key. the natural guesses all miss — main (lower case), and nested for cs_view-nested, whose value is nest. for control_by_id a wrong slot is worse than none: a named slot suppresses the global id fallback, so the wire dies although the id exists in an open view. error">
+        <h3><a href="#unknown-view-slot">unknown-view-slot</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a literal view slot outside MAIN / NEST / NEST2 / POPUP / POPOVER</p>
+        <p class="detail">The <code>view</code> parameter (and <code>SET_SIZE_LIMIT</code>'s view key) names one of the five slots, case-sensitively: the server compares it as an ABAP string and the browser uses it as an object key. The natural guesses all miss — <code>main</code> (lower case), and <code>NESTED</code> for <code>cs_view-nested</code>, whose VALUE is <code>NEST</code>. For <code>CONTROL_BY_ID</code> a wrong slot is worse than none: a named slot <strong>suppresses the global id fallback</strong>, so the wire dies although the id exists in an open view.</p>
+        <pre><code>client-&gt;_event_client( val = client-&gt;cs_event-control_by_id
+                       view = `NESTED`   " cs_view-nested is NEST
+                       t_arg = VALUE #( ( `table1` ) ( `focus` ) ) ).</code></pre>
+      </article>
+    </section>
+    <section class="cat" id="cat-bindings">
+      <h2>abap2UI5 — bindings</h2>
+      <p class="blurb">What a binding actually addresses once the framework has derived the client path from the ABAP name: whether the field exists, whether it survives the roundtrip, and whether the value arrives as the type the property expects.</p>
+      <article class="rule" id="binding-for-event" data-search="binding-for-event _bind( ) on an event — a dead control the slot is an event, so a data binding in it never becomes a handler. the control renders and does nothing. use client-&gt;_event( ). error">
+        <h3><a href="#binding-for-event">binding-for-event</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>_bind( )</code> on an event — a dead control</p>
+        <p class="detail">The slot is an event, so a data binding in it never becomes a handler. The control renders and does nothing. Use <code>client-&gt;_event( )</code>.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `press` v = client-&gt;_bind( name ) )   " _event( ), not _bind( )</code></pre>
+      </article>
+      <article class="rule" id="binding-on-association" data-search="binding-on-association a binding written into an association attribute only properties and aggregations can be data-bound. xmltemplateprocessor handles an association attribute by taking its value verbatim as a control id (createid(svalue), or a comma/space split for a 0..n association) — bindinginfo.parse is never called on it. so the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. drive an association imperatively instead, with a control_by_id setter — which is also why settable-property-via-action deliberately never pushes an association towards a binding. error">
+        <h3><a href="#binding-on-association">binding-on-association</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a binding written into an association attribute</p>
+        <p class="detail">Only properties and aggregations can be data-bound. <code>XMLTemplateProcessor</code> handles an association attribute by taking its value <strong>verbatim as a control ID</strong> (<code>createId(sValue)</code>, or a comma/space split for a 0..n association) — <code>BindingInfo.parse</code> is never called on it. So the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. Drive an association imperatively instead, with a <code>CONTROL_BY_ID</code> setter — which is also why <code>settable-property-via-action</code> deliberately never pushes an association towards a binding.</p>
+        <pre><code>a( n = `selectedSection` v = client-&gt;_bind( section ) )   " association -&gt; id "{/SECTION}"
+" follow_up_action( … t_arg = VALUE #( ( `opl` ) ( `setSelectedSection` ) ( section ) ) )</code></pre>
+      </article>
+      <article class="rule" id="binding-to-local" data-search="binding-to-local a local variable bound the instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. bind an instance attribute. warning">
+        <h3><a href="#binding-to-local">binding-to-local</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a local variable bound</p>
+        <p class="detail">The instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. Bind an instance attribute.</p>
+        <pre><code>METHOD z2ui5_if_app~main.
+  DATA lv_title TYPE string.
+  view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( lv_title ) ).   " gone after the roundtrip</code></pre>
+      </article>
+      <article class="rule" id="binding-to-nonpublic" data-search="binding-to-nonpublic a protected/private attribute bound only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so binding one from another section fails the first roundtrip with binding_error — no class attribute for binding found. move the attribute to the public section. judged by the root of the bound name (a structure component travels with its root), and only when the class declares a public section to compare against. found live: an samples-controls port bound expanded from its protected section and had never worked in a running system — its live_test deviation was telling the truth the whole time. error">
+        <h3><a href="#binding-to-nonpublic">binding-to-nonpublic</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a PROTECTED/PRIVATE attribute bound</p>
+        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so binding one from another section fails the <strong>first roundtrip</strong> with <code>BINDING_ERROR — No class attribute for binding found</code>. Move the attribute to the <code>PUBLIC SECTION</code>. Judged by the root of the bound name (a structure component travels with its root), and only when the class declares a <code>PUBLIC SECTION</code> to compare against. Found live: an samples-controls port bound <code>expanded</code> from its PROTECTED section and had never worked in a running system — its <code>LIVE_TEST</code> deviation was telling the truth the whole time.</p>
+        <pre><code>PROTECTED SECTION.
+  DATA expanded TYPE abap_bool.   " BINDING_ERROR on the first roundtrip
+" … )-&gt;a( n = `expanded` v = client-&gt;_bind( expanded ) )</code></pre>
+      </article>
+      <article class="rule" id="binding-to-reference" data-search="binding-to-reference a type ref to attribute bound without dereferencing the model serializer walks data, not references — client-&gt;_bind( ) on an attribute declared type ref to … throws at runtime. bind the dereferenced data (client-&gt;_bind( ref-&gt; )) or a plain data attribute. both sample fixes that established this pattern were found by users hitting the exception in a running system. error">
+        <h3><a href="#binding-to-reference">binding-to-reference</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a <code>TYPE REF TO</code> attribute bound without dereferencing</p>
+        <p class="detail">The model serializer walks DATA, not references — <code>client-&gt;_bind( )</code> on an attribute declared <code>TYPE REF TO …</code> throws at runtime. Bind the dereferenced data (<code>client-&gt;_bind( ref-&gt;* )</code>) or a plain data attribute. Both sample fixes that established this pattern were found by users hitting the exception in a running system.</p>
+        <pre><code>DATA mt_data TYPE REF TO data.
+" …
+)-&gt;a( n = `items` v = client-&gt;_bind( mt_data )      " throws
+)-&gt;a( n = `items` v = client-&gt;_bind( mt_data-&gt;* )   " binds the table</code></pre>
+      </article>
+      <article class="rule" id="collapsed-brace-in-style" data-search="collapsed-brace-in-style an escaped css brace written inside a |…| template an escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. inside an abap string template the backslash is the template's own escape: \{ collapses to a bare { before the builder ever sees it, and the view dies exactly as if nothing had been escaped. write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (\\\{). invisible to unescaped-brace-in-style, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart. error">
+        <h3><a href="#collapsed-brace-in-style">collapsed-brace-in-style</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">an escaped CSS brace written inside a <code>|…|</code> template</p>
+        <p class="detail">An escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. Inside an ABAP string template the backslash is the template's own escape: <code>\{</code> collapses to a bare <code>{</code> before the builder ever sees it, and the view dies exactly as if nothing had been escaped. Write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (<code>\\\{</code>). Invisible to <code>unescaped-brace-in-style</code>, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart.</p>
+        <pre><code>DATA(css) = |&lt;style&gt;.a \{color:red\}&lt;/style&gt;|.  " collapses
+DATA(ok)  = `&lt;style&gt;.a \{color:red\}&lt;/style&gt;`.  " survives</code></pre>
+      </article>
+      <article class="rule" id="enum-field-unset-on-insert" data-search="enum-field-unset-on-insert a row built at runtime without a field the view binds to an enum — the empty string takes the view down the demo-kit originals push a js object with the key absent, and ui5 falls back to the property default. abap has no absent: an unset field ships as "", which is not a member of any enum, so managedobject.validateproperty throws — and managedobjectbindingsupport re-throws anything that is not a formatexception, so the binding update dies and takes the view with it. both repairs are already in the framework: seed the default (type = 'none'), or name the field in omit_initial_paths. three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an insert/append of a value #( … ) literal, the t = value #( ( … ) ( … ) ) seed a model_init writes (including the nested elements = value #( … ) inside one), and a row assembled in a work area and inserted a few statements later. a row copied wholesale — value #( for row in t_all … ( row ) ) — has no field list to read and is not judged. fields are keyed on the table each bound aggregation names, absolute ({/t_pages}) and relative ({path: 't_appointments'}) alike, and each key gets only the fields of its own row template: a planningcalendar binds rows, specialdates and a nested appointments at once, and only the innermost carries ariahaspopup. not reported where the class fills the field afterwards — a loop … r-&gt;state = … completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an abap component name at all (type="{text}" is the demo kit's own quirk, ported verbatim: it resolves to nothing, so ui5 keeps the default). the widening came from a corpus sweep in 2026-08, where the insert-only reading had missed ten real defects across seven ports, every one of which took its view down. error">
+        <h3><a href="#enum-field-unset-on-insert">enum-field-unset-on-insert</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a row built at runtime without a field the view binds to an enum — the empty string takes the view down</p>
+        <p class="detail">The demo-kit originals push a JS object with the key <strong>absent</strong>, and UI5 falls back to the property default. ABAP has no absent: an unset field ships as <code>""</code>, which is not a member of any enum, so <code>ManagedObject.validateProperty</code> throws — and <code>ManagedObjectBindingSupport</code> re-throws anything that is not a <code>FormatException</code>, so the binding update dies and takes the view with it. Both repairs are already in the framework: seed the default (<code>type = 'None'</code>), or name the field in <code>omit_initial_paths</code>. Three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an <code>INSERT</code>/<code>APPEND</code> of a <code>VALUE #( … )</code> literal, the <code>t = VALUE #( ( … ) ( … ) )</code> seed a <code>model_init</code> writes (including the nested <code>elements = VALUE #( … )</code> inside one), and a row assembled in a work area and inserted a few statements later. A row copied wholesale — <code>VALUE #( FOR row IN t_all … ( row ) )</code> — has no field list to read and is not judged. Fields are keyed on the table each <strong>bound aggregation</strong> names, absolute (<code>{/T_PAGES}</code>) and relative (<code>{path: 'T_APPOINTMENTS'}</code>) alike, and each key gets only the fields of its OWN row template: a PlanningCalendar binds <code>rows</code>, <code>specialDates</code> and a nested <code>appointments</code> at once, and only the innermost carries <code>ariaHasPopup</code>. Not reported where the class fills the field afterwards — a <code>LOOP … r-&gt;state = …</code> completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an ABAP component name at all (<code>type="{Text}"</code> is the demo kit's own quirk, ported verbatim: it resolves to nothing, so UI5 keeps the default). The widening came from a corpus sweep in 2026-08, where the <code>INSERT</code>-only reading had missed ten real defects across seven ports, every one of which took its view down.</p>
+        <pre><code>INSERT VALUE #( title = `New` start_at = s ) INTO TABLE t.        " type unset -&gt; "" -&gt; throws
+INSERT VALUE #( title = `New` type = `None` start_at = s ) INTO TABLE t.
+t = VALUE #( ( title = `A` type = `Type01` ) ( title = `B` ) ).             " the seed is a build site too</code></pre>
+      </article>
+      <article class="rule" id="escaped-brace-in-backtick" data-search="escaped-brace-in-backtick a binding written with escaped braces inside a backtick literal brace escaping is a |…| template rule. in a template the backslash is abap's own escape, so \{ reaches the builder as a bare { — which is exactly what a binding needs. a backtick literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where ui5 reads \{ path: … \} as text rather than a binding and either renders it raw or fails to parse the view. write plain braces in a backtick literal; keep the escapes for the template form. error">
+        <h3><a href="#escaped-brace-in-backtick">escaped-brace-in-backtick</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a binding written with escaped braces inside a <code>backtick</code> literal</p>
+        <p class="detail">Brace escaping is a |…| TEMPLATE rule. In a template the backslash is ABAP's own escape, so <code>\{</code> reaches the builder as a bare <code>{</code> — which is exactly what a binding needs. A <code>backtick</code> literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where UI5 reads <code>\{ path: … \}</code> as text rather than a binding and either renders it raw or fails to parse the view. Write plain braces in a backtick literal; keep the escapes for the template form.</p>
+        <pre><code>a( n = `items` v = `\{ path: 'message&gt;/' \}` )   " the backslash reaches the XML
+a( n = `items` v = `{ path: 'message&gt;/' }` )     " correct in a backtick literal
+a( n = `items` v = |\{ path: '{ p }' \}| )       " correct in a template</code></pre>
+      </article>
+      <article class="rule" id="event-for-property" data-search="event-for-property _event( ) on a property the mirror image: an event handler written into a data slot. use client-&gt;_bind( ). error">
+        <h3><a href="#event-for-property">event-for-property</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>_event( )</code> on a property</p>
+        <p class="detail">The mirror image: an event handler written into a data slot. Use <code>client-&gt;_bind( )</code>.</p>
+        <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `tooltip` v = client-&gt;_event( `GO` ) )   " _bind( ), not _event( )</code></pre>
+      </article>
+      <article class="rule" id="hardcoded-binding-path" data-search="hardcoded-binding-path an absolute binding path written as text — {/path} or path: '/path' the runtime only registers what client-&gt;_bind( ) was given, so a textual path either addresses nothing (that half is unknown-binding-path) or duplicates a bind that exists elsewhere — and then silently breaks the moment the attribute is renamed, because no compiler follows a string. derive the path instead: client-&gt;_bind( var ) for the {binding}, or the bare-path form client-&gt;_bind( val = var path = abap_true ) interpolated into a binding-info template. an odata entity path with a key predicate ({/products('4711')}) in a class that switches its default model to an odata service is exempt — that path addresses the service, not an abap variable. warning">
+        <h3><a href="#hardcoded-binding-path">hardcoded-binding-path</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an absolute binding path written as text — <code>{/PATH}</code> or <code>path: '/PATH'</code></p>
+        <p class="detail">The runtime only registers what <code>client-&gt;_bind( )</code> was given, so a textual path either addresses nothing (that half is <code>unknown-binding-path</code>) or duplicates a bind that exists elsewhere — and then silently breaks the moment the attribute is renamed, because no compiler follows a string. Derive the path instead: <code>client-&gt;_bind( var )</code> for the <code>{binding}</code>, or the bare-path form <code>client-&gt;_bind( val = var path = abap_true )</code> interpolated into a binding-info template. An OData entity path with a key predicate (<code>{/Products('4711')}</code>) in a class that switches its default model to an OData service is exempt — that path addresses the service, not an ABAP variable.</p>
+        <pre><code>a( n = `title` v = `{/TITLE}` )                        " breaks on rename
+a( n = `title` v = client-&gt;_bind( title ) )            " moves with the variable</code></pre>
+      </article>
+      <article class="rule" id="json-bind-on-scalar-property" data-search="json-bind-on-scalar-property a json = abap_true bind on a scalar-typed property _bind( json = abap_true ) splices the bound string into the model as a json node — built for properties typed object/any (an integration card's manifest), which no typed abap value can be. on a string/int/float/boolean property the spliced node arrives as the wrong json type — strict mode and ui5 2.x reject it — and the splice is outbound-only: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. bind the plain attribute instead; json is for objects. warning">
+        <h3><a href="#json-bind-on-scalar-property">json-bind-on-scalar-property</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a <code>json = abap_true</code> bind on a scalar-typed property</p>
+        <p class="detail"><code>_bind( json = abap_true )</code> splices the bound string into the model as a JSON <strong>node</strong> — built for properties typed <code>object</code>/<code>any</code> (an integration Card's manifest), which no typed ABAP value can be. On a <code>string</code>/<code>int</code>/<code>float</code>/<code>boolean</code> property the spliced node arrives as the wrong JSON type — strict mode and UI5 2.x reject it — and the splice is <strong>outbound-only</strong>: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. Bind the plain attribute instead; json is for objects.</p>
+        <pre><code>DATA manifest TYPE string.   " contains JSON
+)-&gt;a( n = `value` v = client-&gt;_bind( val = manifest json = abap_true )   " Input.value is string-typed</code></pre>
+      </article>
+      <article class="rule" id="json-literal-in-attribute" data-search="json-literal-in-attribute a raw json literal written into a view attribute ui5 parses an attribute value starting with { as a binding, so a json object literal ({"sap.card":…) is read as a binding path and the attribute ends up empty — the classic way to lose an integration card's manifest. keep the json in the model and bind it: client-&gt;_bind( manifest ). error">
+        <h3><a href="#json-literal-in-attribute">json-literal-in-attribute</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a raw JSON literal written into a view attribute</p>
+        <p class="detail">UI5 parses an attribute value starting with <code>{</code> as a binding, so a JSON object literal (<code>{"sap.card":…</code>) is read as a binding path and the attribute ends up empty — the classic way to lose an integration Card's manifest. Keep the JSON in the model and bind it: <code>client-&gt;_bind( manifest )</code>.</p>
+        <pre><code>view-&gt;tag( n = `Card` ns = `card` )-&gt;a( n = `manifest` v = `{"sap.card":{"type":"List"}}` )</code></pre>
+      </article>
+      <article class="rule" id="relative-aggregation-without-context" data-search="relative-aggregation-without-context a root-level aggregation bound with a relative path — it resolves against nothing and renders empty inside a bound row template a relative aggregation path is the normal and correct form. outside one there is no context: model.resolve returns undefined for a relative path with none (legacy syntax is off since 1.88), bindlist never resolves, and the aggregation stays empty with no error anywhere. the complex form hides it well — {path: 't_items'} looks deliberate, and the missing leading slash is the whole defect. it falls between two existing rules: hardcoded-binding-path only matches paths that start with /, and relative-binding-without-context deliberately skips aggregations. reported only where the control has neither a binding context nor an enclosing template, which is what separates the broken cases from the dominant correct ones. three narrowings came from running it on a 637-file corpus, where it first fired 81 times: the binding's own path only (a nested sorter: { path: … } is not it), a named model stripped before asking whether the path is absolute (message&gt;/ is absolute), and an aggregation whose value the reconstructor could not resolve — a _bind( ) handed in as a method parameter — still makes its children a row template, because a blind spot is not a defect. a fourth came from the abap2ui5/samples corpus after release: a class that issues cs_event-bind_element sets a binding context on a whole view slot at runtime, so every relative path under it resolves against a row the document never names — which is the entire point of that idiom, and invisible to a static walk. which slot was bound is a second question, and a wrong second guess is worse than silence. error">
+        <h3><a href="#relative-aggregation-without-context">relative-aggregation-without-context</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a root-level aggregation bound with a relative path — it resolves against nothing and renders empty</p>
+        <p class="detail">Inside a bound row template a relative aggregation path is the normal and correct form. Outside one there is no context: <code>Model.resolve</code> returns <code>undefined</code> for a relative path with none (legacy syntax is off since 1.88), <code>bindList</code> never resolves, and the aggregation stays <strong>empty</strong> with no error anywhere. The complex form hides it well — <code>{path: 'T_ITEMS'}</code> looks deliberate, and the missing leading slash is the whole defect. It falls between two existing rules: <code>hardcoded-binding-path</code> only matches paths that START with <code>/</code>, and <code>relative-binding-without-context</code> deliberately skips aggregations. Reported only where the control has neither a binding context nor an enclosing template, which is what separates the broken cases from the dominant correct ones. Three narrowings came from running it on a 637-file corpus, where it first fired 81 times: the binding's OWN path only (a nested <code>sorter: { path: … }</code> is not it), a named model stripped before asking whether the path is absolute (<code>message&gt;/</code> IS absolute), and an aggregation whose value the reconstructor could not resolve — a <code>_bind( )</code> handed in as a method parameter — still makes its children a row template, because a blind spot is not a defect. A fourth came from the <code>abap2UI5/samples</code> corpus after release: a class that issues <code>cs_event-bind_element</code> sets a binding <strong>context on a whole view slot at runtime</strong>, so every relative path under it resolves against a row the document never names — which is the entire point of that idiom, and invisible to a static walk. Which slot was bound is a second question, and a wrong second guess is worse than silence.</p>
+        <pre><code>)-&gt;a( n = `items` v = `{path: 'T_LEGEND'}` )                                    " empty
+)-&gt;a( n = `items` v = |\{ path: '{ client-&gt;_bind( val = t_legend path = abap_true ) }' \}| )</code></pre>
       </article>
       <article class="rule" id="unconverted-abap-boolean" data-search="unconverted-abap-boolean an abap boolean written straight into the view it arrives as 'x' or ' ', and ui5 reads any non-empty string as true — so visible = abap_false makes the control visible. the classic silent inversion. the way out is the builder's own boolean parameter: z2ui5_cl_ui5_view_builder takes the flag through a( b = … ), which renders true/false itself. error">
         <h3><a href="#unconverted-abap-boolean">unconverted-abap-boolean</a>
@@ -811,6 +877,8 @@ ENDIF.</code></pre>
         <p class="summary">an ABAP boolean written straight into the view</p>
         <p class="detail">It arrives as <code>'X'</code> or <code>' '</code>, and UI5 reads any non-empty string as true — so <code>visible = abap_false</code> makes the control <strong>visible</strong>. The classic silent inversion. The way out is the builder's own boolean parameter: <code>z2ui5_cl_ui5_view_builder</code> takes the flag through <code>a( b = … )</code>, which renders <code>true</code>/<code>false</code> itself.</p>
         <p class="fixnote"><strong>--fix:</strong> A bare token is moved onto the boolean parameter — <code>a( v = flag )</code> becomes <code>a( b = flag )</code>; an expression is left alone.</p>
+        <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `visible` v = flag )         " 'X' / ' ' - both truthy
+view-&gt;tag( `Button` )-&gt;a( n = `visible` b = flag )         " the builder renders true/false</code></pre>
       </article>
       <article class="rule" id="unescaped-brace-in-style" data-search="unescaped-brace-in-style literal css braces in a &lt;style&gt; block ui5's xmlview parser reads an unescaped { in an attribute value as the start of a binding, so a stylesheet injected through a core:html content attribute takes the whole view down with a binding parse error. write every brace as \{ and \}. judged between &lt;style&gt; and &lt;/style&gt;, so a {0} toast template or a ${$parameters&gt;/…} wire elsewhere in the same builder chain is never mistaken for css. error">
         <h3><a href="#unescaped-brace-in-style">unescaped-brace-in-style</a>
@@ -826,16 +894,9 @@ ENDIF.</code></pre>
         </h3>
         <p class="summary">a hand-written <code>{/TYPO}</code> the derived model has no path for</p>
         <p class="detail">The field just stays empty — no error, anywhere. Inside a bound aggregation a relative <code>{TYPO}</code> is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's <code>TYPES</code>. Never guessed.</p>
-      </article>
-      <article class="rule" id="unknown-frontend-action" data-search="unknown-frontend-action a literal action name outside the frontend dispatch table a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) naming its action as a string literal is dispatched exactly like the cs_event- constant — but the constant is compile-checked and the literal is not, and frontendaction.execute looks the name up in its handler table and does nothing at all on a miss: no exception, not even a console line. case matters — the runtime never upper-cases, so set_title misses where set_title works. anything not name-shaped is follow_up_action's raw-javascript escape hatch and is not judged. error">
-        <h3><a href="#unknown-frontend-action">unknown-frontend-action</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a literal action name outside the frontend dispatch table</p>
-        <p class="detail">A <code>client-&gt;_event_client( )</code> / <code>client-&gt;follow_up_action( )</code> naming its action as a string literal is dispatched exactly like the <code>cs_event-</code> constant — but the constant is compile-checked and the literal is not, and <code>FrontendAction.execute</code> looks the name up in its handler table and does <strong>nothing at all</strong> on a miss: no exception, not even a console line. Case matters — the runtime never upper-cases, so <code>set_title</code> misses where <code>SET_TITLE</code> works. Anything not name-shaped is <code>follow_up_action</code>'s raw-JavaScript escape hatch and is not judged.</p>
-        <pre><code>client-&gt;follow_up_action( val = `SET_TITEL` t_arg = VALUE #( ( `Hi` ) ) ).   " swallowed silently
-" instead:
-client-&gt;follow_up_action( val = client-&gt;cs_event-set_title t_arg = VALUE #( ( `Hi` ) ) ).</code></pre>
+        <pre><code>DATA name TYPE string.
+…
+view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{/NAEM}` )   " the model has NAME</code></pre>
       </article>
       <article class="rule" id="unknown-model" data-search="unknown-model a name&gt; binding against a model the app does not have abap2ui5 serves exactly one data model per view slot — the default one, serialized from the class's public attributes — plus the framework's own device&gt; and message&gt; (and http&gt; on a switched path). a prefix outside that set resolves to no model at all, and ui5 leaves the property unset without a word. it is the most common leftover of a ported demo-kit sample, whose original names its models freely ({ui&gt;/rowmode}, {i18n&gt;key}): the fix is to fold the field into the default model with client-&gt;_bind( ), not to add a model — and there is no i18n model by design, because translation is a backend concern. a model registered by a set_odata_model wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all. error">
         <h3><a href="#unknown-model">unknown-model</a>
@@ -846,29 +907,38 @@ client-&gt;follow_up_action( val = client-&gt;cs_event-set_title t_arg = VALUE #
         <pre><code>a( n = `text` v = `{i18n&gt;title}` )
 a( n = `text` v = client-&gt;_bind( title ) )</code></pre>
       </article>
-      <article class="rule" id="unknown-view-slot" data-search="unknown-view-slot a literal view slot outside main / nest / nest2 / popup / popover the view parameter (and set_size_limit's view key) names one of the five slots, case-sensitively: the server compares it as an abap string and the browser uses it as an object key. the natural guesses all miss — main (lower case), and nested for cs_view-nested, whose value is nest. for control_by_id a wrong slot is worse than none: a named slot suppresses the global id fallback, so the wire dies although the id exists in an open view. error">
-        <h3><a href="#unknown-view-slot">unknown-view-slot</a>
-          <span class="badge error">error</span>
-        </h3>
-        <p class="summary">a literal view slot outside MAIN / NEST / NEST2 / POPUP / POPOVER</p>
-        <p class="detail">The <code>view</code> parameter (and <code>SET_SIZE_LIMIT</code>'s view key) names one of the five slots, case-sensitively: the server compares it as an ABAP string and the browser uses it as an object key. The natural guesses all miss — <code>main</code> (lower case), and <code>NESTED</code> for <code>cs_view-nested</code>, whose VALUE is <code>NEST</code>. For <code>CONTROL_BY_ID</code> a wrong slot is worse than none: a named slot <strong>suppresses the global id fallback</strong>, so the wire dies although the id exists in an open view.</p>
-        <pre><code>client-&gt;_event_client( val = client-&gt;cs_event-control_by_id
-                       view = `NESTED`   " cs_view-nested is NEST
-                       t_arg = VALUE #( ( `table1` ) ( `focus` ) ) ).</code></pre>
-      </article>
-      <article class="rule" id="unused-public-attribute" data-search="unused-public-attribute a public attribute nothing in the class ever touches only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so every one of them is shipped to the browser on every roundtrip. one that is never bound, never read and never written is pure transport weight. deliberately narrower than "not bound in any view": an attribute used only in abap code is not dead, it is state — public is precisely how a value survives the roundtrip. only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see. hint">
-        <h3><a href="#unused-public-attribute">unused-public-attribute</a>
+    </section>
+    <section class="cat" id="cat-layout">
+      <h2>abap2UI5 — chain layout</h2>
+      <p class="blurb">How the builder chain is WRITTEN. The XML it emits is one line by construction, so the ABAP indentation is the only picture of the view tree that exists. All hints; the view renders identically either way.</p>
+      <article class="rule" id="chain-element-per-line" data-search="chain-element-per-line several controls on one line of a multi-line chain one element per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. only elements count: an attribute on the same line as the control it belongs to hides nothing, so )-&gt;tag( text )-&gt;a( n = text v = {title} ) is the compact one-control form half the samples (and abap2ui5's own startup app) are written in and is never reported. closing calls do not count either, because )-&gt;end( )-&gt;end( ). as a chain's last line is an established ending. reported only for a chain already written across several lines, so the one-liner stays available. a hint, like its neighbour. hint">
+        <h3><a href="#chain-element-per-line">chain-element-per-line</a>
           <span class="badge hint">hint</span>
         </h3>
-        <p class="summary">a PUBLIC attribute nothing in the class ever touches</p>
-        <p class="detail">Only PUBLIC attributes are serialized into the model (<code>z2ui5_cl_ui5_srv_model</code> filters on visibility), so every one of them is shipped to the browser on every roundtrip. One that is never bound, never read and never written is pure transport weight. Deliberately narrower than "not bound in any view": an attribute used only in ABAP code is not dead, it is *state* — PUBLIC is precisely how a value survives the roundtrip. Only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see.</p>
+        <p class="summary">several controls on one line of a multi-line chain</p>
+        <p class="detail">One element per line is what makes the indentation able to show the tree at all — a line holding three controls hides three levels of it. Only ELEMENTS count: an attribute on the same line as the control it belongs to hides nothing, so <code>)-&gt;tag( </code>Text<code> )-&gt;a( n = </code>text<code> v = </code>{TITLE}<code> )</code> is the compact one-control form half the samples (and abap2UI5's own startup app) are written in and is never reported. Closing calls do not count either, because <code>)-&gt;end( )-&gt;end( ).</code> as a chain's last line is an established ending. Reported only for a chain already written across several lines, so the one-liner stays available. A hint, like its neighbour.</p>
+        <pre><code>)-&gt;tag( `Input` )-&gt;tag( `Button` )-&gt;tag( `Text` )   " three controls, one line</code></pre>
       </article>
-      <article class="rule" id="view-never-displayed" data-search="view-never-displayed a view is built but never handed to the client an empty page and no error: the builder ran, the result was never passed to client-&gt;view_display( ) (or a nested-view, popup, popover or nav call). error">
-        <h3><a href="#view-never-displayed">view-never-displayed</a>
-          <span class="badge error">error</span>
+      <article class="rule" id="chain-house-layout" data-search="chain-house-layout a chain not in the abap2ui5 house layout (opt-in) the only rule here that encodes a house style rather than an inconsistency, and the only one that names a step. its two neighbours judge a chain against itself and stay silent on any layout that is merely a choice; this one judges it against one canonical form: one call per line including attributes (stricter than chain-element-per-line, which lets an attribute share its control's line), four spaces per level of the tree, and the closing call alone in the column of the element it closes. it exists because that form now has a corpus behind it — abap2ui5, abap2ui5/samples and abap2ui5/samples-controls were unified onto it in 2026-08, and the drift it catches had passed every other gate: 77 ports whose whole chain sat one level too deep, which chain-indentation cannot see because a uniformly wrong rhythm is still a rhythm. if your house style is a different one, switch it off — "chain-house-layout": false — rather than reformatting to somebody else's taste. every finding carries fixes, so --fix rewrites the chain; the rewrite only ever touches whitespace between chain segments and the indent of a continuation line that is not itself content, so it cannot change what the view builds. hint">
+        <h3><a href="#chain-house-layout">chain-house-layout</a>
+          <span class="badge hint">hint</span>
+          <span class="badge fix">--fix</span>
         </h3>
-        <p class="summary">a view is built but never handed to the client</p>
-        <p class="detail">An empty page and no error: the builder ran, the result was never passed to <code>client-&gt;view_display( )</code> (or a nested-view, popup, popover or nav call).</p>
+        <p class="summary">a chain not in the abap2UI5 house layout (opt-in)</p>
+        <p class="detail">The only rule here that encodes a HOUSE STYLE rather than an inconsistency, and the only one that names a step. Its two neighbours judge a chain against itself and stay silent on any layout that is merely a choice; this one judges it against one canonical form: <strong>one call per line including attributes</strong> (stricter than <code>chain-element-per-line</code>, which lets an attribute share its control's line), <strong>four spaces per level of the tree</strong>, and the closing call alone in the column of the element it closes. It exists because that form now has a corpus behind it — abap2UI5, abap2UI5/samples and abap2UI5/samples-controls were unified onto it in 2026-08, and the drift it catches had passed every other gate: 77 ports whose whole chain sat one level too deep, which <code>chain-indentation</code> cannot see because a uniformly wrong rhythm is still a rhythm. <strong>If your house style is a different one, switch it off</strong> — <code>"chain-house-layout": false</code> — rather than reformatting to somebody else's taste. Every finding carries fixes, so <code>--fix</code> rewrites the chain; the rewrite only ever touches whitespace between chain segments and the indent of a continuation line that is not itself content, so it cannot change what the view builds.</p>
+        <p class="fixnote"><strong>--fix:</strong> The chain is rewritten into the canonical layout: each call moved onto its own line at the column its depth in the tree gives it, and the continuation lines of a call's arguments moved with it. Only whitespace BETWEEN chain segments is touched — a literal, a comment's text and the inside of an argument list are copied through, and blank lines and comment lines between segments are kept where they are. The rewrite is checked to be whitespace-only before it is offered, so it cannot change what the view builds.</p>
+        <pre><code>)-&gt;ele( `Shell` )-&gt;ele( `Page` )      " two levels on one line, and the step is 0
+)-&gt;tag( `Text` )-&gt;a( n = `text` v = `x` )   " attribute on its control's line</code></pre>
+      </article>
+      <article class="rule" id="chain-indentation" data-search="chain-indentation a builder call whose indentation contradicts the tree it builds a builder chain is the one part of an abap2ui5 class that nothing else formats: abaplint has indentation and in_statement_indentation switched off (a chain is a single statement spanning fifty lines), so neither abaplint --fix nor the auto-format workflow ever touches its inner lines. and the reader has no other picture of the view — the xml the builder emits is one long line by construction, so the abap indentation is the view's structure. when it drifts, the tree in the file stops matching the tree in the browser. what is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the left of the element it belongs to. the size of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. neither is the column of end( ) (the hanging close is established), nor v = alignment, nor line length, nor a chain written entirely on one line. a hint: the view renders identically either way. hint">
+        <h3><a href="#chain-indentation">chain-indentation</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a builder call whose indentation contradicts the tree it builds</p>
+        <p class="detail">A builder chain is the one part of an abap2UI5 class that nothing else formats: abaplint has <code>indentation</code> and <code>in_statement_indentation</code> switched off (a chain is a single statement spanning fifty lines), so neither <code>abaplint --fix</code> nor the auto-format workflow ever touches its inner lines. And the reader has no other picture of the view — the XML the builder emits is one long line by construction, so <strong>the ABAP indentation IS the view's structure</strong>. When it drifts, the tree in the file stops matching the tree in the browser. What is judged is only that: a sibling written at a different column than the siblings it shares a parent with, or a call written to the LEFT of the element it belongs to. The SIZE of the indent step is not judged — two and four are both house styles in the wild, and the first child under a node defines the column its siblings are held to, so a chain that keeps its own rhythm is never reported. Neither is the column of <code>end( )</code> (the hanging close is established), nor <code>v =</code> alignment, nor line length, nor a chain written entirely on one line. A hint: the view renders identically either way.</p>
+        <pre><code>)-&gt;ele( `Page`
+    )-&gt;tag( `Input`
+  )-&gt;tag( `Button`   " a sibling of Input, written a level out</code></pre>
       </article>
     </section>
     <section class="cat" id="cat-data">
@@ -889,6 +959,9 @@ a( n = `text` v = client-&gt;_bind( title ) )</code></pre>
         </h3>
         <p class="summary">a table or structure bound to a scalar property</p>
         <p class="detail">The property receives an object where it expects a value. Nothing throws; the control shows nothing useful.</p>
+        <pre><code>DATA t_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
+…
+view-&gt;ele( `Table` )-&gt;a( n = `headerText` v = client-&gt;_bind( t_rows ) )   " items, not headerText</code></pre>
       </article>
       <article class="rule" id="date-type-without-source" data-search="date-type-without-source sap.ui.model.type.date / datetime / time without formatoptions.source without a source format option these types expect a js date instance in the model. an abap2ui5 model is json serialized from abap, so the value is always a string (or a timestamp number) and a date can never reach it — the type raises a formatexception on the first format() and the field stays empty, with nothing in the console for a text. add the source format the abap field actually carries, e.g. formatoptions: { source: { pattern: 'yyyy-mm-dd' } }. note the alias form is resolved through the view's core:require, so type: 'datetype' is judged like the full module name. error">
         <h3><a href="#date-type-without-source">date-type-without-source</a>
@@ -912,6 +985,7 @@ a( n = `text` v = client-&gt;_bind( title ) )</code></pre>
         </h3>
         <p class="summary">a <code>Table</code> bound to rows but given no <code>columns</code> — renders empty</p>
         <p class="detail">The control has data but not the aggregation it needs to show any of it. Nothing fails: the table renders, and it renders empty, which is the hardest kind of bug to see in a screenshot.</p>
+        <pre><code>view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )   " no columns: renders empty</code></pre>
       </article>
       <article class="rule" id="picker-value-without-format" data-search="picker-value-without-format a date/time picker binding value with neither a binding type nor a valueformat a picker parses and formats its value with valueformat, and when neither that nor a binding type says otherwise it falls back to the browser locale for the string it writes back. client-&gt;_bind( ) is two-way and the write-back is a bare abap assignment, so the locale string lands in the field. measured on openui5 (en-us, seeded "2018-07-09t09:00:00"): a sap.m.datetimepicker still reads the iso string — dateformat falls back to iso — but writes back "jul 12, 2018, 2:30:00 pm"; a sap.m.datepicker does not read it at all (datevalue stays null, the raw text is shown) and writes back "7/12/18". nothing raises, and en-us hides most of it — in de-de the field comes back as "04.03.2025, 10:15:00", which new date( ) parses month-first, so an appointment picked for 4 march is drawn on 3 april. declare valueformat with the pattern the abap field carries (yyyy-mm-dd't'hh:mm:ss), or bind with a sap.ui.model.type.date/datetime and its formatoptions.source — a typed binding owns the pattern and is never reported. the picker family is read off the metadata (a control declaring both value and valueformat), and the rule needs the abap class: it only fires where the class also writes the field, because a field only the picker ever writes is self-consistent whatever the locale does, and one the class writes as digit-free text (n/a) is not a date at all. warning">
         <h3><a href="#picker-value-without-format">picker-value-without-format</a>
