@@ -3373,6 +3373,44 @@ section('metadata drift gate', async () => {
       cp.execFileSync('node', [path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs'), '--check'], { encoding: 'utf8' });
     } catch (e) { ok = false; msg = (e.stderr || e.stdout || '').trim(); }
     assert(ok, `metadata: data/properties.json is in sync — npm run generate-metadata (${msg})`);
+
+    /* And in sync from a filesystem that hands the walk back in another order.
+     *
+     * `readdirSync` order is a property of the FILESYSTEM: ext4 hands back
+     * `Dialog.js` before `delegate/`, NTFS sorts case-insensitively and hands
+     * back `delegate/` first. That order decided the key order of the snapshot,
+     * so windows-latest generated the same 973 controls with the same values in
+     * another sequence and this gate called it stale - on a tree byte-identical
+     * to the green ubuntu one (linter#67).
+     *
+     * The walk sorts now, and this is what says so on every platform: run the
+     * generator with readdir wrapped to return NTFS order and require the same
+     * bytes. Without the sort in collect() this run differs; asserting it here
+     * is what keeps the regression off one leg of the matrix. */
+    const ntfs = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'a2u5-ntfs-')), 'run.mjs');
+    const out = `${ntfs}.json`;
+    fs.writeFileSync(ntfs, `import fs from 'fs';
+const real = fs.readdirSync;
+fs.readdirSync = (dir, opts) => {
+  const r = real(dir, opts);
+  if (!Array.isArray(r)) return r;
+  return [...r].sort((a, b) => {
+    const x = (a.name ?? a).toLowerCase(); const y = (b.name ?? b).toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
+  });
+};
+await import(${JSON.stringify(pathToFileURL(path.join(FIX, '..', '..', 'scripts', 'generate-metadata.mjs')).href)});
+`);
+    let reordered = true;
+    let why = '';
+    try {
+      cp.execFileSync('node', [ntfs, '--out', out], { encoding: 'utf8' });
+      const a = fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8');
+      reordered = fs.readFileSync(out, 'utf8') === a;
+    } catch (e) { reordered = false; why = (e.stderr || e.message || '').trim(); }
+    finally { fs.rmSync(path.dirname(ntfs), { recursive: true, force: true }); }
+    assert(reordered,
+      `metadata: the snapshot does not depend on readdir order — a case-insensitive (NTFS) walk produces the same bytes ${why}`);
 });
 
 /* `@ui5-experimental-since` is a version tag like any other and the snapshot has
