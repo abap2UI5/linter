@@ -527,6 +527,70 @@ const text = JSON.stringify({
   controls,
 }) + '\n';
 
+/* Name the difference between the committed snapshot and the freshly generated
+ * one, in the order that narrows a cause fastest: version, then the sections
+ * that gained or lost keys, then the keys whose value changed, then - when the
+ * two carry the SAME keys with the SAME values - the fact that only their
+ * ORDER differs, which no diff of the parsed data would ever show.
+ *
+ * Returns lines to print, never throws: a snapshot too broken to parse still
+ * has to produce a message. */
+function drift(current, next) {
+  const out = [];
+  let a;
+  try { a = JSON.parse(current); } catch { return ['the committed file is not valid JSON — regenerate it']; }
+  const b = JSON.parse(next);
+
+  if (a.ui5Version !== b.ui5Version) {
+    out.push(`ui5Version: committed ${a.ui5Version}, generated ${b.ui5Version} — the @openui5 pins moved`);
+  }
+
+  const SECTIONS = ['controls', 'enums', 'enumSince'];
+  const show = (label, list) => {
+    if (!list.length) return;
+    out.push(`${label} (${list.length}): ${list.slice(0, 8).join(', ')}${list.length > 8 ? ', …' : ''}`);
+  };
+  let sameData = a.note === b.note && a.ui5Version === b.ui5Version;
+  for (const s of SECTIONS) {
+    const ka = Object.keys(a[s] ?? {});
+    const kb = Object.keys(b[s] ?? {});
+    const sa = new Set(ka);
+    const sb = new Set(kb);
+    const gone = ka.filter((k) => !sb.has(k));
+    const added = kb.filter((k) => !sa.has(k));
+    const changed = ka.filter((k) => sb.has(k)
+      && JSON.stringify(a[s][k]) !== JSON.stringify(b[s][k]));
+    show(`${s}: only in the committed file`, gone);
+    show(`${s}: only in the generated one`, added);
+    show(`${s}: same key, different value`, changed);
+    if (gone.length || added.length || changed.length) sameData = false;
+    /* Same keys, same values, different sequence: the walk reached them in
+     * another order. That is a property of the FILESYSTEM, not of the sources,
+     * and it is the one cause a structural comparison cannot see. */
+    if (!gone.length && !added.length && ka.join(' ') !== kb.join(' ')) {
+      const at = ka.findIndex((k, i) => k !== kb[i]);
+      out.push(`${s}: same ${ka.length} keys, different ORDER — first at index ${at}: `
+        + `committed ${JSON.stringify(ka[at])}, generated ${JSON.stringify(kb[at])} `
+        + '(a walk-order difference, not a content one)');
+    }
+  }
+
+  if (!out.length) {
+    const at = [...current].findIndex((c, i) => c !== next[i]);
+    out.push(sameData
+      ? 'the parsed data is identical — the difference is formatting or line endings'
+      : 'no structural difference found');
+    if (at !== -1) {
+      out.push(`first differing character at offset ${at}: `
+        + `${JSON.stringify(current.slice(at, at + 40))} vs ${JSON.stringify(next.slice(at, at + 40))}`);
+    } else {
+      out.push(`same first ${Math.min(current.length, next.length)} characters, then one file ends `
+        + `(committed ${current.length}, generated ${next.length})`);
+    }
+  }
+  return out;
+}
+
 if (process.argv.includes('--check')) {
   /* The drift gate: a change to this generator without a regenerate used to
    * merge silently (AGENTS.md called that out as the one committed artefact
@@ -536,6 +600,14 @@ if (process.argv.includes('--check')) {
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   if (current !== text) {
     console.error('data/properties.json is stale — run: npm run generate-metadata');
+    /* And say WHAT drifted. "Stale" alone is enough when you just edited the
+     * generator, and useless on a machine you cannot reach: the windows-latest
+     * leg added in linter#67 fails this gate on a tree that is byte-identical
+     * to the green ubuntu one, and the message named nothing to go on. A
+     * missing control is a resolveDir miss; a key-order-only difference is a
+     * readdir/walk-order difference. Those want opposite fixes, and this is
+     * what tells them apart from the log. */
+    for (const line of drift(current, text)) console.error(`  ${line}`);
     process.exit(1);
   }
   console.log('data/properties.json is up to date');
