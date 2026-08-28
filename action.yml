@@ -83,16 +83,41 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    # `github.action_path` is not a clean absolute path in every call shape:
+    # `uses: ./` yields one ending in `/.`, and setup-node's cache glob refuses
+    # it outright ("Relative pathing '.' and '..' is not allowed"). hashFiles is
+    # no better - it resolves against the workspace, and for a consumer the
+    # action lives outside it, so the key would quietly hash nothing and every
+    # run would miss the cache it just wrote.
+    #
+    # So the path is resolved once, here, and the lockfile hashed with the
+    # shell. Both caches then key on fixed paths that exist in every shape.
+    # The self-test job that runs this action as `uses: ./` is what found it.
+    - name: Resolve this action's own directory
+      id: whereami
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        dir="$(cd "$ACTION_PATH" && pwd -P)"
+        printf 'dir=%s\n' "$dir" >> "$GITHUB_OUTPUT"
+        printf 'lock=%s\n' "$(sha256sum "$dir/package-lock.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
     # SHA-pinned like every workflow in this repository. A composite action is
     # the surface external repositories run, so a floating major tag here is a
     # third party deciding what executes in THEIR CI.
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: 22
-        # the action installs into its own checkout, so the cache has to be
-        # keyed on THAT lockfile, not on the consumer repository's
-        cache: npm
-        cache-dependency-path: ${{ github.action_path }}/package-lock.json
+
+    # ~/.npm rather than setup-node's `cache:` input: a fixed path needs no
+    # glob, so it cannot break on the call shape the way the input above did.
+    - name: Cache the npm downloads
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm
+        key: abap2ui5lint-npm-${{ runner.os }}-${{ steps.whereami.outputs.lock }}
+        restore-keys: abap2ui5lint-npm-${{ runner.os }}-
 
     # Without this every consumer job re-downloaded Chromium (~150 MB) on every
     # run. Keyed on the action's own lockfile, which pins the playwright
@@ -102,7 +127,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        key: abap2ui5lint-playwright-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', github.action_path)) }}
+        key: abap2ui5lint-playwright-${{ runner.os }}-${{ steps.whereami.outputs.lock }}
 
     # The UI5 runtime is a WORKSPACE of this repository, not a dependency of the
     # linter itself, so `--workspaces=false` is what makes a property-only job
