@@ -50,7 +50,7 @@ import nodeAssert from 'node:assert';
 import { checkAbapSource, checkXmlSource, checkFiles, produced } from './observe.mjs';
 import { prepareAbap } from '../lib/reconstruct.mjs';
 import { elementBoundSlots } from '../lib/index.mjs';
-import { severityOf } from '../lib/findings.mjs';
+import { severityOf, severityRank } from '../lib/findings.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const f = (n) => path.join(FIX, n);
@@ -196,20 +196,42 @@ section('target version (2)', async () => {
     'target version: the same control IS reported when the target reaches its deprecation');
 });
 
-// SAPUI5 vs OpenUI5: the same view is fine on one distribution and broken
-// on the other, because sap.ui.comp simply does not ship with OpenUI5
-const smartSap = await checkFiles([f('smart.clas.abap')], { render: false });
+/* SAPUI5 vs OpenUI5: the same view is fine on one distribution and broken on
+ * the other, because sap.ui.comp simply does not ship with OpenUI5 - so this
+ * rule's severity is decided by the CONFIG, not by the view, and all three
+ * answers have to be distinguishable. Saying "sapui5" is a decision; saying
+ * nothing is the absence of one, and used to be silently read as the first. */
+const smartSap = await checkFiles([f('smart.clas.abap')], { render: false, distribution: 'sapui5' });
 section('distribution', async () => {
   assert(!smartSap[0].findings.some((x) => x.type === 'sapui5-only-control'),
-    'distribution: a SAPUI5-only control is accepted on SAPUI5 (the default)');
+    'distribution: a SAPUI5-only control is accepted on SAPUI5');
 });
 const smartOpen = await checkFiles([f('smart.clas.abap')], { render: false, distribution: 'openui5' });
 section('distribution (2)', async () => {
-  assert(smartOpen[0].findings.some(
-    (x) => x.type === 'sapui5-only-control' && x.library === 'sap.ui.comp'),
+  const found = smartOpen[0].findings.find((x) => x.type === 'sapui5-only-control');
+  assert(found && found.library === 'sap.ui.comp',
     'distribution: the same control is reported on OpenUI5');
+  assert(found.severity === 'error',
+    `distribution: an ERROR where the config says the library is not there (got ${found?.severity})`);
   assert(!smartOpen[0].findings.some((x) => x.type === 'unknown-control'),
     'distribution: a SAPUI5-only control is never mistaken for a typo');
+});
+const smartUnset = await checkFiles([f('smart.clas.abap')], { render: false });
+section('distribution (3)', async () => {
+  const found = smartUnset[0].findings.find((x) => x.type === 'sapui5-only-control');
+  assert(found, 'distribution: with no distribution configured the control is still reported');
+  assert(found.severity === 'hint',
+    `distribution: a HINT when nobody said which distribution this runs on (got ${found?.severity})`);
+  assert(/no "distribution" is configured/.test(found.message),
+    `distribution: the hint says WHY it is one, and what to write (got ${found?.message})`);
+  // and it is advisory: the default failOn is `warning`, so an unconfigured
+  // repo learns about its SmartTable without its build turning red for it
+  assert(severityRank(found.severity) < severityRank('warning'),
+    'distribution: the unconfigured answer does not fail a default run');
+  const over = await checkFiles([f('smart.clas.abap')],
+    { render: false, rules: { 'sapui5-only-control': 'error' } });
+  assert(over[0].findings.find((x) => x.type === 'sapui5-only-control').severity === 'error',
+    'distribution: a rules override still beats the distribution-derived severity');
 });
 
 // abap2UI5-specific defects: silent at runtime, invisible to UI5 tooling
@@ -957,10 +979,15 @@ section('config', async () => {
     fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(sub, 'good.clas.abap'));
     const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' }; // never inherit the runner's
     const out = cp.execFileSync('node', [CLI, path.join(sub, 'good.clas.abap')], { encoding: 'utf8', env });
-    assert(/target SAPUI5 1\.96/.test(out) && /failing on hint/.test(out),
-      'config: cli applies ui5/failOn from the discovered abap2ui5lint.jsonc');
+    /* The context line names the DISTRIBUTION the run assumed, and the config
+     * above sets none - "SAPUI5" would be a claim nobody made, and it is the
+     * line a reader checks after a sapui5-only-control hint. */
+    assert(/target UI5 1\.96 \(distribution unset\)/.test(out) && /failing on hint/.test(out),
+      `config: cli applies ui5/failOn from the discovered abap2ui5lint.jsonc (got ${out.split('\n').find((l) => l.includes('target')) || out})`);
     const off = cp.execFileSync('node', [CLI, path.join(sub, 'good.clas.abap'), '--no-config'], { encoding: 'utf8', env });
-    assert(/target SAPUI5 1\.71/.test(off), 'config: --no-config restores the defaults');
+    assert(/target UI5 1\.71 \(distribution unset\)/.test(off), 'config: --no-config restores the defaults');
+    const dist = cp.execFileSync('node', [CLI, path.join(sub, 'good.clas.abap'), '--no-config', '--distribution', 'sapui5'], { encoding: 'utf8', env });
+    assert(/target SAPUI5 1\.71/.test(dist), 'config: a configured distribution is named as itself');
 
     // the .json spelling is discovered too (abaplint.json / abaplint.jsonc)
     const plain = path.join(dir, 'plain');
@@ -1400,6 +1427,57 @@ section('display-root-mismatch', async () => {
     assert(act('client->follow_up_action( val = client->cs_event-set_size_limit t_arg = VALUE #( ( `200` ) ( `SIDEBAR` ) ) ).')
       .some((x) => x.type === 'unknown-view-slot' && x.value === 'SIDEBAR'),
       'unknown-view-slot: SET_SIZE_LIMIT\'s view key is judged too');
+
+    /* literal-view-slot: the same wire one keystroke EARLIER. A correct
+     * literal is not an error and is not nothing either - it is the spelling
+     * the compiler cannot check, and `NESTED` above is what happens next. */
+    {
+      const litSrc = `
+      DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+      v->tag( \`Table\` )->a( n = \`id\` v = \`tbl\` ).
+      client->follow_up_action( val = client->cs_event-control_by_id view = \`NEST\` t_arg = VALUE #( ( \`tbl\` ) ( \`focus\` ) ) ).
+      client->view_display( v->stringify( ) ).`;
+      const lit = checkAbapRules(litSrc);
+      const slot = lit.find((x) => x.type === 'literal-view-slot');
+      assert(slot && slot.value === 'NEST',
+        `literal-view-slot: a correct slot written as a literal is reported (got ${lit.map((x) => x.type).join(', ') || 'nothing'})`);
+      assert(severityOf(slot) === 'hint',
+        `literal-view-slot: a hint - the wire works, it is only unchecked (got ${severityOf(slot)})`);
+      assert(!lit.some((x) => x.type === 'unknown-view-slot'),
+        'literal-view-slot: a valid slot is never ALSO reported as unknown');
+      // …and the wrong literal stays the error it was, without a second
+      // finding telling its author to write a constant they got wrong anyway
+      assert(!act('client->_event_client( val = client->cs_event-control_by_id view = `NESTED` t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+        .some((x) => x.type === 'literal-view-slot'),
+        'literal-view-slot: an unknown slot is one finding, not two');
+
+      // the fix is the point of the rule: an exact substitution, and what it
+      // produces has to be the CONSTANT for that value - NEST is cs_view-nested
+      const { applyFixes } = await import('../lib/fix.mjs');
+      const fixed = applyFixes(litSrc, lit).output;
+      assert(/view = client->cs_view-nested\b/.test(fixed) && !/view = `NEST`/.test(fixed),
+        `literal-view-slot: --fix writes the constant carrying that value (got ${fixed.split('\n').find((l) => l.includes('control_by_id'))})`);
+      assert(!checkAbapRules(fixed).some((x) => x.type === 'literal-view-slot' || x.type === 'unknown-view-slot'),
+        'literal-view-slot: the fixed source is clean - the fix does not trade one finding for another');
+
+      // both t_arg carriers too: SET_SIZE_LIMIT's view key and the shortcut
+      // scope sit inside a VALUE #( ) row, where the constant is just as valid
+      const sizeLit = act('client->follow_up_action( val = client->cs_event-set_size_limit t_arg = VALUE #( ( `200` ) ( `MAIN` ) ) ).');
+      assert(sizeLit.some((x) => x.type === 'literal-view-slot' && x.value === 'MAIN'),
+        'literal-view-slot: SET_SIZE_LIMIT\'s view key is offered the constant as well');
+      assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `POPUP` ) ) ). client->check_on_event( `SAVE` ).')
+        .some((x) => x.type === 'literal-view-slot' && x.value === 'POPUP'),
+        'literal-view-slot: a shortcut scope that IS a slot is offered it too');
+      // a scope that is a control id stays a control id — only an exact slot
+      // value is judged, so `tbl` is not read as a mis-cased slot
+      assert(!act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+S` ) ( `SAVE` ) ( `tbl` ) ) ). client->check_on_event( `SAVE` ).')
+        .some((x) => x.type === 'literal-view-slot'),
+        'literal-view-slot: a control id used as a scope is not a slot');
+      // the constant form is what the rule ASKS for, so it must never fire on it
+      assert(!act('client->follow_up_action( val = client->cs_event-control_by_id view = client->cs_view-nested t_arg = VALUE #( ( `tbl` ) ( `focus` ) ) ).')
+        .some((x) => x.type === 'literal-view-slot' || x.type === 'unknown-view-slot'),
+        'literal-view-slot: the constant itself is the answer, never the finding');
+    }
 
     assert(act('client->follow_up_action( val = client->cs_event-keyboard_shortcut t_arg = VALUE #( ( `Ctrl+Shift` ) ( `SAVE` ) ) ).')
       .some((x) => x.type === 'invalid-keyboard-shortcut'),
@@ -2334,8 +2412,10 @@ section('frozen view builder', async () => {
     const frozen = found.find((x) => x.type === 'frozen-view-builder');
     assert(frozen && frozen.value === 'z2ui5_cl_xml_view',
       'frozen builder: a class on z2ui5_cl_xml_view is reported, not skipped');
-    assert(frozen.severity === 'error',
-      'frozen builder: an error - the whole view went unchecked, which is worse than any one finding');
+    assert(frozen.severity === 'warning',
+      `frozen builder: a warning - the class compiles and renders today, and breaks on the upgrade the deprecation announces (got ${frozen.severity})`);
+    assert(/DEPRECATED/.test(frozen.message),
+      'frozen builder: the message says the builder is deprecated, which is what the reader has to act on');
     assert(/NOTHING about the view was checked/.test(frozen.message),
       'frozen builder: the message says what was not judged, not just that a name is old');
     assert(frozen.line === 13,
