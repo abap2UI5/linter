@@ -37,6 +37,13 @@
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
  *                      reports what it would change without touching a file.
+ *   --sarif-out <file>  ALSO write the SARIF document to this file, whatever
+ *                      --format prints on stdout. The way to keep the
+ *                      annotated human report in the log and still hand a
+ *                      file to github/codeql-action/upload-sarif, without
+ *                      running the (expensive) render gate a second time
+ *   --json-out <file>  the same for the --json document, e.g. for a later
+ *                      workflow step that wants the counts
  *   --fix-dry-run      the same pass, reporting what it would change and
  *                      writing nothing (the flag form of that env variable)
  *   --baseline <file>  suppress the findings recorded in this file - the way
@@ -131,6 +138,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
@@ -290,6 +298,8 @@ for (let i = 0; i < args.length; i++) {
     opt.failOn = level;
     seen.add('failOn');
   }
+  else if (a === '--sarif-out') opt.sarifOut = value();
+  else if (a === '--json-out') opt.jsonOut = value();
   else if (a === '--verbose') opt.verbose = true;
   else if (a === '--init') {
     /* The documented way to a config was: read the README, copy the block,
@@ -624,6 +634,22 @@ if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportO
 else if (opt.format === 'sarif') console.log(formatSarif(results));
 else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
 else console.log(formatStylish(results, summary, reportOpt));
+
+/* A machine report written BESIDE the human one, in the same run.
+ *
+ * Without this a workflow that wants both - the annotated stylish report in
+ * the log AND a SARIF file for code scanning, or the counts for a later step -
+ * has to run the whole thing twice, and the second run pays the render gate
+ * again. The formatters are pure functions of `results`, so the sidecar costs
+ * a serialization and nothing else. */
+for (const [file, text] of [
+  [opt.sarifOut, () => formatSarif(results)],
+  [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
+]) {
+  if (!file) continue;
+  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+  fs.writeFileSync(file, `${text()}\n`);
+}
 
 emitBadge(summary, stats);
 

@@ -3185,6 +3185,29 @@ ENDCLASS.`;
   assert(!/^::/m.test(run([dumps, '--no-render', '--format', 'markdown'], { GITHUB_ACTIONS: 'true' })),
     'report: markdown stays clean too');
 
+  /* The machine report written BESIDE the human one. Without it a workflow
+   * that wants the annotated log AND a SARIF file for code scanning has to run
+   * the whole gate twice, paying the render half again - which is why the
+   * composite action reads its outputs from --json-out. */
+  {
+    const os = await import('node:os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-out-'));
+    const sarifAt = path.join(dir, 'nested', 'report.sarif');
+    const jsonAt = path.join(dir, 'report.json');
+    const human = run([dumps, '--no-render', '--sarif-out', sarifAt, '--json-out', jsonAt]);
+    assert(/^2 problems /m.test(human),
+      'report: --sarif-out leaves stdout the human report it always was');
+    const sarif = JSON.parse(fs.readFileSync(sarifAt, 'utf8'));
+    assert(sarif.version === '2.1.0' && sarif.runs[0].results.length === 2,
+      `report: --sarif-out writes the SARIF document, creating the directory (${sarif.runs?.[0]?.results?.length})`);
+    const asJson = JSON.parse(fs.readFileSync(jsonAt, 'utf8'));
+    assert(asJson.problems === 2 && asJson.totals.error === 2 && asJson.files === 1,
+      'report: --json-out writes the same document --json prints, counts and all');
+    assert(JSON.parse(run([dumps, '--no-render', '--json'])).problems === asJson.problems,
+      'report: and it is the same document, not a second opinion');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+
   assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
 
@@ -3601,6 +3624,103 @@ ENDCLASS.`;
   // above, which reads the registry rather than a prose table.
 }
 
+
+// ------------------------------------- workflows and the composite action ----
+/* The Action is the surface every EXTERNAL consumer runs, and until it got a
+ * CI job of its own nothing in this repository executed it: a broken `run:`
+ * block shipped green. That job cannot run here, so what the suite pins is the
+ * half that is checkable from the file - the pins, and the promise that every
+ * input the shell reads is an input the action declares.
+ */
+{
+  const ROOT = path.join(FIX, '..', '..');
+  const WF = path.join(ROOT, '.github', 'workflows');
+  const workflows = fs.readdirSync(WF).filter((n) => n.endsWith('.yml'));
+  const action = fs.readFileSync(path.join(ROOT, 'action.yml'), 'utf8');
+
+  /* Every third-party action is pinned by SHA. It was true of the workflows
+   * and NOT of action.yml, which floated on actions/setup-node@v7 - the one
+   * file that runs inside other people's CI. */
+  const floating = [];
+  for (const [name, text] of [['action.yml', action],
+    ...workflows.map((n) => [n, fs.readFileSync(path.join(WF, n), 'utf8')])]) {
+    for (const m of text.matchAll(/^\s*(?:-\s+)?uses:\s*([^\s#]+)/gm)) {
+      const ref = m[1];
+      if (ref.startsWith('./')) continue;            // this repository's own action
+      if (!/@[0-9a-f]{40}$/.test(ref)) floating.push(`${name}: ${ref}`);
+    }
+  }
+  assert(!floating.length,
+    `workflows: every third-party action is pinned by SHA (floating: ${floating.join(', ') || 'none'})`);
+
+  // …and a pinned SHA without the version comment is a pin nobody can read
+  const unlabelled = [];
+  for (const [name, text] of [['action.yml', action],
+    ...workflows.map((n) => [n, fs.readFileSync(path.join(WF, n), 'utf8')])]) {
+    for (const m of text.matchAll(/^\s*(?:-\s+)?uses:\s*[^\s#]+@[0-9a-f]{40}(.*)$/gm)) {
+      if (!/#\s*v?\d/.test(m[1])) unlabelled.push(name);
+    }
+  }
+  assert(!unlabelled.length,
+    `workflows: every SHA pin carries the version it stands for (bare: ${[...new Set(unlabelled)].join(', ') || 'none'})`);
+
+  /* `npm install -g npm@latest` inside the PUBLISHING job hands whatever npm
+   * shipped this morning the run that holds the OIDC identity. */
+  const release = fs.readFileSync(path.join(WF, 'release.yml'), 'utf8');
+  assert(!/npm@latest/.test(release) && /npm install -g npm@\d+\.\d+\.\d+/.test(release),
+    'workflows: the publishing job installs a PINNED npm, not @latest');
+
+  // a superseded push should stop costing runners
+  for (const name of ['ci.yml', 'downstream.yml']) {
+    assert(/^concurrency:/m.test(fs.readFileSync(path.join(WF, name), 'utf8')),
+      `workflows: ${name} has a concurrency group`);
+  }
+
+  /* The action reads its inputs through env only (a `${{ }}` interpolated into
+   * `run:` is a shell injection), and every env binding has to name an input
+   * that exists - a typo there is silently the empty string. */
+  const declared = new Set([...action.matchAll(/^ {2}([a-z][a-z0-9-]*):\n {4}description:/gm)].map((m) => m[1]));
+  const referenced = [...action.matchAll(/\$\{\{\s*inputs(?:\.([a-z0-9-]+)|\['([^']+)'\])\s*\}\}/g)]
+    .map((m) => m[1] ?? m[2]);
+  const undeclaredInputs = [...new Set(referenced)].filter((i) => !declared.has(i));
+  assert(declared.size > 5 && !undeclaredInputs.length,
+    `action: every referenced input is declared (undeclared: ${undeclaredInputs.join(', ') || 'none'})`);
+  /* The shell bodies themselves, extracted by indentation: a `${{ }}` inside
+   * one is a command injection waiting for a crafted input, which is why every
+   * value travels through `env:` instead. `if:` conditions are expressions,
+   * not shell, and are correctly left out. */
+  const shellBodies = [];
+  {
+    const lines = action.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const open = lines[i].match(/^(\s*)run:\s*(.*)$/);
+      if (!open) continue;
+      const indent = open[1].length;
+      // a one-line `run: cmd` is its own body; `run: |` collects what follows
+      if (!/^[|>]/.test(open[2])) { shellBodies.push(open[2]); continue; }
+      const body = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].trim() && (lines[j].match(/^\s*/)[0].length <= indent)) break;
+        body.push(lines[j]);
+      }
+      shellBodies.push(body.join('\n'));
+    }
+  }
+  assert(shellBodies.length >= 3 && !shellBodies.some((b) => b.includes('${{')),
+    `action: inputs reach the shell through env, never interpolated into a run: block (${shellBodies.length} shell bodies checked)`);
+
+  // the outputs a consumer workflow can gate on
+  const outputs = action.slice(action.indexOf('\noutputs:'), action.indexOf('\nruns:'));
+  for (const name of ['problems', 'errors', 'warnings', 'hints', 'files', 'exit-code']) {
+    assert(new RegExp(`^  ${name}:$`, 'm').test(outputs), `action: declares the '${name}' output`);
+  }
+
+  // the badge wording drifts with the rule count, and it is user-visible
+  const { RULES } = await import('../lib/findings.mjs');
+  const quoted = action.match(/check-abap2UI5 \| (\d+) rules passed/);
+  assert(quoted && Number(quoted[1]) === RULES.length,
+    `action: the badge description quotes today's rule count (says ${quoted?.[1]}, registry has ${RULES.length})`);
+}
 
 // ------------------------------------------------------- used-by block ----
 /* The README's "Used by" list is scraped off GitHub's dependents page, which

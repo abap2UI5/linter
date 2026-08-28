@@ -1,7 +1,15 @@
 name: CI
+
+# `pull_request` alone for branches that live in THIS repository: a bare
+# `on: push` plus `on: pull_request` runs every in-repo branch twice, which is
+# two runners for one verdict. Pushes to main still run (that is the one place
+# a merge lands without a pull request), and a fork's pull request is covered
+# by the pull_request half exactly as before.
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # It installs, tests and renders; nothing is written back. Without this block
 # the run gets the repository default, which is read/write in plenty of
@@ -10,14 +18,35 @@ on:
 permissions:
   contents: read
 
+# A superseded push keeps burning runners otherwise, and the render gate is
+# minutes of Chromium per matrix entry. main is deliberately NOT cancelled:
+# its runs are the record of what landed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # engines says >=22, so 22 alone proves the floor and nothing above it.
+    # And ubuntu alone leaves cli.mjs, collectFiles and baselineBase - all of
+    # which do real path work - unexercised on the one platform where a path
+    # separator is not '/'.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [22, 24]
+        include:
+          # one Windows entry, on the floor version: it is the platform check,
+          # not a second version matrix
+          - os: windows-latest
+            node: 22
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       # the Chromium download is the slow half of the install; cache it keyed
@@ -28,6 +57,105 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium --with-deps
+        if: runner.os != 'Windows'
+      - run: npx playwright install chromium
+        if: runner.os == 'Windows'
       # npm test includes the metadata drift gate (generate-metadata --check):
       # ~2s since the extend-scan fix, so it no longer needs its own step
       - run: npm test
+
+  # The composite action is the surface every external consumer runs, and it
+  # was the only shipped surface with no test at all: no workflow used
+  # `uses: ./`, so a broken `run:` block in action.yml shipped green. This job
+  # is that test - the action against this repository's own fixtures, with the
+  # render gate off so it costs seconds rather than a Chromium download.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: lint
+        uses: ./
+        with:
+          paths: test/fixtures
+          render: 'false'
+          # the fixtures carry defects on purpose - the job is testing that the
+          # action RUNS, not that the fixtures are clean
+          fail-on: never
+          sarif: lint.sarif
+      - name: The action reported what it found
+        shell: bash
+        env:
+          PROBLEMS: ${{ steps.lint.outputs.problems }}
+          ERRORS: ${{ steps.lint.outputs.errors }}
+          EXIT: ${{ steps.lint.outputs.exit-code }}
+        run: |
+          echo "problems=$PROBLEMS errors=$ERRORS exit=$EXIT"
+          # the fixtures are the linter's own defect corpus: an action that
+          # reports nothing over them has stopped working, quietly
+          test "$PROBLEMS" -gt 0
+          test "$EXIT" = "0"
+          test -s lint.sarif
+          node -e "JSON.parse(require('fs').readFileSync('lint.sarif','utf8'))"
+
+  # The GitHub App spike imports six symbols out of lib/ and ships no workflow
+  # of its own, so a rename in lib/ used to break it silently. npm test covers
+  # the seam; this runs the end-to-end dry run the README documents.
+  github-app-dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspaces=false
+      - run: node experimental/github-app/dryrun.mjs test/fixtures
+
+  # What a package published with OIDC provenance and consumed by nine repos
+  # owes its consumers: a known-vulnerability check, and proof that the
+  # tarball the release job will build still carries every file the exports
+  # map names. Both are cheap; neither ran anywhere before.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # production only: the render runtime's @openui5 packages are an optional
+      # peer, and an advisory in a devDependency is not a supply-chain risk to
+      # anybody installing this package
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+      - name: The tarball still carries what the exports map names
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "
+            const pack = JSON.parse(require('fs').readFileSync('pack.json','utf8'))[0];
+            const files = new Set(pack.files.map((f) => f.path));
+            const pkg = require('./package.json');
+            const want = Object.values(pkg.exports)
+              .map((v) => (typeof v === 'string' ? v : v.default))
+              .concat(pkg.bin.abap2ui5lint, pkg.types)
+              .map((p) => p.replace(/^\.\//, ''));
+            const missing = want.filter((p) => !files.has(p));
+            if (missing.length) { console.error('not in the tarball: ' + missing.join(', ')); process.exit(1); }
+            console.log(pack.files.length + ' files, ' + Math.round(pack.unpackedSize / 1024) + ' kB unpacked - every exports target present');
+          "
+
+  # Static analysis of the JavaScript this repository publishes. It runs as an
+  # ordinary job rather than on a schedule so a finding arrives with the pull
+  # request that introduced it.
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@a35ac6e6798d72df5475948b28efb89edc2e19ca # v4.37.9
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@a35ac6e6798d72df5475948b28efb89edc2e19ca # v4.37.9
