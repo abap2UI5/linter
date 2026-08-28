@@ -7,7 +7,8 @@ Check out the contribution guidelines [here.](https://abap2ui5.github.io/docs/re
 ```bash
 npm ci
 npx playwright install chromium   # the render gate needs a browser
-npm test                          # test/run.mjs - the whole suite
+npm test                          # node --test test/run.mjs - the whole suite
+node --test-name-pattern=fix test/run.mjs   # just one section, while iterating
 ```
 
 `npm test` also gates the generated artefacts, so run `npm run generate-schema`

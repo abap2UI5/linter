@@ -13,7 +13,9 @@ CLI, library and GitHub Action, no SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, over 700 assertions
+npm test                          # node --test test/run.mjs: node:test, over 700 assertions
+                                  # in ~84 isolated sections. One of them:
+                                  #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
