@@ -103,6 +103,7 @@
     "render-runtime"
   ],
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {

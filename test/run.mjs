@@ -3419,16 +3419,60 @@ ENDCLASS.`;
     && pkg.files.includes('types.d.ts'),
     'typings: the types conditions, the top-level types field and files[] all carry types.d.ts');
 
+  /* Every RUNTIME export of every subpath has a declaration.
+   *
+   * The structural check above only asks whether the module block exists, so
+   * fifteen public symbols - `elementBoundSlots`, the whole opt-in mechanism,
+   * the four render constants cli.mjs itself uses - sat behind a declared
+   * module and were still untypable by a consumer. The vscode-extension job
+   * typechecks against exactly this file, so what is missing here is missing
+   * there. Read the blocks out of the file rather than from tsc: the
+   * declarations are ambient, and nothing else in the repo imports them. */
+  const bodies = {};
+  {
+    const heads = [...dts.matchAll(/declare module "([^"]+)"\s*\{/g)]
+      .map((m) => [m[1], m.index + m[0].length]);
+    heads.forEach(([name, from], i) => {
+      bodies[name] = dts.slice(from, i + 1 < heads.length ? heads[i + 1][1] : dts.length);
+    });
+  }
+  const undeclaredNames = [];
+  for (const [sub, cond] of subpaths) {
+    const mod = sub === '.' ? '@abap2ui5/linter' : `@abap2ui5/linter/${sub.slice(2)}`;
+    const runtime = Object.keys(await import(path.join(ROOT, cond.default)));
+    const declared = new Set(
+      [...(bodies[mod] ?? '').matchAll(/export (?:declare )?(?:function|const|class|interface|type|enum)\s+(\w+)/g)]
+        .map((m) => m[1]),
+    );
+    for (const name of runtime) if (!declared.has(name)) undeclaredNames.push(`${mod}#${name}`);
+  }
+  assert(!undeclaredNames.length,
+    `typings: every runtime export of every subpath is declared (missing: ${undeclaredNames.join(', ') || 'none'})`);
+
   // tsc --noEmit keeps the file syntactically and internally valid. typescript
   // is a devDependency used ONLY for this check - there is still no build step
   const { createRequire } = await import('node:module');
   let tsc = null;
-  try { tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc'); } catch { /* not installed */ }
+  /* Through the package's own `bin` field, NOT by resolving a subpath.
+   * typescript 7 has an `exports` map that does not expose ./bin/tsc, so
+   * `resolve('typescript/bin/tsc')` throws on the version this repo pins -
+   * and the catch below read that as "typescript not installed" and skipped
+   * the gate. A check that reports itself skipped is at least honest; one
+   * that reports itself skipped for the wrong reason is how it stays skipped. */
+  try {
+    const req = createRequire(import.meta.url);
+    const manifest = req.resolve('typescript/package.json');
+    tsc = path.join(path.dirname(manifest), req('typescript/package.json').bin.tsc);
+    if (!fs.existsSync(tsc)) tsc = null;
+  } catch { /* not installed */ }
   if (tsc) {
     let ok = true;
     let msg = '';
     try {
-      cp.execFileSync('node', [tsc, '--noEmit', '--strict', '--target', 'es2022', 'types.d.ts'],
+      // --types node: ScreenshotResult.png is a Buffer, which is a Node global
+      // and not an ambient one. Without it the gate fails on the typings a
+      // consumer (who has @types/node) reads perfectly well.
+      cp.execFileSync('node', [tsc, '--noEmit', '--strict', '--target', 'es2022', '--types', 'node', 'types.d.ts'],
         { cwd: ROOT, encoding: 'utf8' });
     } catch (e) { ok = false; msg = (e.stdout || e.stderr || '').trim().slice(0, 400); }
     assert(ok, `typings: types.d.ts type-checks clean (${msg || 'tsc --noEmit'})`);
