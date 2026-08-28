@@ -2901,6 +2901,37 @@ section('xmlns (6)', async () => {
       .some((x) => x.type.includes('icon')),
       'icon rules: a name in a COMMENT is prose, not a use');
 
+    /*
+     * The icon scan is reachable on its own, through the `./icons` subpath.
+     *
+     * Both entry points call it, so a consumer going through `checkAbapSource`
+     * or `checkXmlSource` never has to - but a consumer that assembles the
+     * pipeline itself does, and could not: `checkIcons` lived in a module the
+     * exports map did not name, and `exports` blocks a deep import. That is
+     * what left the VS Code extension's in-process gate without the icon rules
+     * on its XML path while its ABAP path (which goes through checkAbapRules)
+     * had them - the same file judged differently by the editor and by CI,
+     * which is the divergence that gate exists to close.
+     */
+    {
+      const icons = await import('@abap2ui5/linter/icons');
+      assert(typeof icons.checkIcons === 'function' && typeof icons.loadIcons === 'function',
+        'icons: the ./icons subpath exports checkIcons and loadIcons');
+      const xml = '<mvc:View xmlns="sap.m"><Button icon="sap-icon://nosuchglyph"/></mvc:View>';
+      assert(icons.checkIcons(xml).some((x) => x.type === 'unknown-icon'),
+        'icons: checkIcons judges raw XML text on its own');
+      assert(icons.checkIcons(xml, { minUi5: '1.120' }).some((x) => x.type === 'unknown-icon'),
+        'icons: ...and honours the target release it is given');
+      /* An empty registry reports nothing rather than throwing - the same "no
+       * guessing" the rest of the linter follows, and what a host without a
+       * filesystem falls back to. */
+      const empty = { floor: '1.71', ui5Version: '', since: new Map(), removed: new Map() };
+      assert(icons.checkIcons(xml, { iconData: empty }).length === 0,
+        'icons: an empty registry judges nothing instead of guessing');
+      assert(icons.loadIcons().since.size > 0,
+        'icons: loadIcons reads the committed registry');
+    }
+
     // --- toolbar-only controls in a sap.m.Bar ---------------------------------
     const inBar = (inner, minUi5 = '1.71') => checkAbapSource(view(inner), { minUi5 })
       .findings.filter((x) => x.type === 'toolbar-control-in-bar');
@@ -3764,6 +3795,47 @@ section('typings', async () => {
     }
     assert(!undeclaredNames.length,
       `typings: every runtime export of every subpath is declared (missing: ${undeclaredNames.join(', ') || 'none'})`);
+
+    /*
+     * Every OPTION a function reads, and every KEY a result carries.
+     *
+     * The check above asks whether each exported NAME is declared; a function
+     * can be declared and still lie about what it takes. An option the runtime
+     * reads and types.d.ts omits cannot be passed from TypeScript without a
+     * cast, so a consumer silently does not pass it and the rules behind it
+     * never fire for that consumer while CI reports them - `checkNodes` alone
+     * had four such options, and the VS Code extension's in-process gate ran
+     * five rules fewer than the CLI because of them.
+     *
+     * The names are read out of the signatures and the result keys out of a
+     * real call, so neither side can be guessed at.
+     */
+    const optionsOf = (file, fn) => {
+      const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+      const sig = new RegExp(`export function ${fn}\\([^)]*?\\{([^}]*)\\}`).exec(src);
+      if (!sig) return [];
+      // the NAME of each destructured entry, never the default value after `=`
+      return sig[1].split(',').map((part) => /^\s*(\w+)/.exec(part)?.[1]).filter(Boolean);
+    };
+    for (const [file, fn, mod] of [
+      ['lib/properties.mjs', 'checkNodes', '@abap2ui5/linter/properties'],
+      ['lib/abap-rules.mjs', 'checkAbapRules', '@abap2ui5/linter/abap-rules'],
+    ]) {
+      const declared = bodies[mod] ?? '';
+      const opts = optionsOf(file, fn);
+      const missing = opts.filter((name) => !new RegExp(`\\b${name}\\??:`).test(declared));
+      assert(opts.length > 3 && !missing.length,
+        `typings: ${fn} declares every option it reads (missing: ${missing.join(', ') || 'none'})`);
+    }
+    {
+      const { prepareAbap } = await import('../lib/reconstruct.mjs');
+      const prepared = prepareAbap(fs.readFileSync(path.join(FIX, 'good.clas.abap'), 'utf8'));
+      const declared = bodies['@abap2ui5/linter/reconstruct'] ?? '';
+      const missing = Object.keys(prepared)
+        .filter((key) => !new RegExp(`\\b${key}\\??:`).test(declared));
+      assert(Object.keys(prepared).length > 5 && !missing.length,
+        `typings: PreparedAbap declares every key prepareAbap returns (missing: ${missing.join(', ') || 'none'})`);
+    }
 
     // tsc --noEmit keeps the file syntactically and internally valid. typescript
     // is a devDependency used ONLY for this check - there is still no build step
