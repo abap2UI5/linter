@@ -172,6 +172,11 @@ declare module "@abap2ui5/linter/reconstruct" {
      *  offsets are valid offsets into the original source (scrub( ) is
      *  offset-preserving). Absent on parseXml( ) nodes. */
     offset?: number;
+    /** Which view SLOT this document is displayed into, when its statement
+     *  named a consumer (`view_display`, `popup_display`, …). Absent when no
+     *  consumer was in the same statement - a caller comparing it against
+     *  `elementBoundSlots` treats that as "any slot". Set on the ROOT node. */
+    displaySlot?: string;
   }
 
   export interface PreparedAbap {
@@ -456,6 +461,23 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  Returns null when a registration is non-literal — then nothing may be
    *  judged about model names at all. */
   export function namedModels(source: string): Set<string> | null;
+
+  /**
+   * Which view SLOTS the class element-binds at runtime
+   * (`cs_event-bind_element`), so a relative path in a document displayed
+   * into one of them HAS a context no static walk can see.
+   *
+   * `all` is the honest half: a wire whose slot is not a literal could bind
+   * any of them, and a wrong second guess is worse than silence.
+   *
+   * Re-exported here as well as from the package entry point: this is the
+   * subpath a consumer assembling the pipeline can import without pulling the
+   * renderer - and `http`/`os`/`module` with it - into a browser bundle.
+   */
+  export function elementBoundSlots(source: string): {
+    slots: Set<string>;
+    all: boolean;
+  };
 
   export function checkAbapRules(
     source: string,

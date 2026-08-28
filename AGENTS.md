@@ -1039,6 +1039,19 @@ same way — the typings gate in `npm test` then requires a `declare module`
 block for it, and `downstream.yml`'s extension typecheck proves the shape
 against a real consumer.
 
+**Reachable means reachable from a BROWSER bundle, not just importable.**
+`lib/index.mjs` imports `render.mjs`, which imports `http`, `os` and
+`module` at load time. Anything only that entry point exports is therefore
+unreachable for the VS Code extension's web build: esbuild cannot resolve
+those for `platform: browser` and the build fails outright. That is how
+`elementBoundSlots` — which `checkAbapSource` uses to decide `boundElement`,
+and which SUPPRESSES the relative-binding findings — came to be unreachable,
+leaving a consumer stricter than the CLI and reporting a false positive it
+had no way to avoid. It lives in `lib/abap-source.mjs` now and is re-exported
+from `./abap-rules` (which no renderer hangs off) as well as from the entry
+point. A helper a consumer needs belongs in a leaf module; a test asserts
+that neither of those two reaches `render.mjs` or `index.mjs`.
+
 ## The downstream contract — `.github/workflows/downstream.yml`
 
 `npm test` only ever proves this linter against its own fixtures. The
