@@ -3585,6 +3585,14 @@ ENDCLASS.`;
    * from two sides: a key only the loader knows is a red squiggle over a
    * working config, a key only the schema knows is completion for something
    * that then fails loudly. */
+  /* A `$id` on `main` is the very skew --init exists to solve: an editor
+   * validating a pinned CLI's config against whatever rules main holds, so a
+   * rule id the installed version does not have completes cleanly and then
+   * fails loudly on the command line. */
+  const pkgVersion = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8')).version;
+  assert(schema.$id === `https://raw.githubusercontent.com/abap2UI5/linter/v${pkgVersion}/data/abap2ui5lint.schema.json`,
+    `schema: the $id names a version, not a branch (${schema.$id})`);
+
   const { KNOWN } = await import('../lib/config.mjs');
   const offered = new Set(Object.keys(schema.properties));
   const missing = [...KNOWN].filter((k) => !offered.has(k));
@@ -3622,6 +3630,29 @@ ENDCLASS.`;
     'rules page: every rule has an anchor to link to');
   assert(!/<script src|<link rel="stylesheet"|https?:\/\/(?!github\.com|abap2ui5)/.test(page),
     'rules page: self-contained - no external stylesheet, script or font');
+
+  /* The page is served from main and every consumer pins, so without a stamp a
+   * reader cannot tell which release it describes - a card for a rule their CLI
+   * does not have reads exactly like a card for one it does. */
+  const pkgVersion = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8')).version;
+  assert(page.includes(`<strong>v${pkgVersion}</strong>`),
+    `rules page: the page stamps the version it was generated from (v${pkgVersion})`);
+  const snapshotVer = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8')).ui5Version;
+  assert(page.includes(`OpenUI5 ${snapshotVer} metadata`),
+    `rules page: …and the metadata snapshot it was generated against (${snapshotVer})`);
+
+  /* Two numbers for one tool: the page counted RULES + render-error while
+   * --badge counts RULES, so the same run advertised 94 and 93. The page names
+   * both now, and says why they differ. */
+  assert(page.includes(`Filter ${RULES.length} rules + ${RENDER_RULE}`),
+    `rules page: the filter counts the configurable rules and names the pseudo-rule separately (${RULES.length})`);
+  assert(page.includes(`“${RULES.length} rules passed”`) && page.includes(`${pageRules.length} cards`),
+    'rules page: the footer reconciles its card count with what --badge says');
+
+  // the footer used to send the reader to the README for "metadata snapshot
+  // and gate details", which the README stopped carrying
+  assert(!/README<\/a>\.\s*<\/footer>/.test(page) && page.includes('abap2ui5.github.io/docs/advanced/linter.html'),
+    'rules page: the footer points at documentation that still exists');
 
   // There was a fifth gate here, over the README's hand-written finding
   // tables. It is gone with the tables: the rule reference is RULE_DOCS and

@@ -4,9 +4,13 @@
  *
  * abaplint's config gets editor completion because a JSON schema describes
  * it; ours is generated so the rule list in the schema can never drift from
- * the rule list in lib/findings.mjs. A repo points at it with
+ * the rule list in lib/findings.mjs. The way a repo should point at it is the
+ * INSTALLED copy, which is what `npx abap2ui5lint --init` writes:
  *
- *   { "$schema": "https://raw.githubusercontent.com/abap2UI5/linter/main/data/abap2ui5lint.schema.json" }
+ *   { "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json" }
+ *
+ * A URL works too, but pick a versioned one - `main` gives the editor rules the
+ * pinned CLI does not have. The `$id` below is versioned for the same reason.
  *
  *   node scripts/generate-schema.mjs           write the file
  *   node scripts/generate-schema.mjs --check   exit 1 if the committed file
@@ -20,6 +24,7 @@ import { BADGE_KINDS } from '../lib/report.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SCHEMA_FILE = path.join(ROOT, 'data', 'abap2ui5lint.schema.json');
+export const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 
 const severity = { enum: [...SEVERITIES] };
 
@@ -39,7 +44,13 @@ export function buildSchema() {
   };
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    $id: 'https://raw.githubusercontent.com/abap2UI5/linter/main/data/abap2ui5lint.schema.json',
+    /* Versioned, not `main`. A `$id` on the moving branch recreates exactly the
+     * skew `--init` exists to solve: an editor validating a pinned CLI's config
+     * against whatever rules main happens to hold, so a rule id the installed
+     * version does not have completes cleanly and then fails loudly on the
+     * command line. The tag is pushed by the release workflow, so this URL is
+     * resolvable for every published version and never moves under a reader. */
+    $id: `https://raw.githubusercontent.com/abap2UI5/linter/v${VERSION}/data/abap2ui5lint.schema.json`,
     title: 'abap2ui5lint.jsonc',
     description: 'Configuration for abap2UI5 linter (https://github.com/abap2UI5/linter)',
     type: 'object',

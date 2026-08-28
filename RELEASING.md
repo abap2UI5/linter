@@ -77,6 +77,15 @@ npm run sync-peer-range
 #     pins, so a half-moved release makes the two gates judge the same
 #     control differently.
 
+# 1d. Two generated artefacts carry the version, so they follow the bump:
+#     data/abap2ui5lint.schema.json ($id names the tag, never main - an editor
+#     must not validate a pinned config against rules main happens to hold)
+#     and site/index.html (the page follows main while every consumer pins, so
+#     it stamps the release it was generated from).
+npm run generate-schema && npm run generate-rules-page
+#     `npm test` fails while either is stale, so this cannot be forgotten -
+#     but running it here keeps the release commit a single coherent diff.
+
 # 2. Rename the CHANGELOG.md "Unreleased" heading to the new version, then
 git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
 git push --follow-tags && git push origin vX.Y.Z
