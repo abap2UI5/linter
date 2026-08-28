@@ -548,6 +548,98 @@ assert(childOf('  )->ele( `Table` )->ele( `columns` )->tag( `Button` )')
 assert(!childOf('  )->ele( `Table` )->ele( `columns` )->tag( `Column` )').length,
   'aggregation child: the type the aggregation declares is accepted');
 
+/* ------------------------------------------------ negative counter-cases ----
+ *
+ * The doctrine is a fixture proving a rule sees its own defect AND leaves the
+ * neighbouring legal form alone, and eight rules had only the first half. A
+ * rule asserted in one direction can be a rule that fires on everything: the
+ * positive case passes either way, and the corpus is where that gets found
+ * out - late, on somebody else's repository.
+ *
+ * Each pair below is the same view twice, defective and correct, differing in
+ * the one thing the rule is about.
+ */
+{
+  const only = (src, type) => checkAbapSource(src, { render: false })
+    .findings.filter((x) => x.type === type);
+  const sees = (inner, type) => only(view(inner), type).length > 0;
+  const quiet = (inner, type) => only(view(inner), type).length === 0;
+
+  // too-many-children: a 0..1 aggregation given two. The second silently
+  // replaces the first at runtime.
+  assert(sees('  )->ele( `Page` )->ele( `customHeader` )->tag( `Bar` )->tag( `Bar` )', 'too-many-children'),
+    'too-many-children: two children in a 0..1 aggregation are reported');
+  assert(quiet('  )->ele( `Page` )->ele( `customHeader` )->tag( `Bar` )', 'too-many-children'),
+    'too-many-children: …and one is not');
+  assert(quiet('  )->ele( `Page` )->ele( `content` )->tag( `Button` )->tag( `Button` )', 'too-many-children'),
+    'too-many-children: a 0..n aggregation takes as many as it likes');
+
+  // excess-shut: end( ) past the root - the builder ASSERTs, so the app dumps.
+  assert(sees('  )->ele( `Page` )->tag( `Button` )->end( )->end( )->end( )->end( )', 'excess-shut'),
+    'excess-shut: closing past the root is reported');
+  assert(quiet('  )->ele( `Page` )->tag( `Button` )->end( )->end( )', 'excess-shut'),
+    'excess-shut: …and a chain that closes exactly what it opened is not');
+
+  // duplicate-aggregation: the same aggregation opened twice under ONE control.
+  assert(sees('  )->ele( `Page` )->ele( `content` )->tag( `Button` )->end( )->ele( `content` )->tag( `Text` )', 'duplicate-aggregation'),
+    'duplicate-aggregation: one control opening the same aggregation twice is reported');
+  assert(quiet('  )->ele( `Page` )->ele( `content` )->tag( `Button` )->end( )->ele( `footer` )->tag( `Bar` )', 'duplicate-aggregation'),
+    'duplicate-aggregation: …and two DIFFERENT aggregations are not');
+  assert(quiet('  )->ele( `Page` )->ele( `content` )->ele( `Panel` )->ele( `content` )->tag( `Button` )', 'duplicate-aggregation'),
+    'duplicate-aggregation: …nor the same aggregation name on a NESTED control - it belongs to its own parent');
+
+  // attribute-without-element: a( ) with nothing to attach it to. dumps.clas
+  // carries the positive; this is the legal form beside it.
+  assert(quiet('  )->ele( `Page` )->a( n = `title` v = `Hi` )', 'attribute-without-element'),
+    'attribute-without-element: an attribute on an element that exists is not reported');
+
+  // binding-for-event / event-for-property: two halves of one matrix - a
+  // binding written into an event slot, and a handler written into a property.
+  assert(sees('  )->ele( `Page` )->tag( `Button` )->a( n = `press` v = `{/NAME}` )', 'binding-for-event'),
+    'binding-for-event: a {binding} on an event slot is reported');
+  assert(quiet('  )->ele( `Page` )->tag( `Button` )->a( n = `text` v = `{/NAME}` )', 'binding-for-event'),
+    'binding-for-event: …and the identical binding on a PROPERTY is not');
+  assert(sees('  )->ele( `Page` )->tag( `Button` )->a( n = `tooltip` v = client->_event( `GO` ) )', 'event-for-property'),
+    'event-for-property: a handler written into a property slot is reported');
+  assert(quiet('  )->ele( `Page` )->tag( `Button` )->a( n = `press` v = client->_event( `GO` ) )', 'event-for-property'),
+    'event-for-property: …and the identical handler on the EVENT is not');
+
+  // json-literal-in-attribute: UI5 reads a leading { as a binding, so a raw
+  // JSON object never reaches the property.
+  assert(sees('  )->ele( `Page` )->tag( `Button` )->a( n = `text` v = `{"a":1}` )', 'json-literal-in-attribute'),
+    'json-literal-in-attribute: a raw JSON object in an attribute is reported');
+  assert(quiet('  )->ele( `Page` )->tag( `Button` )->a( n = `text` v = `{/NAME}` )', 'json-literal-in-attribute'),
+    'json-literal-in-attribute: …and an ordinary binding, the shape it has to tell apart, is not');
+
+  /* collection-bound-to-property needs the CLASS, not just the chain: the rule
+   * asks the derived model whether the bound name is a table, so a bare view
+   * would leave it silent for the wrong reason. */
+  const bound = (member, name) => `CLASS zcl_neg DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA name TYPE string.
+    DATA tab TYPE STANDARD TABLE OF string WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_neg IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( \`Page\`
+          )->ele( \`Table\`
+            )->a( n = \`${member}\` v = client->_bind( ${name} ) ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+  assert(only(bound('headerText', 'tab'), 'collection-bound-to-property').length === 1,
+    'collection-bound-to-property: a table bound to a scalar property is reported');
+  assert(only(bound('headerText', 'name'), 'collection-bound-to-property').length === 0,
+    'collection-bound-to-property: …and a scalar bound to the same property is not');
+  assert(only(bound('items', 'tab'), 'collection-bound-to-property').length === 0,
+    'collection-bound-to-property: …nor the same table bound to the AGGREGATION it belongs in');
+}
+
 // levels left open at stringify( ) are harmless (render( ) closes the tree) -
 // a note for --verbose, never a finding
 {
