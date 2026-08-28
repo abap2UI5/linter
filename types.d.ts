@@ -639,6 +639,12 @@ declare module "@abap2ui5/linter/config" {
    *  bad input - an unknown key or rule id fails loudly by design. */
   export function loadConfig(file: string): LintConfig;
 
+  /** The same parse and the same validation, from TEXT rather than from a
+   *  file - for a consumer that fetched `abap2ui5lint.jsonc` over an API and
+   *  still has to reach the verdict the CLI would. `name` only appears in the
+   *  error messages. */
+  export function parseConfig(name: string, text: string): LintConfig;
+
   /** Fills `opt` from the config, never overriding a key in `seen` (the
    *  options the CLI set explicitly). allow lists merge. */
   export function applyConfig<T extends Record<string, unknown>>(

@@ -3667,6 +3667,82 @@ ENDCLASS.`;
 }
 
 
+// --------------------------------------------------- github-app spike ----
+/* experimental/github-app/ imports six symbols out of lib/ and nothing here
+ * used to import IT, so a rename in findings.mjs or report.mjs broke the spike
+ * silently - "documentation that happens to execute" only holds while it still
+ * executes. These assertions are deliberately about the SEAM (the imports
+ * resolve, the payload has the shape GitHub's API requires, the config is read
+ * through the CLI's own loader) and not about the rules, which the rest of the
+ * suite already covers.
+ */
+{
+  const { CHECKABLE, lintSource, toAnnotations, summarize: appSummarize } =
+    await import('../experimental/github-app/review.mjs');
+  const src = fs.readFileSync(f('viewrules.clas.abap'), 'utf8');
+
+  assert(CHECKABLE.test('src/zcl_app.clas.abap') && CHECKABLE.test('src/a.view.xml')
+    && CHECKABLE.test('src/a.fragment.xml') && !CHECKABLE.test('src/a.testclasses.abap'),
+  'github-app: the checkable-file pattern is the abapGit convention the CLI scans by');
+
+  const found = lintSource('src/zcl_app.clas.abap', src);
+  assert(found.length > 0 && found.every((x) => x.type),
+    `github-app: lintSource lints in memory, no checkout (${found.length} findings)`);
+  assert(!lintSource('src/zcl_app.clas.abap', src, { rules: { 'missing-accessibility': false } })
+    .some((x) => x.type === 'missing-accessibility'),
+  'github-app: the repo\'s rules block reaches the in-memory gate');
+
+  const ann = toAnnotations('src/zcl_app.clas.abap', found);
+  assert(ann.length === found.length && ann.every((a) => a.path === 'src/zcl_app.clas.abap'
+    && Number.isInteger(a.start_line) && a.start_line >= 1 && a.start_line === a.end_line
+    && ['failure', 'warning', 'notice'].includes(a.annotation_level)
+    && a.message && a.title.length <= 255),
+  'github-app: every annotation carries the fields the check-runs API requires');
+  // the order is problemsOf's order, which is the order the CLI prints in
+  const lines = ann.map((a) => a.start_line);
+  assert(lines.every((l, i) => i === 0 || lines[i - 1] <= l),
+    'github-app: annotations come out in source order, like the CLI report');
+
+  const clean = appSummarize([], []);
+  assert(clean.conclusion === 'neutral' && /nothing to check/.test(clean.title),
+    'github-app: a pull request touching no view is neutral, not green');
+  assert(appSummarize(['a.clas.abap'], []).conclusion === 'success',
+    'github-app: no findings is a pass');
+  const failed = appSummarize(['a.clas.abap'], found, 'warning');
+  assert(failed.conclusion === 'failure' && /which is what fails this check/.test(failed.summary),
+    `github-app: findings at or above failOn fail the check (${failed.conclusion})`);
+  assert(appSummarize(['a.clas.abap'], found, 'never').conclusion === 'success',
+    'github-app: failOn decides the conclusion, the same knob the CLI has');
+
+  /* configAt used to run JSON.parse(stripJsonc(raw)) itself, so a key that
+   * stops the CLI dead was silently ignored by the App - which contradicts its
+   * one promise. It goes through the CLI's own validator now. */
+  const { parseConfig } = await import('../lib/config.mjs');
+  let cfgThrew = '';
+  try { parseConfig('abap2ui5lint.jsonc', '{"tpyo": 1}'); } catch (e) { cfgThrew = e.message; }
+  assert(/unknown key 'tpyo'/.test(cfgThrew),
+    'github-app: the config text the App fetches is validated exactly as the CLI validates the file');
+  let ruleThrew = '';
+  try { parseConfig('abap2ui5lint.jsonc', '{"rules": {"no-such-rule": false}}'); } catch (e) { ruleThrew = e.message; }
+  assert(/unknown rule 'no-such-rule'/.test(ruleThrew),
+    'github-app: and an unknown rule id fails there too');
+  assert(parseConfig('c', '{"ui5": "1.96", // a comment\n}').minUi5 === '1.96',
+    'github-app: parseConfig still reads jsonc - comments and trailing commas');
+
+  // the dry run is the only end-to-end path testable without registering an
+  // App, and ci.yml runs it too
+  {
+    const cp = await import('node:child_process');
+    const out = cp.execFileSync('node',
+      [path.join(FIX, '..', '..', 'experimental', 'github-app', 'dryrun.mjs'), FIX, '--json'],
+      { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    const payload = JSON.parse(out);
+    assert(payload.name === 'abap2UI5-linter (property gate)' && payload.status === 'completed'
+      && payload.output.annotations.length > 0 && payload.output.annotations.length <= 50,
+    `github-app: dryrun prints a postable check-run payload, first batch capped at 50 (${payload.output.annotations.length})`);
+  }
+}
+
 // -------------------------------------------------------- robustness ----
 /* The VS Code extension checks LIVE while the user types, so half-written
  * source is a normal input, not an edge case - and a throw there kills the
