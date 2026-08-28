@@ -29,12 +29,21 @@
  *   --fail-on <level>  lowest severity that fails the build: error, warning
  *                      (default), hint, or never. Every finding is always
  *                      reported - this only decides the exit code.
- *   --format <f>       stylish (default), json or markdown. --json is a
- *                      shorthand for --format json.
+ *   --format <f>       stylish (default), json, markdown or sarif. --json is a
+ *                      shorthand for --format json. sarif is the shape
+ *                      github/codeql-action/upload-sarif ingests, so findings
+ *                      land in the repository's code-scanning tab.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
  *                      reports what it would change without touching a file.
+ *   --fix-dry-run      the same pass, reporting what it would change and
+ *                      writing nothing (the flag form of that env variable)
+ *   --baseline <file>  suppress the findings recorded in this file - the way
+ *                      to adopt the linter on a codebase that already exists.
+ *                      A NEW finding still fails; a recorded one that no
+ *                      longer occurs fails too, as a stale entry
+ *   --update-baseline  write/refresh that file from this run and exit 0
  *   --quiet            report errors only - the counts still show everything,
  *                      and the run summary and progress go quiet too
  *   --stats            print the run summary: what was checked (files, views,
@@ -43,7 +52,8 @@
  *                      for more than one file, --no-stats switches it off
  *   --progress         report the gates while they run, on stderr (stdout stays
  *                      pipeable). Default: on a terminal and inside GitHub
- *                      Actions, where it becomes one collapsed log group
+ *                      Actions, where it becomes one collapsed log group;
+ *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
  *                      83 rules passed" green, "7 errors" red)
@@ -94,7 +104,11 @@
  *                      directory and from each given path (eslint-style).
  *                      Precedence: explicit CLI flag > config file > default.
  *   --no-config        ignore any config file
+ *   --init             write a commented abap2ui5lint.jsonc into the current
+ *                      directory, with $schema resolved against the version
+ *                      actually installed, and exit
  *   --version, -v      print version and script location
+ *   --help, -h         print this text
  *
  * A single line can waive a rule where it stands, ui5lint-style:
  *   " abap2ui5lint-disable-next-line unknown-binding-path -- filled in a LOOP
@@ -122,12 +136,32 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] '
-  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version]';
+  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
 
 const die = (message) => {
   console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
 };
+
+/*
+ * `--help` prints the header block of this file.
+ *
+ * It was the one-line USAGE string above - 800 characters of bracketed flag
+ * names on a single line - while the man page describing every one of them sat
+ * at the top of this file and was never printed anywhere. Both peers this tool
+ * is modelled on (ui5lint, abaplint) print structured help, and the structured
+ * help already existed here.
+ *
+ * Reading the source rather than duplicating it is the point: a second copy of
+ * the option list is a third place to forget, and this file has already been
+ * the place that drifted. USAGE stays as the one-line reminder a bad flag gets.
+ */
+function helpText() {
+  const self = fileURLToPath(import.meta.url);
+  const block = fs.readFileSync(self, 'utf8').match(/^#![^\n]*\n\/\*\n([\s\S]*?)\n \*\//);
+  if (!block) return USAGE; // a stripped/bundled copy still answers --help
+  return block[1].split('\n').map((l) => l.replace(/^ \* ?/, '').replace(/^ \*$/, '')).join('\n');
+}
 
 /* The two value flags whose wrong value would otherwise be SILENT. Both name
  * a closed set the run is judged against, and a value outside it does not
@@ -324,7 +358,7 @@ for (let i = 0; i < args.length; i++) {
     process.exit(0);
   }
   else if (a === '--help' || a === '-h') {
-    console.log(USAGE);
+    console.log(helpText());
     process.exit(0);
   } else if (a.startsWith('-')) die(`unknown option '${a}'\n${USAGE}`);
   else paths.push(a);

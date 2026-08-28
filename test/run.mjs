@@ -3188,6 +3188,33 @@ ENDCLASS.`;
   assert(/^abap2ui5lint \d+\.\d+\.\d+ \(.*cli\.mjs\)$/m.test(run(['--version'])),
     'report: --version prints version and script location');
 
+  /* --help prints the man page, and the man page documents every flag.
+   *
+   * It used to print the 800-character single-line USAGE while the structured
+   * 100-line header sat unread at the top of cli.mjs - and because nothing
+   * compared the two, the header had gone stale: no --baseline, no --init, no
+   * --help, and --format still offering three of the four formats. The two
+   * lists are gated against each other now, in both directions. */
+  const help = run(['--help']);
+  assert(help.split('\n').length > 40 && /^Options:$/m.test(help) && /^Gates:$/m.test(help),
+    `report: --help prints the structured man page, not the one-line usage (${help.split('\n').length} lines)`);
+  let usage = '';
+  try { cp.execFileSync('node', [CLI, '--nope'], { encoding: 'utf8' }); }
+  catch (e) { usage = e.stderr ?? ''; }
+  assert(/^abap2ui5lint: unknown option '--nope'/.test(usage) && /\[paths\.\.\.\]/.test(usage),
+    'report: a bad flag still gets the one-line usage reminder');
+  const flagsIn = (text) => new Set([...text.matchAll(/--[a-z][a-z0-9-]+/g)].map((m) => m[0]));
+  const inUsage = [...flagsIn(usage)].filter((x) => x !== '--nope');
+  const undocumented = inUsage.filter((flag) => !help.includes(flag));
+  assert(!undocumented.length,
+    `report: every flag the usage line offers is documented in --help (missing: ${undocumented.join(', ') || 'none'})`);
+  // …and the other way: a flag the header describes and the usage line forgot
+  const NOT_IN_USAGE = new Set(['--min-ui5', '--openui5', '--json', '--no-config', '--fix-dry-run']);
+  const missingFromUsage = [...flagsIn(help)]
+    .filter((flag) => !usage.includes(flag) && !NOT_IN_USAGE.has(flag));
+  assert(!missingFromUsage.length,
+    `report: every documented flag is offered by the usage line too (missing: ${missingFromUsage.join(', ') || 'none'})`);
+
   // --init: the config a new project starts from. It has to parse with the
   // linter's OWN loader (it is jsonc with comments), point $schema at the
   // installed copy rather than at main, and refuse to overwrite.
