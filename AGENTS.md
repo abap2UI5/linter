@@ -13,7 +13,7 @@ CLI, library and GitHub Action, no SAP system required.
 ```bash
 npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
-npm test                          # test/run.mjs, home-grown asserts, ~370 assertions
+npm test                          # test/run.mjs, home-grown asserts, over 700 assertions
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
@@ -81,9 +81,9 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (with `--distribution openui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url` |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the one **opt-in** rule (`OPT_IN` in `lib/findings.mjs`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and would defer any other rule's fix inside it to a second `--fix` pass |
-| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half), `source-line-too-long` |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `invalid-frontend-action`, `unknown-frontend-action`, `unknown-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `unused-public-attribute`, `view-never-displayed`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `missing-view-display-on-navigated`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `denied-control-method`, `live-event-roundtrip`, `get-viewname-removed`, `raw-javascript-to-frontend` (escape-hatch half), `source-line-too-long`, `control-state-lost-on-rebuild`, `enum-field-unset-on-insert`, `event-arg-js-callback`, `filter-groups-not-arrays`, `trailing-empty-event-arg` |
 | `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors); also the screenshot session behind `--screenshot` — same harness, view kept and photographed, theme LESS compiled on demand |
@@ -746,7 +746,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 468 KB one-line snapshot (`ui5Version` 1.151.0, 988 controls, 219
+The 473 KB one-line snapshot (`ui5Version` 1.151.0, 973 controls, 235
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
@@ -754,8 +754,10 @@ enums) is generated from the installed `@openui5/*` packages (or
 npm run generate-metadata
 ```
 
-Regenerate it **only** when bumping the `@openui5/*` pins in `package.json`
-(or when the generator itself changes shape), and commit both together. The
+Regenerate it **only** when bumping the `@openui5/*` pins — which live in
+**`render-runtime/package.json`**, the workspace, not in the root manifest
+(`RELEASING.md` step 1c is the authority; see the render-runtime section
+below) — or when the generator itself changes shape, and commit both together. The
 drift gate (`generate-metadata --check`) runs **inside `npm test`**: the
 generation dropped from ~3 minutes to ~2 seconds when the unanchored
 `(\w+)\.extend\(` scan — 167 of those 172 seconds — was replaced by a
@@ -776,8 +778,12 @@ a `render` load failure, and **no consumer can excuse those**: they are the
 shape a real typo has. So a stale pin does not under-report, it *mis*-reports,
 and it blocks every consumer building on a control released after it
 (`sap.tnt.SideNavigationSearchField` @1.151 was the case that surfaced this).
-Bumping is one PR: the pins, `npm install`, `npm run generate-metadata`, and
-the snapshot header numbers above.
+Bumping is one PR: the pins in `render-runtime/package.json`, `npm install`,
+`npm run generate-metadata`, `npm run generate-icons` (needs network — the
+icon snapshot is generated at the same release and `npm test` pairs the two),
+and the snapshot header numbers above. A Dependabot bump does this to itself:
+`.github/workflows/dependabot-openui5.yml` regenerates both files onto the
+branch, because the pins and the data are one change.
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
@@ -801,6 +807,53 @@ in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
 two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
 frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
+
+## `@abap2ui5/render-runtime` — the second package, and why it exists
+
+Two packages come out of this repository, from one tag:
+
+| Package | What it is |
+| --- | --- |
+| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~240 kB |
+| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`render-runtime/` — an npm **workspace** of this repo) |
+
+**The split is not tidiness, it is the advertised install.** The README's first
+line is `npx @abap2ui5/linter src`, and the whole promise of it is that it is
+fast. The `@openui5` packages weigh ~118 MB, and npm installs
+`optionalDependencies` **by default** — so while they were declared that way,
+that one line downloaded ~123 MB before it linted anything, and
+`--omit=optional`, the documented way out, is not a flag `npx` accepts. An
+**optional peer** is the one kind npm does not install on its own, which is
+what the render runtime is now (`peerDependenciesMeta.optional`).
+
+What follows from that, and each of these has bitten:
+
+- **The `@openui5/*` pins live in `render-runtime/package.json`**, not in the
+  root manifest — `RELEASING.md` step 1c is the authority. Bumping a UI5
+  release is three files: those pins, `data/properties.json`
+  (`npm run generate-metadata`) and `data/icons.json`
+  (`npm run generate-icons`, needs network). `npm test` fails while they
+  disagree, through the snapshot-pairing assertion.
+- **The peer RANGE is generated** (`npm run sync-peer-range`,
+  `scripts/peer-range.mjs`). It used to be a hand-extended union
+  (`^0.1.0 || ^0.2.0 || …`, one clause per minor) and the step was missed for
+  three releases running. An out-of-range optional peer is an ERESOLVE
+  **error**, not a warning: a stale range forbade exactly the pairing both
+  READMEs tell people to install. Only the FLOOR is a judgement now, and it
+  lives in the script.
+- **A missing runtime is not a silent pass.** A default-on render gate whose
+  runtime is absent steps aside for the property gate and says so on stderr
+  (`renderFallback`); an **asked-for** gate (`--render`, or `"render": true` in
+  the config) keeps the hard refusal. Naming the gate in the config is how a
+  job promises it ran.
+- The composite Action installs the workspace or not, by input:
+  `npm ci --prefix "$ACTION_PATH"` with `render: true`,
+  `--workspaces=false` with `render: false`. That is what makes a
+  property-only job skip the download rather than pay it and then pass
+  `--no-render`.
+- `.github/scripts/substitute-linter.sh` deliberately does **not** copy the
+  runtime into a consumer: it comes from the consumer's own install and stays
+  hoisted at its top level.
 
 ## Release model — merging to main IS a release, except on npm
 

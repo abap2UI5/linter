@@ -3663,6 +3663,80 @@ ENDCLASS.`;
 }
 
 
+// ------------------------------------------------------------- AGENTS.md ----
+/* AGENTS.md was the only ungated document in the repository.
+ *
+ * `npm test` gates the README's dependents block, site/index.html, the JSON
+ * schema, the RULE_DOCS prose and even the builder verbs inside a rule's
+ * example - and nothing looked at the file that calls itself the single source
+ * of truth. It had drifted in every direction a document can: nine rules
+ * missing from the emit-site table, the @openui5 pins located in the wrong
+ * manifest, three counts wrong, and the second published package absent
+ * entirely. The counts are read off the artefacts here rather than trusted.
+ */
+{
+  const ROOT = path.join(FIX, '..', '..');
+  const agents = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8');
+  const { RULES } = await import('../lib/findings.mjs');
+
+  /* Every rule id appears somewhere in it. The emit-site table is what an
+   * agent greps to find where a finding comes from, and a rule missing from it
+   * is a rule that table quietly denies exists. */
+  const absent = RULES.filter((id) => !agents.includes(`\`${id}\``));
+  assert(!absent.length,
+    `AGENTS: every rule id appears in the emit-site taxonomy (missing: ${absent.join(', ') || 'none'})`);
+
+  // …and nothing in the table that is not a rule (a rename leaves the old name
+  // behind, which reads exactly like a rule nobody can find the emit site for)
+  // `render-error` and `open-levels` are real ids the registry deliberately
+  // does not carry; `view-gates` is the consumer's gate script, named in the
+  // same row as the rules it neutralises
+  const KNOWN_NON_RULES = new Set(['render-error', 'frozen-view-builder', 'open-levels', 'chain-house-layout', 'view-gates']);
+  const tableRow = agents.split('\n').filter((l) => l.startsWith('| `lib/'));
+  const named = [...new Set(tableRow.join('\n').match(/`[a-z][a-z0-9-]+`/g) ?? [])]
+    .map((t) => t.slice(1, -1))
+    .filter((t) => t.includes('-') && !t.endsWith('.mjs'));
+  const ghosts = named.filter((t) => !RULES.includes(t) && !KNOWN_NON_RULES.has(t)
+    && !/^(escape|note|opt|per|too|abap2ui5lint)/.test(t));
+  assert(!ghosts.length,
+    `AGENTS: the taxonomy names no rule that does not exist (ghosts: ${ghosts.join(', ') || 'none'})`);
+
+  /* The quoted snapshot numbers, read off the snapshot. They were 988 controls
+   * and 219 enums against an artefact holding 973 and 235 - retyped once and
+   * never again. */
+  const props = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8'));
+  const controls = Object.keys(props.controls).length;
+  const enums = Object.keys(props.enums).length;
+  const kB = Math.round(fs.statSync(path.join(ROOT, 'data', 'properties.json')).size / 1024);
+  const quoted = agents.match(/The (\d+) KB one-line snapshot \(`ui5Version` ([\d.]+), (\d+) controls, (\d+)\s*\n?enums\)/);
+  assert(quoted, 'AGENTS: the snapshot header sentence is where the gate expects it');
+  assert(quoted && Number(quoted[3]) === controls && Number(quoted[4]) === enums,
+    `AGENTS: the quoted control/enum counts match the snapshot (says ${quoted?.[3]}/${quoted?.[4]}, is ${controls}/${enums})`);
+  assert(quoted && quoted[2] === props.ui5Version,
+    `AGENTS: …and the quoted ui5Version (says ${quoted?.[2]}, is ${props.ui5Version})`);
+  assert(quoted && Math.abs(Number(quoted[1]) - kB) <= 5,
+    `AGENTS: …and the file size, to within a rounding (says ${quoted?.[1]} KB, is ${kB} KB)`);
+
+  /* The assertion count, as a FLOOR. An exact number would have to be edited by
+   * every PR that adds one; a floor only fails when assertions are removed,
+   * which is the direction worth catching. */
+  const floorQuoted = agents.match(/over (\d+) assertions/);
+  assert(floorQuoted, 'AGENTS: the build section quotes an assertion floor');
+  // counted from the source rather than at runtime, so the comparison does not
+  // depend on where in the file this assertion happens to sit
+  const assertSites = (fs.readFileSync(path.join(ROOT, 'test', 'run.mjs'), 'utf8').match(/assert\(/g) ?? []).length;
+  assert(floorQuoted && Number(floorQuoted[1]) <= assertSites,
+    `AGENTS: the quoted assertion floor is one this suite still clears (says over ${floorQuoted?.[1]}, has ${assertSites} call sites)`);
+
+  // the second published package, absent from this file entirely until 2026-08
+  assert(/^## `@abap2ui5\/render-runtime`/m.test(agents)
+    && agents.includes('render-runtime/package.json')
+    && agents.includes('optional peer'),
+  'AGENTS: the render runtime - the second package, the peer split, the workspace - has a section');
+  assert(!/pins in `package\.json`/.test(agents),
+    'AGENTS: the @openui5 pins are located in the workspace manifest, where they actually are');
+}
+
 // ------------------------------------- workflows and the composite action ----
 /* The Action is the surface every EXTERNAL consumer runs, and until it got a
  * CI job of its own nothing in this repository executed it: a broken `run:`
