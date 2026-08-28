@@ -479,10 +479,13 @@ if (opt.fix) {
   let files_ = 0;
   let fixed = 0;
   let deferred = 0;
+  let dropped = 0;
+  const droppedIn = [];
   for (const r of await checkFiles(files, { ...opt, render: false })) {
     const source = fs.readFileSync(r.file, 'utf8');
     const result = applyFixes(source, r.findings);
     deferred += result.deferred;
+    if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
     if (!result.applied) continue;
     files_++;
     fixed += result.applied;
@@ -491,6 +494,16 @@ if (opt.fix) {
   if (fixed && opt.format === 'stylish') {
     console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
       `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
+  }
+  /* A dropped span is a defect in a RULE, not in the checked repo, and it is
+   * the one outcome `--fix` used to keep to itself: the finding survives every
+   * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
+   * a piped --json run stays parseable. */
+  if (dropped) {
+    console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
+      + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`
+      + ' This is a linter bug, not a defect in your source - please report it at'
+      + ' https://github.com/abap2UI5/linter/issues');
   }
 }
 

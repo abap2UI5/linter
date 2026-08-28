@@ -25,6 +25,13 @@ import { severityOf } from '../lib/findings.mjs';
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const f = (n) => path.join(FIX, n);
 
+/* Every applyFixes call in this suite - and in every CLI subprocess it spawns
+ * - runs with malformed fix spans as an ERROR rather than as a silent drop.
+ * A rule that computes its offsets against the wrong text (the scrubbed copy,
+ * another document of the same class) otherwise ships a fix that can never be
+ * applied, and the only symptom is a finding that survives every --fix pass. */
+process.env.ABAP2UI5LINT_STRICT_FIXES = 'true';
+
 let failed = 0;
 const assert = (cond, msg) => {
   console.log(`${cond ? 'ok  ' : 'FAIL'}  ${msg}`);
@@ -3098,6 +3105,30 @@ ENDCLASS.`;
   const overlap = applyFixes('abcdef', [{ fixes: [{ start: 1, end: 4, text: 'X' }, { start: 2, end: 5, text: 'Y' }] }]);
   assert(overlap.output === 'aXef' && overlap.applied === 1 && overlap.deferred === 1,
     'fix: overlapping spans are deferred to the next run, never merged by guesswork');
+  assert(overlap.dropped === 0, 'fix: a legitimate pair drops nothing');
+
+  /* A span that does not address this source is a rule computing offsets
+   * against the wrong text, and it used to be counted as neither applied nor
+   * deferred: "fixed 0 problems", the finding surviving every pass, nothing
+   * saying why. It is a third outcome now, and in the suite it throws. */
+  const prevStrict = process.env.ABAP2UI5LINT_STRICT_FIXES;
+  delete process.env.ABAP2UI5LINT_STRICT_FIXES;
+  const bad = applyFixes('abcdef', [{ fixes: [{ start: 2, end: 99, text: 'X' }, { start: 1, end: 2, text: 'Y' }] }]);
+  assert(bad.output === 'aYcdef' && bad.applied === 1 && bad.dropped === 1,
+    `fix: an out-of-range span is counted as dropped, not silently forgotten (${bad.dropped})`);
+  assert(applyFixes('abc', [{ fixes: [{ start: 2, end: 1, text: 'X' }] }]).dropped === 1,
+    'fix: a reversed span is dropped too');
+  assert(applyFixes('abc', [{ fixes: [{ start: 0.5, end: 1, text: 'X' }] }]).dropped === 1,
+    'fix: a non-integer bound is dropped too');
+  process.env.ABAP2UI5LINT_STRICT_FIXES = 'true';
+  let strictThrew = '';
+  try { applyFixes('abcdef', [{ fixes: [{ start: 2, end: 99, text: 'X' }] }]); }
+  catch (e) { strictThrew = e.message; }
+  assert(/do not address this source/.test(strictThrew),
+    `fix: in strict mode a dropped span throws instead of being counted (${strictThrew || 'no throw'})`);
+  // restored, because every OTHER applyFixes call in this suite runs under
+  // strict mode: that is what makes a real rule unable to ship an unusable span
+  process.env.ABAP2UI5LINT_STRICT_FIXES = prevStrict ?? 'true';
 
   fs.rmSync(dir, { recursive: true, force: true });
 }
