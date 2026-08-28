@@ -1,0 +1,26 @@
+# Every change gets a review from the maintainers.
+#
+# The rule registry, the generated data and the published surfaces are called
+# out separately - not because they need a different reviewer, but because a
+# change to one of them is a change to what every consumer sees, and the file
+# list on the pull request is where that is easiest to notice.
+
+*                               @abap2UI5/maintainers
+
+# The rule set: a new id, a changed severity or a reworded message reaches the
+# CLI, the VS Code extension, mcp-server and samples-controls' gate policy.
+/lib/findings.mjs               @abap2UI5/maintainers
+/lib/rule-docs.mjs              @abap2UI5/maintainers
+
+# Generated - never hand-edited. A diff here that is not the output of its
+# generator is the thing to catch.
+/data/                          @abap2UI5/maintainers
+/site/                          @abap2UI5/maintainers
+
+# The published contract: the exports map, the typings, the composite action.
+/package.json                   @abap2UI5/maintainers
+/types.d.ts                     @abap2UI5/maintainers
+/action.yml                     @abap2UI5/maintainers
+
+# CI, the release path and the OIDC publishing identity.
+/.github/                       @abap2UI5/maintainers

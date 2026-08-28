@@ -21,7 +21,11 @@ inputs:
     required: false
     default: 'true'
   badge:
-    description: 'Write the verdict badge ("check-abap2UI5 | 83 rules passed") to this path, e.g. .github/badges/check-abap2ui5.json. Unset: the repo''s abap2ui5lint.jsonc "badge", or no badge at all. Committing the file is the workflow''s job'
+    description: 'Write the verdict badge ("check-abap2UI5 | 93 rules passed") to this path, e.g. .github/badges/check-abap2ui5.json. Unset: the repo''s abap2ui5lint.jsonc "badge", or no badge at all. Committing the file is the workflow''s job'
+    required: false
+    default: ''
+  sarif:
+    description: 'Also write a SARIF report to this path, e.g. abap2ui5lint.sarif, for a following github/codeql-action/upload-sarif step to put the findings in the repository''s code-scanning tab. Written in the SAME run as the log report, so the render gate is not paid twice'
     required: false
     default: ''
   badge-corpus:
@@ -48,12 +52,82 @@ inputs:
     description: 'Extra CLI flags, e.g. "--allow sap.m.Avatar.displaySize"'
     required: false
     default: ''
+
+# What a consumer workflow can read back, so a later step can act on the
+# verdict instead of only inheriting the job's success or failure - post a
+# comment, gate a deployment, fail on a threshold of its own. Without these
+# the only thing the action ever said was its exit code.
+outputs:
+  problems:
+    description: 'Total findings reported (errors + warnings + hints)'
+    value: ${{ steps.lint.outputs.problems }}
+  errors:
+    description: 'Findings of severity error'
+    value: ${{ steps.lint.outputs.errors }}
+  warnings:
+    description: 'Findings of severity warning'
+    value: ${{ steps.lint.outputs.warnings }}
+  hints:
+    description: 'Findings of severity hint'
+    value: ${{ steps.lint.outputs.hints }}
+  files:
+    description: 'Number of files the gates were run over'
+    value: ${{ steps.lint.outputs.files }}
+  exit-code:
+    description: 'The linter''s exit code: 0 clean, 1 findings at or above fail-on'
+    value: ${{ steps.lint.outputs.exit-code }}
+  sarif:
+    description: 'Path of the SARIF file, when the "sarif" input asked for one'
+    value: ${{ inputs.sarif }}
+
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-node@v7
+    # `github.action_path` is not a clean absolute path in every call shape:
+    # `uses: ./` yields one ending in `/.`, and setup-node's cache glob refuses
+    # it outright ("Relative pathing '.' and '..' is not allowed"). hashFiles is
+    # no better - it resolves against the workspace, and for a consumer the
+    # action lives outside it, so the key would quietly hash nothing and every
+    # run would miss the cache it just wrote.
+    #
+    # So the path is resolved once, here, and the lockfile hashed with the
+    # shell. Both caches then key on fixed paths that exist in every shape.
+    # The self-test job that runs this action as `uses: ./` is what found it.
+    - name: Resolve this action's own directory
+      id: whereami
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        dir="$(cd "$ACTION_PATH" && pwd -P)"
+        printf 'dir=%s\n' "$dir" >> "$GITHUB_OUTPUT"
+        printf 'lock=%s\n' "$(sha256sum "$dir/package-lock.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+    # SHA-pinned like every workflow in this repository. A composite action is
+    # the surface external repositories run, so a floating major tag here is a
+    # third party deciding what executes in THEIR CI.
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: 22
+
+    # ~/.npm rather than setup-node's `cache:` input: a fixed path needs no
+    # glob, so it cannot break on the call shape the way the input above did.
+    - name: Cache the npm downloads
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm
+        key: abap2ui5lint-npm-${{ runner.os }}-${{ steps.whereami.outputs.lock }}
+        restore-keys: abap2ui5lint-npm-${{ runner.os }}-
+
+    # Without this every consumer job re-downloaded Chromium (~150 MB) on every
+    # run. Keyed on the action's own lockfile, which pins the playwright
+    # version the browser build belongs to.
+    - name: Cache the Chromium build
+      if: inputs.render != 'false'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: abap2ui5lint-playwright-${{ runner.os }}-${{ steps.whereami.outputs.lock }}
 
     # The UI5 runtime is a WORKSPACE of this repository, not a dependency of the
     # linter itself, so `--workspaces=false` is what makes a property-only job
@@ -80,6 +154,7 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
       run: npx --prefix "$ACTION_PATH" playwright install chromium --with-deps
     - name: Run abap2UI5 linter
+      id: lint
       shell: bash
       # Inputs reach the shell only through env - a `${{ }}` interpolated into
       # `run:` would let a crafted input inject shell commands. Only
@@ -95,6 +170,7 @@ runs:
         LINT_BADGE: ${{ inputs.badge }}
         LINT_BADGE_CORPUS: ${{ inputs['badge-corpus'] }}
         LINT_RENDER: ${{ inputs.render }}
+        LINT_SARIF: ${{ inputs.sarif }}
         LINT_FLAGS: ${{ inputs.flags }}
       run: |
         ARGS=()
@@ -108,12 +184,41 @@ runs:
         # one path each, quoted - a badge file name is not a list, unlike paths/flags
         if [ -n "$LINT_BADGE" ]; then ARGS+=(--badge "$LINT_BADGE"); fi
         if [ -n "$LINT_BADGE_CORPUS" ]; then ARGS+=(--badge-corpus "$LINT_BADGE_CORPUS"); fi
+        if [ -n "$LINT_SARIF" ]; then ARGS+=(--sarif-out "$LINT_SARIF"); fi
+        # The counts, for the action's outputs. --json-out writes the machine
+        # report BESIDE the human one in the same run, so the outputs cost a
+        # serialization rather than a second (render-gate) pass. It goes to the
+        # runner temp directory, never into the checked-out repository.
+        COUNTS="$RUNNER_TEMP/abap2ui5lint-report.json"
+        ARGS+=(--json-out "$COUNTS")
         # paths and flags are documented as space-separated lists, so they are
         # split on whitespace DELIBERATELY - via read -a into argv words, which
         # word-splits without re-parsing quotes, globs or metacharacters
         read -r -a PATH_ARGS <<< "$LINT_PATHS"
         read -r -a FLAG_ARGS <<< "$LINT_FLAGS"
+        # the exit code is the job's verdict AND an output, so it is captured
+        # rather than allowed to end the step before the outputs are written
+        set +e
         node "$ACTION_PATH/cli.mjs" "${PATH_ARGS[@]}" "${ARGS[@]}" "${FLAG_ARGS[@]}"
+        STATUS=$?
+        set -e
+        echo "exit-code=$STATUS" >> "$GITHUB_OUTPUT"
+        if [ -s "$COUNTS" ]; then
+          node -e '
+            const fs = require("fs");
+            const r = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const t = r.totals || {};
+            const out = [
+              `problems=${r.problems ?? 0}`,
+              `errors=${t.error ?? 0}`,
+              `warnings=${t.warning ?? 0}`,
+              `hints=${t.hint ?? 0}`,
+              `files=${r.files ?? 0}`,
+            ].join("\n");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, out + "\n");
+          ' "$COUNTS"
+        fi
+        exit "$STATUS"
 
     # Pictures of what the checked classes build - the review artefact CI could
     # never produce, because seeing an abap2UI5 view used to need a system.

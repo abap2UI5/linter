@@ -246,7 +246,7 @@
   default.
 
 
-## 0.4.1
+## 0.4.1 - 2026-08-25
 
 - **`relative-aggregation-without-context` no longer fires on an element-bound
   slot.** A class that issues `cs_event-bind_element` sets a binding **context
@@ -263,7 +263,7 @@
   `samples` before opening its PR, so the false positive failed the bump
   instead of landing on main.
 
-## 0.4.0
+## 0.4.0 - 2026-08-25
 
 - **Four rules from re-reading a whole corpus against its originals.** Every
   one is a defect `abap2UI5/samples-controls` was carrying where no gate could
@@ -312,7 +312,7 @@
   abap2UI5 app has no root to resolve against. Merged after 0.3.0 was cut and
   therefore unpublished until now.
 
-## 0.3.0
+## 0.3.0 - 2026-08-23
 
 - **The companion-control mirrors are a knowledge file now, and gated.** The
   render harness has to KNOW a control class before it can create a view that
@@ -449,7 +449,7 @@
   missing theme compiler can never stop a check from running. `screenshotFiles`
   is the library form, returning buffers rather than writing files.
 
-## 0.2.1
+## 0.2.1 - 2026-08-16
 
 The theme of this release is **the lifecycle rules seeing the code that is
 there**. 0.2.0 was about findings that were not true; these three are about
@@ -524,7 +524,7 @@ that does not exist, and an expression mistaken for a statement.
   The linter's own canonical fixtures (`good.clas.abap`, `viewbuilder.clas.abap`)
   did not have the branch either, and now do.
 
-## 0.2.0
+## 0.2.0 - 2026-08-16
 
 The theme of this release is **findings that were not true**. Six defects, all
 of the same shape: a rule reading the ABSENCE of something it could not see as
@@ -742,7 +742,7 @@ correct, since that package IS the frozen legacy and will never be migrated.
   that already has all of this wired up, and the answer for anyone starting a
   new project, which this README did not mention at all.
 
-## 0.1.1
+## 0.1.1 - 2026-08-15
 
 - **The advertised `npx @abap2ui5/linter src` lints again.** The render gate
   is on by default and its ~118 MB runtime is deliberately *not* installed by
@@ -770,7 +770,7 @@ correct, since that package IS the frozen legacy and will never be migrated.
   A false hint is the expensive kind: the reader has to prove the tool wrong
   before ignoring it, and the next real finding is read the same way.
 
-## 0.1.0
+## 0.1.0 - 2026-08-15
 
 First public release — of both packages, from one tag:
 

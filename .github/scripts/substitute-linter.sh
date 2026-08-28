@@ -37,6 +37,45 @@ PINNED=$(node -p "
 echo "consumer pins: $PINNED"
 echo "substituting:  $(git -C "$LINTER" rev-parse HEAD)"
 
+# Does the consumer's DECLARED range still admit the version this repository
+# releases?
+#
+# The line above prints the resolved URL, which says what the consumer
+# installed and nothing about what it is willing to install. That gap is how
+# the documentation came to claim samples-controls pins "^0.2.1" while this
+# repository sits at 0.5.1 - a range under which the substituted linter could
+# never have been installed at all. The substitution itself works either way
+# (files are copied over an existing tree), so this job would go on proving a
+# pairing npm would refuse.
+#
+# A note, not a failure: which side is stale is a judgement (the consumer may
+# be deliberately held back), and this script's job is to substitute, not to
+# arbitrate. The line is what makes the answer visible.
+DECLARED=$(node -p "
+  const p = require('$CONSUMER/package.json');
+  (p.dependencies || {})['@abap2ui5/linter']
+    || (p.devDependencies || {})['@abap2ui5/linter']
+    || '';
+")
+VERSION=$(node -p "require('$LINTER/package.json').version")
+if [ -n "$DECLARED" ]; then
+  echo "consumer declares: $DECLARED (this repository is $VERSION)"
+  case "$DECLARED" in
+    github:*|git+*|file:*|link:*|workspace:*)
+      echo "note: '$DECLARED' is not a semver range - nothing to compare"
+      ;;
+    *)
+      if node "$LINTER/scripts/peer-range.mjs" --satisfies "$DECLARED" "$VERSION" >/dev/null 2>&1; then
+        echo "range check: '$DECLARED' admits $VERSION"
+      else
+        echo "::warning::the consumer declares '@abap2ui5/linter': '$DECLARED', which does NOT admit this repository's $VERSION - npm could not install the pairing this job is proving. One of the two is stale: either the consumer's range needs raising, or the documentation here still quotes an old one."
+      fi
+      ;;
+  esac
+else
+  echo "consumer declares no @abap2ui5/linter range (a transitive or workspace install)"
+fi
+
 # package.json comes along so the `exports` map and `bin` entries stay right.
 FILES=$(node -p "
   const p = require('$LINTER/package.json');
