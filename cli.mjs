@@ -19,11 +19,14 @@
  *                      system runs (default 1.71, alias --min-ui5). Controls and
  *                      members introduced later are reported, as are
  *                      deprecations already in effect at that version.
- *   --distribution <d>  sapui5 (default) or openui5 - which distribution the
- *                      target system serves. On openui5, controls from
- *                      SAPUI5-only libraries (sap.ui.comp, sap.suite.*, ...)
- *                      are reported: they are simply not there. --openui5 is
- *                      a shorthand.
+ *   --distribution <d>  sapui5 or openui5 - which distribution the target
+ *                      system serves. On openui5, controls from SAPUI5-only
+ *                      libraries (sap.ui.comp, sap.suite.*, ...) are reported
+ *                      as errors: they are simply not there. On sapui5 they
+ *                      are not reported at all. Unset (the default) is neither
+ *                      answer, so they are reported as HINTS - the fact is
+ *                      worth knowing and the run cannot tell whether it
+ *                      matters. --openui5 is a shorthand.
  *   --allow <name>     allow a control or control.member despite the floor
  *                      (repeatable, e.g. --allow sap.m.Avatar.displaySize)
  *   --fail-on <level>  lowest severity that fails the build: error, warning
@@ -63,7 +66,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      93 rules passed" green, "7 errors" red)
+ *                      94 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -189,7 +192,7 @@ const SIZE_RE = /^(\d{2,5})x(\d{2,5})$/i;
 
 const args = process.argv.slice(2);
 const opt = {
-  minUi5: '1.71', distribution: 'sapui5', allow: [], render: true, properties: true,
+  minUi5: '1.71', distribution: null, allow: [], render: true, properties: true,
   failOn: 'warning', rules: {}, verbose: false,
   format: 'stylish', quiet: false, fix: false,
   // inside a workflow the annotations are the point of running the linter at
@@ -336,7 +339,9 @@ for (let i = 0; i < args.length; i++) {
   "ui5": "1.71",
 
   // "sapui5" allows the libraries only SAPUI5 ships (sap.ui.comp, sap.suite.*,
-  // sap.ushell, sap.fe). "openui5" turns those into errors.
+  // sap.ushell, sap.fe). "openui5" turns those into errors. Leave the line out
+  // entirely and they are hints instead - the linter says what it sees without
+  // claiming to know which system you deploy to.
   "distribution": "sapui5",
 
   // load every view in a headless browser as well - the check no static rule

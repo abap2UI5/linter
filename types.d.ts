@@ -19,8 +19,10 @@ declare module "@abap2ui5/linter" {
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */
     minUi5?: string;
-    /** Which distribution the target serves (default "sapui5"). */
-    distribution?: "sapui5" | "openui5";
+    /** Which distribution the target serves. Unset (the default) is its own
+     *  answer, not a synonym for "sapui5": a SAPUI5-only control is then a
+     *  hint rather than an error ("openui5") or nothing at all ("sapui5"). */
+    distribution?: "sapui5" | "openui5" | null;
     /** control[.member] names allowed despite the version floor. */
     allow?: string[];
     /** Run the render gate (default true — needs the optional deps). */
@@ -304,6 +306,8 @@ declare module "@abap2ui5/linter/properties" {
     count?: number;
     /** sapui5-only-control */
     library?: string;
+    /** sapui5-only-control: the configured distribution, absent when none was */
+    distribution?: string;
     /** unknown-binding-path: the aggregation binding the row context came from */
     context?: string;
     /** non-released-api: which package the object lives in, what that package
