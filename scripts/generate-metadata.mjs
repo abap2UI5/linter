@@ -293,8 +293,16 @@ function declarations(body) {
   return out;
 }
 
+/** A literal string, safe to interpolate into a RegExp. */
+const rxEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function classMeta(src, name) {
-  const em = src.match(new RegExp(`\\.extend\\(\\s*["']${name.replace(/\./g, '\\.')}["']`));
+  /* Every metacharacter, not only the dot: a name is data here, and
+   * escaping one of the characters that means something to a regex leaves
+   * the rest of them meaning it. Control names are dotted identifiers today,
+   * which is why the dot was the one that mattered - not a reason for the
+   * next one to be missed. */
+  const em = src.match(new RegExp(`\\.extend\\(\\s*["']${rxEscape(name)}["']`));
   /* The class's own JSDoc is the LAST block before its .extend( ) call, with
    * nothing but the assignment in between. Scanning everything above the
    * extend instead picks up whatever @deprecated a neighbouring symbol

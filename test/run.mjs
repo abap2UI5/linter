@@ -3634,6 +3634,35 @@ section('report', async () => {
     assert(!/^::/m.test(run([dumps, '--no-render', '--format', 'markdown'], { GITHUB_ACTIONS: 'true' })),
       'report: markdown stays clean too');
 
+    /* A message that carries a backslash right before a pipe. Escaping only
+     * the pipe leaves `\\|` - an escaped backslash followed by a LIVE column
+     * separator - so the row the escaping exists to keep intact is the one it
+     * breaks, in markdown that goes into a pull request comment. */
+    const { formatMarkdown } = await import('../lib/report.mjs');
+    const row = formatMarkdown(
+      [{
+        file: 'x.clas.abap',
+        findings: [{ line: 1, column: 1, severity: 'error', message: String.raw`path \|foo| is odd`, rule: 'r' }],
+        renderErrors: [],
+      }],
+      { totals: { error: 1, warning: 0, hint: 0 } },
+    ).split('\n').find((l) => l.includes('is odd'));
+    /* Parsed the way a renderer parses it: a backslash escapes the character
+     * after it, so only an UNESCAPED pipe ends a cell. */
+    const cellsOf = (line) => {
+      const out = [];
+      let cur = '';
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '\\') { cur += line[++i] ?? ''; continue; }
+        if (line[i] === '|') { out.push(cur); cur = ''; continue; }
+        cur += line[i];
+      }
+      out.push(cur);
+      return out.slice(1, -1).map((c) => c.trim());
+    };
+    assert(row && cellsOf(row).length === 4 && cellsOf(row)[2] === String.raw`path \|foo| is odd`,
+      'report: a backslash in a message cannot open a column of its own');
+
     /* The machine report written BESIDE the human one. Without it a workflow
      * that wants the annotated log AND a SARIF file for code scanning has to run
      * the whole gate twice, paying the render half again - which is why the
