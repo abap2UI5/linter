@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **The CELL binding reconstructs.** `client->_bind( val = mt_emp[ 1 ]-picture
+  tab = mt_emp tab_index = 1 )` binds one ROW of an internal table
+  (`{/MT_EMP/0/PICTURE}`, ABAP counting rows from 1 and the client path from
+  0). `bindingOf` refused every call carrying `tab`/`tab_index` and the whole
+  expression came back unresolved — which takes the **attribute** out of the
+  reconstructed view, so the property gate, the render gate and every
+  consumer's structural diff stopped seeing that property at all. Exactly the
+  blindness the `omit_initial_paths`/`json` gap caused, on the one `_bind`
+  parameter pair whose path *is* computable.
+
+  Reconstructed only when the three parts agree — `val` reads the table `tab`
+  names, and the row number is a literal equal to `tab_index`. They cannot
+  disagree in a call that works (the framework matches the cell by data
+  reference and refuses a `val` outside the addressed row), so a disagreement
+  means the call is broken and a path derived from it would be a guess
+  reported as fact. A variable row number, a re-rooted model
+  (`switch_default_model`) and a custom mapper stay unresolved as before.
+
 - **`rules[id].exclude` works on Windows.** The pattern is a path regex and
   both spellings the README gives are written with `/`, but the file was also
   matched in the forms `path.resolve` and `path.relative` return — which on
