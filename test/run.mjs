@@ -2302,6 +2302,41 @@ section('unused-public-attribute', async () => {
     const bools = checkAbapRules(chained).filter((x) => x.type === 'unconverted-abap-boolean');
     assert(bools.length === 2 && bools.some((x) => x.value === 'second'),
       `unconverted-abap-boolean: every name of a chained DATA: declaration is a known boolean (${bools.map((x) => x.value).join(', ')})`);
+
+    /* The chain again, this time through the two SECTION-scoped collectors.
+     * The case above went through instanceAttributes, which reads the whole
+     * class definition and was always right; publicAttributes and
+     * privateInstanceAttributes read one section and ended their block on `$`
+     * under /m, which matches at every LINE end — so the lazy body stopped at
+     * the first newline and both rules saw the first name of a chain and no
+     * other. That is why this case looked covered and was not. */
+    const sections = `CLASS x DEFINITION PUBLIC.
+    PUBLIC SECTION.
+      INTERFACES z2ui5_if_app.
+      DATA: pub_one   TYPE string,
+            pub_two   TYPE string,
+            pub_three TYPE string.
+    PRIVATE SECTION.
+      DATA: priv_one TYPE string,
+            priv_two TYPE string.
+  ENDCLASS.
+  CLASS x IMPLEMENTATION.
+    METHOD z2ui5_if_app~main.
+      priv_one = priv_two = pub_one.
+    ENDMETHOD.
+  ENDCLASS.`;
+    const found = annotate(checkAbapRules(sections), sections);
+    const unused = found.filter((x) => x.type === 'unused-public-attribute').map((x) => x.member);
+    assert(unused.length === 2 && unused.includes('pub_two') && unused.includes('pub_three'),
+      `unused-public-attribute: the second and third name of a chain are judged too (got ${unused.join(', ') || 'none'})`);
+    assert(!unused.includes('pub_one'),
+      'unused-public-attribute: a chained name that IS read stays unreported');
+    const privs = found.filter((x) => x.type === 'private-app-attribute');
+    assert(privs.length === 2 && privs.map((x) => x.member).join() === 'priv_one,priv_two',
+      `private-app-attribute: every name of a chained PRIVATE declaration (got ${privs.map((x) => x.member).join() || 'none'})`);
+    // the offsets are walked, not searched for, so each name keeps its own line
+    assert(privs[0].line === 8 && privs[1].line === 9,
+      `private-app-attribute: each name of a chain on its own line (got ${privs.map((x) => x.line).join()}, expected 8,9)`);
 });
 
 // ------------------------------------------------------- accessibility ----
