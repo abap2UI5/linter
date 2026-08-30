@@ -1392,6 +1392,49 @@ section('display-root-mismatch', async () => {
     assert(!checkAbapSource(fs.readFileSync(f('rowpaths.clas.abap'), 'utf8'))
       .findings.some((x) => x.type === 'relative-binding-without-context'),
       'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
+
+    /* The same promise across a FOREIGN namespace. abap2UI5's own controls
+     * (z2ui5.cc) are in no UI5 snapshot, and the walk declines to look into a
+     * non-`sap.` namespace at all - it used to hand the children nothing, so a
+     * bound custom control's row template was judged contextless and both of
+     * its attributes reported (abap2UI5/samples app 306). Every one of these
+     * controls extends a real one: CameraSelector extends sap.m.ComboBox and
+     * inherits its `items`. */
+    {
+      const foreign = `CLASS x DEFINITION PUBLIC.
+    PUBLIC SECTION.
+      INTERFACES z2ui5_if_app.
+      DATA devices TYPE string_table.
+  ENDCLASS.
+  CLASS x IMPLEMENTATION.
+    METHOD z2ui5_if_app~main.
+      DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+      v->ele( n = \`View\` ns = \`mvc\`
+          )->a( n = \`xmlns\` v = \`sap.m\`
+          )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+          )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
+          )->a( n = \`xmlns:z2ui5\` v = \`z2ui5.cc\`
+          )->ele( n = \`CameraSelector\` ns = \`z2ui5\`
+              )->a( n = \`items\` v = \`{path:'/DEVICES'}\`
+              )->tag( n = \`Item\` ns = \`core\`
+                  )->a( n = \`key\` v = \`{KEY}\`
+                  )->a( n = \`text\` v = \`{TEXT}\` ).
+      client->view_display( v->stringify( ) ).
+    ENDMETHOD.
+  ENDCLASS.`;
+      const rows = checkAbapSource(foreign).findings
+        .filter((x) => x.type === 'relative-binding-without-context');
+      assert(rows.length === 0,
+        `relative-binding-without-context: a bound control in a foreign namespace still makes its children rows (got ${rows.map((x) => `${x.member}=${x.value}`).join(' ') || 'none'})`);
+
+      /* …and the widening is not "a foreign tag silences the rule". With no
+       * binding on it there is no row context, and the children are reported
+       * exactly as before. */
+      const unbound = checkAbapSource(foreign.replace("v = \`{path:'/DEVICES'}\`", 'v = \`plain\`')).findings
+        .filter((x) => x.type === 'relative-binding-without-context');
+      assert(unbound.length === 2,
+        `relative-binding-without-context: an UNBOUND foreign control opens no context, so its children are still judged (got ${unbound.length})`);
+    }
     {
       const agg = checkAbapSource(fs.readFileSync(f('orphanbind.clas.abap'), 'utf8'))
         .findings.filter((x) => x.type === 'relative-aggregation-without-context');
