@@ -3109,8 +3109,15 @@ section('xmlns (6)', async () => {
     assert(checkAbapRules('client->_event( `X` ).').every((x) => x.type !== 'ui5-internal-access'),
       'ui5-internal-access: a class without internals access is silent');
     const host = checkAbapRules('url = `https://ui5.sap.com/resources/sap-ui-core.js`.');
-    assert(host.some((x) => x.type === 'commercial-ui5-host' && x.value === 'ui5.sap.com'),
-      'commercial-ui5-host: the commercial host is reported');
+    assert(host.some((x) => x.type === 'commercial-ui5-host' && x.value.startsWith('ui5.sap.com/resources/')),
+      'commercial-ui5-host: a RUNTIME load from the commercial host is reported, and the finding names the path that made it one');
+    /* The two shapes that made every SAPUI5-facing consumer switch the rule
+     * off wholesale, which cost them the case above. */
+    assert(checkAbapRules('url = `https://ui5.sap.com/`.').every((x) => x.type !== 'commercial-ui5-host'),
+      'commercial-ui5-host: a demo-kit link is not a distribution — SAPUI5 has no other home');
+    assert(checkAbapRules('url = `https://ui5.sap.com/test-resources/sap/suite/images/a.jpg`.')
+      .every((x) => x.type !== 'commercial-ui5-host'),
+      'commercial-ui5-host: an asset under /test-resources/ is not the runtime');
     assert(!checkAbapRules('url = `https://sdk.openui5.org/resources/sap-ui-core.js`.')
       .some((x) => x.type === 'commercial-ui5-host'),
       'commercial-ui5-host: sdk.openui5.org is the sanctioned host');
@@ -4837,7 +4844,169 @@ section('robustness', async () => {
  * Nothing was in a position to say so — a rule that stops firing keeps this
  * suite green, ships, and reports nothing until somebody notices by hand.
  *
- * What is recorded is what the checks actually produced (test/observe.mjs),
+/* The 2026-08-30 round: the frontend's remaining closed sets (arity, arg
+ * kinds, the lazily-required globals' release floors, the aggregation-item id
+ * form and four small enums), two rules promoted out of the samples-controls
+ * gate, and the reconstructor fix the stale-path work turned up. */
+section('wire kinds and the 08-30 round', async () => {
+  const wires = checkAbapSource(fs.readFileSync(f('wirekinds.clas.abap'), 'utf8')).findings;
+  const of = (type) => wires.filter((x) => x.type === type);
+
+  // --- the release floor of a CONTROL_GLOBAL target -------------------------
+  const tooNew = of('frontend-action-too-new');
+  assert(tooNew.length === 2, `frontend-action-too-new: the two lazily-required targets (got ${tooNew.map((x) => x.member).join() || 'none'})`);
+  assert(tooNew.some((x) => x.control === 'THEMING' && x.since === '1.118'),
+    'frontend-action-too-new: sap/ui/core/Theming is @since 1.118');
+  assert(tooNew.some((x) => x.control === 'INVISIBLE_MESSAGE' && x.since === '1.78'),
+    'frontend-action-too-new: InvisibleMessage is @since 1.78');
+  assert(!tooNew.some((x) => x.control === 'MESSAGE_TOAST'),
+    'frontend-action-too-new: a target with no floor is never reported');
+
+  // --- arity and kind, from the CONTROL_METHODS mirror ----------------------
+  const count = of('control-call-arg-count');
+  assert(count.length === 1 && count[0].member === 'back' && count[0].count === 0,
+    `control-call-arg-count: back declares no arguments (got ${count.map((x) => x.member).join() || 'none'})`);
+  const kind = of('control-call-arg-kind');
+  assert(kind.length === 2, `control-call-arg-kind: the int and the bool (got ${kind.map((x) => x.member).join() || 'none'})`);
+  assert(kind.some((x) => x.member === 'setBadgeMinValue' && x.memberType === 'int' && x.value === 'nine'),
+    'control-call-arg-kind: a non-numeric int arrives as NaN');
+  assert(kind.some((x) => x.member === 'setExpanded' && x.memberType === 'bool' && x.value === 'abap_true'),
+    'control-call-arg-kind: only X and true are true, so abap_true is FALSE');
+  assert(!kind.some((x) => x.value === 'X'),
+    'control-call-arg-kind: the ABAP boolean token is the accepted spelling');
+
+  // --- the aggregation-item id form ----------------------------------------
+  const agg = of('invalid-aggregation-item');
+  assert(agg.length === 2, `invalid-aggregation-item: the two broken forms (got ${agg.map((x) => x.value).join() || 'none'})`);
+  assert(agg.some((x) => x.value === 'carousel/pages/first' && x.member === 'id'),
+    'invalid-aggregation-item: a non-numeric index is not the aggregation-item form at all');
+  assert(agg.some((x) => x.value === 'carousel/items/0' && x.member === 'items' && x.control === 'sap.m.Carousel'),
+    'invalid-aggregation-item: the aggregation segment is checked against the control');
+  assert(!agg.some((x) => x.value === 'carousel/pages/2'),
+    'invalid-aggregation-item: the correct form is left alone');
+
+  // --- the four closed sets that ride on invalid-frontend-action ------------
+  const bad = of('invalid-frontend-action').map((x) => x.value);
+  for (const [value, what] of [['Loud', 'the InvisibleMessageMode enum, read from the snapshot'],
+    ['MAYBE', 'setAsyncURLHandler names one of three built-in policies'],
+    ['middle', 'the ScrollIntoView block enum'],
+    ['numerical', 'the HTML inputmode set'],
+    ['ALWAYS', 'cs_nav_mode is DEFAULT, FRESH or KEEP']]) {
+    assert(bad.includes(value), `invalid-frontend-action: ${what} (got ${bad.join() || 'none'})`);
+  }
+  assert(!bad.includes('KEEP') && !bad.includes('sap_horizon'),
+    'invalid-frontend-action: a released value in either slot is left alone');
+  assert(!of('unknown-frontend-action').length,
+    'unknown-frontend-action: SET_PUSH_STATE is consumed by the SERVER and queues no frontend action, so it is not an unknown one');
+
+  // --- the two obsolete binder ARGUMENTS ------------------------------------
+  const obsolete = checkAbapSource(fs.readFileSync(f('obsolete.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'obsolete-bind-argument');
+  assert(obsolete.length === 2, `obsolete-bind-argument: view and custom_mapper (got ${obsolete.map((x) => x.member).join() || 'none'})`);
+  const viewArg = obsolete.find((x) => x.member === 'view');
+  assert(viewArg && viewArg.fixes?.length === 1,
+    'obsolete-bind-argument: the inactive `view` argument is deleted by --fix');
+  assert(obsolete.find((x) => x.member === 'custom_mapper')?.fixes === undefined,
+    'obsolete-bind-argument: the mapper pair is still EVALUATED, so dropping one is not a mechanical fix');
+
+  // --- the lifecycle fork that decides nothing ------------------------------
+  const fork = checkAbapSource(fs.readFileSync(f('initfork.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'redundant-init-display');
+  assert(fork.length === 2, `redundant-init-display: the OR and the fork (got ${fork.map((x) => x.member).join() || 'none'})`);
+  assert(fork.some((x) => x.member === 'OR') && fork.some((x) => x.member === 'fork'),
+    'redundant-init-display: both spellings of the same redundancy');
+
+  // --- a boolean asked whether it is empty ----------------------------------
+  const isInit = checkAbapSource(fs.readFileSync(f('isinitial.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'lifecycle-is-initial');
+  assert(isInit.length === 2, `lifecycle-is-initial: the call and the attribute (got ${isInit.map((x) => x.member).join() || 'none'})`);
+  assert(isInit.some((x) => x.member === 'check_on_init( )'),
+    'lifecycle-is-initial: the lifecycle call takes the predicative form');
+  assert(isInit.some((x) => x.member === 'mv_ready'),
+    'lifecycle-is-initial: every other abap_bool follows the same rule');
+  assert(!isInit.some((x) => x.member.toLowerCase() === 'ready'),
+    'lifecycle-is-initial: a STRUCTURE COMPONENT may be any type and is never judged');
+
+  // --- app state the serializer cannot reach, and a raw escape --------------
+  const state = checkAbapSource(fs.readFileSync(f('appstate.clas.abap'), 'utf8')).findings;
+  const priv = state.filter((x) => x.type === 'private-app-attribute');
+  assert(priv.length === 1 && priv[0].member === 't_all',
+    `private-app-attribute: only the PRIVATE instance attribute (got ${priv.map((x) => x.member).join() || 'none'})`);
+  assert(!priv.some((x) => ['helper_state', 'registry'].includes(x.member)),
+    'private-app-attribute: PROTECTED is reachable and CLASS-DATA is not instance state');
+  const esc = state.filter((x) => x.type === 'escape-sequence-in-backtick');
+  assert(esc.length === 2 && esc.every((x) => x.member === '\\n'),
+    `escape-sequence-in-backtick: the toast and the attribute (got ${esc.length})`);
+  assert(!esc.some((x) => x.value.includes('\\\\n')),
+    'escape-sequence-in-backtick: a DOUBLED backslash is a backslash on purpose');
+
+  // --- an ABAP date through the JS-string date formatter --------------------
+  const dates = checkAbapSource(fs.readFileSync(f('dateformat.clas.abap'), 'utf8'))
+    .findings.filter((x) => x.type === 'abap-date-formatter-mismatch');
+  assert(dates.length === 2, `abap-date-formatter-mismatch: the d and the t (got ${dates.map((x) => x.member).join() || 'none'})`);
+  assert(dates.some((x) => x.member === 'VALID_FROM' && x.value === 'd')
+    && dates.some((x) => x.member === 'START_TIME' && x.value === 't'),
+    'abap-date-formatter-mismatch: both ABAP date/time types are reported with the type that produced them');
+  assert(!dates.some((x) => x.member === 'ISO_STAMP'),
+    'abap-date-formatter-mismatch: a string field may well carry an ISO date, which is what new Date( ) parses');
+
+  /* --- a stale path in a COMPLEX binding info, and the reconstructor fix that
+   * had to come first: `WITH DEFAULT KEY` made the whole declaration
+   * unparseable, so the attribute fell through to the scalar branch and every
+   * rule that resolves against a ROW went silent for lack of a context. */
+  const stale = checkAbapSource(fs.readFileSync(f('stalepath.clas.abap'), 'utf8'));
+  assert(Array.isArray(stale.model?.T_ITEMS),
+    `WITH DEFAULT KEY: the table is modelled as a table (got ${JSON.stringify(stale.model?.T_ITEMS)})`);
+  const paths = stale.findings.filter((x) => x.type === 'unknown-binding-path');
+  assert(paths.length === 1 && paths[0].value === 'exchangeRate',
+    `unknown-binding-path: the complex form is resolved against the row (got ${paths.map((x) => x.value).join() || 'none'})`);
+
+  /* --- the two rules the metadata harvest unblocked.
+   *
+   * On a 1.150 floor, and that is a property of the SUBJECT rather than of the
+   * fixture: both properties carrying a harvested `setterMin` are @since
+   * 1.149, and `member-too-new` reports and `continue`s before any other rule
+   * sees the attribute. The user report this rule comes from was on 1.150 too. */
+  const rows = checkAbapSource(fs.readFileSync(f('rowdefaults.clas.abap'), 'utf8'),
+    { minUi5: '1.150' }).findings;
+
+  const setter = rows.filter((x) => x.type === 'validating-setter-out-of-range');
+  assert(setter.length === 1 && setter[0].member === 'recurrencePattern' && setter[0].count === 1,
+    `validating-setter-out-of-range: the unfilled TYPE i reaches a setter that refuses it (got ${setter.length})`);
+
+  const absent = rows.filter((x) => x.type === 'absent-boolean-overrides-default');
+  assert(absent.length === 1 && absent[0].member === 'ICON_INSET',
+    `absent-boolean-overrides-default: only the INCONSISTENTLY seeded field (got ${absent.map((x) => x.member).join() || 'none'})`);
+  assert(!absent.some((x) => x.member === 'SELECTED'),
+    'absent-boolean-overrides-default: a field NO row sets is ordinary data, not an omission');
+
+  const { controls } = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'data', 'properties.json'), 'utf8'));
+  assert(controls['sap.m.StandardListItem'].properties.iconInset.defaultValue === true,
+    'the snapshot carries defaultValue only where it is TRUE — the case an absent ABAP boolean overrides');
+  assert(controls['sap.m.Button'].properties.text.defaultValue === undefined,
+    'the snapshot does not carry a defaultValue where there is nothing to override');
+  assert(controls['sap.ui.unified.calendar.MonthPicker'].properties.month.setterMin === undefined,
+    'setterMin is a harvested LOWER BOUND, not "this setter throws" — MonthPicker.month 0 is January');
+  assert(controls['sap.uxap.ObjectPageSubSection'].widensAggregation === true,
+    'a class overriding the generic addAggregation accepts more than its metadata declares');
+
+  /* --- ABAP the SYSTEM refuses, following the source-line-too-long precedent:
+   * for a consumer whose only gate is `npx abap2ui5lint`, a class that does
+   * not activate is the most severe thing this tool can find. */
+  const hygiene = checkAbapSource(fs.readFileSync(f('abaphygiene.clas.abap'), 'utf8')).findings;
+  const one = (type) => hygiene.filter((x) => x.type === type);
+  assert(one('class-constructor-visibility').length === 1,
+    'class-constructor-visibility: the runtime calls it, so the compiler requires it public');
+  assert(one('value-header-default-reassigned')[0]?.member === 'SELECTABLE',
+    'value-header-default-reassigned: the header assignment is a default, not an overridable one');
+  assert(one('into-corresponding-inline-decl')[0]?.member === 'lt_carr',
+    'into-corresponding-inline-decl: the inline declaration is 7.55 syntax');
+  const conv = one('redundant-conv-i');
+  assert(conv.length === 1 && conv[0].member === 'count',
+    `redundant-conv-i: only the whole-RHS form over a target declared here (got ${conv.length})`);
+});
+
+/* What is recorded is what the checks actually produced (test/observe.mjs),
  * not what the test source appears to mention, so a negated assertion or a
  * renamed idiom cannot pass for coverage. A rule may be exempt, but only in
  * writing, below. */

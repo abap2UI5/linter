@@ -95,11 +95,11 @@ exact line):
 
 | Emitting file | Finding types |
 | --- | --- |
-| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (an error with `--distribution openui5`, a hint with no `distribution` configured, silent with `sapui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new` |
+| `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `sapui5-only-control` (an error with `--distribution openui5`, a hint with no `distribution` configured, silent with `sapui5`), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new`, `validating-setter-out-of-range` (the harvested `setterMin`: a property whose own setter refuses the ABAP initial 0), `unresolved-attribute-value` (an enum-typed attribute the reconstructor had to drop, so the one check that would have decided it went with the value) |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the one **opt-in** rule (`OPT_IN` in `lib/findings.mjs`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and would defer any other rule's fix inside it to a second `--fix` pass |
-| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-nonpublic`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `event-arg-js-callback`, `trailing-empty-event-arg`, `enum-field-unset-on-insert`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `escaped-brace-in-backtick`, `unused-public-attribute`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `live-event-roundtrip`, `get-viewname-removed`, `ui5-internal-access`, `commercial-ui5-host`, `source-line-too-long` — plus `checkAbapRules( )` itself, the entry point every ABAP-side rule is called from and the order they run in |
-| `lib/frontend-wires.mjs` | every `client->_event_client( )` / `follow_up_action( )` wire: `invalid-frontend-action`, `unknown-frontend-action`, `frontend-action-unknown-id`, `unknown-view-slot`, `literal-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `filter-groups-not-arrays`, `denied-control-method`, `settable-property-via-action`, `control-state-lost-on-rebuild`, `raw-javascript-to-frontend` (escape-hatch half). Split out of `abap-rules.mjs` — one closed set after another, all mirrored in `lib/frontend-actions.mjs` and gated by `check-upstream.mjs` |
-| `lib/lifecycle-rules.mjs` | what the class does ACROSS a roundtrip: `view-never-displayed`, `missing-view-display-on-navigated`, `missing-on-navigated-branch`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`. Also split out of `abap-rules.mjs`, and called from exactly the points its code sat at: `report( )` collapses repeats and the FIRST finding of a shape wins, so the call ORDER is part of the output |
+| `lib/abap-rules.mjs` | `non-released-api` (list: `lib/released-api.mjs`), `obsolete-binder`, `obsolete-model-update`, `obsolete-frontend-event`, `binding-to-local`, `binding-to-nonpublic`, `binding-to-reference`, `unconverted-abap-boolean`, `event-without-handler`, `event-arg-unresolved`, `event-arg-out-of-range`, `event-arg-js-callback`, `trailing-empty-event-arg`, `enum-field-unset-on-insert`, `unescaped-brace-in-style`, `collapsed-brace-in-style`, `escaped-brace-in-backtick`, `unused-public-attribute`, `popover-display-val`, `popover-anchor-unknown-id`, `hardcoded-binding-path`, `live-event-roundtrip`, `get-viewname-removed`, `ui5-internal-access`, `commercial-ui5-host` (scoped to a RUNTIME load — a demo-kit link and a `/test-resources/` asset are not one, and reporting them is what made consumers switch it off wholesale), `source-line-too-long`, `obsolete-bind-argument`, `abap-date-formatter-mismatch`, `escape-sequence-in-backtick`, `private-app-attribute`, `absent-boolean-overrides-default` (the boolean twin of `enum-field-unset-on-insert`, and it needs a SECOND signal: the seed has to be inconsistent), plus the activation family that follows the `source-line-too-long` precedent — `value-header-default-reassigned`, `into-corresponding-inline-decl`, `class-constructor-visibility`, `redundant-conv-i` — plus `checkAbapRules( )` itself, the entry point every ABAP-side rule is called from and the order they run in |
+| `lib/frontend-wires.mjs` | every `client->_event_client( )` / `follow_up_action( )` wire: `invalid-frontend-action`, `unknown-frontend-action`, `frontend-action-unknown-id`, `unknown-view-slot`, `literal-view-slot`, `invalid-keyboard-shortcut`, `invalid-action-payload`, `filter-groups-not-arrays`, `denied-control-method`, `settable-property-via-action`, `control-state-lost-on-rebuild`, `raw-javascript-to-frontend` (escape-hatch half), `frontend-action-too-new` (the four lazily-required globals carry a release floor; below it the require returns undefined and the wire is a no-op), `control-call-arg-count` and `control-call-arg-kind` (the arity and kinds `CONTROL_METHODS` declares — `castArgs` slices the excess away and `bool` is `X`/`true` and nothing else), `invalid-aggregation-item` (the `<id>/<aggregation>/<index>` form, of which only the head segment was ever judged). Split out of `abap-rules.mjs` — one closed set after another, all mirrored in `lib/frontend-actions.mjs` and gated by `check-upstream.mjs` |
+| `lib/lifecycle-rules.mjs` | what the class does ACROSS a roundtrip: `view-never-displayed`, `missing-view-display-on-navigated`, `missing-on-navigated-branch`, `separate-lifecycle-ifs`, `manual-init-flag`, `duplicate-for-iterator`, `redundant-init-display` (the INVERSE of the two rules above it: `check_on_init( )` implies `check_on_navigated( )`, so an `OR` of the two and a fork whose arms are the same display call both decide nothing), `lifecycle-is-initial`. Also split out of `abap-rules.mjs`, and called from exactly the points its code sat at: `report( )` collapses repeats and the FIRST finding of a shape wins, so the call ORDER is part of the output |
 | `lib/abap-source.mjs` | no findings — the readers those three share (`literalElements`, `methodSpans`, `displayPathMethods`, `bindableAnywhere`, `ifBranchEnd`, `ifBlockEnd`). Pure functions of a scrubbed source, so no module has to learn about another |
 | `lib/icons.mjs` | `unknown-icon`, `icon-too-new`, `icon-removed` (data: `data/icons.json`) — a TEXT scan, not a view-tree walk, and called from both entry points (`checkAbapRules` for classes, `checkXmlSource` for raw XML): an icon name travels as data (a status column, a constant) at least as often as it travels as an attribute, and those never reach the node tree. Exported as `./icons` too, for the consumers that assemble the pipeline themselves instead of calling an entry point — see **A consumer that cannot hand us a path** below |
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
@@ -707,6 +707,63 @@ ran by default it would overlap and defer the mechanical fixes of any other
 rule that lands inside the same chain. It still lights up 22 of this repo's 29
 fixtures, and that is fine: they are inputs, and nobody gets the rule unasked.
 
+The 2026-08-30 round worked the staging areas off in one pass — the two
+skills in abap2UI5 that are written as this linter's inbox, the corpus gate's
+remaining generic checks, and the frontend's last unmined closed sets:
+
+| Origin | Rule |
+| --- | --- |
+| `CONTROL_METHODS` declares ARITY and arg KINDS, and only two projections of it were mirrored | `control-call-arg-count` (castArgs slices the excess away), `control-call-arg-kind` (`int` runs through `Number( )`, `bool` is `X`/`true` and nothing else) — the whole map is `CONTROL_METHOD_KINDS` now, and `CONTROL_METHOD_ID_ARG` is derived from it rather than retyped |
+| four GLOBAL_TARGETS are resolved with a LAZY require so a missing module cannot 404 the component — which makes them silent below their release | `frontend-action-too-new`, the version half of the wire family (`member-too-new` judges what the VIEW writes; nothing judged what the class SENDS) |
+| `resolveControl` accepts `<id>/<aggregation>/<index>`, and only the head segment was judged | `invalid-aggregation-item` |
+| four small closed sets nothing had mined: `URL_POLICIES`, the ScrollIntoView enums, the HTML `inputmode` set, `InvisibleMessageMode` | all through the existing `ACTION_ARGS` / `invalid-frontend-action` mechanism — the announce mode is read from the SNAPSHOT's enums rather than retyped as a fourth constant |
+| `SET_NAV_ROUTING` / `SET_PUSH_STATE` / `SET_APP_STATE_ACTIVE` are consumed by the SERVER and queue no action, so they are absent from the dispatch table BY DESIGN | `SERVER_EVENTS`, and `cs_nav_mode` as the `set_nav_routing` argument set |
+| `z2ui5_if_client` marks `_bind( view = )` "obsolete - inactive, not passed on internally" and the mapper pair "obsolete - still evaluated" | `obsolete-bind-argument`, with a deleting fix for the inactive half only |
+| the app guide's predicative-call rule, and its "the fork decides nothing" rule | `lifecycle-is-initial`, `redundant-init-display` |
+| samples-controls' e2e work isolated a PRIVATE instance attribute as an every-roundtrip ASSERTION_FAILED | `private-app-attribute` |
+| a `backtick` literal has no escape processing, so a `\n` in one renders as two characters | `escape-sequence-in-backtick` |
+| the metadata harvest (`defaultValue`, `setterMin`, `widensAggregation`) | `validating-setter-out-of-range`, `absent-boolean-overrides-default` |
+| the activation traps `abap-check` had filed as `Gate: open` | `value-header-default-reassigned`, `into-corresponding-inline-decl`, `class-constructor-visibility`, `redundant-conv-i` — the `source-line-too-long` precedent, for a consumer whose only gate is `npx abap2ui5lint` |
+
+Three things in that round are worth keeping in mind, and all three came out of
+the corpus run rather than out of the design:
+
+- **`statement-too-long` was written, measured and DELETED.** The candidate is
+  real — a 246-row `VALUE #( )` constructor once could not be imported at all —
+  but a character count cannot decide it: a builder CHAIN is one statement by
+  construction, so the corpus's median over-limit statement was 23,000
+  characters and its longest 253,000, and every one of those 156 ports imports
+  fine. Length is not the discriminator, and no other signal was available.
+  This is the doctrine below working exactly as written; do not re-propose it
+  without a threshold somebody has measured.
+- **The URLHELPER payload is judged by SHAPE, not by `JSON.parse`.** The corpus
+  writes it as a JS OBJECT LITERAL (`|\{ URL: 'http://x', NEW_WINDOW: true \}|`
+  — unquoted keys, single quotes) which the backend converts on the way out,
+  so strict JSON reported nine correct wires and no defect. The two things that
+  ARE decidable without a parser are whether the value is an object at all and
+  which keys it names, which is what the rule asks now.
+- **A `$`-prefixed argument is resolved CLIENT-side**, so its ABAP text is not
+  the value the control receives. The id rules already knew that; the new kind
+  check had to learn it, on one corpus port.
+
+And one reconstructor fix that the stale-path work turned up, which matters more
+than any single rule in the round: **`DATA t TYPE STANDARD TABLE OF ty WITH
+DEFAULT KEY.` did not parse.** The declaration is anchored on its terminating
+dot and only `WITH EMPTY KEY` was allowed before it, so the commonest spelling
+in ABAP fell through to the SCALAR branch — the model carried `''` where a row
+array belongs, no template row existed, and every rule that resolves against a
+ROW went silent. A blind spot takes a whole family down without a word, which is
+why it outranks the rules it was found under. SORTED and HASHED tables were not
+recognized as tables at all and are now.
+
+Two consumer-facing defects were fixed in the same round, both reported by a
+config file rather than by a finding: `properties: false` used to take the
+chain-layout family and every ABAP-side rule with it (a layout-only run passed
+everything and looked green), and `commercial-ui5-host` reported a demo-kit
+hyperlink and a `/test-resources/` image, which is what made every SAPUI5-facing
+consumer switch it off wholesale and lose the one case it exists for. It is
+scoped to a RUNTIME load now.
+
 **Known candidate backlog:**
 
 - **Raw `*.view.xml` files get no layout check.** The two rules read a builder
@@ -765,7 +822,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 473 KB one-line snapshot (`ui5Version` 1.151.0, 973 controls, 235
+The 481 KB one-line snapshot (`ui5Version` 1.151.0, 973 controls, 235
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 

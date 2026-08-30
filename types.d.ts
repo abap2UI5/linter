@@ -353,8 +353,22 @@ declare module "@abap2ui5/linter/properties" {
    *  one of them reaches UI5 as '' and fails strict validation. */
   export function collectEnumBoundFields(
     root: ViewNode,
-    data: unknown
+    data: unknown,
+    select?: (decl: unknown, enums: Record<string, string[]>) => boolean
   ): Map<string, Set<string>>;
+
+  /** The default predicate: a property whose type is one of the snapshot's
+   *  enums. An unseeded ABAP field ships `""`, which is a member of none. */
+  export const ENUM_TYPED: (decl: unknown, enums: Record<string, string[]>) => boolean;
+
+  /** The boolean counterpart: a property whose own default is `true`, where an
+   *  unseeded field's real `false` silently overrides it. */
+  export const DEFAULT_TRUE_BOOLEAN: (decl: unknown) => boolean;
+
+  /** Is `since` within the configured floor? The ABAP-side rules carry a
+   *  `minUi5` STRING rather than the parsed floor the tree walk uses, and two
+   *  implementations of this question are how two gates come to disagree. */
+  export function withinUi5Floor(since: string | null | undefined, minUi5?: string): boolean;
 
   /** A structural profile of one view tree: what the run looked at. No
    *  metadata is consulted, so it costs one walk and cannot fail. */
@@ -499,6 +513,9 @@ declare module "@abap2ui5/linter/abap-rules" {
        *  table (collectEnumBoundFields) — without it the enum-row rule never
        *  fires. */
       enumFields?: Map<string, Set<string>> | null;
+      /** The same map for fields bound to a BOOLEAN property whose own default
+       *  is `true` — without it absent-boolean-overrides-default never fires. */
+      boolFields?: Map<string, Set<string>> | null;
       /** The target release. The ABAP-side icon scan judges against it;
        *  without it every repository is judged against the 1.71 default,
        *  whatever floor it configured. */
