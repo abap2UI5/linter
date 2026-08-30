@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- **A bound control in a FOREIGN namespace makes its children rows again.**
+  The property walk declines to look into a non-`sap.` namespace - abap2UI5's
+  own `z2ui5.cc` controls, raw XHTML, any in-house library - because the UI5
+  metadata can say nothing about it. It handed the children `null` for both
+  owner and context, and "no aggregation here" quietly became "no ROW here":
+
+      <z2ui5:CameraSelector items="{path:'/DEVICES'}">
+        <core:Item key="{KEY}" text="{TEXT}"/>
+
+  is the ordinary bound-template form, and `relative-binding-without-context`
+  reported both attributes as resolving against nothing (abap2UI5/samples app
+  306). Every one of these controls extends a real one - `CameraSelector`
+  extends `sap.m.ComboBox` and inherits its `items` - so this fires on any
+  bound custom control, as an **error**.
+
+  The owner handed across stays opaque in every other respect (`control:
+  null`, empty `aggRows`), so nothing guesses at an aggregation, which is what
+  the foreign-namespace rule is actually protecting. Any binding on the tag
+  counts, not only one that looks like an aggregation: on a control the
+  metadata does not carry the two are indistinguishable, and being wrong is
+  asymmetric - reading a property binding as a context only makes the two
+  "is there a context here" rules go quiet on that subtree, while reading a
+  real aggregation binding as none invents a defect.
+
+  A foreign tag with no binding still opens no context, and its children are
+  judged exactly as before; the regression test asserts both directions.
+  Measured: no change over abap2UI5/samples-controls (752 findings before and
+  after), which is the corpus with no custom controls in it.
+
+## Unreleased
+
 - **A chained `DATA:` declaration is read past its first name.**
   `unused-public-attribute` and `private-app-attribute` collect the names of
   one SECTION, and their block regex ended on `…|$)` under `/m` — where `$`
