@@ -618,6 +618,114 @@ section('rows (2)', async () => {
     'rows: nothing is claimed about a row type the class does not declare');
 });
 
+/* The CELL binding — `_bind( val = t[ n ]-field tab = t tab_index = n )`, one
+ * row of an internal table addressed from a statically written control. It
+ * fell through to "unresolved" until the reconstructor learned it, and an
+ * unresolved value takes its ATTRIBUTE out of the reconstructed view, so
+ * every gate stopped seeing the property (the same shape as the earlier
+ * omit_initial_paths/json gap). What is asserted here is both halves: the
+ * consistent call resolves to the row-qualified path, and every form whose
+ * three parts disagree stays unresolved rather than resolving to a guess. */
+const cellClass = (bindExpr) => `CLASS zcl_cell DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s_emp, name TYPE string, job TYPE string, END OF ty_s_emp.
+    DATA mt_emp TYPE STANDARD TABLE OF ty_s_emp WITH EMPTY KEY.
+    DATA mv_row TYPE i.
+ENDCLASS.
+CLASS zcl_cell IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    mt_emp = VALUE #( ( name = \`Michael Adams\` job = \`Scrum Master\` )
+                      ( name = \`John Miller\` job = \`Product Owner\` ) ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Label\`
+            )->a( n = \`text\` v = ${bindExpr}
+        )->end( ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`;
+
+section('cell binding', async () => {
+  const first = prepareAbap(cellClass('client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp tab_index = 1 )'));
+  assert(first.docs[0]?.includes('text="{/MT_EMP/0/NAME}"') && first.notes.length === 0,
+    'cell binding: ABAP row 1 is client row 0, and the attribute stays in the view');
+  const second = prepareAbap(cellClass('client->_bind( val = mt_emp[ 2 ]-job tab = mt_emp tab_index = 2 )'));
+  assert(second.docs[0]?.includes('text="{/MT_EMP/1/JOB}"'),
+    'cell binding: the row index and the component are both resolved, not guessed');
+  const bare = prepareAbap(cellClass('client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp tab_index = 1 path = abap_true )'));
+  assert(bare.docs[0]?.includes('text="/MT_EMP/0/NAME"'),
+    'cell binding: path = abap_true still asks for the bare path');
+  const me = prepareAbap(cellClass('client->_bind( val = me->mt_emp[ 1 ]-name tab = me->mt_emp tab_index = 1 )'));
+  assert(me.docs[0]?.includes('text="{/MT_EMP/0/NAME}"'),
+    'cell binding: a me-> prefix drops away on both arguments');
+
+  // the table becomes a bound root, so the row shape is known and the
+  // row-qualified path is judged like any other rather than reported missing
+  assert(Array.isArray(first.model.MT_EMP) && first.model.MT_EMP[0]?.NAME === 'Michael Adams',
+    'cell binding: the TABLE is what the model carries — the cell is only a path into it');
+  assert(!checkAbapSource(cellClass('client->_bind( val = mt_emp[ 2 ]-job tab = mt_emp tab_index = 2 )'),
+    { render: false }).findings.some((x) => x.type === 'unknown-binding-path'),
+    'cell binding: a resolved cell path is not reported as unknown');
+
+  // the three parts disagree -> the call cannot work (the framework matches
+  // the cell by REFERENCE and refuses a val outside the addressed row), so a
+  // path computed from it would be a guess printed as a fact
+  const guessable = [
+    ['client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp tab_index = 2 )', 'the row in val and tab_index disagree'],
+    ['client->_bind( val = mt_emp[ 1 ]-name tab = mt_other tab_index = 1 )', 'val reads a table other than tab'],
+    ['client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp tab_index = mv_row )', 'the row number is not a literal'],
+    ['client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp )', 'tab_index is missing'],
+    ['client->_bind( val = mt_emp[ 1 ]-name tab_index = 1 )', 'tab is missing'],
+    ['client->_bind( val = mt_emp[ 1 ]-name tab = mt_emp tab_index = 1 switch_default_model = abap_true )',
+      'a re-rooted model is still not ours to guess'],
+  ];
+  for (const [expr, why] of guessable) {
+    const out = prepareAbap(cellClass(expr));
+    assert(!out.docs[0]?.includes('{/MT_EMP/')
+      && out.notes.some((n) => n.includes('unresolved value expression')),
+      `cell binding: stays unresolved when ${why}`);
+  }
+
+  /* The ASSIGNED-row spelling — `val = <emp>-name` — is what a downported
+   * class writes, so it is the one the corpus uses. `val` contributes the
+   * component; the table and the row come from tab/tab_index either way. */
+  const assigned = prepareAbap(`CLASS zcl_cell DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s_emp, name TYPE string, job TYPE string, END OF ty_s_emp.
+    DATA mt_emp TYPE STANDARD TABLE OF ty_s_emp WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_cell IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    FIELD-SYMBOLS <emp1> TYPE ty_s_emp.
+    FIELD-SYMBOLS <emp2> TYPE ty_s_emp.
+    mt_emp = VALUE #( ( name = \`Michael Adams\` job = \`Scrum Master\` )
+                      ( name = \`John Miller\` job = \`Product Owner\` ) ).
+    ASSIGN mt_emp[ 1 ] TO <emp1>.
+    ASSIGN mt_emp[ 2 ] TO <emp2>.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Label\`
+            )->a( n = \`text\` v = client->_bind( val = <emp1>-name tab = mt_emp tab_index = 1 )
+        )->tag( \`Label\`
+            )->a( n = \`text\` v = client->_bind( val = <emp2>-job tab = mt_emp tab_index = 2 )
+        )->end( ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(assigned.docs[0]?.includes('text="{/MT_EMP/0/NAME}"')
+    && assigned.docs[0]?.includes('text="{/MT_EMP/1/JOB}"')
+    && assigned.notes.length === 0,
+    'cell binding: an assigned row resolves from tab/tab_index plus the component');
+  assert(assigned.model.MT_EMP?.[1]?.JOB === 'Product Owner',
+    'cell binding: the assigned form binds the table into the model like the other one');
+});
+
 // event parameters an app reads back ($parameters>/name) are members of the
 // control like any other - and they are resolved PER EVENT, because two
 // events of one control can declare the same name with different histories
