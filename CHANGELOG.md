@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **The CELL binding reconstructs.** `client->_bind( val = mt_emp[ 1 ]-picture
+  tab = mt_emp tab_index = 1 )` binds one ROW of an internal table
+  (`{/MT_EMP/0/PICTURE}`, ABAP counting rows from 1 and the client path from
+  0). `bindingOf` refused every call carrying `tab`/`tab_index` and the whole
+  expression came back unresolved — which takes the **attribute** out of the
+  reconstructed view, so the property gate, the render gate and every
+  consumer's structural diff stopped seeing that property at all. Exactly the
+  blindness the `omit_initial_paths`/`json` gap caused, on the one `_bind`
+  parameter pair whose path *is* computable.
+
+  Both spellings resolve: the table expression `tab[ n ]-comp` and the
+  ASSIGNED row `<emp>-comp`, which is what a class writes when it is
+  downported (abaplint lowers the component-level table expression to a
+  work-area copy, and the framework's reference match then refuses the cell).
+  In both, the table and the row come from `tab`/`tab_index` — the arguments
+  the framework resolves the row from — and `val` contributes the component.
+
+  The table-expression form is reconstructed only when the three parts agree — `val` reads the table `tab`
+  names, and the row number is a literal equal to `tab_index`. They cannot
+  disagree in a call that works (the framework matches the cell by data
+  reference and refuses a `val` outside the addressed row), so a disagreement
+  means the call is broken and a path derived from it would be a guess
+  reported as fact. A variable row number, a re-rooted model
+  (`switch_default_model`) and a custom mapper stay unresolved as before.
 - **`event-arg-out-of-range` and `event-arg-unresolved` read abap2UI5's `arg`
   shorthand.** `client->_event( arg = x )` is the one-value spelling of
   `t_arg` — the framework folds it into the same `string_table`, appending it
