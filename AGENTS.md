@@ -890,7 +890,7 @@ Two packages come out of this repository, from one tag:
 
 | Package | What it is |
 | --- | --- |
-| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~240 kB |
+| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~340 kB |
 | `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`render-runtime/` — an npm **workspace** of this repo) |
 
 **The split is not tidiness, it is the advertised install.** The README's first
