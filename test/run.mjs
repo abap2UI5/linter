@@ -739,43 +739,6 @@ const withEvent = (control, event, param) => checkAbapSource(`
   client->view_display( view->stringify( ) ).`, { render: false })
   .findings.filter((x) => x.type === 'event-parameter-too-new');
 
-/* `_event( arg = … )` is the ONE-VALUE spelling of t_arg, and the framework
- * APPENDS it (z2ui5_cl_ui5_client~_event), so it raises the arity by one
- * rather than replacing the table. Until the rule counted it, every wire
- * migrated to the shorthand read as "sends 0 t_arg" and every
- * get_event_arg( 1 ) behind it was reported out of range - 187 findings over
- * 124 files on the samples-controls corpus the day it adopted the spelling. */
-const argArity = (raise, read) => checkAbapSource(`CLASS zcl_a DEFINITION PUBLIC.
-  PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
-ENDCLASS.
-CLASS zcl_a IMPLEMENTATION.
-  METHOD z2ui5_if_app~main.
-    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
-    view->ele( n = \`View\` ns = \`mvc\`
-        )->a( n = \`xmlns\`     v = \`sap.m\`
-        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
-        )->tag( \`Button\` )->a( n = \`press\` v = ${raise} ).
-    client->view_display( view->stringify( ) ).
-    IF client->get_event( ) = \`GO\`.
-      DATA(lv) = client->get_event_arg( ${read} ).
-    ENDIF.
-  ENDMETHOD.
-ENDCLASS.`, { render: false }).findings.filter((x) => x.type === 'event-arg-out-of-range');
-
-section('event arg shorthand', async () => {
-  assert(!argArity('client->_event( val = `GO` arg = `${$source>/value}` )', '1').length,
-    'event arg: `arg =` counts as one sent value, so reading position 1 is in range');
-  assert(argArity('client->_event( val = `GO` arg = `${$source>/value}` )', '2').length === 1,
-    'event arg: reading PAST the one it sends is still reported');
-  assert(!argArity('client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ) arg = `b` )', '2').length,
-    'event arg: `arg` is APPENDED to t_arg, it does not replace it');
-  assert(argArity('client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ) arg = `b` )', '3').length === 1,
-    'event arg: and the appended arity is exact, not open-ended');
-  assert(argArity('client->_event( val = `GO` )', '1').length === 1,
-    'event arg: an event that sends nothing still reports a read - `t_arg` must not match `arg`');
-});
-
 section('event params', async () => {
   assert(withEvent('SearchField', 'search', 'searchButtonPressed')
     .some((x) => x.member === 'searchButtonPressed' && x.since === '1.114'),
@@ -1268,6 +1231,48 @@ section('display-root-mismatch', async () => {
       'event-arg-out-of-range: the default arg of an event that sends none');
     assert(!arity.some((x) => x.member === '1' && x.value === 'PICK'),
       'event-arg-out-of-range: a read inside the declared arity is not reported');
+
+    /* The `arg` shorthand counts toward the arity. abap2UI5's client folds
+     * `arg = x` into the same string_table as `t_arg = VALUE #( ( x ) )`, so a
+     * wire spelling its one argument that way sends one - reading the t_arg
+     * region alone made every such wire look like it sent nothing, which was
+     * 187 false positives in 125 files the day the samples-controls corpus
+     * adopted the shorthand. */
+    /* checkAbapRules, not checkAbapSource: a snippet without a builder chain
+     * never reaches the ABAP rules at all - the same trap the abap rules (2)
+     * section documents, and the reason these assertions would otherwise be
+     * green for the wrong reason. */
+    const { checkAbapRules: argRules } = await import('./observe.mjs');
+    const argEvent = (raise, read) => argRules(`CLASS x IMPLEMENTATION.
+    METHOD view.
+      ${raise}
+    ENDMETHOD.
+    METHOD on_event.
+      CASE client->get( )-event.
+        WHEN \`PICK\`.
+          DATA(v) = client->get_event_arg( ${read} ).
+      ENDCASE.
+    ENDMETHOD.
+    ENDCLASS.`).filter((x) => x.type === 'event-arg-out-of-range');
+
+    assert(argEvent('client->_event( val = `PICK` arg = `${$source>/key}` ).', '1').length === 0,
+      'event-arg-out-of-range: arg = counts as one argument, so reading 1 is in range');
+    assert(argEvent('client->_event( val = `PICK` arg = `${$source>/key}` ).', '2').length === 1,
+      'event-arg-out-of-range: reading past a single arg = is still reported');
+    assert(argEvent('client->_event( val = `PICK` t_arg = VALUE #( ( `${a}` ) ) arg = `${b}` ).', '2').length === 0,
+      'event-arg-out-of-range: arg appends behind t_arg, so the two compose to arity 2');
+    assert(argEvent('client->_event( val = `PICK` arg = lv_key ).', '1').length === 0,
+      'event-arg-out-of-range: a non-literal arg is still one argument, not a skipped one');
+    assert(argEvent('client->_event( val = `PICK` ).', '1').length === 1,
+      'event-arg-out-of-range: an event that really sends nothing is unaffected');
+
+    /* and the unresolved-brace rule keeps its coverage across the shorthand -
+     * a bare {COL} arrives empty whichever parameter carried it */
+    const argBrace = argRules('CLASS x IMPLEMENTATION. METHOD view.'
+      + ' client->_event( val = `PICK` arg = `{COL}` ). ENDMETHOD. ENDCLASS.')
+      .filter((x) => x.type === 'event-arg-unresolved');
+    assert(argBrace.length === 1 && argBrace[0].value === '{COL}',
+      `event-arg-unresolved: a bare brace in arg = is reported like one in t_arg (got ${argBrace.length})`);
 
     // the two shapes that were false positives on the corpus
     const foreign = `CLASS x IMPLEMENTATION.
