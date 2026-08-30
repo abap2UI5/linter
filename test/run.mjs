@@ -739,6 +739,43 @@ const withEvent = (control, event, param) => checkAbapSource(`
   client->view_display( view->stringify( ) ).`, { render: false })
   .findings.filter((x) => x.type === 'event-parameter-too-new');
 
+/* `_event( arg = … )` is the ONE-VALUE spelling of t_arg, and the framework
+ * APPENDS it (z2ui5_cl_ui5_client~_event), so it raises the arity by one
+ * rather than replacing the table. Until the rule counted it, every wire
+ * migrated to the shorthand read as "sends 0 t_arg" and every
+ * get_event_arg( 1 ) behind it was reported out of range - 187 findings over
+ * 124 files on the samples-controls corpus the day it adopted the spelling. */
+const argArity = (raise, read) => checkAbapSource(`CLASS zcl_a DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+CLASS zcl_a IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Button\` )->a( n = \`press\` v = ${raise} ).
+    client->view_display( view->stringify( ) ).
+    IF client->get_event( ) = \`GO\`.
+      DATA(lv) = client->get_event_arg( ${read} ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.`, { render: false }).findings.filter((x) => x.type === 'event-arg-out-of-range');
+
+section('event arg shorthand', async () => {
+  assert(!argArity('client->_event( val = `GO` arg = `${$source>/value}` )', '1').length,
+    'event arg: `arg =` counts as one sent value, so reading position 1 is in range');
+  assert(argArity('client->_event( val = `GO` arg = `${$source>/value}` )', '2').length === 1,
+    'event arg: reading PAST the one it sends is still reported');
+  assert(!argArity('client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ) arg = `b` )', '2').length,
+    'event arg: `arg` is APPENDED to t_arg, it does not replace it');
+  assert(argArity('client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ) arg = `b` )', '3').length === 1,
+    'event arg: and the appended arity is exact, not open-ended');
+  assert(argArity('client->_event( val = `GO` )', '1').length === 1,
+    'event arg: an event that sends nothing still reports a read - `t_arg` must not match `arg`');
+});
+
 section('event params', async () => {
   assert(withEvent('SearchField', 'search', 'searchButtonPressed')
     .some((x) => x.member === 'searchButtonPressed' && x.since === '1.114'),

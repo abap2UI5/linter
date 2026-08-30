@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **`_event( arg = … )` counts toward the event's arity.** The framework's
+  one-value spelling of `t_arg` is APPENDED to it
+  (`z2ui5_cl_ui5_client~_event`), but `event-arg-out-of-range` only counted
+  `t_arg = VALUE #( … )` — so every wire migrated to the shorthand read as
+  "sends 0 t_arg" and every `get_event_arg( 1 )` behind it was reported out
+  of range. Measured on the samples-controls corpus the day it adopted the
+  spelling: **187 findings over 124 files, all false**, and they turn the
+  consumer's chain-format and view gates red. `arg` now adds one to the
+  arity; `t_arg` is kept out of the match by a lookbehind, since its own
+  `arg` is preceded by `_`.
+
 - **The CELL binding reconstructs.** `client->_bind( val = mt_emp[ 1 ]-picture
   tab = mt_emp tab_index = 1 )` binds one ROW of an internal table
   (`{/MT_EMP/0/PICTURE}`, ABAP counting rows from 1 and the client path from
