@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **A chained `DATA:` declaration is read past its first name.**
+  `unused-public-attribute` and `private-app-attribute` collect the names of
+  one SECTION, and their block regex ended on `…|$)` under `/m` — where `$`
+  matches at the end of every LINE, so the lazy body always stopped at the
+  first newline. Given
+
+      PRIVATE SECTION.
+        DATA: mv_alpha TYPE string,
+              mv_beta  TYPE abap_bool,
+              mv_gamma TYPE i.
+
+  only `mv_alpha` was ever collected. Both rules were silent about the rest,
+  and `private-app-attribute` is the one whose entire value is that the missed
+  attribute otherwise answers `ASSERTION_FAILED` with nothing naming it. The
+  same chain written as three separate `DATA` statements was reported
+  correctly, which is why it read as covered.
+
+  `instanceAttributes` — the third collector, which reads the whole class
+  definition — has no `$` alternative and was never affected; that asymmetry is
+  what isolated it. The two section-scoped collectors now share one helper that
+  terminates on end of INPUT, stops the comma split at the statement's `.`, and
+  walks each name's offset instead of searching for it (`indexOf(name, …)`
+  resolved a later `mv_a` to an earlier `mv_alpha`, so a finding could point at
+  the wrong line).
+
 - **The CELL binding reconstructs.** `client->_bind( val = mt_emp[ 1 ]-picture
   tab = mt_emp tab_index = 1 )` binds one ROW of an internal table
   (`{/MT_EMP/0/PICTURE}`, ABAP counting rows from 1 and the client path from
