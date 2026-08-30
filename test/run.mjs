@@ -688,6 +688,42 @@ section('cell binding', async () => {
       && out.notes.some((n) => n.includes('unresolved value expression')),
       `cell binding: stays unresolved when ${why}`);
   }
+
+  /* The ASSIGNED-row spelling — `val = <emp>-name` — is what a downported
+   * class writes, so it is the one the corpus uses. `val` contributes the
+   * component; the table and the row come from tab/tab_index either way. */
+  const assigned = prepareAbap(`CLASS zcl_cell DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s_emp, name TYPE string, job TYPE string, END OF ty_s_emp.
+    DATA mt_emp TYPE STANDARD TABLE OF ty_s_emp WITH EMPTY KEY.
+ENDCLASS.
+CLASS zcl_cell IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    FIELD-SYMBOLS <emp1> TYPE ty_s_emp.
+    FIELD-SYMBOLS <emp2> TYPE ty_s_emp.
+    mt_emp = VALUE #( ( name = \`Michael Adams\` job = \`Scrum Master\` )
+                      ( name = \`John Miller\` job = \`Product Owner\` ) ).
+    ASSIGN mt_emp[ 1 ] TO <emp1>.
+    ASSIGN mt_emp[ 2 ] TO <emp2>.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Label\`
+            )->a( n = \`text\` v = client->_bind( val = <emp1>-name tab = mt_emp tab_index = 1 )
+        )->tag( \`Label\`
+            )->a( n = \`text\` v = client->_bind( val = <emp2>-job tab = mt_emp tab_index = 2 )
+        )->end( ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.`);
+  assert(assigned.docs[0]?.includes('text="{/MT_EMP/0/NAME}"')
+    && assigned.docs[0]?.includes('text="{/MT_EMP/1/JOB}"')
+    && assigned.notes.length === 0,
+    'cell binding: an assigned row resolves from tab/tab_index plus the component');
+  assert(assigned.model.MT_EMP?.[1]?.JOB === 'Product Owner',
+    'cell binding: the assigned form binds the table into the model like the other one');
 });
 
 // event parameters an app reads back ($parameters>/name) are members of the

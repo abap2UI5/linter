@@ -12,7 +12,14 @@
   blindness the `omit_initial_paths`/`json` gap caused, on the one `_bind`
   parameter pair whose path *is* computable.
 
-  Reconstructed only when the three parts agree — `val` reads the table `tab`
+  Both spellings resolve: the table expression `tab[ n ]-comp` and the
+  ASSIGNED row `<emp>-comp`, which is what a class writes when it is
+  downported (abaplint lowers the component-level table expression to a
+  work-area copy, and the framework's reference match then refuses the cell).
+  In both, the table and the row come from `tab`/`tab_index` — the arguments
+  the framework resolves the row from — and `val` contributes the component.
+
+  The table-expression form is reconstructed only when the three parts agree — `val` reads the table `tab`
   names, and the row number is a literal equal to `tab_index`. They cannot
   disagree in a call that works (the framework matches the cell by data
   reference and refuses a `val` outside the addressed row), so a disagreement
