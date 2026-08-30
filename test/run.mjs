@@ -1124,6 +1124,48 @@ section('display-root-mismatch', async () => {
     assert(!arity.some((x) => x.member === '1' && x.value === 'PICK'),
       'event-arg-out-of-range: a read inside the declared arity is not reported');
 
+    /* The `arg` shorthand counts toward the arity. abap2UI5's client folds
+     * `arg = x` into the same string_table as `t_arg = VALUE #( ( x ) )`, so a
+     * wire spelling its one argument that way sends one - reading the t_arg
+     * region alone made every such wire look like it sent nothing, which was
+     * 187 false positives in 125 files the day the samples-controls corpus
+     * adopted the shorthand. */
+    /* checkAbapRules, not checkAbapSource: a snippet without a builder chain
+     * never reaches the ABAP rules at all - the same trap the abap rules (2)
+     * section documents, and the reason these assertions would otherwise be
+     * green for the wrong reason. */
+    const { checkAbapRules: argRules } = await import('./observe.mjs');
+    const argEvent = (raise, read) => argRules(`CLASS x IMPLEMENTATION.
+    METHOD view.
+      ${raise}
+    ENDMETHOD.
+    METHOD on_event.
+      CASE client->get( )-event.
+        WHEN \`PICK\`.
+          DATA(v) = client->get_event_arg( ${read} ).
+      ENDCASE.
+    ENDMETHOD.
+    ENDCLASS.`).filter((x) => x.type === 'event-arg-out-of-range');
+
+    assert(argEvent('client->_event( val = `PICK` arg = `${$source>/key}` ).', '1').length === 0,
+      'event-arg-out-of-range: arg = counts as one argument, so reading 1 is in range');
+    assert(argEvent('client->_event( val = `PICK` arg = `${$source>/key}` ).', '2').length === 1,
+      'event-arg-out-of-range: reading past a single arg = is still reported');
+    assert(argEvent('client->_event( val = `PICK` t_arg = VALUE #( ( `${a}` ) ) arg = `${b}` ).', '2').length === 0,
+      'event-arg-out-of-range: arg appends behind t_arg, so the two compose to arity 2');
+    assert(argEvent('client->_event( val = `PICK` arg = lv_key ).', '1').length === 0,
+      'event-arg-out-of-range: a non-literal arg is still one argument, not a skipped one');
+    assert(argEvent('client->_event( val = `PICK` ).', '1').length === 1,
+      'event-arg-out-of-range: an event that really sends nothing is unaffected');
+
+    /* and the unresolved-brace rule keeps its coverage across the shorthand -
+     * a bare {COL} arrives empty whichever parameter carried it */
+    const argBrace = argRules('CLASS x IMPLEMENTATION. METHOD view.'
+      + ' client->_event( val = `PICK` arg = `{COL}` ). ENDMETHOD. ENDCLASS.')
+      .filter((x) => x.type === 'event-arg-unresolved');
+    assert(argBrace.length === 1 && argBrace[0].value === '{COL}',
+      `event-arg-unresolved: a bare brace in arg = is reported like one in t_arg (got ${argBrace.length})`);
+
     // the two shapes that were false positives on the corpus
     const foreign = `CLASS x IMPLEMENTATION.
     METHOD main.

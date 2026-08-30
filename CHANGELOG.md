@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **`event-arg-out-of-range` and `event-arg-unresolved` read abap2UI5's `arg`
+  shorthand.** `client->_event( arg = x )` is the one-value spelling of
+  `t_arg` — the framework folds it into the same `string_table`, appending it
+  behind any `t_arg` rows — but both rules built their argument list from the
+  `t_arg = VALUE #( )` region alone. So every wire written that way looked
+  like it sent nothing: `get_event_arg( 1 )` in its handler was reported as a
+  read past the end, and a bare `{COL}` carried by `arg` was not checked at
+  all. Measured on abap2UI5/samples-controls the day the corpus adopted the
+  shorthand: **187 errors in 125 of 637 files, every one a false positive** —
+  on the rule whose entire value is that a report means the read really does
+  come back empty. Both spellings now count, including a non-literal
+  `arg = lv_key`, which is one argument of a value the pass cannot know.
+
+  Reading past what an event actually sends is still reported, and an event
+  that genuinely sends nothing is unaffected — asserted both ways.
+
 - **`rules[id].exclude` works on Windows.** The pattern is a path regex and
   both spellings the README gives are written with `/`, but the file was also
   matched in the forms `path.resolve` and `path.relative` return — which on
