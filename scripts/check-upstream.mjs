@@ -39,7 +39,7 @@ import {
   GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
   FRONTEND_EVENTS, VIEW_SLOTS, FILTER_OPERATORS, URLHELPER_ACTIONS,
-  CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS,
+  CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS, CONTROL_METHOD_KINDS, URL_POLICIES,
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
 import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
@@ -267,6 +267,16 @@ export function parseControlMethodKinds(abapSrc) {
     out[m[1]] = [...m[2].matchAll(/["'`]([^"'`]+)["'`]/g)].map((x) => x[1]);
   }
   return out;
+}
+
+/** URL_POLICIES: the built-in policy names setAsyncURLHandler may be given.
+ *  An object of `NAME: () => …` entries, so the KEYS are the closed set. */
+export function parseUrlPolicies(abapSrc) {
+  const js = embeddedJs(abapSrc);
+  const at = js.indexOf('const URL_POLICIES = {');
+  if (at === -1) return [];
+  const body = braceRegion(js, js.indexOf('{', at));
+  return [...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
 }
 
 /** SHORTCUT_ALIASES: alias -> canonical spelling. */
@@ -574,6 +584,26 @@ if (invokedDirectly) {
     report('CONTROL_BY_ID id-argument methods (lib/frontend-actions.mjs)', [...CONTROL_METHOD_ID_ARG], idArg);
     const objArg = Object.keys(kinds).filter((k) => kinds[k][0] === 'object');
     report('CONTROL_BY_ID object-payload methods (lib/frontend-actions.mjs)', Object.keys(OBJECT_ARG_METHODS), objArg);
+
+    /* The WHOLE map, not only the two projections above. Arity and the
+     * int/bool kinds are what `control-call-arg-count` and
+     * `control-call-arg-kind` judge, and a mirror nothing compares is a mirror
+     * that rots — which is the lesson BINDING_METHODS already taught here. */
+    report('CONTROL_BY_ID method names (lib/frontend-actions.mjs)',
+      Object.keys(CONTROL_METHOD_KINDS), Object.keys(kinds));
+    for (const name of Object.keys(CONTROL_METHOD_KINDS)) {
+      if (kinds[name]) {
+        report(`CONTROL_BY_ID ${name} argument kinds`, CONTROL_METHOD_KINDS[name], kinds[name]);
+      }
+    }
+  }
+  {
+    const theirs = parseUrlPolicies(actionSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find URL_POLICIES — the embedding changed, update parseUrlPolicies');
+      process.exit(2);
+    }
+    report('setAsyncURLHandler policies (lib/frontend-actions.mjs)', [...URL_POLICIES], theirs);
   }
 
   if (drift) {

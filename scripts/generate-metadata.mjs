@@ -240,6 +240,14 @@ function declEntry(decl, doc) {
     const parsed = declarations(params);
     if (Object.keys(parsed).length) entry.params = parsed;
   }
+  /* Only a defaultValue of TRUE is kept, and the asymmetry is the point.
+   * `abap_bool` has no absent state: a field a VALUE #( ) row does not set
+   * still ships as a real JSON `false`, which OVERRIDES a `true` default and
+   * renders the opposite of what the row meant. A `false` default is what an
+   * unset field produces anyway, so storing it would add a column to almost
+   * every boolean property to say "no change". Nothing else needs the value,
+   * and the snapshot is one line every consumer loads. */
+  if (/\bdefaultValue\s*:\s*true\b/.test(decl)) entry.defaultValue = true;
   const since = sinceOf(doc);
   if (since) entry.since = since;
   if (doc && EXPERIMENTAL_RE.test(doc)) entry.experimental = true;
@@ -389,6 +397,44 @@ function parseClass(src, region, meta, name, parent) {
     interfaces.push(...[...ifaceBlock[1].matchAll(/["']([\w.]+)["']/g)].map((m) => m[1]));
   }
 
+  /* Setters that THROW, and the classes that widen an aggregation's declared
+   * type — two facts a metadata block cannot state, both of which decide a
+   * verdict the declared type alone gets wrong.
+   *
+   * A hand-written `set<Property>` that throws makes the property's DOMAIN
+   * narrower than its type: `RecurringCalendarAppointment.recurrencePattern`
+   * is declared `int` and refuses anything below 1. An unfilled ABAP `TYPE i`
+   * serializes as `0`, `ManagedObject.updateProperty` rethrows anything that
+   * is not a FormatException, and the whole render dies — which is a user
+   * report, not a hypothesis.
+   *
+   * A class that overrides the GENERIC `addAggregation` handles insertion
+   * itself, so what its metadata declares is not what it accepts:
+   * `ObjectPageSubSection` declares `blocks` as `sap.ui.core.Control` and its
+   * override explicitly unpacks an `ObjectPageLazyLoader`, which is an
+   * Element. By the metadata alone the demo kit's own view is invalid. */
+  for (const m of region.matchAll(/\bprototype\.set([A-Z]\w*)\s*=\s*function\s*\(\s*(\w+)[^)]*\)\s*\{/g)) {
+    const body = stripComments(braceBody(region, m.index + m[0].length - 1));
+    /* A LOWER BOUND, not merely "this setter throws somewhere".
+     *
+     * The bare fact is far too coarse to act on: `MonthPicker.setMonth` throws
+     * in a nested callback while 0 (January) is perfectly legal, and
+     * `TimesRow.setIntervalMinutes` guards `>= 720` and `1440 % iMinutes`,
+     * where 0 makes the modulo NaN and throws nothing. Both would have been
+     * reported for the initial value, which is a finding on correct code.
+     *
+     * What IS actionable is the guard shape the defect actually has: an
+     * opening `if (<param> < N) throw`, which is what makes the ABAP initial 0
+     * illegal. `<= N` is the same statement one off. Only that is recorded,
+     * and only when the guard names the setter's own parameter. */
+    const guard = body.match(new RegExp(`\\bif\\s*\\(\\s*${rxEscape(m[2])}\\s*<(=?)\\s*(-?\\d+)\\s*\\)\\s*\\{?\\s*(?:\\r?\\n\\s*)?throw\\b`));
+    if (!guard) continue;
+    const min = Number(guard[2]) + (guard[1] === '=' ? 1 : 0);
+    const prop = m[1][0].toLowerCase() + m[1].slice(1);
+    if (properties[prop]) properties[prop].setterMin = min;
+  }
+  const widensAggregation = /\bprototype\.addAggregation\s*=\s*function\b/.test(region);
+
   // legacy shape kept for the @since floor check: member -> since
   const members = {};
   for (const set of [properties, aggregations, associations, events]) {
@@ -402,7 +448,9 @@ function parseClass(src, region, meta, name, parent) {
 
   return {
     name, parent, members, properties, aggregations, associations, events,
-    defaultAggregation, interfaces, ...classMeta(src, name),
+    defaultAggregation, interfaces,
+    ...(widensAggregation ? { widensAggregation: true } : {}),
+    ...classMeta(src, name),
   };
 }
 
@@ -519,6 +567,7 @@ for (const [base, dir] of dirs) {
       if (Object.keys(c.events).length) entry.events = c.events;
       if (c.defaultAggregation) entry.defaultAggregation = c.defaultAggregation;
       if (c.interfaces.length) entry.interfaces = c.interfaces;
+      if (c.widensAggregation) entry.widensAggregation = true;
       controls[c.name] = entry;
       files++;
     }

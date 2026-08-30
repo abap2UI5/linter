@@ -87,13 +87,21 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 94 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 111 rules passed\")."
     },
     "rules": {
       "type": "object",
       "additionalProperties": false,
       "description": "Per rule: false to switch it off, a severity string, or { severity, exclude }.",
       "properties": {
+        "abap-date-formatter-mismatch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'abap-date-formatter-mismatch' — default severity: error"
+        },
+        "absent-boolean-overrides-default": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'absent-boolean-overrides-default' — default severity: error"
+        },
         "aggregation-in-aggregation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'aggregation-in-aggregation' — default severity: error"
@@ -142,6 +150,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'chain-indentation' — default severity: hint"
         },
+        "class-constructor-visibility": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'class-constructor-visibility' — default severity: error"
+        },
         "collapsed-brace-in-style": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'collapsed-brace-in-style' — default severity: error"
@@ -153,6 +165,14 @@
         "commercial-ui5-host": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'commercial-ui5-host' — default severity: warning"
+        },
+        "control-call-arg-count": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'control-call-arg-count' — default severity: warning"
+        },
+        "control-call-arg-kind": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'control-call-arg-kind' — default severity: error"
         },
         "control-deprecated": {
           "$ref": "#/definitions/rule",
@@ -202,6 +222,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'enum-value-too-new' — default severity: warning"
         },
+        "escape-sequence-in-backtick": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'escape-sequence-in-backtick' — default severity: warning"
+        },
         "escaped-brace-in-backtick": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'escaped-brace-in-backtick' — default severity: error"
@@ -242,6 +266,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'filter-groups-not-arrays' — default severity: error"
         },
+        "frontend-action-too-new": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'frontend-action-too-new' — default severity: warning"
+        },
         "frontend-action-unknown-id": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'frontend-action-unknown-id' — default severity: error"
@@ -266,6 +294,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'icon-too-new' — default severity: warning"
         },
+        "into-corresponding-inline-decl": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'into-corresponding-inline-decl' — default severity: error"
+        },
         "invalid-action-payload": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'invalid-action-payload' — default severity: error"
@@ -273,6 +305,10 @@
         "invalid-aggregation-child": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'invalid-aggregation-child' — default severity: error"
+        },
+        "invalid-aggregation-item": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'invalid-aggregation-item' — default severity: error"
         },
         "invalid-expression-binding": {
           "$ref": "#/definitions/rule",
@@ -297,6 +333,10 @@
         "json-literal-in-attribute": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'json-literal-in-attribute' — default severity: error"
+        },
+        "lifecycle-is-initial": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'lifecycle-is-initial' — default severity: hint"
         },
         "literal-view-slot": {
           "$ref": "#/definitions/rule",
@@ -338,6 +378,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'non-released-api' — default severity: warning"
         },
+        "obsolete-bind-argument": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'obsolete-bind-argument' — default severity: warning"
+        },
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-binder' — default severity: warning"
@@ -362,9 +406,21 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'popover-display-val' — default severity: error"
         },
+        "private-app-attribute": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'private-app-attribute' — default severity: warning"
+        },
         "raw-javascript-to-frontend": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'raw-javascript-to-frontend' — default severity: warning"
+        },
+        "redundant-conv-i": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'redundant-conv-i' — default severity: hint"
+        },
+        "redundant-init-display": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'redundant-init-display' — default severity: warning"
         },
         "relative-aggregation-without-context": {
           "$ref": "#/definitions/rule",
@@ -462,9 +518,21 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-view-slot' — default severity: error"
         },
+        "unresolved-attribute-value": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unresolved-attribute-value' — default severity: hint"
+        },
         "unused-public-attribute": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unused-public-attribute' — default severity: hint"
+        },
+        "validating-setter-out-of-range": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'validating-setter-out-of-range' — default severity: error"
+        },
+        "value-header-default-reassigned": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'value-header-default-reassigned' — default severity: error"
         },
         "view-never-displayed": {
           "$ref": "#/definitions/rule",
