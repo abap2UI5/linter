@@ -3372,6 +3372,24 @@ section('upstream', async () => {
     const targets = parseGlobalTargets(abap);
     assert(targets.ONE_LINER?.join() === 'show' && targets.MULTI?.join() === 'a,b',
       `upstream: GLOBAL_TARGETS parses one-line and multi-line entries (got ${JSON.stringify(targets)})`);
+    /* The HARDENED spelling. Upstream wrapped its lookup maps against
+     * prototype pollution — `const GLOBAL_TARGETS = {` became
+     * `const GLOBAL_TARGETS = Object.assign(Object.create(null), {` — and
+     * every parser looked for the old one literally, so the gate stopped
+     * finding three of the sets it exists to compare and exited 2 on "the
+     * embedding changed". The suite did not catch it because this section
+     * pinned only the old form; both are pinned now, and the parsers take the
+     * first `{` after the NAME rather than a fixed prefix, so the next wrapper
+     * cannot blind the gate either. */
+    const hardened = parseGlobalTargets(abap.replace('const GLOBAL_TARGETS = {',
+      'const GLOBAL_TARGETS = Object.assign(Object.create(null), {'));
+    assert(JSON.stringify(hardened) === JSON.stringify(targets),
+      `upstream: a wrapped declaration parses the same as a bare one (got ${JSON.stringify(hardened)})`);
+    const { parseControlMethodKinds, parseUrlPolicies } = await import('../scripts/check-upstream.mjs');
+    assert(parseControlMethodKinds('x = `const CONTROL_METHODS = Object.assign(Object.create(null), {` && |\\n| && `  back: [],` && |\\n| && `  goToStep: ["controlId", "bool"],` && |\\n| && `});`.').goToStep?.join() === 'controlId,bool',
+      'upstream: CONTROL_METHODS keeps its arity and kinds through the wrapper');
+    assert(parseUrlPolicies('x = `const URL_POLICIES = {` && |\\n| && `  ALLOW_ALL: () => true,` && |\\n| && `  DENY_ALL: () => false,` && |\\n| && `};`.').join() === 'ALLOW_ALL,DENY_ALL',
+      'upstream: the setAsyncURLHandler policy names parse');
     assert(embeddedJs('a = `line1` && |\\n| && `line2`.').includes('line1\nline2'),
       'upstream: the embedded JS is reassembled from the backtick literals');
     assert(parseFormatterExports('  return {\n    DateCreateObject(s) {\n      return s;\n    },\n    expandInlineIcons(text) {},\n  };').join() === 'DateCreateObject,expandInlineIcons',

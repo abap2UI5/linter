@@ -148,15 +148,41 @@ function braceRegion(src, open) {
   return src.slice(open + 1);
 }
 
+/* WHERE a named constant's literal starts, tolerating whatever the declaration
+ * is wrapped in.
+ *
+ * Upstream hardened its lookup maps against prototype pollution
+ * (`const GLOBAL_TARGETS = {` became
+ * `const GLOBAL_TARGETS = Object.assign(Object.create(null), {`), and every
+ * parser here looked for the OLD spelling literally — so the gate stopped
+ * finding three of the sets it exists to compare and exited 2 on "the
+ * embedding changed" instead of reporting drift. The lesson is the one this
+ * file already carries about WHICH class holds a set: the wrapper is
+ * upstream's business, and the next hardening pass must not blind the gate
+ * again. So the name is located and the first `{` or `[` after it is taken,
+ * which reads both spellings and anything else of that shape.
+ *
+ * Returns the index of the opening brace/bracket, or -1. */
+function declAt(js, name, opener) {
+  const decl = js.indexOf(`const ${name} = `);
+  if (decl === -1) return -1;
+  const at = js.indexOf(opener, decl);
+  if (at === -1) return -1;
+  /* The opener has to belong to THIS declaration — a name that is only ever
+   * mentioned (never declared) would otherwise adopt the next literal in the
+   * file. Nothing but a wrapper call may stand in between. */
+  return /^[\w.(),\s]*$/.test(js.slice(decl + `const ${name} = `.length, at)) ? at : -1;
+}
+
 /** GLOBAL_TARGETS of the embedded FrontendAction JS: name -> [methods].
  *  Entries span one line (MESSAGE_TOAST) or many (MESSAGE_BOX), so the map
  *  is parsed brace-aware from the reconstructed JS, not line by line. */
 export function parseGlobalTargets(abapSrc) {
   const js = embeddedJs(abapSrc);
   const out = {};
-  const at = js.indexOf('const GLOBAL_TARGETS = {');
+  const at = declAt(js, 'GLOBAL_TARGETS', '{');
   if (at === -1) return out;
-  const body = braceRegion(js, js.indexOf('{', at));
+  const body = braceRegion(js, at);
   const entryRe = /([A-Z][A-Z0-9_]*)\s*:\s*\{/g;
   let m;
   while ((m = entryRe.exec(body)) !== null) {
@@ -180,7 +206,7 @@ export function parseGlobalTargets(abapSrc) {
  *  between `const CSS_PROPERTIES = [` and its closing bracket. */
 export function parseCssProperties(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const CSS_PROPERTIES = [');
+  const at = declAt(js, 'CSS_PROPERTIES', '[');
   if (at === -1) return [];
   const end = js.indexOf('];', at);
   if (end === -1) return [];
@@ -192,7 +218,7 @@ export function parseCssProperties(abapSrc) {
  *  entry may carry a trailing `//` comment, which is stripped first. */
 export function parseDenyList(abapSrc, name) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf(`const ${name} = [`);
+  const at = declAt(js, name, '[');
   if (at === -1) return [];
   const end = js.indexOf('];', at);
   if (end === -1) return [];
@@ -206,9 +232,9 @@ export function parseDenyList(abapSrc, name) {
  *  indent change upstream must not silently empty this list. */
 export function parseBindingMethods(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const BINDING_METHODS = {');
+  const at = declAt(js, 'BINDING_METHODS', '{');
   if (at === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', at));
+  const body = braceRegion(js, at);
   // shorthand-method DEFINITIONS only (`filter(binding, …) {`) — a helper
   // CALLED with the binding (`buildFilterGroups(binding, path);`) is not an
   // entry, and the `) {` tail is what tells the two apart
@@ -259,9 +285,9 @@ export function parseUrlHelperActions(abapSrc) {
  *  against THIS parse, so a kind change upstream surfaces here. */
 export function parseControlMethodKinds(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const CONTROL_METHODS = {');
+  const at = declAt(js, 'CONTROL_METHODS', '{');
   if (at === -1) return {};
-  const body = braceRegion(js, js.indexOf('{', at));
+  const body = braceRegion(js, at);
   const out = {};
   for (const m of body.matchAll(/^\s*(\w+)\s*:\s*\[([^\]]*)\]/gm)) {
     out[m[1]] = [...m[2].matchAll(/["'`]([^"'`]+)["'`]/g)].map((x) => x[1]);
@@ -273,18 +299,18 @@ export function parseControlMethodKinds(abapSrc) {
  *  An object of `NAME: () => …` entries, so the KEYS are the closed set. */
 export function parseUrlPolicies(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const URL_POLICIES = {');
+  const at = declAt(js, 'URL_POLICIES', '{');
   if (at === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', at));
+  const body = braceRegion(js, at);
   return [...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
 }
 
 /** SHORTCUT_ALIASES: alias -> canonical spelling. */
 export function parseShortcutAliases(abapSrc) {
   const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const SHORTCUT_ALIASES = {');
+  const at = declAt(js, 'SHORTCUT_ALIASES', '{');
   if (at === -1) return {};
-  const body = braceRegion(js, js.indexOf('{', at));
+  const body = braceRegion(js, at);
   const out = {};
   for (const m of body.matchAll(/(\w+)\s*:\s*["'`]([^"'`]*)["'`]/g)) out[m[1]] = m[2];
   return out;
