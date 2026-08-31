@@ -35,6 +35,47 @@
 
 ## 0.6.0 - 2026-08-30
 
+- **`WITH DEFAULT KEY` parses, and the rules that resolve against a row see
+  something again.** A table declaration is anchored on its terminating dot,
+  and only `WITH EMPTY KEY` was allowed in front of it — so `DATA t TYPE
+  STANDARD TABLE OF ty WITH DEFAULT KEY`, the commonest spelling in ABAP, fell
+  through to the scalar branch: the model carried `''` where a row array
+  belongs, and every rule resolving against a ROW went quiet on it. `SORTED`
+  and `HASHED` tables were not recognized as tables at all. This outranks any
+  single rule below, because it decides whether those rules see anything.
+
+- **17 new rules, mined from what was already written down.** The frontend's
+  own declarations are read in full now rather than in projections:
+  `control-call-arg-count` and `control-call-arg-kind` (arity *and* argument
+  kinds, from the whole method map), `frontend-action-too-new` — a global
+  target resolved through a lazy require is silent below its release, and
+  `member-too-new` judged what the view writes while nothing judged what the
+  class sends — and `invalid-aggregation-item`, where an
+  `<id>/<aggregation>/<index>` reference was judged on its head segment only.
+  From `z2ui5_if_client`'s own ABAP Doc and the app guide:
+  `obsolete-bind-argument` (fixable), `lifecycle-is-initial`,
+  `redundant-init-display`, `private-app-attribute`,
+  `escape-sequence-in-backtick`, `abap-date-formatter-mismatch`. The
+  activation traps `abap-check` had filed as open follow the
+  `source-line-too-long` precedent: `value-header-default-reassigned`,
+  `into-corresponding-inline-decl`, `class-constructor-visibility`,
+  `redundant-conv-i`. A metadata harvest (`defaultValue`, `setterMin`,
+  `widensAggregation`) unblocks `validating-setter-out-of-range` and
+  `absent-boolean-overrides-default` — the bound is harvested rather than the
+  bare fact that a setter throws, because 23 properties throw somewhere and
+  for most of them the initial 0 is legal. Measured: **11 new findings over
+  637 ports, all real**. `statement-too-long` was written, measured and
+  deleted: a builder chain is one statement by construction, and the corpus
+  median over-limit statement was 23,000 characters across 156 ports that all
+  import fine — length is not the discriminator.
+
+- **`properties: false` no longer takes the ABAP rules with it, and
+  `commercial-ui5-host` judges a runtime load.** Two consumer-facing defects
+  that a configuration reported rather than a finding: switching the property
+  gate off silently removed the chain family and every ABAP-side rule as well,
+  and the host rule counted a demo-kit hyperlink and a `/test-resources/`
+  image as commercial dependencies.
+
 - **A chained `DATA:` declaration is read past its first name.**
   `unused-public-attribute` and `private-app-attribute` collect the names of
   one SECTION, and their block regex ended on `…|$)` under `/m` — where `$`
@@ -127,6 +168,56 @@
   added, lost or changed, and, when both sides carry the same keys with the same
   values, says that only their *order* differs. That is what identified the
   walk-order cause on the first Windows run after it shipped.
+
+- **Three rules read the configuration instead of answering the same way
+  everywhere.** `sapui5-only-control` fired only under `--distribution
+  openui5`, so a default run said nothing at all about a SmartTable — and the
+  repository that never thought about the distribution is exactly the one the
+  surprise is waiting for. `distribution` is unset by default now and the rule
+  has three answers: `openui5` is the error it always was, `sapui5` reports
+  nothing, and unset is a hint naming the key to write (advisory under the
+  default `failOn: warning`, so nobody's build turns red for it). The context
+  line says `distribution unset` rather than claiming one nobody configured.
+  `frozen-view-builder` drops from error to **warning** and leads with
+  DEPRECATED: nothing about such a view gets checked, but that is a fact about
+  the gate rather than about the app, which compiles and renders today — what
+  is actually wrong is that `z2ui5_cl_xml_view` is retired into the frozen
+  `src/99`. And one new rule, `literal-view-slot` (hint, fixable): a slot
+  written as a literal travels to the browser as an object key, so a typo or a
+  rename dispatches to no view, silently, while the `cs_view-` constant cannot
+  fail that way because the compiler resolves the name. `--fix` substitutes
+  the constant.
+
+- **Three escapes that stopped one character short.** The markdown cell
+  escaped `|` but not the backslash in front of it, so a message containing an
+  escaped pipe opened a column of its own in a PR comment; a control name went
+  into a `RegExp` with only its dots escaped; and the compiled-theme cache was
+  `/tmp/abap2ui5-theme-css`, one path shared by every account on the machine —
+  per user and `0700` now. Found with CodeQL's `security-extended`, which the
+  pack `ci.yml` runs by default does not include.
+
+- **`elementBoundSlots` can be imported from a browser build.** It decides
+  `boundElement`, which suppresses the "this path has no context" findings for
+  a `cs_event-bind_element` wire — but it was exported only from
+  `lib/index.mjs`, and that module loads the renderer (`http`, `os`, `module`)
+  at import time, which esbuild cannot resolve for `platform: browser`. A
+  consumer assembling the pipeline itself was therefore *stricter* than the
+  CLI, reporting `relative-binding-without-context` on a path the linter
+  accepts — measured on a fixture, not assumed. It lives in
+  `lib/abap-source.mjs` now and is re-exported from `./abap-rules`; a test
+  asserts that neither path reaches the renderer.
+
+- **`./icons` is a subpath export, and the typings say what the runtime
+  takes.** `checkIcons` sat in a module the exports map does not name, and
+  `exports` blocks a deep import — so a consumer that cannot hand over a
+  snapshot path (a browser host has no filesystem) had icon rules on its ABAP
+  path and none on its XML path: the same file judged differently by the
+  editor and by CI, which is the divergence that gate exists to close. The
+  typings had drifted the same way, in the direction that hurts — an option
+  the runtime reads and `types.d.ts` omits cannot be passed from TypeScript
+  without a cast, so a consumer silently does not pass it and the rules behind
+  it never fire. They are declared now, measured against the runtime rather
+  than guessed.
 
 [#35]: https://github.com/abap2UI5/linter/issues/35
 [#67]: https://github.com/abap2UI5/linter/pull/67
