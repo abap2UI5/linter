@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-08-30
+
 - **A bound control in a FOREIGN namespace makes its children rows again.**
   The property walk declines to look into a non-`sap.` namespace - abap2UI5's
   own `z2ui5.cc` controls, raw XHTML, any in-house library - because the UI5
@@ -31,7 +33,7 @@
   Measured: no change over abap2UI5/samples-controls (752 findings before and
   after), which is the corpus with no custom controls in it.
 
-## Unreleased
+## 0.6.0 - 2026-08-30
 
 - **A chained `DATA:` declaration is read past its first name.**
   `unused-public-attribute` and `private-app-attribute` collect the names of

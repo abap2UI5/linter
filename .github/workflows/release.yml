@@ -121,6 +121,45 @@ jobs:
           fi
           echo "publishing $PKG"
 
+      # The changelog IS the release notes: `after-publish` quotes the section
+      # whose heading matches the tag. That job checks for the section too, but
+      # it runs after the packages are on npm, so all it can do is warn and
+      # point the release at the file - deliberately, because a red run for
+      # something cosmetic after an irreversible step teaches people to ignore
+      # red release runs.
+      #
+      # What that leaves uncovered is the rename itself, and it went uncovered:
+      # 0.6.0 and 0.6.1 were both tagged with their entries still under
+      # `## Unreleased` - two `## Unreleased` headings stacked up on main, and
+      # the two versions people actually install had no notes until the
+      # sections were filed by hand afterwards.
+      #
+      # Before the publish the calculus is the opposite way round: nothing is
+      # on the registry yet, so a forgotten rename costs a deleted tag rather
+      # than a burned version number. abap2UI5/mcp-server gates its release the
+      # same way; this one additionally matches the heading the way the notes
+      # step does, so `## 0.2.10` cannot satisfy a `0.2.1` release.
+      - name: The changelog carries this version, and Unreleased is empty
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          node -e '
+            const fs = require("fs");
+            const version = require("./package.json").version;
+            const sections = fs.readFileSync("CHANGELOG.md", "utf8").split(/^## /m).slice(1);
+            const unreleased = sections.find((s) => /^unreleased/i.test(s));
+            const left = unreleased ? unreleased.split("\n").slice(1).join("\n").trim() : "";
+            if (left) {
+              console.error("CHANGELOG.md still has entries under ## Unreleased - move them under ## " + version + " before tagging:\n" + left.slice(0, 400));
+              process.exit(1);
+            }
+            const heading = new RegExp("^" + version.replace(/\./g, "\\.") + "( |$)");
+            if (!sections.some((s) => heading.test(s.split("\n")[0].trim()))) {
+              console.error("CHANGELOG.md has no \"## " + version + "\" section - the version being published needs one");
+              process.exit(1);
+            }
+            console.log("changelog ok: ## " + version + " exists, nothing left under Unreleased");
+          '
+
       # Same gate as ci.yml, on the exact commit being published rather than
       # on whatever passed on main - the render half of the suite needs the
       # browser, so a published version is one that rendered.

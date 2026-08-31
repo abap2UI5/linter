@@ -86,7 +86,10 @@ npm run generate-schema && npm run generate-rules-page
 #     `npm test` fails while either is stale, so this cannot be forgotten -
 #     but running it here keeps the release commit a single coherent diff.
 
-# 2. Rename the CHANGELOG.md "Unreleased" heading to the new version, then
+# 2. Rename the CHANGELOG.md "Unreleased" heading to the new version. The
+#     publish job refuses a tag whose version has no section, or one that
+#     still has entries under Unreleased, so a forgotten rename costs a
+#     deleted tag rather than a release with no notes. Then
 git commit -am "release vX.Y.Z" && git tag -a vX.Y.Z -m "release vX.Y.Z"
 git push --follow-tags && git push origin vX.Y.Z
 ```
@@ -135,9 +138,12 @@ Useful properties when something goes wrong:
 
 - **The release notes come from `CHANGELOG.md`.** `after-publish` copies the
   section whose heading matches the tag, which is why step 2 renames
-  `## Unreleased` to the version. A tag pushed without that rename still gets a
-  release — pointing at the file rather than quoting it — and the run carries a
-  warning saying so. Fix it by editing the release, not by re-tagging.
+  `## Unreleased` to the version. The publish job checks that section before
+  anything reaches the registry, so a tag pushed without the rename fails the
+  run and publishes nothing: rename, re-commit, delete the tag and cut it
+  again. The warning in `after-publish` stays as a backstop for the cases the
+  gate never sees — 0.6.0 and 0.6.1 both shipped through it, which is why the
+  gate exists.
 
   Releases for `v0.1.0`–`v0.2.2` were written by hand on 2026-08-18, because
   this workflow made none before then: `releases/latest` answered 404 and the
