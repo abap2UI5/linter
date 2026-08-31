@@ -677,7 +677,7 @@ ENDCLASS.`;
 
 // ------------------------------------------- rules distilled from the corpus ----
 // popover-display-val, uncurated-formatter, hardcoded-binding-path,
-// duplicate-for-iterator — lessons that bit the ai-demokit corpus, promoted
+// duplicate-for-iterator — lessons that bit the samples-controls corpus, promoted
 // from its repo-local pattern-lint into rules every consumer sees
 {
   const { checkAbapRules } = await import('../lib/abap-rules.mjs');

@@ -2,7 +2,7 @@
 
 **Validate abap2UI5 views without an SAP system** — a CLI, library, and
 GitHub Action extracted from the CI gates of
-[ai-demokit](https://github.com/abap2UI5/ai-demokit), where they guard 276
+[samples-controls](https://github.com/abap2UI5/samples-controls), where they guard 276
 generated ports of the official UI5 demo kit samples.
 
 Two gates:
@@ -348,7 +348,7 @@ formatters (`formatStylish`, `formatJson`, `formatMarkdown`,
 `--json` output carries the annotated findings plus a `totals` count per
 severity and a `problems` total.
 
-Consumers: the [ai-mcp](https://github.com/abap2UI5/ai-mcp) server exposes
+Consumers: the [mcp-server](https://github.com/abap2UI5/mcp-server) server exposes
 these gates as MCP tools for AI coding agents; the
 [VS Code extension](https://github.com/abap2UI5/vscode-extension) is the
 natural place to surface findings as editor diagnostics.
@@ -356,7 +356,7 @@ natural place to surface findings as editor diagnostics.
 ## What it cannot do (by design)
 
 - Event round-trips and visual/UX fidelity stay with a live run (see
-  ai-mcp's `run_app`).
+  mcp-server's `run_app`).
 - A class that builds view parts in helper methods without the handle idiom is
   not statically reconstructable — the render gate is **skipped with a notice**
   (an incomplete reconstruction would validate the wrong view). The property
@@ -398,7 +398,7 @@ npm run generate-rules-page  # docs/index.html — the published rule reference
 
 The reconstruction, mock-model derivation, render harness and property gate
 were built and battle-tested in
-[ai-demokit](https://github.com/abap2UI5/ai-demokit) (`scripts/render-smoke.mjs`,
+[samples-controls](https://github.com/abap2UI5/samples-controls) (`scripts/render-smoke.mjs`,
 `scripts/property-check.mjs`, `scripts/generate-properties.mjs`) against the
 official UI5 demo kit corpus. This package is the corpus-independent
 extraction.

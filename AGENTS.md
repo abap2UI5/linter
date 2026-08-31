@@ -30,8 +30,8 @@ needs the consumers checked — `.github/workflows/downstream.yml` does that on
 every PR, and the same thing runs locally against sibling checkouts:
 
 ```bash
-.github/scripts/substitute-linter.sh . ../ai-demokit
-(cd ../ai-demokit && node scripts/view-gates.mjs --strict --no-render)
+.github/scripts/substitute-linter.sh . ../samples-controls
+(cd ../samples-controls && node scripts/view-gates.mjs --strict --no-render)
 ```
 
 ## Scope — what the linter can and cannot see
@@ -70,7 +70,7 @@ exact line):
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors) |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
-| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, ai-demokit `view-gates`, ai-mcp) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
+| `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
 
 **A new rule moves five places together** — forgetting one has happened:
@@ -146,7 +146,7 @@ test that checks every rule id appears in them.
 
 The mission is to encode as much app-building knowledge as possible as
 static checks, so an agent learns a rule from a finding instead of a doc.
-**The list distilled from the app guide and the ai-demokit gotchas is now
+**The list distilled from the app guide and the samples-controls gotchas is now
 worked off**; every entry shipped:
 
 | Roadmap entry | Rule |
@@ -168,7 +168,7 @@ ballast — PUBLIC is precisely how a value survives the roundtrip — so only a
 name that appears once in the whole class, its own declaration, is reported.
 Keep that distinction if the rule is ever widened.
 
-The `date-type-without-source` entry came from the ai-demokit port of
+The `date-type-without-source` entry came from the samples-controls port of
 `sap.ui.core.sample.TypeDateAsDate` (app 282): its JSON model holds a JS
 `Date`, which an ABAP-fed model can never carry, so the port has to add
 `formatOptions.source` to every binding. Neither the property gate (the
@@ -184,7 +184,7 @@ attribute of the class is a literal, so a class that builds ids at
 runtime is not judged at all.
 
 `relative-binding-without-context` closes the **flattened-element-binding**
-trap the ai-demokit porting guide could until now only describe as a manual
+trap the samples-controls porting guide could until now only describe as a manual
 audit ("a `_bind`-less `` v = `{FIELD}` `` whose FIELD is a root-level DATA
 scalar") — seven of its ports had shipped the wrong form. It needed a third
 view of the class: the model and the shape only carry BOUND variables, so
@@ -205,7 +205,7 @@ rule simply stays silent. Its whole precision lives in the metadata: an
 rather than reported and excused. It found five real ports on the corpus,
 all five converted to bindings.
 
-The 2026-08 round promoted the corpus-independent half of ai-demokit's
+The 2026-08 round promoted the corpus-independent half of the samples-controls repo's
 `pattern-lint.mjs` into real rules, so every consumer sees them instead of
 one repo's gate script:
 
@@ -225,8 +225,8 @@ The second 2026-08-04 round added, each corpus-measured first:
 
 | Origin | Rule |
 | --- | --- |
-| ai-demokit app 043's live BINDING_ERROR (found by the e2e interaction that closed its LIVE_TEST) | `binding-to-nonpublic` — only PUBLIC attributes are serialized, a bound PROTECTED one fails the first roundtrip |
-| ai-demokit's documented residual gap ("enum values newer than 1.71 are invisible") | `enum-value-too-new` + the generator's `enumSince` map — its first corpus run confirmed the two hand-written POST_171 declarations on app 028 (`GenericTile frameType` OneByHalf/TwoByHalf @1.83) |
+| samples-controls app 043's live BINDING_ERROR (found by the e2e interaction that closed its LIVE_TEST) | `binding-to-nonpublic` — only PUBLIC attributes are serialized, a bound PROTECTED one fails the first roundtrip |
+| the samples-controls repo's documented residual gap ("enum values newer than 1.71 are invisible") | `enum-value-too-new` + the generator's `enumSince` map — its first corpus run confirmed the two hand-written POST_171 declarations on app 028 (`GenericTile frameType` OneByHalf/TwoByHalf @1.83) |
 | the last two generic pattern-lint rules | `ui5-internal-access` (mProperties & friends), `commercial-ui5-host` |
 | `hardcoded-binding-path` said "don't", nothing said "does it exist" | `unknown-binding-path` now also judges `path: '/X'` in complex binding infos and `${/X}` in expressions — the first corpus run found the row-index trap (`/T_ITEMS/9/TEXT` is legal; numeric segments now step into the bound table's row) |
 
@@ -253,8 +253,8 @@ enum or date property (`"" is of type string, expected sap.m.AvatarShape`).
 Now: unseeded tables are empty for the renderer and a declared row in the
 shape, the same split the scalars already had.
 
-**Measure a new rule against the ai-demokit corpus before shipping it.**
-`node cli.mjs /path/to/ai-demokit/src --no-render --json` over 282 real
+**Measure a new rule against the samples-controls corpus before shipping it.**
+`node cli.mjs /path/to/samples-controls/src --no-render --json` over 282 real
 ports, diffed per finding type against `main`, is what caught three separate
 false-positive shapes: an event raised by a `message_box_display( onclose = )`
 callback rather than `client->_event( )`, dispatch leaking across an
@@ -289,7 +289,7 @@ gate can know (reasoning in the README).
 
 **The generator is published with the package** (`files[]`) and takes
 `--out <file>`, because it is the ecosystem's ONLY UI5 metadata parser.
-ai-demokit used to carry a second one; the two drifted, and the other one was
+samples-controls used to carry a second one; the two drifted, and the other one was
 wrong — it attributed a file-level `@deprecated` JSDoc block sitting on a local
 variable to the CONTROL, marking `sap.f.DynamicPageTitle` and
 `sap.f.semantic.SemanticPage` deprecated when neither class doc says so. Its
@@ -300,7 +300,7 @@ OPENUI5_DIR=./openui5 node node_modules/@abap2ui5/linter/scripts/generate-metada
   --out ui5/properties.json
 ```
 
-Note what that does **not** mean: ai-demokit does not reuse `data/properties.json`
+Note what that does **not** mean: samples-controls does not reuse `data/properties.json`
 itself. It builds its sample universe from an OpenUI5 *checkout* that can be
 newer than the `@openui5` packages pinned here (1.152 vs 1.150 at the time of
 writing, and npm has no 1.152), and a snapshot older than the universe loses
@@ -308,7 +308,7 @@ the `@since` of controls introduced in between — `scopeOf` then reads them as
 in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
 two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
-frozen — ai-demokit's coverage docs read `controls[…].since` / `.deprecated`.
+frozen — the samples-controls repo's coverage docs read `controls[…].since` / `.deprecated`.
 
 ## Release model — merging to main IS a release
 
@@ -340,17 +340,17 @@ frozen — ai-demokit's coverage docs read `controls[…].since` / `.deprecated`
   divergence this bullet used to describe is closed; keep the config loader
   backward compatible, three consumers read it now.
 
-## Relation to ai-demokit — this repo is canonical now
+## Relation to samples-controls — this repo is canonical now
 
-ai-demokit's ancestor scripts (`property-check.mjs`, `structure-lint.mjs`,
+the samples-controls repo's ancestor scripts (`property-check.mjs`, `structure-lint.mjs`,
 `render-smoke.mjs`) were **deleted** when its gates were consolidated onto
-this linter: ai-demokit consumes `@abap2ui5/linter` as a git npm dependency
+this linter: samples-controls consumes `@abap2ui5/linter` as a git npm dependency
 and keeps only the corpus policy in its `scripts/view-gates.mjs` (which
 ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
 
-- **All generic view-checking logic lives here**; ai-demokit-specific gate
+- **All generic view-checking logic lives here**; samples-controls-specific gate
   policy (sidecar deviations, corpus conventions) stays in `view-gates.mjs`.
-- A behaviour change here changes ai-demokit's CI verdicts on the next
+- A behaviour change here changes the samples-controls repo's CI verdicts on the next
   dependency bump. **`.github/workflows/downstream.yml` runs that check for
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
@@ -372,7 +372,7 @@ the consumer, so no second install is needed):
 
 | Job | What it catches |
 | --- | --- |
-| `ai-demokit corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
+| `samples-controls corpus (280 ports)` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
 | `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports against hand-written typings in its `src/linter.d.ts`, which nothing here would otherwise exercise |
 
 A red downstream job is **not automatically a defect in the change**: a new
@@ -394,7 +394,7 @@ landing unseen. Two traps worth knowing before reading a result:
 
 | Repository | Relation |
 | --- | --- |
-| [ai-demokit](https://github.com/abap2UI5/ai-demokit) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
-| [ai-mcp](https://github.com/abap2UI5/ai-mcp) | `validate_view` imports `lib/index.mjs` + `lib/render.mjs` **by path** — a file-layout refactor here breaks it even if `exports` stays intact |
+| [samples-controls](https://github.com/abap2UI5/samples-controls) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
+| [mcp-server](https://github.com/abap2UI5/mcp-server) | `validate_view` imports `lib/index.mjs` + `lib/render.mjs` **by path** — a file-layout refactor here breaks it even if `exports` stays intact |
 | [vscode-extension](https://github.com/abap2UI5/vscode-extension) | Consumes the SHA-pinned package (property gate) and the runtime `render-gate-bundle` download |
 | [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ai_xml`, the builder whose chains `lib/reconstruct.mjs` re-executes |
