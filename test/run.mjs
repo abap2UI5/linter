@@ -2007,13 +2007,18 @@ section('display-root-mismatch', async () => {
       assert(!FRONTEND_EVENTS.includes(gone),
         `invalid-frontend-action: ${gone} was removed upstream and must not stay in the dispatch mirror`);
     }
-    /* HISTORY_BACK left that list on 2026-08-31: RE-ADDED upstream as a real
-     * dispatch entry (actions/Browser.js, the app-side window.history.go(-1)
-     * of a router app's back button - it pairs with the app-owned hash
-     * routing, whose hash change then round-trips like a browser Back). A
-     * released cs_event constant again, so naming it is correct code. */
-    assert(FRONTEND_EVENTS.includes('HISTORY_BACK'),
-      'invalid-frontend-action: HISTORY_BACK is re-added upstream and must be accepted again');
+    /* HISTORY_BACK left the removed list on 2026-08-31: the capability came
+     * BACK upstream the same day and was renamed to HASH_BACK before release
+     * (actions/Browser.js -> Router.navBack, the UI5 onNavBack pattern: one
+     * consumed window.history.go(-1) with an optional fallback hash for the
+     * cold deep link - it pairs with the app-owned hash routing, whose hash
+     * change then round-trips like a browser Back). HASH_BACK is the
+     * cs_event constant, so naming it is correct code; HISTORY_BACK never
+     * shipped in a release and stays out of the dispatch mirror. */
+    assert(FRONTEND_EVENTS.includes('HASH_BACK'),
+      'invalid-frontend-action: HASH_BACK is the upstream dispatch entry and must be accepted');
+    assert(!FRONTEND_EVENTS.includes('HISTORY_BACK'),
+      'invalid-frontend-action: HISTORY_BACK was renamed to HASH_BACK before it ever shipped');
     /* Still released cs_event constants - the SERVER remaps either close onto
      * the VIEW_SLOTS destroy action, so an app using them is correct code. */
     for (const kept of ['POPUP_CLOSE', 'POPOVER_CLOSE']) {
