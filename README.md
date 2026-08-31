@@ -17,7 +17,7 @@ see them, because the view only exists at runtime.
 npx @abap2ui5/linter src
 ```
 
-That is the whole of it: no install, no SAP system, no configuration. ~240 kB
+That is the whole of it: no install, no SAP system, no configuration. ~340 kB
 and no dependencies, so the line above is a fast one.
 
 ```
@@ -127,6 +127,6 @@ channels are the CLI, the library and the Action.
 The reconstruction, mock-model derivation, render harness and property gate
 were built and battle-tested in
 [samples-controls](https://github.com/abap2UI5/samples-controls)
-(`scripts/render-smoke.mjs`, `scripts/property-check.mjs`,
-`scripts/generate-properties.mjs`) against the official UI5 demo kit corpus.
+against the official UI5 demo kit corpus — where `scripts/view-gates.mjs`
+now consumes this package as the extraction of those original gates.
 This package is the corpus-independent extraction.

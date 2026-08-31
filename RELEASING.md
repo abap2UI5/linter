@@ -4,7 +4,7 @@ Two packages go to npm from **one** version tag:
 
 | Package | What it is |
 | --- | --- |
-| `@abap2ui5/linter` | CLI, library and GitHub Action (~240 kB, no dependencies) |
+| `@abap2ui5/linter` | CLI, library and GitHub Action (~340 kB, no dependencies) |
 | `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves (`@openui5/*` + playwright) |
 
 Everything mechanical lives in `.github/workflows/release.yml`; its header
