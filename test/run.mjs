@@ -2003,10 +2003,17 @@ section('display-root-mismatch', async () => {
     }
     /* Removed upstream (BREAKING, changelog): the constants are gone from
      * z2ui5_if_client, so naming them is broken code and must be reported. */
-    for (const gone of ['HISTORY_BACK', 'NAV_TO_ROUTE']) {
+    for (const gone of ['NAV_TO_ROUTE']) {
       assert(!FRONTEND_EVENTS.includes(gone),
         `invalid-frontend-action: ${gone} was removed upstream and must not stay in the dispatch mirror`);
     }
+    /* HISTORY_BACK left that list on 2026-08-31: RE-ADDED upstream as a real
+     * dispatch entry (actions/Browser.js, the app-side window.history.go(-1)
+     * of a router app's back button - it pairs with the app-owned hash
+     * routing, whose hash change then round-trips like a browser Back). A
+     * released cs_event constant again, so naming it is correct code. */
+    assert(FRONTEND_EVENTS.includes('HISTORY_BACK'),
+      'invalid-frontend-action: HISTORY_BACK is re-added upstream and must be accepted again');
     /* Still released cs_event constants - the SERVER remaps either close onto
      * the VIEW_SLOTS destroy action, so an app using them is correct code. */
     for (const kept of ['POPUP_CLOSE', 'POPOVER_CLOSE']) {
