@@ -27,6 +27,9 @@ declare module "@abap2ui5/linter" {
     allow?: string[];
     /** Run the render gate (default true — needs the optional deps). */
     render?: boolean;
+    /** Page-pool size for the render gate (default 4). Config form:
+     *  `"render": { "pages": N }`; CLI form: `--render-pages`. */
+    renderPages?: number;
     /** Run the property gate (default true). */
     properties?: boolean;
     /** Per-rule off / severity / exclude — the config's `rules` block. */
@@ -35,6 +38,11 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** An ALREADY-OPEN renderer from openRenderer() (`@abap2ui5/linter/render`).
+     *  When given, checkFiles uses it and does NOT close it — the caller owns
+     *  its lifecycle and can keep one warm browser across many calls. Its pool
+     *  size was decided at openRenderer time. */
+    renderer?: import("@abap2ui5/linter/render").Renderer;
     /** Called while checkFiles runs — the only thing the library says about a
      *  run in progress. `done === 0` opens a phase. */
     onProgress?: (event: {
@@ -83,6 +91,9 @@ declare module "@abap2ui5/linter" {
     renderSeverity?: Severity;
     /** The structural profile of what was checked here. */
     stats?: ResultStats;
+    /** Rule id -> findings produced for this source BEFORE the rules block,
+     *  directives or a baseline suppressed anything. */
+    ruleHits?: Record<string, number>;
   }
 
   /** What a screenshot run is steered by — the theme and viewport a picture
@@ -101,6 +112,10 @@ declare module "@abap2ui5/linter" {
     model?: Record<string, unknown>;
     /** Photograph the whole document rather than the viewport (default true). */
     fullPage?: boolean;
+    /** An ALREADY-OPEN renderer from openRenderer() — reused, never closed
+     *  here. The theme was then decided at openRenderer time (pass `theme`
+     *  and `css: true` there), so this option's `theme` does not apply. */
+    renderer?: import("@abap2ui5/linter/render").Renderer;
     onProgress?: (event: {
       phase: "screenshot";
       done: number;
@@ -462,14 +477,28 @@ declare module "@abap2ui5/linter/render" {
 
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
-    render(input: { xml: string; model?: Record<string, unknown> }): Promise<string[]>;
+    render(input: { xml: string; model?: Record<string, unknown>; kind?: "view" | "fragment" }): Promise<string[]>;
+    /** Photograph one document instead of judging it — the PNG a Buffer, the
+     *  errors alongside it (a view with one broken binding still renders). */
+    screenshot(input: {
+      xml: string;
+      model?: Record<string, unknown>;
+      kind?: "view" | "fragment";
+      width?: number;
+      height?: number;
+      fullPage?: boolean;
+    }): Promise<{ png: Uint8Array; errors: string[] }>;
     close(): Promise<void>;
   }
 
   /** Start a browser session over multiple render calls. `pages` opens a
-   *  pool of harness pages so concurrent callers run in parallel. Throws
-   *  ERR_RENDER_DEPS_MISSING when the optional deps are not installed. */
-  export function openRenderer(opts?: { pages?: number }): Promise<Renderer>;
+   *  pool of harness pages so concurrent callers run in parallel; `theme` is
+   *  what the pages boot with (the gate's default is the cheapest theme);
+   *  `css` compiles the theme LESS, which only a screenshot needs. Throws
+   *  ERR_RENDER_DEPS_MISSING when the optional deps are not installed.
+   *  The result can be passed as `renderer` to checkFiles/screenshotFiles to
+   *  reuse one warm browser across many calls — the caller closes it. */
+  export function openRenderer(opts?: { pages?: number; theme?: string; css?: boolean }): Promise<Renderer>;
 }
 
 declare module "@abap2ui5/linter/abap-rules" {
@@ -813,6 +842,10 @@ declare module "@abap2ui5/linter/report" {
   export function formatMarkdown(results: CheckResult[], summary: Summary, opt?: FormatOptions): string;
   /** SARIF 2.1.0. */
   export function formatSarif(results: CheckResult[]): string;
+  /** checkstyle XML — one <file> per result, one <error> per problem. */
+  export function formatCheckstyle(results: CheckResult[]): string;
+  /** JUnit XML — one <testsuite> per file, one failing <testcase> per problem. */
+  export function formatJunit(results: CheckResult[]): string;
 
   /** GitHub workflow-command lines that annotate findings onto the diff. */
   export function githubAnnotations(results: CheckResult[], opt?: FormatOptions): string[];
@@ -838,6 +871,10 @@ declare module "@abap2ui5/linter/report" {
     types: Map<string, number>;
     /** Rule id -> reported problems. */
     rules: Map<string, number>;
+    /** Rule id -> findings the gate PRODUCED, counted before the rules
+     *  block, directives and baseline suppressed anything — a fully
+     *  baselined corpus still says which rules fired on it. */
+    ruleHits: Map<string, number>;
   }
 
   export function runStats(results: CheckResult[]): RunStats;

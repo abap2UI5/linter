@@ -32,10 +32,17 @@
  *   --fail-on <level>  lowest severity that fails the build: error, warning
  *                      (default), hint, or never. Every finding is always
  *                      reported - this only decides the exit code.
- *   --format <f>       stylish (default), json, markdown or sarif. --json is a
- *                      shorthand for --format json. sarif is the shape
- *                      github/codeql-action/upload-sarif ingests, so findings
- *                      land in the repository's code-scanning tab.
+ *   --max-warnings <n> more than n warnings fail the run, whatever --fail-on
+ *                      says (ui5lint's flag) - the way to keep failing on
+ *                      errors only while still capping the warning debt.
+ *                      Also settable as "maxWarnings" in the config
+ *   --format <f>       stylish (default), json, markdown, sarif, checkstyle
+ *                      or junit. --json is a shorthand for --format json.
+ *                      sarif is the shape github/codeql-action/upload-sarif
+ *                      ingests, so findings land in the repository's
+ *                      code-scanning tab; checkstyle and junit are the two
+ *                      XML shapes most CI systems (Jenkins, GitLab, Azure
+ *                      DevOps) ingest natively.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
@@ -54,6 +61,17 @@
  *                      A NEW finding still fails; a recorded one that no
  *                      longer occurs fails too, as a stale entry
  *   --update-baseline  write/refresh that file from this run and exit 0
+ *   --cache            store each file's result and replay it on the next run
+ *                      while nothing relevant changed - the file's content,
+ *                      the linter version, the metadata snapshot and every
+ *                      setting that changes a verdict all key the entry, so a
+ *                      hit skips both gates for that file. Also settable as
+ *                      "cache": true in the config. The cache file is
+ *                      expendable: corrupt or stale means recompute, and
+ *                      deleting it is always safe
+ *   --cache-location <file>
+ *                      where the cache lives (default .abap2ui5lintcache in
+ *                      the current directory)
  *   --quiet            report errors only - the counts still show everything,
  *                      and the run summary and progress go quiet too
  *   --stats            print the run summary: what was checked (files, views,
@@ -66,7 +84,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      111 rules passed" green, "7 errors" red)
+ *                      118 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -99,6 +117,17 @@
  *                      from the class. Without it, a `<class>.mock.json` next
  *                      to the source is used when there is one - which is how
  *                      a table bound to a SELECT stops photographing empty
+ *   --stdin            lint source read from standard input instead of files.
+ *                      Property gate only - the render gate needs a file
+ *                      corpus and stays off for piped source. Incompatible
+ *                      with --fix (there is no file to rewrite) and
+ *                      --screenshot. Exit codes as usual
+ *   --stdin-filename <name>
+ *                      the name the piped source is reported under (default
+ *                      <stdin>). It also decides the handling: a name ending
+ *                      .view.xml/.fragment.xml is checked as a raw view,
+ *                      anything else as an ABAP class - unless the content
+ *                      itself starts with '<'
  *   --no-render        skip the render gate (no browser/@openui5 needed)
  *   --render           require the render gate: without its runtime the run
  *                      fails instead of falling back to the property gate.
@@ -106,6 +135,10 @@
  *                      runtime is not installed steps aside with a warning -
  *                      this flag (or "render": true in the config) is how a
  *                      job says the gate has to have run
+ *   --render-pages <n> size of the render gate's page pool (default 4). Each
+ *                      page carries its own UI5 boot; on a corpus the render
+ *                      wall clock divides by roughly the pool size. Also
+ *                      settable as "render": { "pages": n } in the config
  *   --no-properties    skip the property gate
  *   --advisory         report only, always exit 0 (same as --fail-on never)
  *   --verbose          print reconstruction notes
@@ -128,23 +161,25 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkFiles, collectFiles, screenshotFiles } from './lib/index.mjs';
+import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
 import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
+import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } from './lib/cache.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
-  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
+  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
-  + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
+  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
@@ -242,6 +277,9 @@ const paths = [];
 let configFlag = null;
 let noConfig = false;
 let updateBaseline = false;
+// --stdin: lint piped source instead of files (property gate only)
+let stdinMode = false;
+let stdinName = '<stdin>';
 // --screenshot and its two dials: a MODE, not a gate (see the run below)
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 for (let i = 0; i < args.length; i++) {
@@ -270,6 +308,19 @@ for (let i = 0; i < args.length; i++) {
   // Asking for the gate is what turns a missing runtime back into an error -
   // the default-on gate falls back to the property gate instead (renderFallback)
   else if (a === '--render') { opt.render = true; seen.add('render'); renderAsked = true; }
+  /* Tuning the pool IS asking for the gate - the config's object form
+   * ("render": { pages: N }) asks the same way, and a tuned gate that
+   * silently stepped aside for a missing runtime would be the one thing
+   * renderFallback exists to prevent. A later --no-render still wins. */
+  else if (a === '--render-pages') {
+    opt.render = true;
+    seen.add('render');
+    renderAsked = true;
+    const n = Number(value());
+    if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
+    opt.renderPages = n;
+    seen.add('renderPages');
+  }
   else if (a === '--screenshot') shot.out = value();
   else if (a === '--screenshot-theme') {
     const theme = value();
@@ -304,6 +355,10 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--fix') opt.fix = true;
   else if (a === '--fix-dry-run') { opt.fix = true; opt.fixDryRun = true; }
   else if (a === '--baseline') { opt.baseline = value(); seen.add('baseline'); }
+  else if (a === '--cache') { opt.cache = true; seen.add('cache'); }
+  else if (a === '--cache-location') { opt.cacheLocation = value(); }
+  else if (a === '--stdin') stdinMode = true;
+  else if (a === '--stdin-filename') stdinName = value();
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
@@ -329,6 +384,12 @@ for (let i = 0; i < args.length; i++) {
     if (![...SEVERITIES, 'never'].includes(level)) die(`--fail-on takes ${SEVERITIES.join(', ')} or never (got '${level}')`);
     opt.failOn = level;
     seen.add('failOn');
+  }
+  else if (a === '--max-warnings') {
+    const n = Number(value());
+    if (!Number.isInteger(n) || n < 0) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
+    opt.maxWarnings = n;
+    seen.add('maxWarnings');
   }
   else if (a === '--sarif-out') opt.sarifOut = value();
   else if (a === '--json-out') opt.jsonOut = value();
@@ -439,6 +500,19 @@ if (!noConfig) {
 }
 if (!paths.length) paths.push('src');
 
+/* --stdin: the property gate over piped source. The render gate stays off -
+ * it is built around a file corpus and a browser session, and a piped buffer
+ * is the one-file editor/pre-commit case where the property gate is the
+ * value. Asked-for render, --fix and --screenshot are refused rather than
+ * silently ignored. */
+if (stdinMode) {
+  if (opt.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
+  if (shot.out) die('--stdin cannot be combined with --screenshot');
+  if (renderAsked) die('--stdin runs the property gate only - write the source to a file to render it');
+  opt.render = false;
+  opt.cache = false;
+}
+
 /* The render gate is on by default and its ~118 MB runtime is deliberately
  * not, so a fresh `npx @abap2ui5/linter src` would refuse to run at all. A
  * gate nobody asked for therefore steps aside for the property gate and says
@@ -456,13 +530,17 @@ if (!paths.length) paths.push('src');
 }
 
 let files;
-try {
-  // `ignore` is repo-level and config-only on purpose: it describes the tree,
-  // which is a property of the repo rather than of one invocation
-  files = collectFiles(paths, { ignore: opt.ignore ?? [] });
-} catch (e) {
-  // a mistyped path is bad usage, not a crash - exit 2 with one clean line
-  die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
+if (stdinMode) {
+  files = [stdinName]; // one virtual file - the source arrives below
+} else {
+  try {
+    // `ignore` is repo-level and config-only on purpose: it describes the tree,
+    // which is a property of the repo rather than of one invocation
+    files = collectFiles(paths, { ignore: opt.ignore ?? [] });
+  } catch (e) {
+    // a mistyped path is bad usage, not a crash - exit 2 with one clean line
+    die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
+  }
 }
 /*
  * --screenshot: the render gate turned around. Instead of asking whether the
@@ -595,9 +673,59 @@ const progress = createProgress({
 });
 opt.onProgress = (ev) => progress.update(ev);
 
+/* The cross-run cache (--cache / "cache": true). Everything a verdict depends
+ * on keys the entry — the file's content hash per file, and one context hash
+ * over the linter version, the snapshot's ui5Version and the resolved
+ * settings — so a hit can safely skip BOTH gates and replay the stored result.
+ * The stored result is the full pre-baseline result: the baseline and the
+ * exit code are decided per RUN, on replayed findings like on fresh ones. */
+let cache = null;
+if (opt.cache) {
+  const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
+  const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
+  cache = { file, context, entries: loadCache(file, context) };
+}
+
 let results;
 try {
-  results = await checkFiles(files, opt);
+  if (stdinMode) {
+    const src = fs.readFileSync(0, 'utf8');
+    // the filename decides the handling, exactly as collectFiles decides it
+    // for a named path: the XML spellings, else content sniff, else ABAP
+    const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
+    const r = isXml
+      ? checkXmlSource(src, { ...opt, file: stdinName })
+      : checkAbapSource(src, { ...opt, file: stdinName });
+    r.file = stdinName;
+    results = [r];
+  } else if (cache) {
+    const slots = files.map((file) => {
+      const hash = hashOf(fs.readFileSync(file, 'utf8'));
+      const hit = cache.entries[path.resolve(file)];
+      /* An entry that parses but does not hold a result (result: null, a
+       * truncated write, a hand-edited file) is a MISS, not a crash - the
+       * cache is expendable by contract, so nothing read from it may be
+       * trusted to have a shape. */
+      const valid = hit && hit.hash === hash
+        && hit.result && typeof hit.result === 'object'
+        && Array.isArray(hit.result.findings);
+      return { file, hash, result: valid ? { ...hit.result, file } : null };
+    });
+    const missing = slots.filter((s) => !s.result).map((s) => s.file);
+    const fresh = missing.length ? await checkFiles(missing, opt) : [];
+    const byFile = new Map(fresh.map((r) => [r.file, r]));
+    for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
+    results = slots.map((s) => s.result);
+    const entries = {};
+    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: s.result };
+    /* Written BEFORE the baseline mutates the findings, and tolerantly: a
+     * cache that cannot be written costs the next run time, not correctness. */
+    try { saveCache(cache.file, cache.context, entries); }
+    catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
+  } else {
+    results = await checkFiles(files, opt);
+  }
   progress.finish();
 } catch (e) {
   progress.finish();
@@ -666,6 +794,8 @@ const reportOpt = {
 
 if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
 else if (opt.format === 'sarif') console.log(formatSarif(results));
+else if (opt.format === 'checkstyle') console.log(formatCheckstyle(results));
+else if (opt.format === 'junit') console.log(formatJunit(results));
 else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
 else console.log(formatStylish(results, summary, reportOpt));
 
@@ -712,4 +842,13 @@ if (opt.annotate && opt.format === 'stylish') {
   for (const line of githubAnnotations(results, opt)) console.log(line);
 }
 
-if (summary.failing > 0 || baselineStale.length > 0) process.exit(1);
+/* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
+ * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
+ * while still holding the line on warning debt. Said on stderr, so a piped
+ * machine format stays parseable. */
+const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
+if (overWarningCap) {
+  console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+}
+
+if (summary.failing > 0 || baselineStale.length > 0 || overWarningCap) process.exit(1);

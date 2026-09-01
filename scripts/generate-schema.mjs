@@ -57,6 +57,10 @@ export function buildSchema() {
     additionalProperties: false,
     properties: {
       $schema: { type: 'string', description: 'URL of this schema — editor completion only' },
+      extends: {
+        type: 'string',
+        description: 'Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+      },
       paths: {
         type: 'array',
         items: { type: 'string' },
@@ -82,11 +86,34 @@ export function buildSchema() {
         items: { type: 'string' },
         description: 'Control or control.member names accepted despite the version floor, e.g. "sap.m.Avatar.displaySize".',
       },
-      render: { type: 'boolean', description: 'false skips the render gate (no browser needed).' },
+      render: {
+        anyOf: [
+          { type: 'boolean', description: 'false skips the render gate (no browser needed); true requires it.' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['pages'],
+            properties: {
+              pages: { type: 'integer', minimum: 1, description: 'Size of the render gate’s page pool (default 4). Each page carries its own UI5 boot; a corpus render divides its wall clock by roughly the pool size.' },
+            },
+            description: 'Require the render gate and size its page pool.',
+          },
+        ],
+        description: 'false skips the render gate (no browser needed); true requires it; { "pages": N } requires it and sizes its page pool (default 4).',
+      },
       properties: { type: 'boolean', description: 'false skips the property gate.' },
+      cache: {
+        type: 'boolean',
+        description: 'true stores each file’s result across runs and replays it while nothing relevant changed (file content, linter version, metadata snapshot, resolved settings). Same as --cache; --cache-location names the file (default .abap2ui5lintcache).',
+      },
       failOn: {
         enum: [...SEVERITIES, 'never'],
         description: 'Lowest severity that fails the build. Everything is always reported — this only decides the exit code.',
+      },
+      maxWarnings: {
+        type: 'integer',
+        minimum: 0,
+        description: 'More warnings than this fail the run, whatever failOn says (same as --max-warnings). The way to fail on errors only while still capping the warning debt.',
       },
       baseline: {
         type: 'string',
@@ -98,7 +125,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 111 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 118 rules passed").',
       },
       rules: {
         type: 'object',

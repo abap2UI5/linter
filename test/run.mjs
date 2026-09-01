@@ -927,7 +927,8 @@ const opaqueOwner = checkAbapSource(`
               )->ele( n = \`vos\` ns = \`vbm\`
                   )->tag( n = \`Spot\` ns = \`vbm\`
                       )->a( n = \`position\` v = \`0;0;0\` ).
-  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+  client->view_display( view->stringify( ) ).
+`, { render: false, distribution: 'sapui5' });
 section('opaque control', async () => {
   assert(!opaqueOwner.findings.some((x) => x.type === 'unknown-aggregation'),
     `opaque control: vos belongs to vbm:AnalyticMap, not to the Page above it (got ${
@@ -1080,6 +1081,33 @@ section('config', async () => {
     catch (e) { threw = e.message; }
     assert(/unknown key 'tpyo'/.test(threw), 'config: an unknown key fails loudly');
 
+    fs.writeFileSync(path.join(dir, 'cachebad.jsonc'), '{"cache": "yes"}');
+    let cacheType = '';
+    try { loadConfig(path.join(dir, 'cachebad.jsonc')); } catch (e) { cacheType = e.message; }
+    assert(/'cache' must be true or false/.test(cacheType), 'config: cache must be a boolean');
+    fs.writeFileSync(path.join(dir, 'cacheok.jsonc'), '{"cache": true}');
+    assert(loadConfig(path.join(dir, 'cacheok.jsonc')).cache === true, 'config: cache: true survives loading');
+
+    /* render grew an object form: { "pages": N } asks for the gate AND sizes
+     * its page pool. It normalizes to render:true + renderPages, so every
+     * consumer keeps reading a boolean `render`. */
+    fs.writeFileSync(path.join(dir, 'rp.jsonc'), '{"render": {"pages": 2}}');
+    const rp = loadConfig(path.join(dir, 'rp.jsonc'));
+    assert(rp.render === true && rp.renderPages === 2,
+      'config: render {pages} normalizes to render:true plus renderPages');
+    for (const [text, re, what] of [
+      ['{"render": {"pagez": 2}}', /render has unknown key 'pagez'/, 'an unknown key inside render fails loudly'],
+      ['{"render": {"pages": 0}}', /render 'pages' must be a positive integer/, 'pages 0 is refused'],
+      ['{"render": {"pages": 2.5}}', /render 'pages' must be a positive integer/, 'a fractional pages is refused'],
+      ['{"render": "yes"}', /'render' must be true, false, or/, 'a string render is refused'],
+      ['{"render": [4]}', /'render' must be true, false, or/, 'an array render is refused'],
+    ]) {
+      fs.writeFileSync(path.join(dir, 'rpbad.jsonc'), text);
+      let msg = '';
+      try { loadConfig(path.join(dir, 'rpbad.jsonc')); } catch (e) { msg = e.message; }
+      assert(re.test(msg), `config: ${what} (got '${msg}')`);
+    }
+
     // end-to-end: the CLI picks the config up from the checked path's directory
     // (cwd is this repo, which has no config - discovery must come from the path)
     // the successor-builder fixture, because this run must exit 0: the old
@@ -1103,6 +1131,187 @@ section('config', async () => {
     fs.writeFileSync(path.join(plain, 'abap2ui5lint.json'), '{"ui5": "1.120"}');
     assert(findConfig(plain) === path.join(plain, 'abap2ui5lint.json'),
       'config: abap2ui5lint.json is discovered as well as .jsonc');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------------------ config (2) ----
+// `extends` (a base config another one builds on) and `maxWarnings`
+// (ui5lint's warning cap)
+section('config (2)', async () => {
+    const cp = await import('node:child_process');
+    const { loadConfig } = await import('../lib/config.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const dir = tempDir('a2ui5-ext-');
+
+    // --- extends: base + child, child wins per key, rules merge per id -------
+    fs.mkdirSync(path.join(dir, 'shared'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'shared', 'base.jsonc'), JSON.stringify({
+      ui5: '1.96', failOn: 'hint', paths: ['src'], baseline: 'base-baseline.json',
+      rules: { 'missing-accessibility': false, 'member-deprecated': 'hint' },
+    }));
+    fs.writeFileSync(path.join(dir, 'child.jsonc'), JSON.stringify({
+      extends: './shared/base.jsonc', failOn: 'error',
+      rules: { 'member-deprecated': 'warning' },
+    }));
+    const merged = loadConfig(path.join(dir, 'child.jsonc'));
+    assert(merged.minUi5 === '1.96', 'extends: a key only the base sets survives');
+    assert(merged.failOn === 'error', 'extends: the extending file wins per key');
+    assert(merged.rules['missing-accessibility'] === false && merged.rules['member-deprecated'] === 'warning',
+      'extends: the rules blocks merge per rule id, the child entry winning');
+    assert(merged.extends === undefined, 'extends: the pointer itself does not survive the merge');
+    // the base's path-carrying keys stay anchored at the BASE file
+    assert(merged.paths[0] === path.join(dir, 'shared', 'src'),
+      `extends: the base's relative paths resolve against the base file (got ${merged.paths[0]})`);
+    assert(merged.baseline === path.join(dir, 'shared', 'base-baseline.json'),
+      'extends: the base\'s baseline resolves against the base file too');
+
+    // a chain follows; a cycle refuses instead of recursing forever
+    fs.writeFileSync(path.join(dir, 'grand.jsonc'), JSON.stringify({ extends: './child.jsonc', ui5: '1.120' }));
+    assert(loadConfig(path.join(dir, 'grand.jsonc')).minUi5 === '1.120'
+      && loadConfig(path.join(dir, 'grand.jsonc')).failOn === 'error',
+    'extends: a chain of three merges near-to-far');
+    fs.writeFileSync(path.join(dir, 'a.jsonc'), '{"extends": "./b.jsonc"}');
+    fs.writeFileSync(path.join(dir, 'b.jsonc'), '{"extends": "./a.jsonc"}');
+    let cycle = '';
+    try { loadConfig(path.join(dir, 'a.jsonc')); } catch (e) { cycle = e.message; }
+    assert(/'extends' cycle/.test(cycle), `extends: a cycle is refused loudly (${cycle})`);
+    fs.writeFileSync(path.join(dir, 'selfie.jsonc'), '{"extends": "./selfie.jsonc"}');
+    try { loadConfig(path.join(dir, 'selfie.jsonc')); cycle = ''; } catch (e) { cycle = e.message; }
+    assert(/'extends' cycle/.test(cycle), 'extends: a self-extend is the shortest cycle');
+    fs.writeFileSync(path.join(dir, 'dangling.jsonc'), '{"extends": "./nowhere.jsonc"}');
+    let missing = '';
+    try { loadConfig(path.join(dir, 'dangling.jsonc')); } catch (e) { missing = e.message; }
+    assert(/no such file/.test(missing), 'extends: a missing base fails with the config loader\'s own message');
+    fs.writeFileSync(path.join(dir, 'extbad.jsonc'), '{"extends": 42}');
+    let bad = '';
+    try { loadConfig(path.join(dir, 'extbad.jsonc')); } catch (e) { bad = e.message; }
+    assert(/'extends' must be a path/.test(bad), 'extends: a non-string is refused');
+
+    // --- maxWarnings ----------------------------------------------------------
+    fs.writeFileSync(path.join(dir, 'mw.jsonc'), '{"maxWarnings": 3}');
+    assert(loadConfig(path.join(dir, 'mw.jsonc')).maxWarnings === 3, 'maxWarnings: survives loading');
+    for (const bad2 of ['{"maxWarnings": -1}', '{"maxWarnings": 1.5}', '{"maxWarnings": "3"}']) {
+      fs.writeFileSync(path.join(dir, 'mwbad.jsonc'), bad2);
+      let msg = '';
+      try { loadConfig(path.join(dir, 'mwbad.jsonc')); } catch (e) { msg = e.message; }
+      assert(/'maxWarnings' must be a non-negative integer/.test(msg),
+        `maxWarnings: ${bad2} is refused`);
+    }
+
+    // the flag: post171 yields 2 warnings and 0 errors, so --fail-on error
+    // passes until the cap says otherwise
+    const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
+    const run = (args) => {
+      try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe', env }); return 0; }
+      catch (e) { return e.status; }
+    };
+    const P = [f('post171.clas.abap'), '--no-render', '--no-config', '--fail-on', 'error'];
+    assert(run(P) === 0, 'maxWarnings: without the cap, warnings do not fail a --fail-on error run');
+    assert(run([...P, '--max-warnings', '2']) === 0, 'maxWarnings: at the cap the run still passes');
+    assert(run([...P, '--max-warnings', '1']) === 1, 'maxWarnings: one over the cap fails the run');
+    assert(run([...P, '--max-warnings', 'lots']) === 2, 'maxWarnings: a non-integer value is bad usage');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ----------------------------------------------------------------- cache ----
+// the opt-in cross-run result cache (--cache): a hit skips both gates and
+// replays the stored findings; anything relevant moving is a miss
+section('cache', async () => {
+    const cp = await import('node:child_process');
+    const { CACHE_VERSION, DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } = await import('../lib/cache.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const dir = tempDir('a2ui5-cache-');
+    const app = path.join(dir, 'app.clas.abap');
+    fs.copyFileSync(f('broken.clas.abap'), app);
+    const cacheFile = path.join(dir, DEFAULT_CACHE_FILE);
+    const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
+    const run = (args) => {
+      try {
+        return { out: cp.execFileSync('node', [CLI, ...args], { cwd: dir, encoding: 'utf8', env }), code: 0 };
+      } catch (e) { return { out: e.stdout ?? '', code: e.status }; }
+    };
+    const BASE = ['app.clas.abap', '--no-render', '--no-config', '--cache', '--json'];
+
+    const first = run(BASE);
+    assert(fs.existsSync(cacheFile), 'cache: --cache writes the cache file');
+    const firstDoc = JSON.parse(first.out);
+    assert(firstDoc.problems > 0 && first.code === 1, 'cache: the first (cold) run still reports and fails normally');
+
+    /* The HIT is proven by tampering: rewrite the stored findings and see the
+     * next run replay them - a run that recomputed would report the defects
+     * the file still carries. */
+    const store = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    const key = Object.keys(store.files)[0];
+    assert(store.version === CACHE_VERSION && store.files[key].hash === hashOf(fs.readFileSync(app, 'utf8')),
+      'cache: an entry is keyed by the file content hash');
+    store.files[key].result.findings = [];
+    fs.writeFileSync(cacheFile, JSON.stringify(store));
+    const replayed = run(BASE);
+    assert(JSON.parse(replayed.out).problems === 0 && replayed.code === 0,
+      'cache: a hit replays the stored findings instead of re-running the gates');
+
+    // miss on CONTENT change: the same tampered entry no longer matches
+    fs.appendFileSync(app, '\n* changed\n');
+    const contentMiss = run(BASE);
+    assert(JSON.parse(contentMiss.out).problems === firstDoc.problems && contentMiss.code === 1,
+      'cache: a changed file misses and is recomputed');
+
+    // miss on CONFIG change: same content, but a setting that changes verdicts
+    const store2 = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    store2.files[Object.keys(store2.files)[0]].result.findings = [];
+    fs.writeFileSync(cacheFile, JSON.stringify(store2));
+    const configMiss = run([...BASE, '--ui5', '1.120']);
+    assert(JSON.parse(configMiss.out).problems > 0,
+      'cache: a changed setting drops the whole cache and recomputes');
+    assert(cacheContext({ version: '1', snapshot: '1.151.0', options: { minUi5: '1.71' } })
+      !== cacheContext({ version: '1', snapshot: '1.151.0', options: { minUi5: '1.120' } }),
+      'cache: the context hash moves with the settings');
+    assert(cacheContext({ version: '1', snapshot: '1.151.0', options: { rules: { 'unknown-control': false } } })
+      !== cacheContext({ version: '1', snapshot: '1.151.0', options: {} }),
+      'cache: the rules block is part of the context');
+
+    // a corrupt cache file is an empty cache, never an error
+    fs.writeFileSync(cacheFile, 'not json {');
+    const corrupt = run(BASE);
+    assert(JSON.parse(corrupt.out).problems === firstDoc.problems && corrupt.code === 1,
+      'cache: a corrupt cache file is tolerated and the run recomputes');
+    const rewritten = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    assert(rewritten.version === CACHE_VERSION, 'cache: the corrupt file is replaced by a valid one');
+    assert(Object.keys(loadCache(cacheFile, 'wrong-context')).length === 0,
+      'cache: another context reads as empty');
+    saveCache(cacheFile, 'ctx', { a: { hash: 'h', result: {} } });
+    assert(loadCache(cacheFile, 'ctx').a.hash === 'h', 'cache: save/load round-trips');
+
+    /* An entry that parses but carries no usable result (result: null - a
+     * truncated write, a hand-edit) is a MISS, never a crash: the cache is
+     * expendable by contract, so nothing read from it has a trusted shape. */
+    fs.rmSync(cacheFile, { force: true });
+    run(BASE);
+    const mangled = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    for (const k of Object.keys(mangled.files)) mangled.files[k].result = null;
+    fs.writeFileSync(cacheFile, JSON.stringify(mangled));
+    const nulled = run(BASE);
+    assert(JSON.parse(nulled.out).problems === firstDoc.problems && nulled.code === 1,
+      'cache: a null result entry is a miss and the run recomputes');
+    const healed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    assert(Object.values(healed.files).every((e) => e.result && Array.isArray(e.result.findings)),
+      'cache: the recompute replaces the unusable entry');
+
+    /* --fix rewrites the file, so its stale entry can never match again: the
+     * fixed run reports the post-fix state, not a replay of the pre-fix one. */
+    const fixable = path.join(dir, 'fixable.clas.abap');
+    fs.copyFileSync(f('abaprules.clas.abap'), fixable);
+    fs.rmSync(cacheFile, { force: true });
+    const preFix = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--json']);
+    assert(/obsolete-binder/.test(preFix.out), 'cache: the fixable finding is cached first');
+    const postFix = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--fix', '--json']);
+    assert(!/"type":"obsolete-binder"/.test(postFix.out),
+      'cache: a --fix run does not replay the pre-fix findings of the file it modified');
+    const after = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--json']);
+    assert(!/"type":"obsolete-binder"/.test(after.out),
+      'cache: the run after the fix caches the post-fix state');
 
     fs.rmSync(dir, { recursive: true, force: true });
 });
@@ -2993,6 +3202,17 @@ section('separate-lifecycle-ifs', async () => {
         assert(applyRules([...one], rules, 'src\\01\\app.clas.abap').length === 1,
           `rules.exclude: "${pattern}" still only excludes what it names, backslashes too`);
       }
+      /* The compiled config is memoized per (rules object, rule id) - one
+       * rules object walked over many files must still decide per FILE, and
+       * a severity override must survive the memo on the second file too. */
+      {
+        const rules = { 'unknown-control': { severity: 'hint', exclude: ['^src/00/'] } };
+        assert(applyRules([...one], rules, 'src/00/a.clas.abap').length === 0,
+          'rules.exclude: memoized config still excludes the matching file');
+        const kept = applyRules([{ type: 'unknown-control' }], rules, 'src/01/b.clas.abap');
+        assert(kept.length === 1 && kept[0].severity === 'hint',
+          'rules.exclude: memoized config keeps the non-matching file, severity override intact');
+      }
     }
     // the guard idiom is exclusive by construction: good.clas.abap opens with
     // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF
@@ -3148,6 +3368,38 @@ section('render deps', async () => {
       'render fallback: nothing to say when the runtime is installed');
     assert(renderFallback({ render: false, asked: false, missing: allMissing }) === null,
       'render fallback: --no-render asked for no gate at all, so there is nothing to warn about');
+});
+
+// ------------------------------------------------------ shared renderer ----
+// checkFiles/screenshotFiles accept an ALREADY-OPEN renderer and then never
+// close it - the contract a long-lived consumer (mcp-server) keeps one warm
+// Chromium on, instead of paying a cold start per validate_view call
+section('shared renderer', async () => {
+    const { openRenderer } = await import('../lib/render.mjs');
+    const files = [f('good.clas.abap'), f('broken.clas.abap')];
+    const independent = await checkFiles(files, {});
+    const renderer = await openRenderer({ pages: 2 });
+    try {
+      const first = await checkFiles([files[0]], { renderer });
+      // a second call on the SAME renderer is the proof the first did not close it
+      const second = await checkFiles([files[1]], { renderer });
+      // the runtime numbers views per session (__xmlview0, __xmlview1, ...),
+      // so the generated id is the one part of an error text that may differ
+      const shape = (r) => JSON.stringify({
+        findings: r.findings.map((x) => [x.type, x.line, x.column]),
+        renderErrors: r.renderErrors.map((e) => e.replace(/__xmlview\d+/g, '__xmlview')),
+      });
+      assert(shape(first[0]) === shape(independent[0]),
+        'shared renderer: the clean file gets the same verdict as an independent run');
+      assert(shape(second[0]) === shape(independent[1]) && second[0].renderErrors.length > 0,
+        'shared renderer: the broken file still fails the render gate through the shared session');
+      // and it is still usable directly afterwards - checkFiles left it open
+      const direct = await renderer.render({ xml: independent[0].docs[0], model: independent[0].model });
+      assert(Array.isArray(direct) && direct.length === 0,
+        'shared renderer: the renderer stays open and renders after both calls');
+    } finally {
+      await renderer.close();
+    }
 });
 
 // ------------------------------------------------- curated formatter mirror ----
@@ -3525,6 +3777,16 @@ section('sarif, baseline and cli', async () => {
     assert(/--render/.test(runErr([good, '--no-config', '--nonsense']).err),
       'cli: the usage line offers --render next to --no-render');
 
+    // --render-pages: the pool size is a closed shape too - anything that is
+    // not a positive integer would otherwise silently fall back to 4
+    for (const bad of ['0', '-1', '2.5', 'four']) {
+      const r = runErr([good, '--no-render', '--no-config', '--render-pages', bad]);
+      assert(r.code === 2 && /--render-pages takes a positive integer/.test(r.err),
+        `cli: --render-pages '${bad}' is refused instead of silently meaning 4 (exit ${r.code})`);
+    }
+    assert(runErr([good, '--no-render', '--no-config', '--render-pages', '2']).code !== 2,
+      'cli: --render-pages 2 is accepted');
+
     // --- baseline -------------------------------------------------------------
     const dir = tempDir('a2ui5base-');
     const target = path.join(dir, 'abaprules.clas.abap');
@@ -3774,12 +4036,12 @@ section('fix', async () => {
     };
 
     const dry = run({ ABAP2UI5LINT_FIX_DRY_RUN: 'true' });
-    assert(/would fix 4 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
+    assert(/would fix 5 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
       'fix: the dry run reports what it would do and leaves the file alone');
 
     const out = run();
     const fixed = fs.readFileSync(target, 'utf8');
-    assert(/fixed 4 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the four mechanical corrections are applied');
+    assert(/fixed 5 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the five mechanical corrections are applied');
     assert(/client->_bind\( name \)/.test(fixed) && !/_bind_edit/.test(fixed),
       'fix: obsolete-binder becomes client->_bind( )');
     assert(/client->follow_up_action\( val   = client->cs_event-urlhelper/.test(fixed)
@@ -3789,7 +4051,10 @@ section('fix', async () => {
       'fix: unconverted-abap-boolean moves onto b =, the token kept verbatim');
     assert(/`\$\{BARE_BRACE\}`/.test(fixed) && /`\$\{RESOLVED\}`/.test(fixed) && /`\{0\} selected`/.test(fixed),
       'fix: event-arg-unresolved gains its $, the already-correct and quoted forms untouched');
-    assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved/.test(out),
+    assert(/t_arg = VALUE #\( \( `first` \) \)/.test(fixed)
+      && /val = `MIDDLE` t_arg = VALUE #\( \( `first` \) \( `` \) \( `third` \) \)/.test(fixed),
+    'fix: the trailing empty t_arg row is deleted, the load-bearing middle one kept');
+    assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved|trailing-empty-event-arg/.test(out),
       'fix: what was fixed is gone from the report of the same run');
     assert(/binding-to-local/.test(out), 'fix: a finding without a mechanical correction survives');
 
@@ -3829,6 +4094,176 @@ section('fix', async () => {
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// ------------------------------------------------------------- fix (2) ----
+// the 2026-09 fixes: four existing rules whose correction turned out to be
+// mechanical. Each is asserted through applyFixes (strict-span mode is on for
+// the whole suite, so an unusable span throws rather than passing silently)
+section('fix (2)', async () => {
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const { checkAbapRules, checkAbapSource } = await import('./observe.mjs');
+
+    // --- escaped-brace-in-backtick: delete the backslashes -------------------
+    {
+      const src = ')->a( n = `items` v = `\\{ path: \'message>/\' \\}` )';
+      const found = checkAbapRules(src).filter((x) => x.type === 'escaped-brace-in-backtick');
+      assert(found.length === 1 && found[0].fixes?.length === 2,
+        `fix: escaped-brace-in-backtick carries one deletion per backslash (got ${found[0]?.fixes?.length})`);
+      assert(applyFixes(src, found).output === ')->a( n = `items` v = `{ path: \'message>/\' }` )',
+        'fix: escaped-brace-in-backtick leaves the plain-brace literal the doc recommends');
+    }
+
+    // --- redundant-conv-i: unwrap the CONV ------------------------------------
+    {
+      const src = 'DATA count TYPE i.\n  count = CONV i( lv_text ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'redundant-conv-i');
+      assert(found.length === 1 && found[0].fixes?.length === 1,
+        'fix: redundant-conv-i carries the unwrap');
+      assert(applyFixes(src, found).output === 'DATA count TYPE i.\n  count = lv_text.\n',
+        'fix: redundant-conv-i unwraps to the bare assignment');
+    }
+
+    // --- lifecycle-is-initial: the three shapes -------------------------------
+    {
+      const src = fs.readFileSync(f('isinitial.clas.abap'), 'utf8');
+      const found = checkAbapSource(src).findings.filter((x) => x.type === 'lifecycle-is-initial');
+      const call = found.find((x) => x.member === 'check_on_init( )');
+      assert(call?.fixes?.length === 1, 'fix: the lifecycle call carries a fix');
+      const out = applyFixes(src, found).output;
+      assert(/IF client->check_on_init\( \)\.\n/.test(out),
+        'fix: IS NOT INITIAL on the lifecycle call becomes the predicative form');
+      /* the fixture's variable case is IS NOT INITIAL, which is deliberately
+       * NOT fixed - `= abap_true` vs `<> abap_false` is a choice, not a
+       * mechanical rewrite - so the text survives the pass */
+      assert(/IF mv_ready IS NOT INITIAL\./.test(out),
+        'fix: IS NOT INITIAL on a plain variable is reported but never rewritten');
+    }
+    {
+      // IS INITIAL, both shapes: the call becomes = abap_false, so does the var
+      const src = 'DATA mv_ready TYPE abap_bool.\n'
+        + 'IF client->check_on_init( ) IS INITIAL.\nENDIF.\nIF mv_ready IS INITIAL.\nENDIF.\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'lifecycle-is-initial');
+      assert(found.length === 2 && found.every((x) => x.fixes?.length === 1),
+        `fix: both IS INITIAL shapes carry the = abap_false rewrite (got ${found.length})`);
+      const out = applyFixes(src, found).output;
+      assert(/IF client->check_on_init\( \) = abap_false\./.test(out)
+        && /IF mv_ready = abap_false\./.test(out),
+        'fix: IS INITIAL is spelled out as = abap_false in both shapes');
+    }
+
+    // --- trailing-empty-event-arg: a row with its line to itself --------------
+    {
+      const src = 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` )\n'
+        + '                   ( `` )\n'
+        + '                 ) ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'trailing-empty-event-arg');
+      assert(found.length === 1 && found[0].fixes?.length === 1,
+        'fix: the trailing empty row carries its deletion');
+      assert(applyFixes(src, found).output === 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` )\n'
+        + '                 ) ).\n',
+        'fix: a row with its line to itself takes the whole line with it');
+    }
+    {
+      // a comment next to the row is never deleted with it
+      const src = 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` ) " why\n'
+        + '                   ( `` ) ) ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'trailing-empty-event-arg');
+      const out = applyFixes(src, found).output;
+      assert(/ " why\n/.test(out) && !/\( `` \)/.test(out),
+        'fix: the row goes, the comment beside the constructor stays');
+    }
+});
+
+// ----------------------------------------------------------------- stdin ----
+// --stdin: the property gate over piped source - the editor/pre-commit case.
+// The render gate stays off (a piped buffer has no file corpus), exit codes
+// and formats behave exactly as for a file
+section('stdin', async () => {
+    const cp = await import('node:child_process');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const run = (args, input) => {
+      try {
+        return { out: cp.execFileSync('node', [CLI, ...args], { input, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } }), code: 0, err: '' };
+      } catch (e) { return { out: e.stdout ?? '', err: e.stderr ?? '', code: e.status }; }
+    };
+    const abap = fs.readFileSync(f('broken.clas.abap'), 'utf8');
+
+    const plain = run(['--stdin', '--no-config'], abap);
+    assert(plain.code === 1 && /unknown-control/.test(plain.out) && /^<stdin>$/m.test(plain.out),
+      `stdin: piped ABAP is judged by the property gate and reported under <stdin> (exit ${plain.code})`);
+
+    const named = run(['--stdin', '--stdin-filename', 'zcl_my.clas.abap', '--no-config', '--json'], abap);
+    const doc = JSON.parse(named.out);
+    assert(doc.results[0].file === 'zcl_my.clas.abap' && doc.problems > 0,
+      'stdin: --stdin-filename names the source in the report');
+
+    // the filename decides the handling: a .view.xml name goes down the XML path
+    const xml = fs.readFileSync(f('badvalue.view.xml'), 'utf8');
+    const asXml = run(['--stdin', '--stdin-filename', 'bad.view.xml', '--no-config'], xml);
+    assert(asXml.code === 1 && /invalid-property-value/.test(asXml.out),
+      'stdin: a .view.xml filename is checked as a raw view');
+
+    const clean = run(['--stdin', '--stdin-filename', 'ok.view.xml', '--no-config'], fs.readFileSync(f('sample.view.xml'), 'utf8'));
+    assert(clean.code === 0 && /Success!/.test(clean.out), 'stdin: a clean pipe exits 0');
+
+    // incompatible modes are refused rather than silently ignored
+    // --render-pages counts as ASKING for the render gate (like the config's
+    // object form), which is also what keeps a missing runtime a hard refusal
+    // instead of a silent property-only fallback on a tuned gate
+    for (const [extra, why] of [[['--fix'], 'no file to rewrite'], [['--render'], 'property gate only'], [['--render-pages', '2'], 'tuning the pool asks for the gate'], [['--screenshot', 'x.png'], 'screenshot needs files']]) {
+      const r = run(['--stdin', '--no-config', ...extra], abap);
+      assert(r.code === 2, `stdin: --stdin with ${extra[0]} is refused (${why}; exit ${r.code})`);
+    }
+});
+
+// ------------------------------------------------------------ ci formats ----
+// checkstyle and junit: the two XML shapes most CI systems ingest natively.
+// Thin renderers over the same problemsOf() walk - asserted on shape,
+// escaping and the severity mapping
+section('ci formats', async () => {
+    const cp = await import('node:child_process');
+    const { FORMATS, formatCheckstyle, formatJunit } = await import('../lib/report.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const run = (args) => {
+      try {
+        return cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } });
+      } catch (e) { return e.stdout ?? ''; }
+    };
+    assert(FORMATS.includes('checkstyle') && FORMATS.includes('junit'),
+      'ci formats: both are offered by --format');
+
+    const cs = run([f('dumps.clas.abap'), '--no-render', '--format', 'checkstyle']);
+    assert(/^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(cs) && /<checkstyle version="4\.3">/.test(cs),
+      'checkstyle: the document opens with the declaration and the checkstyle root');
+    assert(/<file name="[^"]*dumps\.clas\.abap">/.test(cs),
+      'checkstyle: one <file> element per result');
+    assert(/<error line="\d+" column="\d+" severity="error" message="[^"]+" source="duplicate-property"\/>/.test(cs),
+      'checkstyle: a problem is an <error> with line, column, severity, message and rule id');
+    assert(!/severity="hint"/.test(formatCheckstyle([{ file: 'x', findings: [{ type: 'missing-accessibility', severity: 'hint', message: 'm', line: 1, column: 1 }], renderErrors: [], notes: [] }]))
+      && /severity="info"/.test(formatCheckstyle([{ file: 'x', findings: [{ type: 'missing-accessibility', severity: 'hint', message: 'm', line: 1, column: 1 }], renderErrors: [], notes: [] }])),
+      'checkstyle: our hint maps to checkstyle\'s info');
+    // escaping: a message carrying every XML-hostile character survives as text
+    const hostile = formatCheckstyle([{ file: 'a<b>&"\'.abap', findings: [{ type: 'unknown-control', severity: 'error', message: 'x < y & "z" \'w\'', line: 1, column: 2 }], renderErrors: [], notes: [] }]);
+    assert(/name="a&lt;b&gt;&amp;&quot;&apos;\.abap"/.test(hostile) && /message="x &lt; y &amp; &quot;z&quot; &apos;w&apos;"/.test(hostile),
+      'checkstyle: names and messages are XML-escaped');
+
+    const ju = run([f('dumps.clas.abap'), '--no-render', '--format', 'junit']);
+    assert(/<testsuites name="abap2ui5-linter" tests="2" failures="2">/.test(ju),
+      `junit: the root carries the totals (got ${ju.split('\n')[1]})`);
+    assert(/<testsuite name="[^"]*dumps\.clas\.abap" tests="2" failures="2" errors="0">/.test(ju),
+      'junit: one <testsuite> per file with its own counts');
+    assert(/<testcase name="duplicate-property at \d+:\d+" classname="[^"]*dumps\.clas\.abap">/.test(ju)
+      && /<failure message="[^"]+" type="error">/.test(ju),
+      'junit: a problem is a failing <testcase> naming the rule and position');
+    // a clean file is a PASSING testcase, so the test tab shows it was seen
+    const clean = formatJunit([{ file: 'ok.clas.abap', findings: [], renderErrors: [], notes: [] }]);
+    assert(/<testsuite name="ok\.clas\.abap" tests="1" failures="0" errors="0">/.test(clean)
+      && /<testcase name="clean" classname="ok\.clas\.abap"\/>/.test(clean),
+      'junit: a clean file is one passing testcase, not an empty document');
+});
+
 // ---------------------------------------------------------------- report ----
 section('report', async () => {
     const cp = await import('node:child_process');
@@ -3862,6 +4297,22 @@ section('report', async () => {
       'report: --json carries totals, problems and the annotated findings');
     assert(JSON.parse(run([dumps, '--no-render', '--format', 'json'])).problems === 2,
       'report: --format json is the same thing');
+
+    /* ruleHits: rule id -> what the gate PRODUCED, before the rules block,
+     * directives or a baseline suppressed anything. The additive stats key
+     * that tells a fully suppressed corpus apart from one nothing fired on. */
+    assert(json.stats.ruleHits && json.stats.ruleHits['duplicate-property'] === json.stats.rules['duplicate-property'],
+      'report: stats.ruleHits mirrors the reported counts when nothing is suppressed');
+    {
+      const dir = tempDir('a2ui5-hits-');
+      fs.writeFileSync(path.join(dir, 'off.jsonc'), '{"rules": {"duplicate-property": false}}');
+      const offJson = JSON.parse(run([dumps, '--no-render', '--json', '--config', path.join(dir, 'off.jsonc')]));
+      assert(offJson.stats.rules['duplicate-property'] === undefined,
+        'report: the switched-off rule reports nothing');
+      assert(offJson.stats.ruleHits['duplicate-property'] >= 1,
+        'report: ...but ruleHits still says it fired - the instrumentation survives suppression');
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
 
     const md = run([dumps, '--no-render', '--format', 'markdown']);
     assert(/\| Location \| Severity \| Message \| Rule \|/.test(md) && /`duplicate-property`/.test(md),
@@ -5094,6 +5545,133 @@ section('wire kinds and the 08-30 round', async () => {
   const conv = one('redundant-conv-i');
   assert(conv.length === 1 && conv[0].member === 'count',
     `redundant-conv-i: only the whole-RHS form over a target declared here (got ${conv.length})`);
+});
+
+/* ---------------------------------------------------------------------------
+ * The abapGit round-trip family (abap-check §1): BOM, CRLF, trailing blanks,
+ * missing final newline. Inline sources rather than committed fixtures on
+ * purpose — this repository's own line-endings gate (and .gitattributes)
+ * forbids committing exactly the bytes these rules exist to catch.
+ * ------------------------------------------------------------------------- */
+section('abapgit round trip', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const { severityOf } = await import('../lib/findings.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+    const clean = 'CLASS zcl_x DEFINITION PUBLIC.\nENDCLASS.\n';
+
+    // --- byte-order-mark ------------------------------------------------------
+    const bom = `﻿${clean}`;
+    const bomF = of(bom, 'byte-order-mark');
+    assert(bomF.length === 1 && bomF[0].offset === 0,
+      'byte-order-mark: a BOM on a .abap file is reported at offset 0');
+    assert(applyFixes(bom, bomF).output === clean,
+      'byte-order-mark: the fix deletes exactly the one character');
+    assert(of(clean, 'byte-order-mark').length === 0, 'byte-order-mark: a clean file is silent');
+
+    // --- crlf-line-ending -----------------------------------------------------
+    const crlf = clean.replace(/\n/g, '\r\n');
+    const crlfF = of(crlf, 'crlf-line-ending');
+    assert(crlfF.length === 1 && crlfF[0].value === 2 && crlfF[0].fixes.length === 2,
+      `crlf-line-ending: ONE finding per file, one fix span per CR (got ${crlfF.length}/${crlfF[0]?.fixes?.length})`);
+    assert(applyFixes(crlf, crlfF).output === clean,
+      'crlf-line-ending: the fix converts the whole file to LF');
+    assert(of(clean, 'crlf-line-ending').length === 0, 'crlf-line-ending: LF-only is silent');
+
+    // --- trailing-whitespace --------------------------------------------------
+    const tws = 'CLASS zcl_x DEFINITION PUBLIC.  \nENDCLASS.\t\n';
+    const twsF = of(tws, 'trailing-whitespace');
+    assert(twsF.length === 2 && twsF.map((x) => x.member).join() === '1,2',
+      `trailing-whitespace: one finding per line, keyed by line number (got ${twsF.map((x) => x.member).join() || 'none'})`);
+    assert(applyFixes(tws, twsF).output === clean,
+      'trailing-whitespace: the fixes strip exactly the blanks');
+    assert(of('DATA(x) = `text  ` && `y`.\n', 'trailing-whitespace').length === 0,
+      'trailing-whitespace: blanks INSIDE a literal are content, not line endings');
+    // the CRLF spelling: the \r is the separator, not trailing content, but
+    // blanks in front of it are still trailing
+    assert(of('CLASS zcl_x DEFINITION PUBLIC. \r\nENDCLASS.\r\n', 'trailing-whitespace').length === 1,
+      'trailing-whitespace: a blank before the CR still counts, the CR itself does not');
+
+    // --- missing-final-newline ------------------------------------------------
+    const nofinal = 'CLASS zcl_x DEFINITION PUBLIC.\nENDCLASS.';
+    const nfF = of(nofinal, 'missing-final-newline');
+    assert(nfF.length === 1, 'missing-final-newline: the missing terminator is reported');
+    assert(applyFixes(nofinal, nfF).output === `${nofinal}\n`,
+      'missing-final-newline: the fix appends exactly one newline');
+    assert(of(clean, 'missing-final-newline').length === 0, 'missing-final-newline: a terminated file is silent');
+    assert(of('DATA(x) = 1.', 'missing-final-newline').length === 0,
+      'missing-final-newline: a one-line snippet is not a file and is never judged');
+
+    /* All four are WARNINGS, deliberately: unlike source-line-too-long nothing
+     * fails to import — the tree merely never stops diffing (abap-check §1
+     * puts only the 255-character line in the import-failure bucket). */
+    for (const [src, type] of [[bom, 'byte-order-mark'], [crlf, 'crlf-line-ending'], [tws, 'trailing-whitespace'], [nofinal, 'missing-final-newline']]) {
+      assert(severityOf(of(src, type)[0]) === 'warning', `${type}: a warning, not an error`);
+    }
+});
+
+/* ---------------------------------------------------------------------------
+ * Three structural rules from abap-check: the extended-check pragma, the
+ * downport dialect, and the delete-by-loop-cursor runtime trap.
+ * ------------------------------------------------------------------------- */
+section('abap hygiene (2)', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { severityOf } = await import('../lib/findings.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+
+    // --- empty-catch-block ----------------------------------------------------
+    const empty = 'TRY.\n  risky( ).\nCATCH cx_root.\nENDTRY.\n';
+    const emptyF = of(empty, 'empty-catch-block');
+    assert(emptyF.length === 1 && emptyF[0].member === 'cx_root' && severityOf(emptyF[0]) === 'hint',
+      `empty-catch-block: an empty handler is a hint naming the exception (got ${emptyF.map((x) => x.member).join() || 'none'})`);
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root ##NO_HANDLER.\nENDTRY.\n', 'empty-catch-block').length === 0,
+      'empty-catch-block: ##NO_HANDLER is the sanctioned empty handler and is silent');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root INTO DATA(x).\n  log( x ).\nENDTRY.\n', 'empty-catch-block').length === 0,
+      'empty-catch-block: a handler with a statement is not empty');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root.\n  " nothing to do\nENDTRY.\n', 'empty-catch-block').length === 1,
+      'empty-catch-block: a comment does not fill the block - SLIN reads it the same way');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_static_check.\nCATCH cx_root.\n  log( ).\nENDTRY.\n', 'empty-catch-block').length === 1,
+      'empty-catch-block: the next CATCH ends the block, and only the empty one is reported');
+
+    // --- boolc-instead-of-xsdbool ---------------------------------------------
+    const two = 'DATA(a) = boolc( x > 1 ).\nDATA(b) = boolc( y < 2 ).\n';
+    assert(of(two, 'boolc-instead-of-xsdbool').length === 2,
+      'boolc-instead-of-xsdbool: every call site is its own finding');
+    assert(of('DATA(a) = xsdbool( x > 1 ).\n', 'boolc-instead-of-xsdbool').length === 0,
+      'boolc-instead-of-xsdbool: the mandated form is silent');
+    assert(of('DATA(t) = `use boolc( x ) here`.\n', 'boolc-instead-of-xsdbool').length === 0,
+      'boolc-instead-of-xsdbool: boolc inside a literal is prose, not a call');
+
+    // --- delete-index-in-loop -------------------------------------------------
+    // the clean current-row delete is LEGAL: the kernel adjusts the loop
+    // cursor for a delete on the loop table, and so does @abaplint/runtime -
+    // the first cut reported this shape and named a reviewed, working
+    // samples-controls port (558), which is the corpus doctrine firing
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: the innermost loop\'s own unclobbered cursor is the legal current-row delete');
+    const hot = 'LOOP AT t_rows INTO DATA(row).\n  READ TABLE t_map WITH KEY k = row-k INTO DATA(m).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n';
+    const hotF = of(hot, 'delete-index-in-loop');
+    assert(hotF.length === 1 && hotF[0].member === 't_rows' && severityOf(hotF[0]) === 'error',
+      `delete-index-in-loop: a READ TABLE between the loop header and the DELETE clobbers sy-tabix (got ${hotF.map((x) => x.member).join() || 'none'})`);
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  LOOP AT t_other INTO DATA(o).\n  ENDLOOP.\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: a completed inner loop leaves sy-tabix behind - the filter_itab incident');
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DO 3 TIMES.\n  ENDDO.\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: a DO between the LOOP and the DELETE is the app-352 dump shape');
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\n  READ TABLE t_map INDEX 1 INTO DATA(m2).\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: a clobberer AFTER the delete runs after it every iteration - the loop header resets the cursor');
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_other INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: another table is another rule\'s business');
+    // the filter_itab shape: the DELETE sits in an INNER loop over another
+    // table, but an OUTER loop over the deleted table still encloses it -
+    // sy-tabix is then the inner loop's, and the deleted index is wrong
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  LOOP AT t_other INTO DATA(o).\n    DELETE t_rows INDEX sy-tabix.\n  ENDLOOP.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: ANY enclosing loop over the table counts, not only the innermost');
+    assert(of('LOOP AT t_rows INTO DATA(row).\nENDLOOP.\nREAD TABLE t_rows INDEX 1 INTO DATA(r).\nDELETE t_rows INDEX sy-tabix.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: DELETE after READ TABLE outside the loop is correct and common');
+    assert(of('METHOD a.\n  LOOP AT t_rows INTO DATA(row).\nENDMETHOD.\nMETHOD b.\n  DELETE t_rows INDEX sy-tabix.\nENDMETHOD.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: a method boundary closes whatever a broken source left open');
+    assert(of('LOOP AT me->t_rows INTO DATA(row).\n  READ TABLE t_map INDEX 1 INTO DATA(mm).\n  DELETE me->t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: the me-> spelling names the same table');
 });
 
 /* What is recorded is what the checks actually produced (test/observe.mjs),
