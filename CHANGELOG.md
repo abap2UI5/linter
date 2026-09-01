@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Four existing rules gained a `--fix`.** `escaped-brace-in-backtick`
+  deletes the backslashes (a backtick literal has no escape processing, so
+  they say nothing); `redundant-conv-i` unwraps the CONV (the rule already
+  guarantees it is the entire right-hand side of an assignment into a
+  `TYPE i` target declared in this file); `lifecycle-is-initial` rewrites
+  `IS NOT INITIAL` on a lifecycle call to the predicative form and
+  `IS INITIAL` to `= abap_false` — on a plain `abap_bool` variable only the
+  `IS INITIAL` half is rewritten, because `= abap_true` vs `<> abap_false`
+  for the NOT form is a choice, not a mechanical rewrite, and that one stays
+  a finding; `trailing-empty-event-arg` deletes the trailing empty
+  `` ( `` ) `` row (it never arrives, so nothing observable changes), whole
+  line included when the row has it to itself, comments never.
+
 - **`--cache`: an opt-in cross-run result cache, eslint-style.** Each file's
   full result (the findings, not just pass/fail - a baselined corpus needs
   the findings again on replay) is stored keyed by its content hash, under one

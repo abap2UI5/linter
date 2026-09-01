@@ -3940,12 +3940,12 @@ section('fix', async () => {
     };
 
     const dry = run({ ABAP2UI5LINT_FIX_DRY_RUN: 'true' });
-    assert(/would fix 4 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
+    assert(/would fix 5 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
       'fix: the dry run reports what it would do and leaves the file alone');
 
     const out = run();
     const fixed = fs.readFileSync(target, 'utf8');
-    assert(/fixed 4 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the four mechanical corrections are applied');
+    assert(/fixed 5 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the five mechanical corrections are applied');
     assert(/client->_bind\( name \)/.test(fixed) && !/_bind_edit/.test(fixed),
       'fix: obsolete-binder becomes client->_bind( )');
     assert(/client->follow_up_action\( val   = client->cs_event-urlhelper/.test(fixed)
@@ -3955,7 +3955,10 @@ section('fix', async () => {
       'fix: unconverted-abap-boolean moves onto b =, the token kept verbatim');
     assert(/`\$\{BARE_BRACE\}`/.test(fixed) && /`\$\{RESOLVED\}`/.test(fixed) && /`\{0\} selected`/.test(fixed),
       'fix: event-arg-unresolved gains its $, the already-correct and quoted forms untouched');
-    assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved/.test(out),
+    assert(/t_arg = VALUE #\( \( `first` \) \)/.test(fixed)
+      && /val = `MIDDLE` t_arg = VALUE #\( \( `first` \) \( `` \) \( `third` \) \)/.test(fixed),
+    'fix: the trailing empty t_arg row is deleted, the load-bearing middle one kept');
+    assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved|trailing-empty-event-arg/.test(out),
       'fix: what was fixed is gone from the report of the same run');
     assert(/binding-to-local/.test(out), 'fix: a finding without a mechanical correction survives');
 
@@ -3993,6 +3996,88 @@ section('fix', async () => {
     process.env.ABAP2UI5LINT_STRICT_FIXES = prevStrict ?? 'true';
 
     fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------------------- fix (2) ----
+// the 2026-09 fixes: four existing rules whose correction turned out to be
+// mechanical. Each is asserted through applyFixes (strict-span mode is on for
+// the whole suite, so an unusable span throws rather than passing silently)
+section('fix (2)', async () => {
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const { checkAbapRules, checkAbapSource } = await import('./observe.mjs');
+
+    // --- escaped-brace-in-backtick: delete the backslashes -------------------
+    {
+      const src = ')->a( n = `items` v = `\\{ path: \'message>/\' \\}` )';
+      const found = checkAbapRules(src).filter((x) => x.type === 'escaped-brace-in-backtick');
+      assert(found.length === 1 && found[0].fixes?.length === 2,
+        `fix: escaped-brace-in-backtick carries one deletion per backslash (got ${found[0]?.fixes?.length})`);
+      assert(applyFixes(src, found).output === ')->a( n = `items` v = `{ path: \'message>/\' }` )',
+        'fix: escaped-brace-in-backtick leaves the plain-brace literal the doc recommends');
+    }
+
+    // --- redundant-conv-i: unwrap the CONV ------------------------------------
+    {
+      const src = 'DATA count TYPE i.\n  count = CONV i( lv_text ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'redundant-conv-i');
+      assert(found.length === 1 && found[0].fixes?.length === 1,
+        'fix: redundant-conv-i carries the unwrap');
+      assert(applyFixes(src, found).output === 'DATA count TYPE i.\n  count = lv_text.\n',
+        'fix: redundant-conv-i unwraps to the bare assignment');
+    }
+
+    // --- lifecycle-is-initial: the three shapes -------------------------------
+    {
+      const src = fs.readFileSync(f('isinitial.clas.abap'), 'utf8');
+      const found = checkAbapSource(src).findings.filter((x) => x.type === 'lifecycle-is-initial');
+      const call = found.find((x) => x.member === 'check_on_init( )');
+      assert(call?.fixes?.length === 1, 'fix: the lifecycle call carries a fix');
+      const out = applyFixes(src, found).output;
+      assert(/IF client->check_on_init\( \)\.\n/.test(out),
+        'fix: IS NOT INITIAL on the lifecycle call becomes the predicative form');
+      /* the fixture's variable case is IS NOT INITIAL, which is deliberately
+       * NOT fixed - `= abap_true` vs `<> abap_false` is a choice, not a
+       * mechanical rewrite - so the text survives the pass */
+      assert(/IF mv_ready IS NOT INITIAL\./.test(out),
+        'fix: IS NOT INITIAL on a plain variable is reported but never rewritten');
+    }
+    {
+      // IS INITIAL, both shapes: the call becomes = abap_false, so does the var
+      const src = 'DATA mv_ready TYPE abap_bool.\n'
+        + 'IF client->check_on_init( ) IS INITIAL.\nENDIF.\nIF mv_ready IS INITIAL.\nENDIF.\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'lifecycle-is-initial');
+      assert(found.length === 2 && found.every((x) => x.fixes?.length === 1),
+        `fix: both IS INITIAL shapes carry the = abap_false rewrite (got ${found.length})`);
+      const out = applyFixes(src, found).output;
+      assert(/IF client->check_on_init\( \) = abap_false\./.test(out)
+        && /IF mv_ready = abap_false\./.test(out),
+        'fix: IS INITIAL is spelled out as = abap_false in both shapes');
+    }
+
+    // --- trailing-empty-event-arg: a row with its line to itself --------------
+    {
+      const src = 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` )\n'
+        + '                   ( `` )\n'
+        + '                 ) ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'trailing-empty-event-arg');
+      assert(found.length === 1 && found[0].fixes?.length === 1,
+        'fix: the trailing empty row carries its deletion');
+      assert(applyFixes(src, found).output === 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` )\n'
+        + '                 ) ).\n',
+        'fix: a row with its line to itself takes the whole line with it');
+    }
+    {
+      // a comment next to the row is never deleted with it
+      const src = 'client->_event( val = `PICK`\n'
+        + '  t_arg = VALUE #( ( `${/ID}` ) " why\n'
+        + '                   ( `` ) ) ).\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'trailing-empty-event-arg');
+      const out = applyFixes(src, found).output;
+      assert(/ " why\n/.test(out) && !/\( `` \)/.test(out),
+        'fix: the row goes, the comment beside the constructor stays');
+    }
 });
 
 // ---------------------------------------------------------------- report ----
