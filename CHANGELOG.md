@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`--stdin`: lint piped source.** The property gate over standard input -
+  the editor and pre-commit case - reported under `--stdin-filename <name>`
+  (default `<stdin>`), which also decides the handling: a `.view.xml` /
+  `.fragment.xml` name (or content starting with `<`) goes down the raw-view
+  path, anything else is read as an ABAP class. Exit codes and every
+  `--format` behave exactly as for a file. The render gate stays off for a
+  pipe, and `--fix`, `--render` and `--screenshot` are refused rather than
+  silently ignored.
+
 - **Four existing rules gained a `--fix`.** `escaped-brace-in-backtick`
   deletes the backslashes (a backtick literal has no escape processing, so
   they say nothing); `redundant-conv-i` unwraps the CONV (the rule already

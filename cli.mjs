@@ -110,6 +110,17 @@
  *                      from the class. Without it, a `<class>.mock.json` next
  *                      to the source is used when there is one - which is how
  *                      a table bound to a SELECT stops photographing empty
+ *   --stdin            lint source read from standard input instead of files.
+ *                      Property gate only - the render gate needs a file
+ *                      corpus and stays off for piped source. Incompatible
+ *                      with --fix (there is no file to rewrite) and
+ *                      --screenshot. Exit codes as usual
+ *   --stdin-filename <name>
+ *                      the name the piped source is reported under (default
+ *                      <stdin>). It also decides the handling: a name ending
+ *                      .view.xml/.fragment.xml is checked as a raw view,
+ *                      anything else as an ABAP class - unless the content
+ *                      itself starts with '<'
  *   --no-render        skip the render gate (no browser/@openui5 needed)
  *   --render           require the render gate: without its runtime the run
  *                      fails instead of falling back to the property gate.
@@ -143,7 +154,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkFiles, collectFiles, screenshotFiles } from './lib/index.mjs';
+import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
 import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
@@ -157,7 +168,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
-  + '[--cache] [--cache-location <file>] '
+  + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
@@ -259,6 +270,9 @@ const paths = [];
 let configFlag = null;
 let noConfig = false;
 let updateBaseline = false;
+// --stdin: lint piped source instead of files (property gate only)
+let stdinMode = false;
+let stdinName = '<stdin>';
 // --screenshot and its two dials: a MODE, not a gate (see the run below)
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 for (let i = 0; i < args.length; i++) {
@@ -329,6 +343,8 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--baseline') { opt.baseline = value(); seen.add('baseline'); }
   else if (a === '--cache') { opt.cache = true; seen.add('cache'); }
   else if (a === '--cache-location') { opt.cacheLocation = value(); }
+  else if (a === '--stdin') stdinMode = true;
+  else if (a === '--stdin-filename') stdinName = value();
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
@@ -464,6 +480,19 @@ if (!noConfig) {
 }
 if (!paths.length) paths.push('src');
 
+/* --stdin: the property gate over piped source. The render gate stays off -
+ * it is built around a file corpus and a browser session, and a piped buffer
+ * is the one-file editor/pre-commit case where the property gate is the
+ * value. Asked-for render, --fix and --screenshot are refused rather than
+ * silently ignored. */
+if (stdinMode) {
+  if (opt.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
+  if (shot.out) die('--stdin cannot be combined with --screenshot');
+  if (renderAsked) die('--stdin runs the property gate only - write the source to a file to render it');
+  opt.render = false;
+  opt.cache = false;
+}
+
 /* The render gate is on by default and its ~118 MB runtime is deliberately
  * not, so a fresh `npx @abap2ui5/linter src` would refuse to run at all. A
  * gate nobody asked for therefore steps aside for the property gate and says
@@ -481,13 +510,17 @@ if (!paths.length) paths.push('src');
 }
 
 let files;
-try {
-  // `ignore` is repo-level and config-only on purpose: it describes the tree,
-  // which is a property of the repo rather than of one invocation
-  files = collectFiles(paths, { ignore: opt.ignore ?? [] });
-} catch (e) {
-  // a mistyped path is bad usage, not a crash - exit 2 with one clean line
-  die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
+if (stdinMode) {
+  files = [stdinName]; // one virtual file - the source arrives below
+} else {
+  try {
+    // `ignore` is repo-level and config-only on purpose: it describes the tree,
+    // which is a property of the repo rather than of one invocation
+    files = collectFiles(paths, { ignore: opt.ignore ?? [] });
+  } catch (e) {
+    // a mistyped path is bad usage, not a crash - exit 2 with one clean line
+    die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
+  }
 }
 /*
  * --screenshot: the render gate turned around. Instead of asking whether the
@@ -636,7 +669,17 @@ if (opt.cache) {
 
 let results;
 try {
-  if (cache) {
+  if (stdinMode) {
+    const src = fs.readFileSync(0, 'utf8');
+    // the filename decides the handling, exactly as collectFiles decides it
+    // for a named path: the XML spellings, else content sniff, else ABAP
+    const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
+    const r = isXml
+      ? checkXmlSource(src, { ...opt, file: stdinName })
+      : checkAbapSource(src, { ...opt, file: stdinName });
+    r.file = stdinName;
+    results = [r];
+  } else if (cache) {
     const slots = files.map((file) => {
       const hash = hashOf(fs.readFileSync(file, 'utf8'));
       const hit = cache.entries[path.resolve(file)];

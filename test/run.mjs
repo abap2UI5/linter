@@ -4080,6 +4080,45 @@ section('fix (2)', async () => {
     }
 });
 
+// ----------------------------------------------------------------- stdin ----
+// --stdin: the property gate over piped source - the editor/pre-commit case.
+// The render gate stays off (a piped buffer has no file corpus), exit codes
+// and formats behave exactly as for a file
+section('stdin', async () => {
+    const cp = await import('node:child_process');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const run = (args, input) => {
+      try {
+        return { out: cp.execFileSync('node', [CLI, ...args], { input, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } }), code: 0, err: '' };
+      } catch (e) { return { out: e.stdout ?? '', err: e.stderr ?? '', code: e.status }; }
+    };
+    const abap = fs.readFileSync(f('broken.clas.abap'), 'utf8');
+
+    const plain = run(['--stdin', '--no-config'], abap);
+    assert(plain.code === 1 && /unknown-control/.test(plain.out) && /^<stdin>$/m.test(plain.out),
+      `stdin: piped ABAP is judged by the property gate and reported under <stdin> (exit ${plain.code})`);
+
+    const named = run(['--stdin', '--stdin-filename', 'zcl_my.clas.abap', '--no-config', '--json'], abap);
+    const doc = JSON.parse(named.out);
+    assert(doc.results[0].file === 'zcl_my.clas.abap' && doc.problems > 0,
+      'stdin: --stdin-filename names the source in the report');
+
+    // the filename decides the handling: a .view.xml name goes down the XML path
+    const xml = fs.readFileSync(f('badvalue.view.xml'), 'utf8');
+    const asXml = run(['--stdin', '--stdin-filename', 'bad.view.xml', '--no-config'], xml);
+    assert(asXml.code === 1 && /invalid-property-value/.test(asXml.out),
+      'stdin: a .view.xml filename is checked as a raw view');
+
+    const clean = run(['--stdin', '--stdin-filename', 'ok.view.xml', '--no-config'], fs.readFileSync(f('sample.view.xml'), 'utf8'));
+    assert(clean.code === 0 && /Success!/.test(clean.out), 'stdin: a clean pipe exits 0');
+
+    // incompatible modes are refused rather than silently ignored
+    for (const [extra, why] of [[['--fix'], 'no file to rewrite'], [['--render'], 'property gate only'], [['--screenshot', 'x.png'], 'screenshot needs files']]) {
+      const r = run(['--stdin', '--no-config', ...extra], abap);
+      assert(r.code === 2, `stdin: --stdin with ${extra[0]} is refused (${why}; exit ${r.code})`);
+    }
+});
+
 // ---------------------------------------------------------------- report ----
 section('report', async () => {
     const cp = await import('node:child_process');
