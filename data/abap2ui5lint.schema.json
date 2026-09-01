@@ -77,6 +77,10 @@
       "type": "boolean",
       "description": "false skips the property gate."
     },
+    "cache": {
+      "type": "boolean",
+      "description": "true stores each file’s result across runs and replays it while nothing relevant changed (file content, linter version, metadata snapshot, resolved settings). Same as --cache; --cache-location names the file (default .abap2ui5lintcache)."
+    },
     "failOn": {
       "enum": [
         "hint",

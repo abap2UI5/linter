@@ -98,6 +98,10 @@ export function buildSchema() {
         description: 'false skips the render gate (no browser needed); true requires it; { "pages": N } requires it and sizes its page pool (default 4).',
       },
       properties: { type: 'boolean', description: 'false skips the property gate.' },
+      cache: {
+        type: 'boolean',
+        description: 'true stores each file’s result across runs and replays it while nothing relevant changed (file content, linter version, metadata snapshot, resolved settings). Same as --cache; --cache-location names the file (default .abap2ui5lintcache).',
+      },
       failOn: {
         enum: [...SEVERITIES, 'never'],
         description: 'Lowest severity that fails the build. Everything is always reported — this only decides the exit code.',

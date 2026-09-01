@@ -1080,6 +1080,13 @@ section('config', async () => {
     catch (e) { threw = e.message; }
     assert(/unknown key 'tpyo'/.test(threw), 'config: an unknown key fails loudly');
 
+    fs.writeFileSync(path.join(dir, 'cachebad.jsonc'), '{"cache": "yes"}');
+    let cacheType = '';
+    try { loadConfig(path.join(dir, 'cachebad.jsonc')); } catch (e) { cacheType = e.message; }
+    assert(/'cache' must be true or false/.test(cacheType), 'config: cache must be a boolean');
+    fs.writeFileSync(path.join(dir, 'cacheok.jsonc'), '{"cache": true}');
+    assert(loadConfig(path.join(dir, 'cacheok.jsonc')).cache === true, 'config: cache: true survives loading');
+
     /* render grew an object form: { "pages": N } asks for the gate AND sizes
      * its page pool. It normalizes to render:true + renderPages, so every
      * consumer keeps reading a boolean `render`. */
@@ -1123,6 +1130,92 @@ section('config', async () => {
     fs.writeFileSync(path.join(plain, 'abap2ui5lint.json'), '{"ui5": "1.120"}');
     assert(findConfig(plain) === path.join(plain, 'abap2ui5lint.json'),
       'config: abap2ui5lint.json is discovered as well as .jsonc');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ----------------------------------------------------------------- cache ----
+// the opt-in cross-run result cache (--cache): a hit skips both gates and
+// replays the stored findings; anything relevant moving is a miss
+section('cache', async () => {
+    const cp = await import('node:child_process');
+    const { CACHE_VERSION, DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } = await import('../lib/cache.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const dir = tempDir('a2ui5-cache-');
+    const app = path.join(dir, 'app.clas.abap');
+    fs.copyFileSync(f('broken.clas.abap'), app);
+    const cacheFile = path.join(dir, DEFAULT_CACHE_FILE);
+    const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
+    const run = (args) => {
+      try {
+        return { out: cp.execFileSync('node', [CLI, ...args], { cwd: dir, encoding: 'utf8', env }), code: 0 };
+      } catch (e) { return { out: e.stdout ?? '', code: e.status }; }
+    };
+    const BASE = ['app.clas.abap', '--no-render', '--no-config', '--cache', '--json'];
+
+    const first = run(BASE);
+    assert(fs.existsSync(cacheFile), 'cache: --cache writes the cache file');
+    const firstDoc = JSON.parse(first.out);
+    assert(firstDoc.problems > 0 && first.code === 1, 'cache: the first (cold) run still reports and fails normally');
+
+    /* The HIT is proven by tampering: rewrite the stored findings and see the
+     * next run replay them - a run that recomputed would report the defects
+     * the file still carries. */
+    const store = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    const key = Object.keys(store.files)[0];
+    assert(store.version === CACHE_VERSION && store.files[key].hash === hashOf(fs.readFileSync(app, 'utf8')),
+      'cache: an entry is keyed by the file content hash');
+    store.files[key].result.findings = [];
+    fs.writeFileSync(cacheFile, JSON.stringify(store));
+    const replayed = run(BASE);
+    assert(JSON.parse(replayed.out).problems === 0 && replayed.code === 0,
+      'cache: a hit replays the stored findings instead of re-running the gates');
+
+    // miss on CONTENT change: the same tampered entry no longer matches
+    fs.appendFileSync(app, '\n* changed\n');
+    const contentMiss = run(BASE);
+    assert(JSON.parse(contentMiss.out).problems === firstDoc.problems && contentMiss.code === 1,
+      'cache: a changed file misses and is recomputed');
+
+    // miss on CONFIG change: same content, but a setting that changes verdicts
+    const store2 = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    store2.files[Object.keys(store2.files)[0]].result.findings = [];
+    fs.writeFileSync(cacheFile, JSON.stringify(store2));
+    const configMiss = run([...BASE, '--ui5', '1.120']);
+    assert(JSON.parse(configMiss.out).problems > 0,
+      'cache: a changed setting drops the whole cache and recomputes');
+    assert(cacheContext({ version: '1', snapshot: '1.151.0', options: { minUi5: '1.71' } })
+      !== cacheContext({ version: '1', snapshot: '1.151.0', options: { minUi5: '1.120' } }),
+      'cache: the context hash moves with the settings');
+    assert(cacheContext({ version: '1', snapshot: '1.151.0', options: { rules: { 'unknown-control': false } } })
+      !== cacheContext({ version: '1', snapshot: '1.151.0', options: {} }),
+      'cache: the rules block is part of the context');
+
+    // a corrupt cache file is an empty cache, never an error
+    fs.writeFileSync(cacheFile, 'not json {');
+    const corrupt = run(BASE);
+    assert(JSON.parse(corrupt.out).problems === firstDoc.problems && corrupt.code === 1,
+      'cache: a corrupt cache file is tolerated and the run recomputes');
+    const rewritten = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    assert(rewritten.version === CACHE_VERSION, 'cache: the corrupt file is replaced by a valid one');
+    assert(Object.keys(loadCache(cacheFile, 'wrong-context')).length === 0,
+      'cache: another context reads as empty');
+    saveCache(cacheFile, 'ctx', { a: { hash: 'h', result: {} } });
+    assert(loadCache(cacheFile, 'ctx').a.hash === 'h', 'cache: save/load round-trips');
+
+    /* --fix rewrites the file, so its stale entry can never match again: the
+     * fixed run reports the post-fix state, not a replay of the pre-fix one. */
+    const fixable = path.join(dir, 'fixable.clas.abap');
+    fs.copyFileSync(f('abaprules.clas.abap'), fixable);
+    fs.rmSync(cacheFile, { force: true });
+    const preFix = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--json']);
+    assert(/obsolete-binder/.test(preFix.out), 'cache: the fixable finding is cached first');
+    const postFix = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--fix', '--json']);
+    assert(!/"type":"obsolete-binder"/.test(postFix.out),
+      'cache: a --fix run does not replay the pre-fix findings of the file it modified');
+    const after = run(['fixable.clas.abap', '--no-render', '--no-config', '--cache', '--json']);
+    assert(!/"type":"obsolete-binder"/.test(after.out),
+      'cache: the run after the fix caches the post-fix state');
 
     fs.rmSync(dir, { recursive: true, force: true });
 });

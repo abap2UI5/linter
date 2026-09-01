@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **`--cache`: an opt-in cross-run result cache, eslint-style.** Each file's
+  full result (the findings, not just pass/fail - a baselined corpus needs
+  the findings again on replay) is stored keyed by its content hash, under one
+  context hash over the linter version, the metadata snapshot's ui5Version and
+  every resolved setting that changes a verdict (floor, distribution, allow,
+  gates, rules block). A hit skips both gates for that file; any relevant
+  change is a miss. `--cache-location <file>` names the store (default
+  `.abap2ui5lintcache`), `"cache": true` in the config turns it on for a repo,
+  and a corrupt or foreign cache file reads as empty rather than as an error.
+  `--fix` needs no special handling: it rewrites the file, so the stale entry
+  never matches again.
+
 - **`checkFiles` and `screenshotFiles` accept a caller-owned `renderer`.** An
   already-open session from `openRenderer( )` (the `./render` export) is used
   as-is and never closed - the caller owns its lifecycle - so a long-lived

@@ -54,6 +54,17 @@
  *                      A NEW finding still fails; a recorded one that no
  *                      longer occurs fails too, as a stale entry
  *   --update-baseline  write/refresh that file from this run and exit 0
+ *   --cache            store each file's result and replay it on the next run
+ *                      while nothing relevant changed - the file's content,
+ *                      the linter version, the metadata snapshot and every
+ *                      setting that changes a verdict all key the entry, so a
+ *                      hit skips both gates for that file. Also settable as
+ *                      "cache": true in the config. The cache file is
+ *                      expendable: corrupt or stale means recompute, and
+ *                      deleting it is always safe
+ *   --cache-location <file>
+ *                      where the cache lives (default .abap2ui5lintcache in
+ *                      the current directory)
  *   --quiet            report errors only - the counts still show everything,
  *                      and the run summary and progress go quiet too
  *   --stats            print the run summary: what was checked (files, views,
@@ -139,12 +150,14 @@ import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
+import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--cache] [--cache-location <file>] '
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
@@ -314,6 +327,8 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--fix') opt.fix = true;
   else if (a === '--fix-dry-run') { opt.fix = true; opt.fixDryRun = true; }
   else if (a === '--baseline') { opt.baseline = value(); seen.add('baseline'); }
+  else if (a === '--cache') { opt.cache = true; seen.add('cache'); }
+  else if (a === '--cache-location') { opt.cacheLocation = value(); }
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
@@ -605,9 +620,42 @@ const progress = createProgress({
 });
 opt.onProgress = (ev) => progress.update(ev);
 
+/* The cross-run cache (--cache / "cache": true). Everything a verdict depends
+ * on keys the entry — the file's content hash per file, and one context hash
+ * over the linter version, the snapshot's ui5Version and the resolved
+ * settings — so a hit can safely skip BOTH gates and replay the stored result.
+ * The stored result is the full pre-baseline result: the baseline and the
+ * exit code are decided per RUN, on replayed findings like on fresh ones. */
+let cache = null;
+if (opt.cache) {
+  const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
+  const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
+  cache = { file, context, entries: loadCache(file, context) };
+}
+
 let results;
 try {
-  results = await checkFiles(files, opt);
+  if (cache) {
+    const slots = files.map((file) => {
+      const hash = hashOf(fs.readFileSync(file, 'utf8'));
+      const hit = cache.entries[path.resolve(file)];
+      return { file, hash, result: hit && hit.hash === hash ? { ...hit.result, file } : null };
+    });
+    const missing = slots.filter((s) => !s.result).map((s) => s.file);
+    const fresh = missing.length ? await checkFiles(missing, opt) : [];
+    const byFile = new Map(fresh.map((r) => [r.file, r]));
+    for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
+    results = slots.map((s) => s.result);
+    const entries = {};
+    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: s.result };
+    /* Written BEFORE the baseline mutates the findings, and tolerantly: a
+     * cache that cannot be written costs the next run time, not correctness. */
+    try { saveCache(cache.file, cache.context, entries); }
+    catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
+  } else {
+    results = await checkFiles(files, opt);
+  }
   progress.finish();
 } catch (e) {
   progress.finish();
