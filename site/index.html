@@ -75,14 +75,14 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">60 error</span>
-      <span class="badge warning">37 warning</span>
+      <span class="badge warning">38 warning</span>
       <span class="badge hint">15 hint</span>
       <span class="badge fix">10 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.6.1</strong>, against the OpenUI5 1.151.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx abap2ui5lint --version</code> says which that is.</p>
-    <input id="filter" type="search" placeholder="Filter 111 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 112 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -320,6 +320,14 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="summary">control introduced after your target UI5 version</p>
         <p class="detail">The control does not exist on the system you are targeting (<code>--ui5</code>, default 1.71), so the view will not load there — however well it works on a newer one. Waive a deliberate case with <code>--allow sap.m.Control</code>.</p>
         <pre><code>view-&gt;tag( `Avatar` )   " @since 1.73, target 1.71</code></pre>
+      </article>
+      <article class="rule" id="deprecated-library" data-search="deprecated-library a ui5 library sap deprecated in its entirety five libraries are deprecated whole rather than control by control: sap.ui.commons and sap.ui.ux3 (1.38), sap.makit (1.38), sap.me (1.34), and the legacy chart classes directly under sap.viz.ui5 (1.32 — sap.viz.ui5.controls.vizframe is the replacement and is not reported). none of them is in the metadata snapshot every other rule reads, because the harvest only carries what current ui5 documents — so before this rule a view out of sap.ui.commons was not merely unjudged, it was invisible, and that is the one library it actually happens with: half its control names (button, label, dialog, panel, combobox) also exist in sap.m, so xml copied from an old tutorial drags the dead namespace along and still renders something. the list is hand-maintained for the same reason it is needed: it cannot be regenerated from data the snapshot does not carry. held against your target release like any other deprecation — below the deprecating version nothing is reported. warning">
+        <h3><a href="#deprecated-library">deprecated-library</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a UI5 library SAP deprecated in its entirety</p>
+        <p class="detail">Five libraries are deprecated whole rather than control by control: <code>sap.ui.commons</code> and <code>sap.ui.ux3</code> (1.38), <code>sap.makit</code> (1.38), <code>sap.me</code> (1.34), and the legacy chart classes directly under <code>sap.viz.ui5</code> (1.32 — <code>sap.viz.ui5.controls.VizFrame</code> is the replacement and is not reported). None of them is in the metadata snapshot every other rule reads, because the harvest only carries what current UI5 documents — so before this rule a view out of <code>sap.ui.commons</code> was not merely unjudged, it was invisible, and that is the one library it actually happens with: half its control names (<code>Button</code>, <code>Label</code>, <code>Dialog</code>, <code>Panel</code>, <code>ComboBox</code>) also exist in <code>sap.m</code>, so XML copied from an old tutorial drags the dead namespace along and still renders something. The list is hand-maintained for the same reason it is needed: it cannot be regenerated from data the snapshot does not carry. Held against your target release like any other deprecation — below the deprecating version nothing is reported.</p>
+        <pre><code>view-&gt;tag( n = `Button` ns = `c` )   " xmlns:c="sap.ui.commons" — gone since 1.38, use sap.m</code></pre>
       </article>
       <article class="rule" id="enum-value-too-new" data-search="enum-value-too-new an enum value introduced after your target version the property predates version tracking, the type is old — but the specific value is not: sap.m.buttontype.critical is @since 1.73 on a property that existed forever. the member-level @since sits on the property, never on the value, so this was invisible to every gate (and a documented manual-check burden downstream). the snapshot now keeps the per-value @since from the enum's jsdoc; a value without one predates version tracking and stays silent. waive a deliberate case with --allow sap.m.control.member, like the other floor rules. warning">
         <h3><a href="#enum-value-too-new">enum-value-too-new</a>
@@ -1190,9 +1198,9 @@ a( n = `state` v = `{STATUS_STATE}` )  " computed in ABAP, bound finished</code>
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    111 configurable rules, plus <code>render-error</code> — the render gate's
+    112 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “111 rules passed” while this page has 112 cards.
+    <code>--badge</code> says “112 rules passed” while this page has 113 cards.
   </footer>
 </div>
 <script>

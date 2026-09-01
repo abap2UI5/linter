@@ -196,6 +196,45 @@ section('target version (2)', async () => {
     'target version: the same control IS reported when the target reaches its deprecation');
 });
 
+/* A library deprecated WHOLE. Not one of the rules above can see it: none of
+ * these libraries is in the snapshot, so the control resolves to nothing, sits
+ * in no known library, and every check went quiet - the strongest false green
+ * this tool can produce. The fixture puts the replacement next to the dead
+ * control on purpose: sap.viz.ui5.Bar is deprecated and sap.viz.ui5.controls
+ * .VizFrame is what to write instead, and a prefix rule catches both unless
+ * the exception holds. */
+const deadLib = await checkFiles([f('deadlib.clas.abap')], { render: false });
+section('deprecated library', async () => {
+  const found = deadLib[0].findings.filter((x) => x.type === 'deprecated-library');
+  assert(found.some((x) => x.control === 'sap.ui.commons.Button' && x.library === 'sap.ui.commons'),
+    'deprecated library: a sap.ui.commons control is reported, though no rule reading the snapshot can see it');
+  assert(found.some((x) => x.control === 'sap.viz.ui5.Bar' && x.since === '1.32'),
+    'deprecated library: the legacy sap.viz.ui5 chart classes are reported');
+  assert(!found.some((x) => x.control === 'sap.viz.ui5.controls.VizFrame'),
+    'deprecated library: the REPLACEMENT under the same prefix is not reported');
+  assert(found.every((x) => /use /.test(x.message)),
+    'deprecated library: every finding names what to write instead');
+  /* One finding per tag. sap.viz is SAPUI5-only as well, and both are true -
+   * but a tag that has to be rewritten anyway does not also need advice on
+   * configuring the distribution it is kept under. */
+  assert(!deadLib[0].findings.some((x) => x.type === 'sapui5-only-control' && x.control === 'sap.viz.ui5.Bar'),
+    'deprecated library: the portability hint stands down where the library is dead');
+  assert(deadLib[0].findings.some((x) => x.type === 'sapui5-only-control' && x.control === 'sap.viz.ui5.controls.VizFrame'),
+    'deprecated library: and still fires for the living control beside it');
+  assert(!deadLib[0].findings.some((x) => x.type === 'unknown-control'),
+    'deprecated library: a dead-library control is never mistaken for a typo');
+});
+/* Held against the target like any other deprecation: below 1.38 sap.ui.commons
+ * is simply the library of its day, and sap.viz falls back to the portability
+ * hint it got before this rule existed. */
+const deadLibOld = await checkFiles([f('deadlib.clas.abap')], { render: false, minUi5: '1.30' });
+section('deprecated library (2)', async () => {
+  assert(!deadLibOld[0].findings.some((x) => x.type === 'deprecated-library'),
+    'deprecated library: nothing is reported below the deprecating release');
+  assert(deadLibOld[0].findings.some((x) => x.type === 'sapui5-only-control' && x.control === 'sap.viz.ui5.Bar'),
+    'deprecated library: and the rule under it gets the tag back');
+});
+
 /* SAPUI5 vs OpenUI5: the same view is fine on one distribution and broken on
  * the other, because sap.ui.comp simply does not ship with OpenUI5 - so this
  * rule's severity is decided by the CONFIG, not by the view, and all three

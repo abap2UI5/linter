@@ -98,7 +98,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 111 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 112 rules passed").',
       },
       rules: {
         type: 'object',
