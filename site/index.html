@@ -74,15 +74,15 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">60 error</span>
-      <span class="badge warning">41 warning</span>
-      <span class="badge hint">15 hint</span>
+      <span class="badge error">61 error</span>
+      <span class="badge warning">42 warning</span>
+      <span class="badge hint">16 hint</span>
       <span class="badge fix">18 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.6.1</strong>, against the OpenUI5 1.151.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx abap2ui5lint --version</code> says which that is.</p>
-    <input id="filter" type="search" placeholder="Filter 115 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 118 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -204,6 +204,14 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
 view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
       </article>
+      <article class="rule" id="boolc-instead-of-xsdbool" data-search="boolc-instead-of-xsdbool boolc( ) where the ecosystem mandates xsdbool( ) the abap2ui5 ecosystem's downport pipeline converts xsdbool( ) to boolc( ) automatically for the releases that need it — so xsdbool is the form to write, and a hand-written boolc breaks the conversion in the other direction. they are also not aliases: boolc returns a char1-in-string whose false is a blank ( ), xsdbool an abap_bool whose false is initial — the classic trap where if boolc( … ) is initial. is never true. no fix renames one into the other, because that difference is behaviour, not spelling. warning">
+        <h3><a href="#boolc-instead-of-xsdbool">boolc-instead-of-xsdbool</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary"><code>boolc( )</code> where the ecosystem mandates <code>xsdbool( )</code></p>
+        <p class="detail">The abap2UI5 ecosystem's downport pipeline converts <code>xsdbool( )</code> to <code>boolc( )</code> automatically for the releases that need it — so <code>xsdbool</code> is the form to write, and a hand-written <code>boolc</code> breaks the conversion in the other direction. They are also not aliases: <code>boolc</code> returns a <code>char1</code>-in-string whose FALSE is a <strong>blank</strong> (<code> </code>), <code>xsdbool</code> an <code>abap_bool</code> whose false is initial — the classic trap where <code>IF boolc( … ) IS INITIAL.</code> is never true. No fix renames one into the other, because that difference is behaviour, not spelling.</p>
+        <pre><code>DATA(ok) = boolc( x &gt; 1 ).     " write: xsdbool( x &gt; 1 )</code></pre>
+      </article>
       <article class="rule" id="byte-order-mark" data-search="byte-order-mark a utf-8 bom at the start of a .abap file abapgit writes the bom on .xml sidecars and never on .abap source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). the sidecar half of the same rule is abaplint's xml_bom; the .abap half had no rule anywhere. a warning, not an error: the import works, the tree just never stops diffing. warning">
         <h3><a href="#byte-order-mark">byte-order-mark</a>
           <span class="badge warning">warning</span>
@@ -223,6 +231,18 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="detail">abapGit serializes every file with LF endings; a file committed with CRLF comes back different on the next pull, for everyone. This is exactly what a <code>.gitattributes</code> used to normalize in abap2UI5 until it was deleted and a gate took over — and a consumer repository has neither. One finding per file, however many lines carry it: a file is CRLF or it is not, and a finding per line would drown everything else the report has to say.</p>
         <p class="fixnote"><strong>--fix:</strong> Every carriage return in front of a line feed is deleted, converting the whole file to LF in one pass.</p>
         <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.\r\n   " every line ends CR LF</code></pre>
+      </article>
+      <article class="rule" id="delete-index-in-loop" data-search="delete-index-in-loop delete itab index sy-tabix inside a loop at over the same table two failure modes, and only the loud one is reliably visible. deleting the current row shifts every row behind it while the loop's own cursor walks on, so the row after each deletion is silently skipped — a filter that keeps rows it was told to drop, with nothing anywhere saying so. and where an inner construct (an inner loop that ended, a do, a read table) has reset sy-tabix, the delete hits another table's index — or index 0, which is the table_invalid_index short dump a live app answered http 500 with. a sweep found the shape eight times across the ecosystem. any enclosing loop over the table counts, not only the innermost: the inner-loop case is the one that deleted by another table's index. build the result instead — collect what is kept and assign it back — or delete itab where …. the delete itab index sy-tabix directly after a read table, outside a loop over that table, is correct and common, and is not reported. error">
+        <h3><a href="#delete-index-in-loop">delete-index-in-loop</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>DELETE itab INDEX sy-tabix</code> inside a <code>LOOP AT</code> over the same table</p>
+        <p class="detail">Two failure modes, and only the loud one is reliably visible. Deleting the current row shifts every row behind it while the loop's own cursor walks on, so the row *after* each deletion is silently skipped — a filter that keeps rows it was told to drop, with nothing anywhere saying so. And where an inner construct (an inner LOOP that ended, a DO, a READ TABLE) has reset <code>sy-tabix</code>, the DELETE hits another table's index — or index 0, which is the <code>TABLE_INVALID_INDEX</code> short dump a live app answered HTTP 500 with. A sweep found the shape eight times across the ecosystem. ANY enclosing loop over the table counts, not only the innermost: the inner-loop case is the one that deleted by another table's index. Build the result instead — collect what is kept and assign it back — or <code>DELETE itab WHERE …</code>. The <code>DELETE itab INDEX sy-tabix</code> directly after a <code>READ TABLE</code>, outside a loop over that table, is correct and common, and is not reported.</p>
+        <pre><code>LOOP AT t_rows INTO DATA(row).
+  IF row-obsolete = abap_true.
+    DELETE t_rows INDEX sy-tabix.   " skips the next row each time
+  ENDIF.
+ENDLOOP.</code></pre>
       </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
         <h3><a href="#display-root-mismatch">display-root-mismatch</a>
@@ -257,6 +277,18 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="summary">the same attribute written twice on one control</p>
         <p class="detail">The view builder asserts on a repeated attribute rather than letting the second value win silently.</p>
         <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `text` v = `A` )-&gt;a( n = `text` v = `B` )</code></pre>
+      </article>
+      <article class="rule" id="empty-catch-block" data-search="empty-catch-block an empty catch block without ##no_handler the extended check (slin/atc) runs in real systems, not in a systemless pipeline — so an empty handler ships through a green ci and surfaces as a finding on somebody else's system. ##no_handler on the catch statement is how a deliberately empty handler says so. purely structural: a catch statement followed by nothing before the next catch, cleanup or endtry. a comment does not fill the block — slin reads it the same way, and the pragma is the sanctioned answer, not prose. a hint, like redundant-conv-i: the code is correct, the extended check is what speaks. hint">
+        <h3><a href="#empty-catch-block">empty-catch-block</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">an empty CATCH block without <code>##NO_HANDLER</code></p>
+        <p class="detail">The extended check (SLIN/ATC) runs in real systems, not in a systemless pipeline — so an empty handler ships through a green CI and surfaces as a finding on somebody else's system. <code>##NO_HANDLER</code> on the CATCH statement is how a deliberately empty handler says so. Purely structural: a CATCH statement followed by nothing before the next CATCH, CLEANUP or ENDTRY. A comment does not fill the block — SLIN reads it the same way, and the pragma is the sanctioned answer, not prose. A hint, like <code>redundant-conv-i</code>: the code is correct, the extended check is what speaks.</p>
+        <pre><code>TRY.
+    risky( ).
+  CATCH cx_root.                    " SLIN: empty handler
+  CATCH cx_root ##NO_HANDLER.       " deliberate, and says so
+ENDTRY.</code></pre>
       </article>
       <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root — one end( ) too many. the builder asserts on it (parent is bound), so the app dumps before it renders. the rule id keeps the older spelling shut: renaming it would silently invalidate every baseline entry and rule override that names it. error">
         <h3><a href="#excess-shut">excess-shut</a>
@@ -1238,9 +1270,9 @@ a( n = `state` v = `{STATUS_STATE}` )  " computed in ABAP, bound finished</code>
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    115 configurable rules, plus <code>render-error</code> — the render gate's
+    118 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “115 rules passed” while this page has 116 cards.
+    <code>--badge</code> says “118 rules passed” while this page has 119 cards.
   </footer>
 </div>
 <script>

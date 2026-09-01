@@ -5592,6 +5592,58 @@ section('abapgit round trip', async () => {
     }
 });
 
+/* ---------------------------------------------------------------------------
+ * Three structural rules from abap-check: the extended-check pragma, the
+ * downport dialect, and the delete-by-loop-cursor runtime trap.
+ * ------------------------------------------------------------------------- */
+section('abap hygiene (2)', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { severityOf } = await import('../lib/findings.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+
+    // --- empty-catch-block ----------------------------------------------------
+    const empty = 'TRY.\n  risky( ).\nCATCH cx_root.\nENDTRY.\n';
+    const emptyF = of(empty, 'empty-catch-block');
+    assert(emptyF.length === 1 && emptyF[0].member === 'cx_root' && severityOf(emptyF[0]) === 'hint',
+      `empty-catch-block: an empty handler is a hint naming the exception (got ${emptyF.map((x) => x.member).join() || 'none'})`);
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root ##NO_HANDLER.\nENDTRY.\n', 'empty-catch-block').length === 0,
+      'empty-catch-block: ##NO_HANDLER is the sanctioned empty handler and is silent');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root INTO DATA(x).\n  log( x ).\nENDTRY.\n', 'empty-catch-block').length === 0,
+      'empty-catch-block: a handler with a statement is not empty');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_root.\n  " nothing to do\nENDTRY.\n', 'empty-catch-block').length === 1,
+      'empty-catch-block: a comment does not fill the block - SLIN reads it the same way');
+    assert(of('TRY.\n  risky( ).\nCATCH cx_static_check.\nCATCH cx_root.\n  log( ).\nENDTRY.\n', 'empty-catch-block').length === 1,
+      'empty-catch-block: the next CATCH ends the block, and only the empty one is reported');
+
+    // --- boolc-instead-of-xsdbool ---------------------------------------------
+    const two = 'DATA(a) = boolc( x > 1 ).\nDATA(b) = boolc( y < 2 ).\n';
+    assert(of(two, 'boolc-instead-of-xsdbool').length === 2,
+      'boolc-instead-of-xsdbool: every call site is its own finding');
+    assert(of('DATA(a) = xsdbool( x > 1 ).\n', 'boolc-instead-of-xsdbool').length === 0,
+      'boolc-instead-of-xsdbool: the mandated form is silent');
+    assert(of('DATA(t) = `use boolc( x ) here`.\n', 'boolc-instead-of-xsdbool').length === 0,
+      'boolc-instead-of-xsdbool: boolc inside a literal is prose, not a call');
+
+    // --- delete-index-in-loop -------------------------------------------------
+    const hot = 'LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n';
+    const hotF = of(hot, 'delete-index-in-loop');
+    assert(hotF.length === 1 && hotF[0].member === 't_rows' && severityOf(hotF[0]) === 'error',
+      `delete-index-in-loop: deleting by the loop's own cursor is an error (got ${hotF.map((x) => x.member).join() || 'none'})`);
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_other INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: another table is another rule\'s business');
+    // the filter_itab shape: the DELETE sits in an INNER loop over another
+    // table, but an OUTER loop over the deleted table still encloses it -
+    // sy-tabix is then the inner loop's, and the deleted index is wrong
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  LOOP AT t_other INTO DATA(o).\n    DELETE t_rows INDEX sy-tabix.\n  ENDLOOP.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: ANY enclosing loop over the table counts, not only the innermost');
+    assert(of('LOOP AT t_rows INTO DATA(row).\nENDLOOP.\nREAD TABLE t_rows INDEX 1 INTO DATA(r).\nDELETE t_rows INDEX sy-tabix.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: DELETE after READ TABLE outside the loop is correct and common');
+    assert(of('METHOD a.\n  LOOP AT t_rows INTO DATA(row).\nENDMETHOD.\nMETHOD b.\n  DELETE t_rows INDEX sy-tabix.\nENDMETHOD.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: a method boundary closes whatever a broken source left open');
+    assert(of('LOOP AT me->t_rows INTO DATA(row).\n  DELETE me->t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: the me-> spelling names the same table');
+});
+
 /* What is recorded is what the checks actually produced (test/observe.mjs),
  * not what the test source appears to mention, so a negated assertion or a
  * renamed idiom cannot pass for coverage. A rule may be exempt, but only in

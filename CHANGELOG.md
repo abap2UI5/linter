@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Three structural rules from abap-check: `empty-catch-block`,
+  `boolc-instead-of-xsdbool`, `delete-index-in-loop`.** An empty CATCH wants
+  `##NO_HANDLER` (a **hint**, like `redundant-conv-i` - the code is correct,
+  the extended check on a real system is what speaks; a comment does not fill
+  the block). `boolc( )` where the ecosystem's downport writes `xsdbool( )`
+  for you (a **warning** - and no fix, because boolc's FALSE is a blank while
+  xsdbool's is initial, which is behaviour, not spelling). And `DELETE itab
+  INDEX sy-tabix` inside a `LOOP AT` over the same table (an **error**: the
+  row after every deletion is silently skipped, or a reset sy-tabix dumps
+  with TABLE_INVALID_INDEX - a live app 500ed with exactly that; ANY
+  enclosing loop over the table counts, the inner-loop case deletes by
+  another table's index; the READ TABLE + DELETE idiom outside the loop
+  stays silent). Measured over abap2UI5's collected corpus: 0 findings - the
+  raw-text sweep of all 200 .abap files finds them only in the vendored
+  ajson (upstream, uncollected), including the documented
+  `z2ui5_cl_ajson_filter_lib` delete-in-loop, which is the rule seeing the
+  real thing.
+
 - **Four abapGit round-trip rules: `byte-order-mark`, `crlf-line-ending`,
   `trailing-whitespace`, `missing-final-newline`.** The `source-line-too-long`
   precedent again - a consumer whose only gate is `npx abap2ui5lint` must see
