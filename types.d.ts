@@ -38,6 +38,11 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** An ALREADY-OPEN renderer from openRenderer() (`@abap2ui5/linter/render`).
+     *  When given, checkFiles uses it and does NOT close it — the caller owns
+     *  its lifecycle and can keep one warm browser across many calls. Its pool
+     *  size was decided at openRenderer time. */
+    renderer?: import("@abap2ui5/linter/render").Renderer;
     /** Called while checkFiles runs — the only thing the library says about a
      *  run in progress. `done === 0` opens a phase. */
     onProgress?: (event: {
@@ -104,6 +109,10 @@ declare module "@abap2ui5/linter" {
     model?: Record<string, unknown>;
     /** Photograph the whole document rather than the viewport (default true). */
     fullPage?: boolean;
+    /** An ALREADY-OPEN renderer from openRenderer() — reused, never closed
+     *  here. The theme was then decided at openRenderer time (pass `theme`
+     *  and `css: true` there), so this option's `theme` does not apply. */
+    renderer?: import("@abap2ui5/linter/render").Renderer;
     onProgress?: (event: {
       phase: "screenshot";
       done: number;
@@ -465,14 +474,28 @@ declare module "@abap2ui5/linter/render" {
 
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
-    render(input: { xml: string; model?: Record<string, unknown> }): Promise<string[]>;
+    render(input: { xml: string; model?: Record<string, unknown>; kind?: "view" | "fragment" }): Promise<string[]>;
+    /** Photograph one document instead of judging it — the PNG a Buffer, the
+     *  errors alongside it (a view with one broken binding still renders). */
+    screenshot(input: {
+      xml: string;
+      model?: Record<string, unknown>;
+      kind?: "view" | "fragment";
+      width?: number;
+      height?: number;
+      fullPage?: boolean;
+    }): Promise<{ png: Uint8Array; errors: string[] }>;
     close(): Promise<void>;
   }
 
   /** Start a browser session over multiple render calls. `pages` opens a
-   *  pool of harness pages so concurrent callers run in parallel. Throws
-   *  ERR_RENDER_DEPS_MISSING when the optional deps are not installed. */
-  export function openRenderer(opts?: { pages?: number }): Promise<Renderer>;
+   *  pool of harness pages so concurrent callers run in parallel; `theme` is
+   *  what the pages boot with (the gate's default is the cheapest theme);
+   *  `css` compiles the theme LESS, which only a screenshot needs. Throws
+   *  ERR_RENDER_DEPS_MISSING when the optional deps are not installed.
+   *  The result can be passed as `renderer` to checkFiles/screenshotFiles to
+   *  reuse one warm browser across many calls — the caller closes it. */
+  export function openRenderer(opts?: { pages?: number; theme?: string; css?: boolean }): Promise<Renderer>;
 }
 
 declare module "@abap2ui5/linter/abap-rules" {

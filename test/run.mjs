@@ -3181,6 +3181,38 @@ section('render deps', async () => {
       'render fallback: --no-render asked for no gate at all, so there is nothing to warn about');
 });
 
+// ------------------------------------------------------ shared renderer ----
+// checkFiles/screenshotFiles accept an ALREADY-OPEN renderer and then never
+// close it - the contract a long-lived consumer (mcp-server) keeps one warm
+// Chromium on, instead of paying a cold start per validate_view call
+section('shared renderer', async () => {
+    const { openRenderer } = await import('../lib/render.mjs');
+    const files = [f('good.clas.abap'), f('broken.clas.abap')];
+    const independent = await checkFiles(files, {});
+    const renderer = await openRenderer({ pages: 2 });
+    try {
+      const first = await checkFiles([files[0]], { renderer });
+      // a second call on the SAME renderer is the proof the first did not close it
+      const second = await checkFiles([files[1]], { renderer });
+      // the runtime numbers views per session (__xmlview0, __xmlview1, ...),
+      // so the generated id is the one part of an error text that may differ
+      const shape = (r) => JSON.stringify({
+        findings: r.findings.map((x) => [x.type, x.line, x.column]),
+        renderErrors: r.renderErrors.map((e) => e.replace(/__xmlview\d+/g, '__xmlview')),
+      });
+      assert(shape(first[0]) === shape(independent[0]),
+        'shared renderer: the clean file gets the same verdict as an independent run');
+      assert(shape(second[0]) === shape(independent[1]) && second[0].renderErrors.length > 0,
+        'shared renderer: the broken file still fails the render gate through the shared session');
+      // and it is still usable directly afterwards - checkFiles left it open
+      const direct = await renderer.render({ xml: independent[0].docs[0], model: independent[0].model });
+      assert(Array.isArray(direct) && direct.length === 0,
+        'shared renderer: the renderer stays open and renders after both calls');
+    } finally {
+      await renderer.close();
+    }
+});
+
 // ------------------------------------------------- curated formatter mirror ----
 // the render harness provides the same formatter surface the rule judges by —
 // the demo-kit pack was removed upstream, and a harness still mirroring it

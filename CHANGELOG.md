@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`checkFiles` and `screenshotFiles` accept a caller-owned `renderer`.** An
+  already-open session from `openRenderer( )` (the `./render` export) is used
+  as-is and never closed - the caller owns its lifecycle - so a long-lived
+  consumer (mcp-server's `validate_view`) can keep one warm Chromium across
+  many calls instead of paying a browser start per call. Absent the option,
+  behaviour is exactly the old open/close. A passed renderer's pool size and
+  theme were decided at `openRenderer` time.
+
 - **The render gate's page pool is a dial now.** `--render-pages <n>` on the
   CLI, `"render": { "pages": n }` in the config (which also ASKS for the gate,
   the way `"render": true` does), `renderPages` on `checkFiles`. The default
