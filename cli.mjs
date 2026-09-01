@@ -308,7 +308,14 @@ for (let i = 0; i < args.length; i++) {
   // Asking for the gate is what turns a missing runtime back into an error -
   // the default-on gate falls back to the property gate instead (renderFallback)
   else if (a === '--render') { opt.render = true; seen.add('render'); renderAsked = true; }
+  /* Tuning the pool IS asking for the gate - the config's object form
+   * ("render": { pages: N }) asks the same way, and a tuned gate that
+   * silently stepped aside for a missing runtime would be the one thing
+   * renderFallback exists to prevent. A later --no-render still wins. */
   else if (a === '--render-pages') {
+    opt.render = true;
+    seen.add('render');
+    renderAsked = true;
     const n = Number(value());
     if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
     opt.renderPages = n;
@@ -696,7 +703,14 @@ try {
     const slots = files.map((file) => {
       const hash = hashOf(fs.readFileSync(file, 'utf8'));
       const hit = cache.entries[path.resolve(file)];
-      return { file, hash, result: hit && hit.hash === hash ? { ...hit.result, file } : null };
+      /* An entry that parses but does not hold a result (result: null, a
+       * truncated write, a hand-edited file) is a MISS, not a crash - the
+       * cache is expendable by contract, so nothing read from it may be
+       * trusted to have a shape. */
+      const valid = hit && hit.hash === hash
+        && hit.result && typeof hit.result === 'object'
+        && Array.isArray(hit.result.findings);
+      return { file, hash, result: valid ? { ...hit.result, file } : null };
     });
     const missing = slots.filter((s) => !s.result).map((s) => s.file);
     const fresh = missing.length ? await checkFiles(missing, opt) : [];

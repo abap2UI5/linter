@@ -1284,6 +1284,21 @@ section('cache', async () => {
     saveCache(cacheFile, 'ctx', { a: { hash: 'h', result: {} } });
     assert(loadCache(cacheFile, 'ctx').a.hash === 'h', 'cache: save/load round-trips');
 
+    /* An entry that parses but carries no usable result (result: null - a
+     * truncated write, a hand-edit) is a MISS, never a crash: the cache is
+     * expendable by contract, so nothing read from it has a trusted shape. */
+    fs.rmSync(cacheFile, { force: true });
+    run(BASE);
+    const mangled = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    for (const k of Object.keys(mangled.files)) mangled.files[k].result = null;
+    fs.writeFileSync(cacheFile, JSON.stringify(mangled));
+    const nulled = run(BASE);
+    assert(JSON.parse(nulled.out).problems === firstDoc.problems && nulled.code === 1,
+      'cache: a null result entry is a miss and the run recomputes');
+    const healed = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+    assert(Object.values(healed.files).every((e) => e.result && Array.isArray(e.result.findings)),
+      'cache: the recompute replaces the unusable entry');
+
     /* --fix rewrites the file, so its stale entry can never match again: the
      * fixed run reports the post-fix state, not a replay of the pre-fix one. */
     const fixable = path.join(dir, 'fixable.clas.abap');
@@ -4194,7 +4209,10 @@ section('stdin', async () => {
     assert(clean.code === 0 && /Success!/.test(clean.out), 'stdin: a clean pipe exits 0');
 
     // incompatible modes are refused rather than silently ignored
-    for (const [extra, why] of [[['--fix'], 'no file to rewrite'], [['--render'], 'property gate only'], [['--screenshot', 'x.png'], 'screenshot needs files']]) {
+    // --render-pages counts as ASKING for the render gate (like the config's
+    // object form), which is also what keeps a missing runtime a hard refusal
+    // instead of a silent property-only fallback on a tuned gate
+    for (const [extra, why] of [[['--fix'], 'no file to rewrite'], [['--render'], 'property gate only'], [['--render-pages', '2'], 'tuning the pool asks for the gate'], [['--screenshot', 'x.png'], 'screenshot needs files']]) {
       const r = run(['--stdin', '--no-config', ...extra], abap);
       assert(r.code === 2, `stdin: --stdin with ${extra[0]} is refused (${why}; exit ${r.code})`);
     }
@@ -5652,7 +5670,7 @@ section('abap hygiene (2)', async () => {
       'delete-index-in-loop: DELETE after READ TABLE outside the loop is correct and common');
     assert(of('METHOD a.\n  LOOP AT t_rows INTO DATA(row).\nENDMETHOD.\nMETHOD b.\n  DELETE t_rows INDEX sy-tabix.\nENDMETHOD.\n', 'delete-index-in-loop').length === 0,
       'delete-index-in-loop: a method boundary closes whatever a broken source left open');
-    assert(of('LOOP AT me->t_rows INTO DATA(row).\n  DELETE me->t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+    assert(of('LOOP AT me->t_rows INTO DATA(row).\n  READ TABLE t_map INDEX 1 INTO DATA(mm).\n  DELETE me->t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
       'delete-index-in-loop: the me-> spelling names the same table');
 });
 
