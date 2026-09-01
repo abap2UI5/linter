@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`checkNodes` stops rebuilding its constants per document.** The
+  known-library set (a key walk over ~1000 snapshot controls) is cached per
+  snapshot object, and the built-in-roots set, the framework-attribute set and
+  the relative-asset regex moved to module scope. `statementAt` in the
+  reconstructor binary-searches the offset-sorted statement list instead of
+  scanning it backwards. No verdict changes.
+
 - **`scrub( )` and `blankLiterals( )` share a small bounded memo.** The
   comment scrub used to be recomputed about six times over the same source per
   file (reconstructor, ABAP rules, chain layout, source readers, directives),
