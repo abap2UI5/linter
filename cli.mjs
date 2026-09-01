@@ -32,10 +32,13 @@
  *   --fail-on <level>  lowest severity that fails the build: error, warning
  *                      (default), hint, or never. Every finding is always
  *                      reported - this only decides the exit code.
- *   --format <f>       stylish (default), json, markdown or sarif. --json is a
- *                      shorthand for --format json. sarif is the shape
- *                      github/codeql-action/upload-sarif ingests, so findings
- *                      land in the repository's code-scanning tab.
+ *   --format <f>       stylish (default), json, markdown, sarif, checkstyle
+ *                      or junit. --json is a shorthand for --format json.
+ *                      sarif is the shape github/codeql-action/upload-sarif
+ *                      ingests, so findings land in the repository's
+ *                      code-scanning tab; checkstyle and junit are the two
+ *                      XML shapes most CI systems (Jenkins, GitLab, Azure
+ *                      DevOps) ingest natively.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
  *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
@@ -162,11 +165,11 @@ import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } from './lib/cache.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
-  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif] '
+  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif|checkstyle|junit] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
@@ -767,6 +770,8 @@ const reportOpt = {
 
 if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
 else if (opt.format === 'sarif') console.log(formatSarif(results));
+else if (opt.format === 'checkstyle') console.log(formatCheckstyle(results));
+else if (opt.format === 'junit') console.log(formatJunit(results));
 else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
 else console.log(formatStylish(results, summary, reportOpt));
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`--format checkstyle` and `--format junit`.** The two XML shapes most CI
+  systems ingest natively (Jenkins, GitLab, Azure DevOps test tabs) - thin
+  renderers over the same problem walk every other formatter reads, properly
+  XML-escaped. checkstyle maps our `hint` to its `info`; junit renders a
+  clean file as one passing testcase, so a test tab shows the file was seen.
+
 - **`--stdin`: lint piped source.** The property gate over standard input -
   the editor and pre-commit case - reported under `--stdin-filename <name>`
   (default `<stdin>`), which also decides the handling: a `.view.xml` /

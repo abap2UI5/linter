@@ -839,6 +839,10 @@ declare module "@abap2ui5/linter/report" {
   export function formatMarkdown(results: CheckResult[], summary: Summary, opt?: FormatOptions): string;
   /** SARIF 2.1.0. */
   export function formatSarif(results: CheckResult[]): string;
+  /** checkstyle XML — one <file> per result, one <error> per problem. */
+  export function formatCheckstyle(results: CheckResult[]): string;
+  /** JUnit XML — one <testsuite> per file, one failing <testcase> per problem. */
+  export function formatJunit(results: CheckResult[]): string;
 
   /** GitHub workflow-command lines that annotate findings onto the diff. */
   export function githubAnnotations(results: CheckResult[], opt?: FormatOptions): string[];

@@ -4119,6 +4119,52 @@ section('stdin', async () => {
     }
 });
 
+// ------------------------------------------------------------ ci formats ----
+// checkstyle and junit: the two XML shapes most CI systems ingest natively.
+// Thin renderers over the same problemsOf() walk - asserted on shape,
+// escaping and the severity mapping
+section('ci formats', async () => {
+    const cp = await import('node:child_process');
+    const { FORMATS, formatCheckstyle, formatJunit } = await import('../lib/report.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const run = (args) => {
+      try {
+        return cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } });
+      } catch (e) { return e.stdout ?? ''; }
+    };
+    assert(FORMATS.includes('checkstyle') && FORMATS.includes('junit'),
+      'ci formats: both are offered by --format');
+
+    const cs = run([f('dumps.clas.abap'), '--no-render', '--format', 'checkstyle']);
+    assert(/^<\?xml version="1\.0" encoding="UTF-8"\?>/.test(cs) && /<checkstyle version="4\.3">/.test(cs),
+      'checkstyle: the document opens with the declaration and the checkstyle root');
+    assert(/<file name="[^"]*dumps\.clas\.abap">/.test(cs),
+      'checkstyle: one <file> element per result');
+    assert(/<error line="\d+" column="\d+" severity="error" message="[^"]+" source="duplicate-property"\/>/.test(cs),
+      'checkstyle: a problem is an <error> with line, column, severity, message and rule id');
+    assert(!/severity="hint"/.test(formatCheckstyle([{ file: 'x', findings: [{ type: 'missing-accessibility', severity: 'hint', message: 'm', line: 1, column: 1 }], renderErrors: [], notes: [] }]))
+      && /severity="info"/.test(formatCheckstyle([{ file: 'x', findings: [{ type: 'missing-accessibility', severity: 'hint', message: 'm', line: 1, column: 1 }], renderErrors: [], notes: [] }])),
+      'checkstyle: our hint maps to checkstyle\'s info');
+    // escaping: a message carrying every XML-hostile character survives as text
+    const hostile = formatCheckstyle([{ file: 'a<b>&"\'.abap', findings: [{ type: 'unknown-control', severity: 'error', message: 'x < y & "z" \'w\'', line: 1, column: 2 }], renderErrors: [], notes: [] }]);
+    assert(/name="a&lt;b&gt;&amp;&quot;&apos;\.abap"/.test(hostile) && /message="x &lt; y &amp; &quot;z&quot; &apos;w&apos;"/.test(hostile),
+      'checkstyle: names and messages are XML-escaped');
+
+    const ju = run([f('dumps.clas.abap'), '--no-render', '--format', 'junit']);
+    assert(/<testsuites name="abap2ui5-linter" tests="2" failures="2">/.test(ju),
+      `junit: the root carries the totals (got ${ju.split('\n')[1]})`);
+    assert(/<testsuite name="[^"]*dumps\.clas\.abap" tests="2" failures="2" errors="0">/.test(ju),
+      'junit: one <testsuite> per file with its own counts');
+    assert(/<testcase name="duplicate-property at \d+:\d+" classname="[^"]*dumps\.clas\.abap">/.test(ju)
+      && /<failure message="[^"]+" type="error">/.test(ju),
+      'junit: a problem is a failing <testcase> naming the rule and position');
+    // a clean file is a PASSING testcase, so the test tab shows it was seen
+    const clean = formatJunit([{ file: 'ok.clas.abap', findings: [], renderErrors: [], notes: [] }]);
+    assert(/<testsuite name="ok\.clas\.abap" tests="1" failures="0" errors="0">/.test(clean)
+      && /<testcase name="clean" classname="ok\.clas\.abap"\/>/.test(clean),
+      'junit: a clean file is one passing testcase, not an empty document');
+});
+
 // ---------------------------------------------------------------- report ----
 section('report', async () => {
     const cp = await import('node:child_process');
