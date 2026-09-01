@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`scrub( )` and `blankLiterals( )` share a small bounded memo.** The
+  comment scrub used to be recomputed about six times over the same source per
+  file (reconstructor, ABAP rules, chain layout, source readers, directives),
+  and `blankLiterals`' single-entry memo thrashed whenever two source views
+  interleaved - while pinning two whole source copies for the life of the
+  process. Both now keep their last four inputs in a recency-refreshing Map,
+  so the `ifBranchEnd`/`ifBlockEnd` loops hit deterministically. Signatures
+  and outputs are unchanged.
+
 - **`applyRules` compiles a rule's config once per run, not once per finding.**
   Every finding used to recompile its rule's `exclude` regexes and re-spread
   the path-form set; the compiled config is now memoized per (rules object,
