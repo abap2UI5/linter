@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Four abapGit round-trip rules: `byte-order-mark`, `crlf-line-ending`,
+  `trailing-whitespace`, `missing-final-newline`.** The `source-line-too-long`
+  precedent again - a consumer whose only gate is `npx abap2ui5lint` must see
+  the round-trip family too. abapGit writes every file one specific way (LF
+  only, no BOM on `.abap`, no trailing blanks, exactly one terminating
+  newline); a file written otherwise comes back DIFFERENT from what the system
+  serializes, on every pull, for everyone. All four are **warnings** - per
+  abap-check §1 only the 255-character line actually kills the import, the
+  rest never stop diffing - and all four carry a mechanical `--fix` (delete
+  the BOM, delete every CR, strip the blanks, append the newline). CRLF is
+  one finding per file with a fix span per CR; trailing whitespace is one per
+  line, like its `source-line-too-long` neighbour. Measured over abap2UI5's
+  own `src` (200 .abap files, which gate these themselves): 0 findings.
+
 - **`stats.ruleHits`: per-rule fired counts, before suppression.** The `--json`
   stats gain a `ruleHits` map (rule id -> findings the gate produced), counted
   BEFORE the `rules` block, source directives and any baseline had their say -

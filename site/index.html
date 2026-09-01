@@ -75,14 +75,14 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">60 error</span>
-      <span class="badge warning">37 warning</span>
+      <span class="badge warning">41 warning</span>
       <span class="badge hint">15 hint</span>
-      <span class="badge fix">14 autofixable</span>
+      <span class="badge fix">18 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.6.1</strong>, against the OpenUI5 1.151.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx abap2ui5lint --version</code> says which that is.</p>
-    <input id="filter" type="search" placeholder="Filter 111 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 115 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -204,6 +204,26 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
 view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
       </article>
+      <article class="rule" id="byte-order-mark" data-search="byte-order-mark a utf-8 bom at the start of a .abap file abapgit writes the bom on .xml sidecars and never on .abap source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). the sidecar half of the same rule is abaplint's xml_bom; the .abap half had no rule anywhere. a warning, not an error: the import works, the tree just never stops diffing. warning">
+        <h3><a href="#byte-order-mark">byte-order-mark</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a UTF-8 BOM at the start of a .abap file</p>
+        <p class="detail">abapGit writes the BOM on <code>.xml</code> sidecars and NEVER on <code>.abap</code> source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). The sidecar half of the same rule is abaplint's <code>xml_bom</code>; the <code>.abap</code> half had no rule anywhere. A warning, not an error: the import works, the tree just never stops diffing.</p>
+        <p class="fixnote"><strong>--fix:</strong> The BOM character is deleted — a pure one-character deletion at offset 0.</p>
+        <pre><code>﻿CLASS zcl_my_app DEFINITION PUBLIC.   " the invisible EF BB BF in front of CLASS</code></pre>
+      </article>
+      <article class="rule" id="crlf-line-ending" data-search="crlf-line-ending crlf line endings — abapgit writes lf only abapgit serializes every file with lf endings; a file committed with crlf comes back different on the next pull, for everyone. this is exactly what a .gitattributes used to normalize in abap2ui5 until it was deleted and a gate took over — and a consumer repository has neither. one finding per file, however many lines carry it: a file is crlf or it is not, and a finding per line would drown everything else the report has to say. warning">
+        <h3><a href="#crlf-line-ending">crlf-line-ending</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">CRLF line endings — abapGit writes LF only</p>
+        <p class="detail">abapGit serializes every file with LF endings; a file committed with CRLF comes back different on the next pull, for everyone. This is exactly what a <code>.gitattributes</code> used to normalize in abap2UI5 until it was deleted and a gate took over — and a consumer repository has neither. One finding per file, however many lines carry it: a file is CRLF or it is not, and a finding per line would drown everything else the report has to say.</p>
+        <p class="fixnote"><strong>--fix:</strong> Every carriage return in front of a line feed is deleted, converting the whole file to LF in one pass.</p>
+        <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.\r\n   " every line ends CR LF</code></pre>
+      </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
         <h3><a href="#display-root-mismatch">display-root-mismatch</a>
           <span class="badge error">error</span>
@@ -258,6 +278,16 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="detail">The expression binding cannot be parsed. UI5 reports a parse error and the attribute stays unbound.</p>
         <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/N} &gt; 1 ? `many` : `one` }}` )   " one } too many</code></pre>
       </article>
+      <article class="rule" id="missing-final-newline" data-search="missing-final-newline no newline at end of file abapgit ends every file with exactly one terminating newline; a file without one shows as \ no newline at end of file in every diff and comes back changed on the next pull (z2ui5_if_action.intf.xml carried exactly this). only a source with at least one line break is judged — a one-line string handed to the library is a snippet, not a file abapgit will ever serialize. warning">
+        <h3><a href="#missing-final-newline">missing-final-newline</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">no newline at end of file</p>
+        <p class="detail">abapGit ends every file with exactly one terminating newline; a file without one shows as <code>\ No newline at end of file</code> in every diff and comes back changed on the next pull (<code>z2ui5_if_action.intf.xml</code> carried exactly this). Only a source with at least one line break is judged — a one-line string handed to the library is a snippet, not a file abapGit will ever serialize.</p>
+        <p class="fixnote"><strong>--fix:</strong> A single newline is appended at the end of the file.</p>
+        <pre><code>ENDCLASS.   " the file ends right after the dot, with no newline</code></pre>
+      </article>
       <article class="rule" id="render-error" data-search="render-error the reconstructed view did not survive a real ui5 render not a pattern the rules above match, but the outcome of actually loading the view in a headless ui5: whatever the browser said — a control class that will not load, an aggregation ui5 refuses, a binding it cannot parse. it is the render gate's pseudo-rule rather than an entry in rules, so it is never emitted by a check; it appears only when --render ran and the browser objected. address it in the config like any other id: rules: { 'render-error': false } or an exclude waives it per file (a waived file that then renders clean is reported as a stale waiver), a severity re-weighs it. error">
         <h3><a href="#render-error">render-error</a>
           <span class="badge error">error</span>
@@ -273,6 +303,16 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="summary">a source line over 255 characters — the class does not import</p>
         <p class="detail">ABAP holds 255 characters per source line, and over it the defect is not a lint finding but a failed <strong>import</strong>: abapGit reports "Literals across more than one line are not allowed" for the object and carries on with the next one, so what stays behind in the system is an <strong>empty class stub</strong>. The tree looks imported and the app is gone. Nothing else sees it — every check runs against the files, where the line is merely long. Split the literal into <code>&amp;&amp;</code> chunks; when the file is generated, fix the generator, or the next generation restores the line.</p>
         <pre><code>DATA(html) = `&lt;div class="a"&gt;…&lt;/div&gt;` &amp;&amp; `…`.   " one source line over 255 characters</code></pre>
+      </article>
+      <article class="rule" id="trailing-whitespace" data-search="trailing-whitespace a line ending in blanks — stripped by the editor, diffs forever the abap editor strips a trailing blank when it saves, so a line that ends in one comes back different on the next pull. it is also the round-trip defect most likely to be written: reflowing a chain or a string template leaves blanks behind that no diff view shows. abaplint's whitespace_end owns this in repositories that enable it — and it is per repository and not everywhere, which is how seven app classes once shipped trailing blanks through four green ci workflows. warning">
+        <h3><a href="#trailing-whitespace">trailing-whitespace</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a line ending in blanks — stripped by the editor, diffs forever</p>
+        <p class="detail">The ABAP editor strips a trailing blank when it saves, so a line that ends in one comes back different on the next pull. It is also the round-trip defect most likely to be WRITTEN: reflowing a chain or a string template leaves blanks behind that no diff view shows. abaplint's <code>whitespace_end</code> owns this in repositories that enable it — and it is per repository and not everywhere, which is how seven app classes once shipped trailing blanks through four green CI workflows.</p>
+        <p class="fixnote"><strong>--fix:</strong> The trailing blanks are deleted, line by line — each finding carries the exact span of its own run of blanks and nothing else on the line is touched.</p>
+        <pre><code>view-&gt;tag( `Button` )   " ← two blanks after the closing paren, invisible here</code></pre>
       </article>
       <article class="rule" id="undeclared-namespace" data-search="undeclared-namespace ns = 'form' without an xmlns:form the prefix is used but never declared on the view root, so the parser cannot resolve the control at all. error">
         <h3><a href="#undeclared-namespace">undeclared-namespace</a>
@@ -1198,9 +1238,9 @@ a( n = `state` v = `{STATUS_STATE}` )  " computed in ABAP, bound finished</code>
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    111 configurable rules, plus <code>render-error</code> — the render gate's
+    115 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “111 rules passed” while this page has 112 cards.
+    <code>--badge</code> says “115 rules passed” while this page has 116 cards.
   </footer>
 </div>
 <script>

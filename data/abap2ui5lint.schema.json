@@ -171,6 +171,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
         },
+        "byte-order-mark": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'byte-order-mark' — default severity: warning"
+        },
         "chain-element-per-line": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'chain-element-per-line' — default severity: hint"
@@ -218,6 +222,10 @@
         "control-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'control-too-new' — default severity: warning"
+        },
+        "crlf-line-ending": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'crlf-line-ending' — default severity: warning"
         },
         "date-type-without-source": {
           "$ref": "#/definitions/rule",
@@ -395,6 +403,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-accessibility' — default severity: hint"
         },
+        "missing-final-newline": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'missing-final-newline' — default severity: warning"
+        },
         "missing-on-navigated-branch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-on-navigated-branch' — default severity: warning"
@@ -494,6 +506,10 @@
         "trailing-empty-event-arg": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'trailing-empty-event-arg' — default severity: warning"
+        },
+        "trailing-whitespace": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'trailing-whitespace' — default severity: warning"
         },
         "ui5-internal-access": {
           "$ref": "#/definitions/rule",

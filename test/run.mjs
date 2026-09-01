@@ -927,7 +927,8 @@ const opaqueOwner = checkAbapSource(`
               )->ele( n = \`vos\` ns = \`vbm\`
                   )->tag( n = \`Spot\` ns = \`vbm\`
                       )->a( n = \`position\` v = \`0;0;0\` ).
-  client->view_display( view->stringify( ) ).`, { render: false, distribution: 'sapui5' });
+  client->view_display( view->stringify( ) ).
+`, { render: false, distribution: 'sapui5' });
 section('opaque control', async () => {
   assert(!opaqueOwner.findings.some((x) => x.type === 'unknown-aggregation'),
     `opaque control: vos belongs to vbm:AnalyticMap, not to the Page above it (got ${
@@ -5526,6 +5527,69 @@ section('wire kinds and the 08-30 round', async () => {
   const conv = one('redundant-conv-i');
   assert(conv.length === 1 && conv[0].member === 'count',
     `redundant-conv-i: only the whole-RHS form over a target declared here (got ${conv.length})`);
+});
+
+/* ---------------------------------------------------------------------------
+ * The abapGit round-trip family (abap-check §1): BOM, CRLF, trailing blanks,
+ * missing final newline. Inline sources rather than committed fixtures on
+ * purpose — this repository's own line-endings gate (and .gitattributes)
+ * forbids committing exactly the bytes these rules exist to catch.
+ * ------------------------------------------------------------------------- */
+section('abapgit round trip', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const { severityOf } = await import('../lib/findings.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+    const clean = 'CLASS zcl_x DEFINITION PUBLIC.\nENDCLASS.\n';
+
+    // --- byte-order-mark ------------------------------------------------------
+    const bom = `﻿${clean}`;
+    const bomF = of(bom, 'byte-order-mark');
+    assert(bomF.length === 1 && bomF[0].offset === 0,
+      'byte-order-mark: a BOM on a .abap file is reported at offset 0');
+    assert(applyFixes(bom, bomF).output === clean,
+      'byte-order-mark: the fix deletes exactly the one character');
+    assert(of(clean, 'byte-order-mark').length === 0, 'byte-order-mark: a clean file is silent');
+
+    // --- crlf-line-ending -----------------------------------------------------
+    const crlf = clean.replace(/\n/g, '\r\n');
+    const crlfF = of(crlf, 'crlf-line-ending');
+    assert(crlfF.length === 1 && crlfF[0].value === 2 && crlfF[0].fixes.length === 2,
+      `crlf-line-ending: ONE finding per file, one fix span per CR (got ${crlfF.length}/${crlfF[0]?.fixes?.length})`);
+    assert(applyFixes(crlf, crlfF).output === clean,
+      'crlf-line-ending: the fix converts the whole file to LF');
+    assert(of(clean, 'crlf-line-ending').length === 0, 'crlf-line-ending: LF-only is silent');
+
+    // --- trailing-whitespace --------------------------------------------------
+    const tws = 'CLASS zcl_x DEFINITION PUBLIC.  \nENDCLASS.\t\n';
+    const twsF = of(tws, 'trailing-whitespace');
+    assert(twsF.length === 2 && twsF.map((x) => x.member).join() === '1,2',
+      `trailing-whitespace: one finding per line, keyed by line number (got ${twsF.map((x) => x.member).join() || 'none'})`);
+    assert(applyFixes(tws, twsF).output === clean,
+      'trailing-whitespace: the fixes strip exactly the blanks');
+    assert(of('DATA(x) = `text  ` && `y`.\n', 'trailing-whitespace').length === 0,
+      'trailing-whitespace: blanks INSIDE a literal are content, not line endings');
+    // the CRLF spelling: the \r is the separator, not trailing content, but
+    // blanks in front of it are still trailing
+    assert(of('CLASS zcl_x DEFINITION PUBLIC. \r\nENDCLASS.\r\n', 'trailing-whitespace').length === 1,
+      'trailing-whitespace: a blank before the CR still counts, the CR itself does not');
+
+    // --- missing-final-newline ------------------------------------------------
+    const nofinal = 'CLASS zcl_x DEFINITION PUBLIC.\nENDCLASS.';
+    const nfF = of(nofinal, 'missing-final-newline');
+    assert(nfF.length === 1, 'missing-final-newline: the missing terminator is reported');
+    assert(applyFixes(nofinal, nfF).output === `${nofinal}\n`,
+      'missing-final-newline: the fix appends exactly one newline');
+    assert(of(clean, 'missing-final-newline').length === 0, 'missing-final-newline: a terminated file is silent');
+    assert(of('DATA(x) = 1.', 'missing-final-newline').length === 0,
+      'missing-final-newline: a one-line snippet is not a file and is never judged');
+
+    /* All four are WARNINGS, deliberately: unlike source-line-too-long nothing
+     * fails to import — the tree merely never stops diffing (abap-check §1
+     * puts only the 255-character line in the import-failure bucket). */
+    for (const [src, type] of [[bom, 'byte-order-mark'], [crlf, 'crlf-line-ending'], [tws, 'trailing-whitespace'], [nofinal, 'missing-final-newline']]) {
+      assert(severityOf(of(src, type)[0]) === 'warning', `${type}: a warning, not an error`);
+    }
 });
 
 /* What is recorded is what the checks actually produced (test/observe.mjs),
