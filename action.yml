@@ -21,7 +21,7 @@ inputs:
     required: false
     default: 'true'
   badge:
-    description: 'Write the verdict badge ("check-abap2UI5 | 111 rules passed") to this path, e.g. .github/badges/check-abap2ui5.json. Unset: the repo''s abap2ui5lint.jsonc "badge", or no badge at all. Committing the file is the workflow''s job'
+    description: 'Write the verdict badge ("check-abap2UI5 | 118 rules passed") to this path, e.g. .github/badges/check-abap2ui5.json. Unset: the repo''s abap2ui5lint.jsonc "badge", or no badge at all. Committing the file is the workflow''s job'
     required: false
     default: ''
   sarif:

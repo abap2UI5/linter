@@ -84,7 +84,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      111 rules passed" green, "7 errors" red)
+ *                      118 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
