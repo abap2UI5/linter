@@ -4279,6 +4279,22 @@ section('report', async () => {
     assert(JSON.parse(run([dumps, '--no-render', '--format', 'json'])).problems === 2,
       'report: --format json is the same thing');
 
+    /* ruleHits: rule id -> what the gate PRODUCED, before the rules block,
+     * directives or a baseline suppressed anything. The additive stats key
+     * that tells a fully suppressed corpus apart from one nothing fired on. */
+    assert(json.stats.ruleHits && json.stats.ruleHits['duplicate-property'] === json.stats.rules['duplicate-property'],
+      'report: stats.ruleHits mirrors the reported counts when nothing is suppressed');
+    {
+      const dir = tempDir('a2ui5-hits-');
+      fs.writeFileSync(path.join(dir, 'off.jsonc'), '{"rules": {"duplicate-property": false}}');
+      const offJson = JSON.parse(run([dumps, '--no-render', '--json', '--config', path.join(dir, 'off.jsonc')]));
+      assert(offJson.stats.rules['duplicate-property'] === undefined,
+        'report: the switched-off rule reports nothing');
+      assert(offJson.stats.ruleHits['duplicate-property'] >= 1,
+        'report: ...but ruleHits still says it fired - the instrumentation survives suppression');
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
     const md = run([dumps, '--no-render', '--format', 'markdown']);
     assert(/\| Location \| Severity \| Message \| Rule \|/.test(md) && /`duplicate-property`/.test(md),
       'report: --format markdown emits a table per file');

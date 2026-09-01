@@ -91,6 +91,9 @@ declare module "@abap2ui5/linter" {
     renderSeverity?: Severity;
     /** The structural profile of what was checked here. */
     stats?: ResultStats;
+    /** Rule id -> findings produced for this source BEFORE the rules block,
+     *  directives or a baseline suppressed anything. */
+    ruleHits?: Record<string, number>;
   }
 
   /** What a screenshot run is steered by — the theme and viewport a picture
@@ -868,6 +871,10 @@ declare module "@abap2ui5/linter/report" {
     types: Map<string, number>;
     /** Rule id -> reported problems. */
     rules: Map<string, number>;
+    /** Rule id -> findings the gate PRODUCED, counted before the rules
+     *  block, directives and baseline suppressed anything — a fully
+     *  baselined corpus still says which rules fired on it. */
+    ruleHits: Map<string, number>;
   }
 
   export function runStats(results: CheckResult[]): RunStats;

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`stats.ruleHits`: per-rule fired counts, before suppression.** The `--json`
+  stats gain a `ruleHits` map (rule id -> findings the gate produced), counted
+  BEFORE the `rules` block, source directives and any baseline had their say -
+  so a fully baselined corpus still shows which rules fired on it, instead of
+  that number being an anecdote. Additive key; every count comes from the walk
+  the gate already did.
+
 - **Config `extends` and `maxWarnings` (+ `--max-warnings`).** A config can
   name another abap2ui5lint.jsonc/.json as its base: the extending file wins
   per key, the two `rules` blocks merge per rule id, relative paths resolve
