@@ -82,7 +82,21 @@ export function buildSchema() {
         items: { type: 'string' },
         description: 'Control or control.member names accepted despite the version floor, e.g. "sap.m.Avatar.displaySize".',
       },
-      render: { type: 'boolean', description: 'false skips the render gate (no browser needed).' },
+      render: {
+        anyOf: [
+          { type: 'boolean', description: 'false skips the render gate (no browser needed); true requires it.' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['pages'],
+            properties: {
+              pages: { type: 'integer', minimum: 1, description: 'Size of the render gate’s page pool (default 4). Each page carries its own UI5 boot; a corpus render divides its wall clock by roughly the pool size.' },
+            },
+            description: 'Require the render gate and size its page pool.',
+          },
+        ],
+        description: 'false skips the render gate (no browser needed); true requires it; { "pages": N } requires it and sizes its page pool (default 4).',
+      },
       properties: { type: 'boolean', description: 'false skips the property gate.' },
       failOn: {
         enum: [...SEVERITIES, 'never'],

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The render gate's page pool is a dial now.** `--render-pages <n>` on the
+  CLI, `"render": { "pages": n }` in the config (which also ASKS for the gate,
+  the way `"render": true` does), `renderPages` on `checkFiles`. The default
+  stays 4, precedence stays CLI flag > config > default, and an unknown key or
+  a non-positive count inside the render object fails loudly like every other
+  config mistake.
+
 - **`checkNodes` stops rebuilding its constants per document.** The
   known-library set (a key walk over ~1000 snapshot controls) is cached per
   snapshot object, and the built-in-roots set, the framework-attribute set and

@@ -27,6 +27,9 @@ declare module "@abap2ui5/linter" {
     allow?: string[];
     /** Run the render gate (default true — needs the optional deps). */
     render?: boolean;
+    /** Page-pool size for the render gate (default 4). Config form:
+     *  `"render": { "pages": N }`; CLI form: `--render-pages`. */
+    renderPages?: number;
     /** Run the property gate (default true). */
     properties?: boolean;
     /** Per-rule off / severity / exclude — the config's `rules` block. */

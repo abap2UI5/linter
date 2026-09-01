@@ -106,6 +106,10 @@
  *                      runtime is not installed steps aside with a warning -
  *                      this flag (or "render": true in the config) is how a
  *                      job says the gate has to have run
+ *   --render-pages <n> size of the render gate's page pool (default 4). Each
+ *                      page carries its own UI5 boot; on a corpus the render
+ *                      wall clock divides by roughly the pool size. Also
+ *                      settable as "render": { "pages": n } in the config
  *   --no-properties    skip the property gate
  *   --advisory         report only, always exit 0 (same as --fail-on never)
  *   --verbose          print reconstruction notes
@@ -144,7 +148,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
-  + '[--annotate|--no-annotate] [--render|--no-render] [--no-properties] [--advisory] [--verbose] '
+  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
@@ -270,6 +274,12 @@ for (let i = 0; i < args.length; i++) {
   // Asking for the gate is what turns a missing runtime back into an error -
   // the default-on gate falls back to the property gate instead (renderFallback)
   else if (a === '--render') { opt.render = true; seen.add('render'); renderAsked = true; }
+  else if (a === '--render-pages') {
+    const n = Number(value());
+    if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
+    opt.renderPages = n;
+    seen.add('renderPages');
+  }
   else if (a === '--screenshot') shot.out = value();
   else if (a === '--screenshot-theme') {
     const theme = value();

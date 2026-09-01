@@ -1080,6 +1080,26 @@ section('config', async () => {
     catch (e) { threw = e.message; }
     assert(/unknown key 'tpyo'/.test(threw), 'config: an unknown key fails loudly');
 
+    /* render grew an object form: { "pages": N } asks for the gate AND sizes
+     * its page pool. It normalizes to render:true + renderPages, so every
+     * consumer keeps reading a boolean `render`. */
+    fs.writeFileSync(path.join(dir, 'rp.jsonc'), '{"render": {"pages": 2}}');
+    const rp = loadConfig(path.join(dir, 'rp.jsonc'));
+    assert(rp.render === true && rp.renderPages === 2,
+      'config: render {pages} normalizes to render:true plus renderPages');
+    for (const [text, re, what] of [
+      ['{"render": {"pagez": 2}}', /render has unknown key 'pagez'/, 'an unknown key inside render fails loudly'],
+      ['{"render": {"pages": 0}}', /render 'pages' must be a positive integer/, 'pages 0 is refused'],
+      ['{"render": {"pages": 2.5}}', /render 'pages' must be a positive integer/, 'a fractional pages is refused'],
+      ['{"render": "yes"}', /'render' must be true, false, or/, 'a string render is refused'],
+      ['{"render": [4]}', /'render' must be true, false, or/, 'an array render is refused'],
+    ]) {
+      fs.writeFileSync(path.join(dir, 'rpbad.jsonc'), text);
+      let msg = '';
+      try { loadConfig(path.join(dir, 'rpbad.jsonc')); } catch (e) { msg = e.message; }
+      assert(re.test(msg), `config: ${what} (got '${msg}')`);
+    }
+
     // end-to-end: the CLI picks the config up from the checked path's directory
     // (cwd is this repo, which has no config - discovery must come from the path)
     // the successor-builder fixture, because this run must exit 0: the old
@@ -3535,6 +3555,16 @@ section('sarif, baseline and cli', async () => {
       'cli: --render is a known flag, so a job can demand the render gate');
     assert(/--render/.test(runErr([good, '--no-config', '--nonsense']).err),
       'cli: the usage line offers --render next to --no-render');
+
+    // --render-pages: the pool size is a closed shape too - anything that is
+    // not a positive integer would otherwise silently fall back to 4
+    for (const bad of ['0', '-1', '2.5', 'four']) {
+      const r = runErr([good, '--no-render', '--no-config', '--render-pages', bad]);
+      assert(r.code === 2 && /--render-pages takes a positive integer/.test(r.err),
+        `cli: --render-pages '${bad}' is refused instead of silently meaning 4 (exit ${r.code})`);
+    }
+    assert(runErr([good, '--no-render', '--no-config', '--render-pages', '2']).code !== 2,
+      'cli: --render-pages 2 is accepted');
 
     // --- baseline -------------------------------------------------------------
     const dir = tempDir('a2ui5base-');
