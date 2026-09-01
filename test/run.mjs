@@ -2993,6 +2993,17 @@ section('separate-lifecycle-ifs', async () => {
         assert(applyRules([...one], rules, 'src\\01\\app.clas.abap').length === 1,
           `rules.exclude: "${pattern}" still only excludes what it names, backslashes too`);
       }
+      /* The compiled config is memoized per (rules object, rule id) - one
+       * rules object walked over many files must still decide per FILE, and
+       * a severity override must survive the memo on the second file too. */
+      {
+        const rules = { 'unknown-control': { severity: 'hint', exclude: ['^src/00/'] } };
+        assert(applyRules([...one], rules, 'src/00/a.clas.abap').length === 0,
+          'rules.exclude: memoized config still excludes the matching file');
+        const kept = applyRules([{ type: 'unknown-control' }], rules, 'src/01/b.clas.abap');
+        assert(kept.length === 1 && kept[0].severity === 'hint',
+          'rules.exclude: memoized config keeps the non-matching file, severity override intact');
+      }
     }
     // the guard idiom is exclusive by construction: good.clas.abap opens with
     // `IF check_on_event( \`GO\` ). RETURN. ENDIF.` before its init IF

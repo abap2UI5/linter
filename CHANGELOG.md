@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`applyRules` compiles a rule's config once per run, not once per finding.**
+  Every finding used to recompile its rule's `exclude` regexes and re-spread
+  the path-form set; the compiled config is now memoized per (rules object,
+  rule id) and the form list is built once per file. No verdict changes - the
+  exclude-semantics tests now also pin that one rules object walked over many
+  files still decides per file.
+
 ## 0.6.1 - 2026-08-30
 
 - **A bound control in a FOREIGN namespace makes its children rows again.**
