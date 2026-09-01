@@ -5625,10 +5625,22 @@ section('abap hygiene (2)', async () => {
       'boolc-instead-of-xsdbool: boolc inside a literal is prose, not a call');
 
     // --- delete-index-in-loop -------------------------------------------------
-    const hot = 'LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n';
+    // the clean current-row delete is LEGAL: the kernel adjusts the loop
+    // cursor for a delete on the loop table, and so does @abaplint/runtime -
+    // the first cut reported this shape and named a reviewed, working
+    // samples-controls port (558), which is the corpus doctrine firing
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: the innermost loop\'s own unclobbered cursor is the legal current-row delete');
+    const hot = 'LOOP AT t_rows INTO DATA(row).\n  READ TABLE t_map WITH KEY k = row-k INTO DATA(m).\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n';
     const hotF = of(hot, 'delete-index-in-loop');
     assert(hotF.length === 1 && hotF[0].member === 't_rows' && severityOf(hotF[0]) === 'error',
-      `delete-index-in-loop: deleting by the loop's own cursor is an error (got ${hotF.map((x) => x.member).join() || 'none'})`);
+      `delete-index-in-loop: a READ TABLE between the loop header and the DELETE clobbers sy-tabix (got ${hotF.map((x) => x.member).join() || 'none'})`);
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  LOOP AT t_other INTO DATA(o).\n  ENDLOOP.\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: a completed inner loop leaves sy-tabix behind - the filter_itab incident');
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DO 3 TIMES.\n  ENDDO.\n  DELETE t_rows INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 1,
+      'delete-index-in-loop: a DO between the LOOP and the DELETE is the app-352 dump shape');
+    assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_rows INDEX sy-tabix.\n  READ TABLE t_map INDEX 1 INTO DATA(m2).\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
+      'delete-index-in-loop: a clobberer AFTER the delete runs after it every iteration - the loop header resets the cursor');
     assert(of('LOOP AT t_rows INTO DATA(row).\n  DELETE t_other INDEX sy-tabix.\nENDLOOP.\n', 'delete-index-in-loop').length === 0,
       'delete-index-in-loop: another table is another rule\'s business');
     // the filter_itab shape: the DELETE sits in an INNER loop over another

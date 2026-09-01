@@ -9,16 +9,20 @@
   the block). `boolc( )` where the ecosystem's downport writes `xsdbool( )`
   for you (a **warning** - and no fix, because boolc's FALSE is a blank while
   xsdbool's is initial, which is behaviour, not spelling). And `DELETE itab
-  INDEX sy-tabix` inside a `LOOP AT` over the same table (an **error**: the
-  row after every deletion is silently skipped, or a reset sy-tabix dumps
-  with TABLE_INVALID_INDEX - a live app 500ed with exactly that; ANY
-  enclosing loop over the table counts, the inner-loop case deletes by
-  another table's index; the READ TABLE + DELETE idiom outside the loop
-  stays silent). Measured over abap2UI5's collected corpus: 0 findings - the
-  raw-text sweep of all 200 .abap files finds them only in the vendored
-  ajson (upstream, uncollected), including the documented
-  `z2ui5_cl_ajson_filter_lib` delete-in-loop, which is the rule seeing the
-  real thing.
+  INDEX sy-tabix` inside a `LOOP AT` over the same table (an **error**),
+  reported only where sy-tabix is provably not the loop's own cursor any
+  more: a READ TABLE, a completed inner LOOP or a DO between the loop header
+  and the DELETE (the TABLE_INVALID_INDEX shape a live app 500ed with), or a
+  DELETE naming an ENCLOSING loop's table while an inner one is open (the
+  index is then another table's row number). The plain current-row delete is
+  legal ABAP - the kernel adjusts the loop cursor for a delete on the loop
+  table, and so does @abaplint/runtime (`deleteIndex` decrements every
+  registered loop controller) - and the rule's first cut reporting it named a
+  reviewed, working samples-controls port (558), which is the corpus doctrine
+  firing: measured over the 637-file samples-controls corpus the narrowed
+  rule reports 0, while every incident shape from abap-check §5 (app 352's
+  DO, filter_itab's inner loop, the clobbering READ TABLE) stays covered by
+  fixtures.
 
 - **Four abapGit round-trip rules: `byte-order-mark`, `crlf-line-ending`,
   `trailing-whitespace`, `missing-final-newline`.** The `source-line-too-long`
