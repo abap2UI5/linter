@@ -10,6 +10,10 @@
       "type": "string",
       "description": "URL of this schema — editor completion only"
     },
+    "extends": {
+      "type": "string",
+      "description": "Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two \"rules\" blocks merge per rule id. Chains follow; a cycle is refused."
+    },
     "paths": {
       "type": "array",
       "items": {
@@ -50,12 +54,36 @@
       "description": "Control or control.member names accepted despite the version floor, e.g. \"sap.m.Avatar.displaySize\"."
     },
     "render": {
-      "type": "boolean",
-      "description": "false skips the render gate (no browser needed)."
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "false skips the render gate (no browser needed); true requires it."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pages"
+          ],
+          "properties": {
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Size of the render gate’s page pool (default 4). Each page carries its own UI5 boot; a corpus render divides its wall clock by roughly the pool size."
+            }
+          },
+          "description": "Require the render gate and size its page pool."
+        }
+      ],
+      "description": "false skips the render gate (no browser needed); true requires it; { \"pages\": N } requires it and sizes its page pool (default 4)."
     },
     "properties": {
       "type": "boolean",
       "description": "false skips the property gate."
+    },
+    "cache": {
+      "type": "boolean",
+      "description": "true stores each file’s result across runs and replays it while nothing relevant changed (file content, linter version, metadata snapshot, resolved settings). Same as --cache; --cache-location names the file (default .abap2ui5lintcache)."
     },
     "failOn": {
       "enum": [
@@ -65,6 +93,11 @@
         "never"
       ],
       "description": "Lowest severity that fails the build. Everything is always reported — this only decides the exit code."
+    },
+    "maxWarnings": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "More warnings than this fail the run, whatever failOn says (same as --max-warnings). The way to fail on errors only while still capping the warning debt."
     },
     "baseline": {
       "type": "string",
@@ -87,7 +120,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 112 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 119 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -138,6 +171,14 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
         },
+        "boolc-instead-of-xsdbool": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'boolc-instead-of-xsdbool' — default severity: warning"
+        },
+        "byte-order-mark": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'byte-order-mark' — default severity: warning"
+        },
         "chain-element-per-line": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'chain-element-per-line' — default severity: hint"
@@ -186,9 +227,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'control-too-new' — default severity: warning"
         },
+        "crlf-line-ending": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'crlf-line-ending' — default severity: warning"
+        },
         "date-type-without-source": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'date-type-without-source' — default severity: error"
+        },
+        "delete-index-in-loop": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'delete-index-in-loop' — default severity: error"
         },
         "denied-control-method": {
           "$ref": "#/definitions/rule",
@@ -217,6 +266,10 @@
         "duplicate-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'duplicate-property' — default severity: error"
+        },
+        "empty-catch-block": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'empty-catch-block' — default severity: hint"
         },
         "enum-field-unset-on-insert": {
           "$ref": "#/definitions/rule",
@@ -366,6 +419,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-accessibility' — default severity: hint"
         },
+        "missing-final-newline": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'missing-final-newline' — default severity: warning"
+        },
         "missing-on-navigated-branch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-on-navigated-branch' — default severity: warning"
@@ -465,6 +522,10 @@
         "trailing-empty-event-arg": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'trailing-empty-event-arg' — default severity: warning"
+        },
+        "trailing-whitespace": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'trailing-whitespace' — default severity: warning"
         },
         "ui5-internal-access": {
           "$ref": "#/definitions/rule",

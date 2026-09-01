@@ -74,15 +74,15 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">60 error</span>
-      <span class="badge warning">38 warning</span>
-      <span class="badge hint">15 hint</span>
-      <span class="badge fix">10 autofixable</span>
+      <span class="badge error">61 error</span>
+      <span class="badge warning">43 warning</span>
+      <span class="badge hint">16 hint</span>
+      <span class="badge fix">18 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.6.1</strong>, against the OpenUI5 1.151.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx abap2ui5lint --version</code> says which that is.</p>
-    <input id="filter" type="search" placeholder="Filter 112 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 119 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -204,6 +204,45 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
 view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
       </article>
+      <article class="rule" id="boolc-instead-of-xsdbool" data-search="boolc-instead-of-xsdbool boolc( ) where the ecosystem mandates xsdbool( ) the abap2ui5 ecosystem's downport pipeline converts xsdbool( ) to boolc( ) automatically for the releases that need it — so xsdbool is the form to write, and a hand-written boolc breaks the conversion in the other direction. they are also not aliases: boolc returns a char1-in-string whose false is a blank ( ), xsdbool an abap_bool whose false is initial — the classic trap where if boolc( … ) is initial. is never true. no fix renames one into the other, because that difference is behaviour, not spelling. warning">
+        <h3><a href="#boolc-instead-of-xsdbool">boolc-instead-of-xsdbool</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary"><code>boolc( )</code> where the ecosystem mandates <code>xsdbool( )</code></p>
+        <p class="detail">The abap2UI5 ecosystem's downport pipeline converts <code>xsdbool( )</code> to <code>boolc( )</code> automatically for the releases that need it — so <code>xsdbool</code> is the form to write, and a hand-written <code>boolc</code> breaks the conversion in the other direction. They are also not aliases: <code>boolc</code> returns a <code>char1</code>-in-string whose FALSE is a <strong>blank</strong> (<code> </code>), <code>xsdbool</code> an <code>abap_bool</code> whose false is initial — the classic trap where <code>IF boolc( … ) IS INITIAL.</code> is never true. No fix renames one into the other, because that difference is behaviour, not spelling.</p>
+        <pre><code>DATA(ok) = boolc( x &gt; 1 ).     " write: xsdbool( x &gt; 1 )</code></pre>
+      </article>
+      <article class="rule" id="byte-order-mark" data-search="byte-order-mark a utf-8 bom at the start of a .abap file abapgit writes the bom on .xml sidecars and never on .abap source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). the sidecar half of the same rule is abaplint's xml_bom; the .abap half had no rule anywhere. a warning, not an error: the import works, the tree just never stops diffing. warning">
+        <h3><a href="#byte-order-mark">byte-order-mark</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a UTF-8 BOM at the start of a .abap file</p>
+        <p class="detail">abapGit writes the BOM on <code>.xml</code> sidecars and NEVER on <code>.abap</code> source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). The sidecar half of the same rule is abaplint's <code>xml_bom</code>; the <code>.abap</code> half had no rule anywhere. A warning, not an error: the import works, the tree just never stops diffing.</p>
+        <p class="fixnote"><strong>--fix:</strong> The BOM character is deleted — a pure one-character deletion at offset 0.</p>
+        <pre><code>﻿CLASS zcl_my_app DEFINITION PUBLIC.   " the invisible EF BB BF in front of CLASS</code></pre>
+      </article>
+      <article class="rule" id="crlf-line-ending" data-search="crlf-line-ending crlf line endings — abapgit writes lf only abapgit serializes every file with lf endings; a file committed with crlf comes back different on the next pull, for everyone. this is exactly what a .gitattributes used to normalize in abap2ui5 until it was deleted and a gate took over — and a consumer repository has neither. one finding per file, however many lines carry it: a file is crlf or it is not, and a finding per line would drown everything else the report has to say. warning">
+        <h3><a href="#crlf-line-ending">crlf-line-ending</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">CRLF line endings — abapGit writes LF only</p>
+        <p class="detail">abapGit serializes every file with LF endings; a file committed with CRLF comes back different on the next pull, for everyone. This is exactly what a <code>.gitattributes</code> used to normalize in abap2UI5 until it was deleted and a gate took over — and a consumer repository has neither. One finding per file, however many lines carry it: a file is CRLF or it is not, and a finding per line would drown everything else the report has to say.</p>
+        <p class="fixnote"><strong>--fix:</strong> Every carriage return in front of a line feed is deleted, converting the whole file to LF in one pass.</p>
+        <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.\r\n   " every line ends CR LF</code></pre>
+      </article>
+      <article class="rule" id="delete-index-in-loop" data-search="delete-index-in-loop delete itab index sy-tabix inside a loop at over the same table reported only where sy-tabix is provably not the loop's own cursor any more — because that is what the measured incidents share. where an inner construct between the loop header and the delete has overwritten it (a read table, an inner loop that ended, a do), the delete hits another table's index — or index 0, which is the table_invalid_index short dump a live app answered http 500 with. the same holds when the delete names an enclosing loop's table while an inner loop is open: sy-tabix then belongs to the inner one, and the deleted index is another table's row number. the plain current-row delete — the innermost loop's own, unclobbered cursor — is legal abap and stays silent: the kernel adjusts the loop cursor for a delete on the loop table, and so does the transpiler runtime. build the result instead — collect what is kept and assign it back — or delete itab where …; both read as what they do and survive a later statement wandering in between. the delete itab index sy-tabix directly after a read table, outside a loop over that table, is correct and common, and is not reported. error">
+        <h3><a href="#delete-index-in-loop">delete-index-in-loop</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary"><code>DELETE itab INDEX sy-tabix</code> inside a <code>LOOP AT</code> over the same table</p>
+        <p class="detail">Reported only where <code>sy-tabix</code> is provably not the loop's own cursor any more — because that is what the measured incidents share. Where an inner construct between the loop header and the DELETE has overwritten it (a <code>READ TABLE</code>, an inner <code>LOOP</code> that ended, a <code>DO</code>), the DELETE hits another table's index — or index 0, which is the <code>TABLE_INVALID_INDEX</code> short dump a live app answered HTTP 500 with. The same holds when the DELETE names an ENCLOSING loop's table while an inner loop is open: <code>sy-tabix</code> then belongs to the inner one, and the deleted index is another table's row number. The plain current-row delete — the innermost loop's own, unclobbered cursor — is legal ABAP and stays silent: the kernel adjusts the loop cursor for a delete on the loop table, and so does the transpiler runtime. Build the result instead — collect what is kept and assign it back — or <code>DELETE itab WHERE …</code>; both read as what they do and survive a later statement wandering in between. The <code>DELETE itab INDEX sy-tabix</code> directly after a <code>READ TABLE</code>, outside a loop over that table, is correct and common, and is not reported.</p>
+        <pre><code>LOOP AT t_rows INTO DATA(row).
+  READ TABLE t_map WITH KEY id = row-id INTO DATA(m).
+  DELETE t_rows INDEX sy-tabix.   " sy-tabix is t_map's now - wrong row, or dump
+ENDLOOP.</code></pre>
+      </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
         <h3><a href="#display-root-mismatch">display-root-mismatch</a>
           <span class="badge error">error</span>
@@ -238,6 +277,18 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="detail">The view builder asserts on a repeated attribute rather than letting the second value win silently.</p>
         <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `text` v = `A` )-&gt;a( n = `text` v = `B` )</code></pre>
       </article>
+      <article class="rule" id="empty-catch-block" data-search="empty-catch-block an empty catch block without ##no_handler the extended check (slin/atc) runs in real systems, not in a systemless pipeline — so an empty handler ships through a green ci and surfaces as a finding on somebody else's system. ##no_handler on the catch statement is how a deliberately empty handler says so. purely structural: a catch statement followed by nothing before the next catch, cleanup or endtry. a comment does not fill the block — slin reads it the same way, and the pragma is the sanctioned answer, not prose. a hint, like redundant-conv-i: the code is correct, the extended check is what speaks. hint">
+        <h3><a href="#empty-catch-block">empty-catch-block</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">an empty CATCH block without <code>##NO_HANDLER</code></p>
+        <p class="detail">The extended check (SLIN/ATC) runs in real systems, not in a systemless pipeline — so an empty handler ships through a green CI and surfaces as a finding on somebody else's system. <code>##NO_HANDLER</code> on the CATCH statement is how a deliberately empty handler says so. Purely structural: a CATCH statement followed by nothing before the next CATCH, CLEANUP or ENDTRY. A comment does not fill the block — SLIN reads it the same way, and the pragma is the sanctioned answer, not prose. A hint, like <code>redundant-conv-i</code>: the code is correct, the extended check is what speaks.</p>
+        <pre><code>TRY.
+    risky( ).
+  CATCH cx_root.                    " SLIN: empty handler
+  CATCH cx_root ##NO_HANDLER.       " deliberate, and says so
+ENDTRY.</code></pre>
+      </article>
       <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root — one end( ) too many. the builder asserts on it (parent is bound), so the app dumps before it renders. the rule id keeps the older spelling shut: renaming it would silently invalidate every baseline entry and rule override that names it. error">
         <h3><a href="#excess-shut">excess-shut</a>
           <span class="badge error">error</span>
@@ -258,6 +309,16 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="detail">The expression binding cannot be parsed. UI5 reports a parse error and the attribute stays unbound.</p>
         <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/N} &gt; 1 ? `many` : `one` }}` )   " one } too many</code></pre>
       </article>
+      <article class="rule" id="missing-final-newline" data-search="missing-final-newline no newline at end of file abapgit ends every file with exactly one terminating newline; a file without one shows as \ no newline at end of file in every diff and comes back changed on the next pull (z2ui5_if_action.intf.xml carried exactly this). only a source with at least one line break is judged — a one-line string handed to the library is a snippet, not a file abapgit will ever serialize. warning">
+        <h3><a href="#missing-final-newline">missing-final-newline</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">no newline at end of file</p>
+        <p class="detail">abapGit ends every file with exactly one terminating newline; a file without one shows as <code>\ No newline at end of file</code> in every diff and comes back changed on the next pull (<code>z2ui5_if_action.intf.xml</code> carried exactly this). Only a source with at least one line break is judged — a one-line string handed to the library is a snippet, not a file abapGit will ever serialize.</p>
+        <p class="fixnote"><strong>--fix:</strong> A single newline is appended at the end of the file.</p>
+        <pre><code>ENDCLASS.   " the file ends right after the dot, with no newline</code></pre>
+      </article>
       <article class="rule" id="render-error" data-search="render-error the reconstructed view did not survive a real ui5 render not a pattern the rules above match, but the outcome of actually loading the view in a headless ui5: whatever the browser said — a control class that will not load, an aggregation ui5 refuses, a binding it cannot parse. it is the render gate's pseudo-rule rather than an entry in rules, so it is never emitted by a check; it appears only when --render ran and the browser objected. address it in the config like any other id: rules: { 'render-error': false } or an exclude waives it per file (a waived file that then renders clean is reported as a stale waiver), a severity re-weighs it. error">
         <h3><a href="#render-error">render-error</a>
           <span class="badge error">error</span>
@@ -273,6 +334,16 @@ view-&gt;a( n = `title` v = `Hi` )   " no element open yet</code></pre>
         <p class="summary">a source line over 255 characters — the class does not import</p>
         <p class="detail">ABAP holds 255 characters per source line, and over it the defect is not a lint finding but a failed <strong>import</strong>: abapGit reports "Literals across more than one line are not allowed" for the object and carries on with the next one, so what stays behind in the system is an <strong>empty class stub</strong>. The tree looks imported and the app is gone. Nothing else sees it — every check runs against the files, where the line is merely long. Split the literal into <code>&amp;&amp;</code> chunks; when the file is generated, fix the generator, or the next generation restores the line.</p>
         <pre><code>DATA(html) = `&lt;div class="a"&gt;…&lt;/div&gt;` &amp;&amp; `…`.   " one source line over 255 characters</code></pre>
+      </article>
+      <article class="rule" id="trailing-whitespace" data-search="trailing-whitespace a line ending in blanks — stripped by the editor, diffs forever the abap editor strips a trailing blank when it saves, so a line that ends in one comes back different on the next pull. it is also the round-trip defect most likely to be written: reflowing a chain or a string template leaves blanks behind that no diff view shows. abaplint's whitespace_end owns this in repositories that enable it — and it is per repository and not everywhere, which is how seven app classes once shipped trailing blanks through four green ci workflows. warning">
+        <h3><a href="#trailing-whitespace">trailing-whitespace</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a line ending in blanks — stripped by the editor, diffs forever</p>
+        <p class="detail">The ABAP editor strips a trailing blank when it saves, so a line that ends in one comes back different on the next pull. It is also the round-trip defect most likely to be WRITTEN: reflowing a chain or a string template leaves blanks behind that no diff view shows. abaplint's <code>whitespace_end</code> owns this in repositories that enable it — and it is per repository and not everywhere, which is how seven app classes once shipped trailing blanks through four green CI workflows.</p>
+        <p class="fixnote"><strong>--fix:</strong> The trailing blanks are deleted, line by line — each finding carries the exact span of its own run of blanks and nothing else on the line is touched.</p>
+        <pre><code>view-&gt;tag( `Button` )   " ← two blanks after the closing paren, invisible here</code></pre>
       </article>
       <article class="rule" id="undeclared-namespace" data-search="undeclared-namespace ns = 'form' without an xmlns:form the prefix is used but never declared on the view root, so the parser cannot resolve the control at all. error">
         <h3><a href="#undeclared-namespace">undeclared-namespace</a>
@@ -469,9 +540,11 @@ view-&gt;page( )-&gt;button( text = `hi` ).</code></pre>
       <article class="rule" id="lifecycle-is-initial" data-search="lifecycle-is-initial is initial / is not initial on an abap_bool the three check_on_( ) methods return abap_bool, so the branch is the predicative call — if client-&gt;check_on_init( ). — which is how z2ui5_if_client documents it and how the whole sample corpus is written. compounds keep the shape ( elseif client-&gt;check_on_event( lock ). , if client-&gt;check_on_navigated( ) and mv_ready = abap_true.). is not initial asks a boolean whether it is empty, which is what that question means for a string, and it is one more dialect every later reader of the class has to hold. only a negative branch is spelled out, as = abap_false: there is no negated predicative form. the same rule covers every other abap_bool, in a where clause as much as in an if. a hint, deliberately — abap_false is the initial value of a char(1), so the two spellings agree and nothing here is broken; it is the one dialect question in the app guide a finding can settle mechanically. a structure component is never judged: in row-flag is initial the component may be any type, and the class's own flag attribute is not evidence about it. hint">
         <h3><a href="#lifecycle-is-initial">lifecycle-is-initial</a>
           <span class="badge hint">hint</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>IS INITIAL</code> / <code>IS NOT INITIAL</code> on an <code>abap_bool</code></p>
         <p class="detail">The three <code>check_on_*( )</code> methods return <code>abap_bool</code>, so the branch is the PREDICATIVE CALL — <code>IF client-&gt;check_on_init( ).</code> — which is how <code>z2ui5_if_client</code> documents it and how the whole sample corpus is written. Compounds keep the shape (`<code> ELSEIF client-&gt;check_on_event( </code>LOCK<code> ). </code><code>, </code>IF client-&gt;check_on_navigated( ) AND mv_ready = abap_true.<code>). </code>IS NOT INITIAL<code> asks a boolean whether it is EMPTY, which is what that question means for a string, and it is one more dialect every later reader of the class has to hold. Only a NEGATIVE branch is spelled out, as </code>= abap_false<code>: there is no negated predicative form. The same rule covers every other </code>abap_bool<code>, in a </code>WHERE<code> clause as much as in an </code>IF<code>. A hint, deliberately — </code>abap_false<code> IS the initial value of a </code>char(1)<code>, so the two spellings agree and nothing here is broken; it is the one dialect question in the app guide a finding can settle mechanically. A structure component is never judged: in </code>row-flag IS INITIAL<code> the component may be any type, and the class's own </code>flag` attribute is not evidence about it.</p>
+        <p class="fixnote"><strong>--fix:</strong> On a lifecycle call, <code>IS NOT INITIAL</code> becomes the predicative call (the tail is deleted) and <code>IS INITIAL</code> becomes <code>= abap_false</code> — the framework's checks return only <code>abap_true</code>/<code>abap_false</code>, so both rewrites are exact. On a plain <code>abap_bool</code> variable only <code>IS INITIAL</code> is rewritten (to <code>= abap_false</code>, its exact meaning for a char(1)); the NOT form is reported without a fix, because a variable can technically hold any character and choosing between <code>= abap_true</code> and <code>&lt;&gt; abap_false</code> would be a guess.</p>
         <pre><code>IF client-&gt;check_on_init( ).        " not: IF client-&gt;check_on_init( ) IS NOT INITIAL.
 IF mv_ready = abap_false.           " not: IF mv_ready IS INITIAL.</code></pre>
       </article>
@@ -578,9 +651,11 @@ a( n = `press` v = client-&gt;follow_up_action( val = client-&gt;cs_event-popup_
       <article class="rule" id="redundant-conv-i" data-search="redundant-conv-i conv i( ) assigned to a target that is already type i the assignment converts by itself, so the conv says nothing and reads as if a conversion were needed; slin reports "redundant conversion for type i". both halves of the scoping are load-bearing and were measured before this shipped: the target has to be declared in this file (a type living in another class is left alone rather than guessed at), and the conv has to be the entire right-hand side — one inside a comparison or an arithmetic expression is load-bearing or at least arguable, and one inside a string template (|{ conv i( x ) width = 2 }|) is a real conversion. all three were false errors in the first draft. a hint: the code is correct, and this is an extended-check finding rather than a defect. hint">
         <h3><a href="#redundant-conv-i">redundant-conv-i</a>
           <span class="badge hint">hint</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>CONV i( )</code> assigned to a target that is already <code>TYPE i</code></p>
         <p class="detail">The assignment converts by itself, so the <code>CONV</code> says nothing and reads as if a conversion were needed; SLIN reports *"Redundant conversion for type I"*. Both halves of the scoping are load-bearing and were measured before this shipped: the target has to be declared IN THIS FILE (a type living in another class is left alone rather than guessed at), and the <code>CONV</code> has to be the ENTIRE right-hand side — one inside a comparison or an arithmetic expression is load-bearing or at least arguable, and one inside a string template (<code>|{ CONV i( x ) WIDTH = 2 }|</code>) is a real conversion. All three were false errors in the first draft. A hint: the code is correct, and this is an extended-check finding rather than a defect.</p>
+        <p class="fixnote"><strong>--fix:</strong> The <code>CONV i( … )</code> wrapper is unwrapped to its inner expression. Safe by the rule's own scoping: the CONV is guaranteed to be the entire right-hand side and the target is declared <code>TYPE i</code> in this file, so the assignment performs the identical conversion by itself.</p>
         <pre><code>DATA count TYPE i.
 count = CONV i( lv_text ).   " count = lv_text.</code></pre>
       </article>
@@ -850,9 +925,11 @@ client-&gt;follow_up_action( val = client-&gt;cs_event-set_focus t_arg = VALUE #
       <article class="rule" id="trailing-empty-event-arg" data-search="trailing-empty-event-arg the last t_arg entry is empty and never arrives get_t_arg buffers an empty argument and flushes it only when a later non-empty one follows, so an empty entry between filled ones keeps its slot and a trailing one disappears. the handler's get_event_arg( n ) for that position reads initial, with no error anywhere. the framework pads a missing trailing argument only for a nullable declared kind on a control method, which does not apply to a backend _event. warning">
         <h3><a href="#trailing-empty-event-arg">trailing-empty-event-arg</a>
           <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary">the last <code>t_arg</code> entry is empty and never arrives</p>
         <p class="detail"><code>get_t_arg</code> buffers an empty argument and flushes it only when a later non-empty one follows, so an empty entry between filled ones keeps its slot and a TRAILING one disappears. The handler's <code>get_event_arg( n )</code> for that position reads initial, with no error anywhere. The framework pads a missing trailing argument only for a nullable declared kind on a control method, which does not apply to a backend <code>_event</code>.</p>
+        <p class="fixnote"><strong>--fix:</strong> The trailing empty <code>( \</code>\<code> )</code> row is deleted from the <code>VALUE #( )</code> constructor — it never arrives, so removing it changes nothing the handler can observe. A row with its line to itself takes the whole line; an inline row also takes the spaces in front of it. A comment is never removed with it.</p>
         <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${/ID}` ) ( `` ) ) )   " get_event_arg( 2 ) reads initial</code></pre>
       </article>
       <article class="rule" id="ui5-internal-access" data-search="ui5-internal-access mproperties &amp; friends — private ui5 internals the mproperties/maggregations/mbindinginfos/meventregistry member tables are ui5 implementation details with no api contract — they are renamed or restructured across ui5 patches without notice, so a wire or expression that reads them works on the version it was written against and breaks silently on the next one. restructure to a two-way binding or a public parameter. warning">
@@ -969,9 +1046,11 @@ t = VALUE #( ( title = `A` type = `Type01` ) ( title = `B` ) ).             " th
       <article class="rule" id="escaped-brace-in-backtick" data-search="escaped-brace-in-backtick a binding written with escaped braces inside a backtick literal brace escaping is a |…| template rule. in a template the backslash is abap's own escape, so \{ reaches the builder as a bare { — which is exactly what a binding needs. a backtick literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where ui5 reads \{ path: … \} as text rather than a binding and either renders it raw or fails to parse the view. write plain braces in a backtick literal; keep the escapes for the template form. error">
         <h3><a href="#escaped-brace-in-backtick">escaped-brace-in-backtick</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary">a binding written with escaped braces inside a <code>backtick</code> literal</p>
         <p class="detail">Brace escaping is a |…| TEMPLATE rule. In a template the backslash is ABAP's own escape, so <code>\{</code> reaches the builder as a bare <code>{</code> — which is exactly what a binding needs. A <code>backtick</code> literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where UI5 reads <code>\{ path: … \}</code> as text rather than a binding and either renders it raw or fails to parse the view. Write plain braces in a backtick literal; keep the escapes for the template form.</p>
+        <p class="fixnote"><strong>--fix:</strong> Every backslash in front of a brace inside the backtick literal is deleted, leaving the plain-brace form the literal should have carried. Nothing else in the literal is touched — a backtick literal has no escape processing, so the backslashes say nothing.</p>
         <pre><code>a( n = `items` v = `\{ path: 'message&gt;/' \}` )   " the backslash reaches the XML
 a( n = `items` v = `{ path: 'message&gt;/' }` )     " correct in a backtick literal
 a( n = `items` v = |\{ path: '{ p }' \}| )       " correct in a template</code></pre>
@@ -1198,9 +1277,9 @@ a( n = `state` v = `{STATUS_STATE}` )  " computed in ABAP, bound finished</code>
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    112 configurable rules, plus <code>render-error</code> — the render gate's
+    119 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “112 rules passed” while this page has 113 cards.
+    <code>--badge</code> says “119 rules passed” while this page has 120 cards.
   </footer>
 </div>
 <script>

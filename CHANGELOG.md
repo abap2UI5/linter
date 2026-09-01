@@ -2,6 +2,135 @@
 
 ## Unreleased
 
+- **Three structural rules from abap-check: `empty-catch-block`,
+  `boolc-instead-of-xsdbool`, `delete-index-in-loop`.** An empty CATCH wants
+  `##NO_HANDLER` (a **hint**, like `redundant-conv-i` - the code is correct,
+  the extended check on a real system is what speaks; a comment does not fill
+  the block). `boolc( )` where the ecosystem's downport writes `xsdbool( )`
+  for you (a **warning** - and no fix, because boolc's FALSE is a blank while
+  xsdbool's is initial, which is behaviour, not spelling). And `DELETE itab
+  INDEX sy-tabix` inside a `LOOP AT` over the same table (an **error**),
+  reported only where sy-tabix is provably not the loop's own cursor any
+  more: a READ TABLE, a completed inner LOOP or a DO between the loop header
+  and the DELETE (the TABLE_INVALID_INDEX shape a live app 500ed with), or a
+  DELETE naming an ENCLOSING loop's table while an inner one is open (the
+  index is then another table's row number). The plain current-row delete is
+  legal ABAP - the kernel adjusts the loop cursor for a delete on the loop
+  table, and so does @abaplint/runtime (`deleteIndex` decrements every
+  registered loop controller) - and the rule's first cut reporting it named a
+  reviewed, working samples-controls port (558), which is the corpus doctrine
+  firing: measured over the 637-file samples-controls corpus the narrowed
+  rule reports 0, while every incident shape from abap-check §5 (app 352's
+  DO, filter_itab's inner loop, the clobbering READ TABLE) stays covered by
+  fixtures.
+
+- **Four abapGit round-trip rules: `byte-order-mark`, `crlf-line-ending`,
+  `trailing-whitespace`, `missing-final-newline`.** The `source-line-too-long`
+  precedent again - a consumer whose only gate is `npx abap2ui5lint` must see
+  the round-trip family too. abapGit writes every file one specific way (LF
+  only, no BOM on `.abap`, no trailing blanks, exactly one terminating
+  newline); a file written otherwise comes back DIFFERENT from what the system
+  serializes, on every pull, for everyone. All four are **warnings** - per
+  abap-check §1 only the 255-character line actually kills the import, the
+  rest never stop diffing - and all four carry a mechanical `--fix` (delete
+  the BOM, delete every CR, strip the blanks, append the newline). CRLF is
+  one finding per file with a fix span per CR; trailing whitespace is one per
+  line, like its `source-line-too-long` neighbour. Measured over abap2UI5's
+  own `src` (200 .abap files, which gate these themselves): 0 findings.
+
+- **`stats.ruleHits`: per-rule fired counts, before suppression.** The `--json`
+  stats gain a `ruleHits` map (rule id -> findings the gate produced), counted
+  BEFORE the `rules` block, source directives and any baseline had their say -
+  so a fully baselined corpus still shows which rules fired on it, instead of
+  that number being an anecdote. Additive key; every count comes from the walk
+  the gate already did.
+
+- **Config `extends` and `maxWarnings` (+ `--max-warnings`).** A config can
+  name another abap2ui5lint.jsonc/.json as its base: the extending file wins
+  per key, the two `rules` blocks merge per rule id, relative paths resolve
+  against the file that wrote them, chains follow and a cycle is refused
+  loudly. `maxWarnings` (ui5lint's flag as a config key, plus `--max-warnings`)
+  fails the run when the warning count exceeds it, whatever `failOn` says -
+  the way to fail on errors only while still capping the warning debt.
+
+- **`--format checkstyle` and `--format junit`.** The two XML shapes most CI
+  systems ingest natively (Jenkins, GitLab, Azure DevOps test tabs) - thin
+  renderers over the same problem walk every other formatter reads, properly
+  XML-escaped. checkstyle maps our `hint` to its `info`; junit renders a
+  clean file as one passing testcase, so a test tab shows the file was seen.
+
+- **`--stdin`: lint piped source.** The property gate over standard input -
+  the editor and pre-commit case - reported under `--stdin-filename <name>`
+  (default `<stdin>`), which also decides the handling: a `.view.xml` /
+  `.fragment.xml` name (or content starting with `<`) goes down the raw-view
+  path, anything else is read as an ABAP class. Exit codes and every
+  `--format` behave exactly as for a file. The render gate stays off for a
+  pipe, and `--fix`, `--render` and `--screenshot` are refused rather than
+  silently ignored.
+
+- **Four existing rules gained a `--fix`.** `escaped-brace-in-backtick`
+  deletes the backslashes (a backtick literal has no escape processing, so
+  they say nothing); `redundant-conv-i` unwraps the CONV (the rule already
+  guarantees it is the entire right-hand side of an assignment into a
+  `TYPE i` target declared in this file); `lifecycle-is-initial` rewrites
+  `IS NOT INITIAL` on a lifecycle call to the predicative form and
+  `IS INITIAL` to `= abap_false` — on a plain `abap_bool` variable only the
+  `IS INITIAL` half is rewritten, because `= abap_true` vs `<> abap_false`
+  for the NOT form is a choice, not a mechanical rewrite, and that one stays
+  a finding; `trailing-empty-event-arg` deletes the trailing empty
+  `` ( `` ) `` row (it never arrives, so nothing observable changes), whole
+  line included when the row has it to itself, comments never.
+
+- **`--cache`: an opt-in cross-run result cache, eslint-style.** Each file's
+  full result (the findings, not just pass/fail - a baselined corpus needs
+  the findings again on replay) is stored keyed by its content hash, under one
+  context hash over the linter version, the metadata snapshot's ui5Version and
+  every resolved setting that changes a verdict (floor, distribution, allow,
+  gates, rules block). A hit skips both gates for that file; any relevant
+  change is a miss. `--cache-location <file>` names the store (default
+  `.abap2ui5lintcache`), `"cache": true` in the config turns it on for a repo,
+  and a corrupt or foreign cache file reads as empty rather than as an error.
+  `--fix` needs no special handling: it rewrites the file, so the stale entry
+  never matches again.
+
+- **`checkFiles` and `screenshotFiles` accept a caller-owned `renderer`.** An
+  already-open session from `openRenderer( )` (the `./render` export) is used
+  as-is and never closed - the caller owns its lifecycle - so a long-lived
+  consumer (mcp-server's `validate_view`) can keep one warm Chromium across
+  many calls instead of paying a browser start per call. Absent the option,
+  behaviour is exactly the old open/close. A passed renderer's pool size and
+  theme were decided at `openRenderer` time.
+
+- **The render gate's page pool is a dial now.** `--render-pages <n>` on the
+  CLI, `"render": { "pages": n }` in the config (which also ASKS for the gate,
+  the way `"render": true` does), `renderPages` on `checkFiles`. The default
+  stays 4, precedence stays CLI flag > config > default, and an unknown key or
+  a non-positive count inside the render object fails loudly like every other
+  config mistake.
+
+- **`checkNodes` stops rebuilding its constants per document.** The
+  known-library set (a key walk over ~1000 snapshot controls) is cached per
+  snapshot object, and the built-in-roots set, the framework-attribute set and
+  the relative-asset regex moved to module scope. `statementAt` in the
+  reconstructor binary-searches the offset-sorted statement list instead of
+  scanning it backwards. No verdict changes.
+
+- **`scrub( )` and `blankLiterals( )` share a small bounded memo.** The
+  comment scrub used to be recomputed about six times over the same source per
+  file (reconstructor, ABAP rules, chain layout, source readers, directives),
+  and `blankLiterals`' single-entry memo thrashed whenever two source views
+  interleaved - while pinning two whole source copies for the life of the
+  process. Both now keep their last four inputs in a recency-refreshing Map,
+  so the `ifBranchEnd`/`ifBlockEnd` loops hit deterministically. Signatures
+  and outputs are unchanged.
+
+- **`applyRules` compiles a rule's config once per run, not once per finding.**
+  Every finding used to recompile its rule's `exclude` regexes and re-spread
+  the path-form set; the compiled config is now memoized per (rules object,
+  rule id) and the form list is built once per file. No verdict changes - the
+  exclude-semantics tests now also pin that one rules object walked over many
+  files still decides per file.
+
 ## 0.6.1 - 2026-08-30
 
 - **A bound control in a FOREIGN namespace makes its children rows again.**
