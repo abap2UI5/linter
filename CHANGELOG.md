@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Config `extends` and `maxWarnings` (+ `--max-warnings`).** A config can
+  name another abap2ui5lint.jsonc/.json as its base: the extending file wins
+  per key, the two `rules` blocks merge per rule id, relative paths resolve
+  against the file that wrote them, chains follow and a cycle is refused
+  loudly. `maxWarnings` (ui5lint's flag as a config key, plus `--max-warnings`)
+  fails the run when the warning count exceeds it, whatever `failOn` says -
+  the way to fail on errors only while still capping the warning debt.
+
 - **`--format checkstyle` and `--format junit`.** The two XML shapes most CI
   systems ingest natively (Jenkins, GitLab, Azure DevOps test tabs) - thin
   renderers over the same problem walk every other formatter reads, properly

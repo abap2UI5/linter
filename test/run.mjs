@@ -1134,6 +1134,86 @@ section('config', async () => {
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
+// ------------------------------------------------------------ config (2) ----
+// `extends` (a base config another one builds on) and `maxWarnings`
+// (ui5lint's warning cap)
+section('config (2)', async () => {
+    const cp = await import('node:child_process');
+    const { loadConfig } = await import('../lib/config.mjs');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const dir = tempDir('a2ui5-ext-');
+
+    // --- extends: base + child, child wins per key, rules merge per id -------
+    fs.mkdirSync(path.join(dir, 'shared'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'shared', 'base.jsonc'), JSON.stringify({
+      ui5: '1.96', failOn: 'hint', paths: ['src'], baseline: 'base-baseline.json',
+      rules: { 'missing-accessibility': false, 'member-deprecated': 'hint' },
+    }));
+    fs.writeFileSync(path.join(dir, 'child.jsonc'), JSON.stringify({
+      extends: './shared/base.jsonc', failOn: 'error',
+      rules: { 'member-deprecated': 'warning' },
+    }));
+    const merged = loadConfig(path.join(dir, 'child.jsonc'));
+    assert(merged.minUi5 === '1.96', 'extends: a key only the base sets survives');
+    assert(merged.failOn === 'error', 'extends: the extending file wins per key');
+    assert(merged.rules['missing-accessibility'] === false && merged.rules['member-deprecated'] === 'warning',
+      'extends: the rules blocks merge per rule id, the child entry winning');
+    assert(merged.extends === undefined, 'extends: the pointer itself does not survive the merge');
+    // the base's path-carrying keys stay anchored at the BASE file
+    assert(merged.paths[0] === path.join(dir, 'shared', 'src'),
+      `extends: the base's relative paths resolve against the base file (got ${merged.paths[0]})`);
+    assert(merged.baseline === path.join(dir, 'shared', 'base-baseline.json'),
+      'extends: the base\'s baseline resolves against the base file too');
+
+    // a chain follows; a cycle refuses instead of recursing forever
+    fs.writeFileSync(path.join(dir, 'grand.jsonc'), JSON.stringify({ extends: './child.jsonc', ui5: '1.120' }));
+    assert(loadConfig(path.join(dir, 'grand.jsonc')).minUi5 === '1.120'
+      && loadConfig(path.join(dir, 'grand.jsonc')).failOn === 'error',
+    'extends: a chain of three merges near-to-far');
+    fs.writeFileSync(path.join(dir, 'a.jsonc'), '{"extends": "./b.jsonc"}');
+    fs.writeFileSync(path.join(dir, 'b.jsonc'), '{"extends": "./a.jsonc"}');
+    let cycle = '';
+    try { loadConfig(path.join(dir, 'a.jsonc')); } catch (e) { cycle = e.message; }
+    assert(/'extends' cycle/.test(cycle), `extends: a cycle is refused loudly (${cycle})`);
+    fs.writeFileSync(path.join(dir, 'selfie.jsonc'), '{"extends": "./selfie.jsonc"}');
+    try { loadConfig(path.join(dir, 'selfie.jsonc')); cycle = ''; } catch (e) { cycle = e.message; }
+    assert(/'extends' cycle/.test(cycle), 'extends: a self-extend is the shortest cycle');
+    fs.writeFileSync(path.join(dir, 'dangling.jsonc'), '{"extends": "./nowhere.jsonc"}');
+    let missing = '';
+    try { loadConfig(path.join(dir, 'dangling.jsonc')); } catch (e) { missing = e.message; }
+    assert(/no such file/.test(missing), 'extends: a missing base fails with the config loader\'s own message');
+    fs.writeFileSync(path.join(dir, 'extbad.jsonc'), '{"extends": 42}');
+    let bad = '';
+    try { loadConfig(path.join(dir, 'extbad.jsonc')); } catch (e) { bad = e.message; }
+    assert(/'extends' must be a path/.test(bad), 'extends: a non-string is refused');
+
+    // --- maxWarnings ----------------------------------------------------------
+    fs.writeFileSync(path.join(dir, 'mw.jsonc'), '{"maxWarnings": 3}');
+    assert(loadConfig(path.join(dir, 'mw.jsonc')).maxWarnings === 3, 'maxWarnings: survives loading');
+    for (const bad2 of ['{"maxWarnings": -1}', '{"maxWarnings": 1.5}', '{"maxWarnings": "3"}']) {
+      fs.writeFileSync(path.join(dir, 'mwbad.jsonc'), bad2);
+      let msg = '';
+      try { loadConfig(path.join(dir, 'mwbad.jsonc')); } catch (e) { msg = e.message; }
+      assert(/'maxWarnings' must be a non-negative integer/.test(msg),
+        `maxWarnings: ${bad2} is refused`);
+    }
+
+    // the flag: post171 yields 2 warnings and 0 errors, so --fail-on error
+    // passes until the cap says otherwise
+    const env = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
+    const run = (args) => {
+      try { cp.execFileSync('node', [CLI, ...args], { encoding: 'utf8', stdio: 'pipe', env }); return 0; }
+      catch (e) { return e.status; }
+    };
+    const P = [f('post171.clas.abap'), '--no-render', '--no-config', '--fail-on', 'error'];
+    assert(run(P) === 0, 'maxWarnings: without the cap, warnings do not fail a --fail-on error run');
+    assert(run([...P, '--max-warnings', '2']) === 0, 'maxWarnings: at the cap the run still passes');
+    assert(run([...P, '--max-warnings', '1']) === 1, 'maxWarnings: one over the cap fails the run');
+    assert(run([...P, '--max-warnings', 'lots']) === 2, 'maxWarnings: a non-integer value is bad usage');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // ----------------------------------------------------------------- cache ----
 // the opt-in cross-run result cache (--cache): a hit skips both gates and
 // replays the stored findings; anything relevant moving is a miss

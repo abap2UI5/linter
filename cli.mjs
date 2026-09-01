@@ -32,6 +32,10 @@
  *   --fail-on <level>  lowest severity that fails the build: error, warning
  *                      (default), hint, or never. Every finding is always
  *                      reported - this only decides the exit code.
+ *   --max-warnings <n> more than n warnings fail the run, whatever --fail-on
+ *                      says (ui5lint's flag) - the way to keep failing on
+ *                      errors only while still capping the warning debt.
+ *                      Also settable as "maxWarnings" in the config
  *   --format <f>       stylish (default), json, markdown, sarif, checkstyle
  *                      or junit. --json is a shorthand for --format json.
  *                      sarif is the shape github/codeql-action/upload-sarif
@@ -169,7 +173,7 @@ import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkd
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
-  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--format stylish|json|markdown|sarif|checkstyle|junit] '
+  + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
@@ -373,6 +377,12 @@ for (let i = 0; i < args.length; i++) {
     if (![...SEVERITIES, 'never'].includes(level)) die(`--fail-on takes ${SEVERITIES.join(', ')} or never (got '${level}')`);
     opt.failOn = level;
     seen.add('failOn');
+  }
+  else if (a === '--max-warnings') {
+    const n = Number(value());
+    if (!Number.isInteger(n) || n < 0) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
+    opt.maxWarnings = n;
+    seen.add('maxWarnings');
   }
   else if (a === '--sarif-out') opt.sarifOut = value();
   else if (a === '--json-out') opt.jsonOut = value();
@@ -818,4 +828,13 @@ if (opt.annotate && opt.format === 'stylish') {
   for (const line of githubAnnotations(results, opt)) console.log(line);
 }
 
-if (summary.failing > 0 || baselineStale.length > 0) process.exit(1);
+/* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
+ * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
+ * while still holding the line on warning debt. Said on stderr, so a piped
+ * machine format stays parseable. */
+const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
+if (overWarningCap) {
+  console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+}
+
+if (summary.failing > 0 || baselineStale.length > 0 || overWarningCap) process.exit(1);

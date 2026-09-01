@@ -57,6 +57,10 @@ export function buildSchema() {
     additionalProperties: false,
     properties: {
       $schema: { type: 'string', description: 'URL of this schema — editor completion only' },
+      extends: {
+        type: 'string',
+        description: 'Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+      },
       paths: {
         type: 'array',
         items: { type: 'string' },
@@ -105,6 +109,11 @@ export function buildSchema() {
       failOn: {
         enum: [...SEVERITIES, 'never'],
         description: 'Lowest severity that fails the build. Everything is always reported — this only decides the exit code.',
+      },
+      maxWarnings: {
+        type: 'integer',
+        minimum: 0,
+        description: 'More warnings than this fail the run, whatever failOn says (same as --max-warnings). The way to fail on errors only while still capping the warning debt.',
       },
       baseline: {
         type: 'string',
