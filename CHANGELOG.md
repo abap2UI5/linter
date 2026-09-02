@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Every rule documents a before/after pair, and every report links at it.**
+  `RULE_DOCS` gains `remedy` — the same source as `example`, fixed — for all
+  120 rules, gated like `example` is (missing one fails `npm test`, and so
+  does one identical to its example). It is a split as much as an addition:
+  around a third of the examples used to carry the fix as a trailing line of
+  their own snippet, so `example` was not "the source that triggers it" and a
+  reader could not tell which of the two lines was the reported one. The rules
+  page renders the pair as two labelled blocks under its own `#<rule>-example`
+  anchor, and each card now says which module in `lib/` decides the finding,
+  linked at the line (scanned at generation time, so the existing staleness
+  gate keeps it honest). Reports carry the addresses instead of only the id:
+  the stylish output ends in a reference block listing each rule it reported,
+  the markdown job summary links the rule cell and adds a **Rules reported**
+  table with a link to the card and one to the pair, and a GitHub annotation
+  ends in the rule id and its deep link — the annotation renders no rule id of
+  its own, so a reader had the message and no way on from it. New exports:
+  `ruleUrl( )`, `ruleExampleUrl( )`, `RULES_PAGE` (`./rule-docs`) and
+  `rulesReported( )` (`./report`); the SARIF `helpUri` now comes from the same
+  helper it used to restate.
+
 - **Three structural rules from abap-check: `empty-catch-block`,
   `boolc-instead-of-xsdbool`, `delete-index-in-loop`.** An empty CATCH wants
   `##NO_HANDLER` (a **hint**, like `redundant-conv-i` - the code is correct,

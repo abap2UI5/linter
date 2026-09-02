@@ -25,6 +25,42 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PAGE_FILE = path.join(ROOT, 'site', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
 
+/*
+ * Where each rule is DEFINED, so a card can link at the code and not only at
+ * the prose. Scanned rather than listed: a hand-kept table is a third list to
+ * keep in step (AGENTS.md's "a new rule moves four places together" is already
+ * three), and it would go stale silently. The emit site is the line that
+ * builds the finding — `type: '<id>'` — and the fallback is the registry in
+ * findings.mjs, which every rule is in by definition, including the render
+ * gate's pseudo-rule that no check emits.
+ *
+ * The line numbers ride into the generated page, so a module that shifts its
+ * lines makes `--check` fail until the page is regenerated. That is the drift
+ * gate doing its job, not noise: the link is only worth having while it lands
+ * on the right line.
+ */
+const LIB = path.join(ROOT, 'lib');
+function emitSites() {
+  const found = new Map();
+  const files = fs.readdirSync(LIB).filter((f) => f.endsWith('.mjs')).sort();
+  for (const pass of ['emit', 'mention']) {
+    for (const file of files) {
+      if (pass === 'emit' && file === 'findings.mjs') continue; // the registry is the fallback
+      const lines = fs.readFileSync(path.join(LIB, file), 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        for (const id of PAGE_RULES) {
+          if (found.has(id)) continue;
+          const hit = pass === 'emit'
+            ? lines[i].includes(`type: '${id}'`)
+            : lines[i].includes(`'${id}'`);
+          if (hit) found.set(id, { file, line: i + 1 });
+        }
+      }
+    }
+  }
+  return found;
+}
+
 /* The page is served from main while every consumer pins a version, so a
  * reader had no way to tell which release it describes - a rule card for a
  * rule their pinned CLI does not have reads exactly like a rule card for one
@@ -99,7 +135,19 @@ article.rule > h3 a:hover { text-decoration: underline; }
 article.rule p { margin: .35rem 0; }
 article.rule p.summary { font-weight: 500; }
 article.rule p.detail, article.rule p.fixnote { color: var(--muted); font-size: .94rem; }
-article.rule pre { margin: .6rem 0 0; font-size: .86rem; }
+article.rule pre { margin: 0; font-size: .86rem; }
+/* the before/after pair - side by side where there is room, stacked below,
+   because an ABAP chain does not survive a 30-column column */
+.ba { display: grid; gap: .6rem; margin: .6rem 0 0; grid-template-columns: 1fr; }
+@media (min-width: 56rem) { .ba { grid-template-columns: 1fr 1fr; } }
+.ba figure { margin: 0; min-width: 0; }
+.ba figcaption { font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; margin: 0 0 .25rem; }
+.ba .before figcaption { color: var(--error); }
+.ba .after figcaption { color: var(--fix); }
+.ba .before pre { box-shadow: inset 3px 0 0 var(--error); }
+.ba .after pre { box-shadow: inset 3px 0 0 var(--fix); }
+article.rule p.src { margin: .55rem 0 0; font-size: .82rem; color: var(--muted); }
 .empty { color: var(--muted); font-style: italic; display: none; }
 footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
   color: var(--muted); font-size: .88rem; }
@@ -125,11 +173,12 @@ addEventListener('hashchange', () => { input.value = ''; apply(); });
 apply();
 `;
 
-function ruleCard(id) {
+function ruleCard(id, sites) {
   const doc = RULE_DOCS[id];
   const severity = defaultSeverityOf(id);
   const fixable = FIXABLE.includes(id);
   const search = [id, doc.summary, doc.detail, severity].join(' ').toLowerCase().replace(/[`*]/g, '');
+  const site = sites.get(id);
   return [
     `      <article class="rule" id="${id}" data-search="${esc(search)}">`,
     `        <h3><a href="#${id}">${id}</a>`,
@@ -139,20 +188,29 @@ function ruleCard(id) {
     `        <p class="summary">${inline(doc.summary)}</p>`,
     `        <p class="detail">${inline(doc.detail)}</p>`,
     doc.fixNote ? `        <p class="fixnote"><strong>--fix:</strong> ${inline(doc.fixNote)}</p>` : null,
-    doc.example ? `        <pre><code>${esc(doc.example)}</code></pre>` : null,
+    /* The anchor sits on the PAIR, not on the card: a report links a reader
+     * straight at the two snippets, which is the half they act on. */
+    `        <div class="ba" id="${id}-example">`,
+    '          <figure class="before"><figcaption>reported</figcaption>',
+    `            <pre><code>${esc(doc.example)}</code></pre></figure>`,
+    '          <figure class="after"><figcaption>fixed</figcaption>',
+    `            <pre><code>${esc(doc.remedy)}</code></pre></figure>`,
+    '        </div>',
+    site ? `        <p class="src">Defined in <a href="${REPO}/blob/main/lib/${site.file}#L${site.line}"><code>lib/${site.file}</code></a></p>` : null,
     '      </article>',
   ].filter(Boolean).join('\n');
 }
 
 export function buildPage() {
   const counts = Object.fromEntries(SEVERITIES.map((s) => [s, PAGE_RULES.filter((r) => defaultSeverityOf(r) === s).length]));
+  const sites = emitSites();
   const sections = CATEGORIES.map((cat) => {
     const ids = PAGE_RULES.filter((id) => RULE_DOCS[id].category === cat.id);
     return [
       `    <section class="cat" id="cat-${cat.id}">`,
       `      <h2>${esc(cat.title)}</h2>`,
       `      <p class="blurb">${inline(cat.blurb)}</p>`,
-      ...ids.map(ruleCard),
+      ...ids.map((id) => ruleCard(id, sites)),
       '    </section>',
     ].join('\n');
   }).join('\n');

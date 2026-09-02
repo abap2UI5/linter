@@ -114,9 +114,13 @@ exact line):
 1. the emit site in `lib/`,
 2. its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what
    registers it as a rule id,
-3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail;
-   published as the `./rule-docs` export, so this prose is also what an agent
-   reads through mcp-server's `validate_view` instead of being sent to a website,
+3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail,
+   and the `example`/`remedy` **pair**: the shortest source that triggers the
+   rule, and the same source fixed. Both are gated; a remedy equal to its
+   example fails too. Published as the `./rule-docs` export, so this prose is
+   also what an agent reads through mcp-server's `validate_view` instead of
+   being sent to a website — and what every report links at, `ruleUrl( )` for
+   the card and `ruleExampleUrl( )` for the pair,
 4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`.
 
 There used to be a fifth: a row in the README's finding-type table. The README
