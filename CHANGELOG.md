@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+- **Every finding links its rule.** `annotate( )` sets `url` on every finding
+  — the rule's card on the rules page — so it is in `--format json` and on
+  every object a consumer gets; the stylish line carries it after the rule
+  id (`line:col severity message rule-id url`), because the reference block
+  at the end of the run is too far from the line in a log of any length.
+  Markdown, SARIF, checkstyle and JUnit already linked it and are unchanged.
+
+- **The rules page opens the reported code in the playground.** Every card
+  whose reported snippet the linter reproduces inside a class carries a link
+  that opens that class at abap2ui5.github.io/playground — the snippet in a
+  frame (`playgroundSource( )` in `scripts/generate-rules-page.mjs`: a chain
+  fragment under a namespaced View root in a displayed `main( )`, a method
+  in a class, a section in a class), in the playground's share-link format,
+  written at generation time so the page stays self-contained. The frame is
+  guessed, so every link is verified before it is written: the wrapped
+  source goes through the linter and only a card whose own rule fires on it
+  gets the link — 103 of 124 today; the rest are data-shaped or file-level
+  (a BOM, CRLF, a 255-character line) that no class frame can carry. `npm
+  test` decodes every fragment and holds the count above 100.
+
+- **Five new rules, from the flow of a method and from the one comparison
+  `get_event( )` makes.** Three read the statement sequence a call sits in
+  (`branchTail( )` in `abap-source.mjs` — what runs whenever the call runs,
+  nested blocks blanked): `unconditional-popup-display` (a `popup_display( )`
+  at the top level of `main( )`, behind no guard — the frontend loads and
+  opens the fragment anew on every call, so every roundtrip rebuilds the
+  dialog; a **warning**), `display-after-nav-app-call` (a display behind the
+  hand-over, usually a missing RETURN; a hint) and `double-display-in-branch`
+  (the same slot twice in one sequence, the first dead; a hint).
+  `popup-without-close-wire` reports a `Dialog` built in a method that wires
+  no event at all (a hint, per method). `event-name-case-mismatch` is the rule
+  `event-without-handler` was deliberately blind to: a raise spelled `save`
+  against a handler reading `SAVE` — the runtime compares letter for letter,
+  so the handler never runs; a **warning**, with a `--fix` that writes the
+  handler's spelling into the raise.
+
+- **Did you mean.** Eight closed-set rules name the one candidate a written
+  name can only have meant — the same name up to letter case and `-`/`_` —
+  and carry a `--fix` that writes it: `unknown-control`, `unknown-property`,
+  `unknown-aggregation`, `invalid-property-value`, `unknown-event-parameter`,
+  `unknown-icon`, `frontend-action-unknown-id`, `popover-anchor-unknown-id`.
+  The control/aggregation pair suggests across the line UI5 XML draws with
+  the first letter (`Content` → `content`, `page` → `Page`). No edit distance,
+  on purpose: `Buttom` gets no suggestion, because `Button` would be a guess
+  and `Test` for `Text` a wrong one. `lib/suggest.mjs` holds the one
+  function; `attachSuggestionFixes( )` in `findings.mjs` finds the span for
+  the view-side five (ABAP and raw XML alike), the others compute it where
+  they report. 34 rules carry a fix now.
+
+- **`class-constructor-visibility` reads the chained form.** `CLASS-METHODS:
+  other, class_constructor.` declares it just the same and was never
+  reported; it is now, at the name, without a fix (the line is shared).
+
+- **Seven more rules carry a `--fix`** — 25 of the rule set now do, up from 18.
+  Each one is a correction with nothing to decide: `redundant-init-display`
+  drops the `check_on_init( )` call from the OR, or the whole init arm of the
+  fork; `binding-to-reference` inserts the `->*` (for `TYPE REF TO data` only,
+  because `->*` on an object reference does not compile); `unescaped-brace-in-style`
+  escapes every brace of the stylesheet where all of them sit in backtick
+  literals; `collapsed-brace-in-style` doubles the backslash inside the
+  template, across every segment of the sheet in one pass; `class-constructor-visibility`
+  moves the declaration line under `PUBLIC SECTION.` of the same class;
+  `escape-sequence-in-backtick` splits the literal into the `\`left\` && |\\n| &&
+  \`right\`` chain its own message recommends; `json-bind-on-scalar-property`
+  deletes the `json = abap_true` argument. Every one declines the shape where
+  a fix would be a guess — a comment inside the span, a chained `CLASS-METHODS:`,
+  a brace inside a template — and says so on the rules page (`fixNote`).
+  Findings and severities are unchanged; `--fix` simply settles more of them.
+  Considered and left without one: `boolc-instead-of-xsdbool` (the two are not
+  aliases — a blank false against an initial one), `separate-lifecycle-ifs`
+  (`IF init … ENDIF. IF navigated …` may rely on BOTH running on the first
+  start, so an ELSEIF would blank the app), `empty-catch-block` (the pragma
+  asserts an intent the linter cannot know) and `commercial-ui5-host` (a
+  `/resources/` path may not exist on the open host).
+
 - **`frozen-view-builder` says it in a friendlier, shorter way.** The message
   led with `DEPRECATED` and `NOTHING about the view was checked`, and read like
   a class on `z2ui5_cl_xml_view` was a defect on the way to breaking. It is

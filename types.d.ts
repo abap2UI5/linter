@@ -303,6 +303,8 @@ declare module "@abap2ui5/linter/properties" {
 
   export interface PropertyFinding {
     type: string;
+    /** The rule's card on the rules page — set by annotate( ) on every finding. */
+    url?: string;
     control?: string;
     member?: string;
     since?: string;
@@ -675,6 +677,31 @@ declare module "@abap2ui5/linter/findings" {
   /** Attaches the undeclared-namespace fix for conventional prefixes - the
    *  same fixes the CLI attaches, for gates that replicate the pipeline. */
   export function attachNamespaceFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
+  /** Attaches the json-bind-on-scalar-property fix - the `json = abap_true`
+   *  argument deleted from the reported attribute's `_bind( )`. Judged on the
+   *  reconstructed view, so the source span is found here. */
+  export function attachJsonBindFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
+  /** Attaches the did-you-mean fix a finding carries as `written`/
+   *  `suggestion` but no span for (the view-side rules): the written name is
+   *  found from the finding's offset on and rewritten. `xml: true` searches
+   *  the raw text instead of the comment-scrubbed ABAP. */
+  export function attachSuggestionFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string,
+    options?: { xml?: boolean }
+  ): T[];
+
+  /** Every fix the pipeline attaches after the rules ran, in one call - what
+   *  a gate replicating the pipeline should call. */
+  export function attachSourceFixes<T extends PropertyFinding>(
     findings: T[],
     source: string
   ): T[];

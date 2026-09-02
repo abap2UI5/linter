@@ -20,10 +20,245 @@ import { fileURLToPath } from 'url';
 import { RULES, SEVERITIES, RENDER_RULE, defaultSeverityOf } from '../lib/findings.mjs';
 import { RULE_DOCS, CATEGORIES } from '../lib/rule-docs.mjs';
 import { FIXABLE } from '../lib/fix.mjs';
+import zlib from 'zlib';
+import { checkAbapSource } from '../lib/index.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PAGE_FILE = path.join(ROOT, 'site', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
+export const PLAYGROUND = 'https://abap2ui5.github.io/playground/';
+
+/*
+ * The jump from a card into the playground: the reported snippet, wrapped
+ * into the smallest class that carries it, in the playground's share link.
+ *
+ * The share format is the playground's (`src/shell/share.mjs` there): one
+ * version character, then base64url of the deflate-raw JSON `[{ name, source }]`.
+ * Written here at generation time rather than through the embed kit at page
+ * time, because this page is deliberately self-contained — no script from
+ * anywhere. The format is a contract the playground keeps for every link ever
+ * shared; a link it cannot read falls back to its sample, silently.
+ *
+ * A snippet is not a class. `example` is the shortest source that triggers
+ * the rule, so a chain fragment, a method, a section each need a different
+ * frame around them — and the frame is GUESSED, which is why every link is
+ * verified before it is written: the wrapped source goes through the linter,
+ * and only a card whose own rule fires on it gets the link. A card without
+ * one is a snippet the frame could not carry, not a rule without an example.
+ */
+const DEFAULT_CLASS = 'zcl_rule';
+
+/** The first `"` that starts a comment on a line — outside literals. */
+function commentStart(line) {
+  let lit = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (lit) {
+      if (lit === '|' && c === '\\') i++;
+      else if (c === lit) lit = null;
+      continue;
+    }
+    if (c === '`' || c === '|' || c === "'") lit = c;
+    else if (c === '"') return i;
+  }
+  return -1;
+}
+const codeOf = (line) => {
+  const at = commentStart(line);
+  return (at === -1 ? line : line.slice(0, at)).trimEnd();
+};
+
+/* The root every wrapped chain hangs from — a View with the namespaces the
+ * examples write (`c` is sap.ui.commons, so deprecated-library has a library
+ * to deprecate; `smart` is what sapui5-only-control needs). Only added where
+ * the snippet does not open a root of its own. */
+const ROOT_CHAIN = [
+  'view->ele( n = `View` ns = `mvc`',
+  '    )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`',
+  '    )->a( n = `xmlns:core` v = `sap.ui.core` )->a( n = `xmlns:l` v = `sap.ui.layout`',
+  '    )->a( n = `xmlns:f` v = `sap.f` )->a( n = `xmlns:uxap` v = `sap.uxap` )->a( n = `xmlns:table` v = `sap.ui.table`',
+  '    )->a( n = `xmlns:card` v = `sap.ui.integration.widgets` )->a( n = `xmlns:c` v = `sap.ui.commons`',
+  '    )->a( n = `xmlns:smart` v = `sap.ui.comp.smarttable` )->a( n = `xmlns:html` v = `http://www.w3.org/1999/xhtml` ).',
+];
+const FACTORY = 'DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).';
+const DISPLAY = 'client->view_display( view->stringify( ) ).';
+const opensRoot = (text) => /ns\s*=\s*`mvc`|`xmlns`/.test(text);
+
+/* The control a bare `a( n = \`x\` … )` fragment hangs from: one that HAS
+ * the attribute, so the card's rule is what fires and not unknown-property. */
+const HOST_BY_ATTR = {
+  search: 'SearchField', items: 'List', value: 'Input', liveChange: 'Input', change: 'Input',
+  text: 'Text', title: 'Page', src: 'Image', state: 'ObjectStatus', press: 'Button',
+  icon: 'Button', enabled: 'Button', visible: 'Button', id: 'Button', tooltip: 'Text',
+  expanded: 'Panel', dateValue: 'DatePicker', percentValue: 'ProgressIndicator',
+  headerText: 'Table', selectedSection: 'ObjectPageLayout', manifest: 'Card', showSideContent: 'DynamicSideContent',
+};
+const hostOf = (line) => {
+  const attr = line.match(/n\s*=\s*`([^`]+)`/)?.[1];
+  const host = HOST_BY_ATTR[attr] || 'Input';
+  if (host === 'ObjectPageLayout') return 'n = `ObjectPageLayout` ns = `uxap`';
+  if (host === 'Card') return 'n = `Card` ns = `card`';
+  return `\`${host}\``;
+};
+/* statement heads that start a new statement even where the previous chain
+ * line was left open - the previous statement gets its dot first */
+const STATEMENT_HEAD = /^(?:t_arg\s*=|client->|follow_up_action\s*\(|DATA\b|INSERT\b|CASE\b|IF\b|LOOP\b|SELECT\b|TRY\b|VALUE\b)/;
+const closeLast = (body) => {
+  for (let i = body.length - 1; i >= 0; i--) {
+    const code = codeOf(body[i]);
+    if (code === '') continue;
+    if (!code.endsWith('.')) {
+      const at = commentStart(body[i]);
+      body[i] = at === -1 ? `${body[i].trimEnd()}.` : `${body[i].slice(0, at).trimEnd()}.${body[i].slice(at - 1)}`;
+    }
+    break;
+  }
+};
+
+/** The `" …` lines of an example are elided CONTEXT, not prose: what the
+ *  snippet leaves out because the card is about the other line. Uncommented
+ *  here — with the comment lines continuing them — so the class carries it. */
+const CODE_SHAPED = /^(?:\)->|[a-z_]\w*\s*->|[A-Z][A-Z_-]+\b|a\(|t_arg\b)/;
+function unelide(lines) {
+  const out = [];
+  let inside = false;
+  for (const l of lines) {
+    const m = l.match(/^(\s*)"\s*…\s*(.*)$/);
+    if (m && CODE_SHAPED.test(m[2])) { out.push(`${m[1]}${m[2]}`); inside = true; continue; }
+    const cont = inside && l.match(/^(\s*)"\s{2,}(\S.*)$/);
+    if (cont) { out.push(`${cont[1]}${cont[2]}`); continue; }
+    inside = false;
+    out.push(l);
+  }
+  return out;
+}
+
+/** The example wrapped into a class, and the file name the playground gives it. */
+export function playgroundSource(id) {
+  const doc = RULE_DOCS[id];
+  const lines = unelide(doc.example.split('\n').filter((l) => l.trim() !== '…'));
+  const text = lines.join('\n');
+  const named = text.match(/\bCLASS\s+(\w+)\s+DEFINITION\b/i);
+  if (named) {
+    return { name: `${named[1].toLowerCase()}.clas.abap`, source: text.endsWith('\n') ? text : `${text}\n` };
+  }
+  const hasMethod = /^\s*METHOD\b/im.test(text);
+  const hasSection = /^\s*(?:PUBLIC|PROTECTED|PRIVATE)\s+SECTION\s*\./im.test(text);
+  const head = ['    INTERFACES z2ui5_if_app.', '    DATA client TYPE REF TO z2ui5_if_client.'];
+  const definition = [];
+  const implementation = [];
+  /* a main( ) of this frame's own: the root, the snippet's statements, the
+   * display — so the class is a view class whichever rule the card is about */
+  const ownMain = (statements, { displayFirst = false } = {}) => [
+    '  METHOD z2ui5_if_app~main.',
+    '    me->client = client.',
+    ...(/DATA\(view\)/.test(statements.join('\n')) ? [] : [`    ${FACTORY}`]),
+    ...(opensRoot(statements.join('\n')) ? [] : ROOT_CHAIN.map((l) => `    ${l}`)),
+    ...(displayFirst ? [`    ${DISPLAY}`] : []),
+    ...statements.map((l) => (l === '' ? '' : `    ${l}`)),
+    ...(displayFirst ? [] : [`    ${DISPLAY}`]),
+    '  ENDMETHOD.',
+  ];
+
+  if (hasMethod || hasSection) {
+    const sectionLines = hasSection ? lines.filter((l) => !/^\s*(?:METHOD|ENDMETHOD)\b/i.test(l)) : [];
+    const methods = [...text.matchAll(/^\s*METHOD\s+([\w~]+)\s*\./gim)].map((m) => m[1]).filter((m) => !m.includes('~'));
+    const decls = [...methods.map((m) => `    METHODS ${m}.`)];
+    if (hasSection && /^\s*PUBLIC\s+SECTION\s*\./im.test(text)) {
+      for (const l of sectionLines) {
+        definition.push(l === '' ? '' : `  ${l}`);
+        if (/^\s*PUBLIC\s+SECTION\s*\./i.test(l)) definition.push(...head, ...decls);
+      }
+    } else {
+      definition.push('  PUBLIC SECTION.', ...head, ...decls);
+      if (hasSection) definition.push(...sectionLines.map((l) => (l === '' ? '' : `  ${l}`)));
+    }
+    if (hasMethod) {
+      if (/^\s*METHOD\b/i.test(lines[0])) {
+        // whole methods, as they are - given the factory where a method
+        // writes `view->` without ever creating one
+        for (const l of lines) {
+          implementation.push(l === '' ? '' : `  ${l}`);
+          if (/^\s*METHOD\b/i.test(l) && !/=>factory\(/.test(text) && !implementation.some((x) => x.includes(FACTORY))) {
+            implementation.push(`    ${FACTORY}`, ...ROOT_CHAIN.map((r) => `    ${r}`));
+          }
+        }
+        if (!/z2ui5_if_app~main/i.test(text)) implementation.push('', ...ownMain([]));
+      } else {
+        // a method BODY (a branch of the dispatcher) becomes main( )'s body,
+        // displayed BEFORE it so a branch that never displays stays one
+        const branch = /^\s*ELSEIF\b/i.test(lines[0])
+          ? ['IF client->check_on_init( ).', `  ${DISPLAY}`, ...lines, 'ENDIF.'] : lines;
+        implementation.push(...ownMain(branch, { displayFirst: true }));
+      }
+    } else {
+      // sections only: the finding is in the declarations; the unelided
+      // chain lines, if any, hang from the frame's own root
+      const chain = lines.filter((l) => /^\s*\)->/.test(l));
+      implementation.push(...ownMain(chain));
+    }
+  } else {
+    /* statements: a chain fragment gets the call it hangs from, a bare
+     * `t_arg` its action, a declaration goes up into the PUBLIC SECTION so
+     * the bindings that read it find an attribute rather than a local */
+    const body = [];
+    const attrs = [];
+    let start = true; // at a statement start
+    for (const raw of lines) {
+      let line = raw;
+      const code = codeOf(line);
+      if (!start && STATEMENT_HEAD.test(code)) { closeLast(body); start = true; }
+      if (start && /^DATA\s+\w+\s+TYPE\b/i.test(code)) { attrs.push(`    ${line.trim()}`); start = code.endsWith('.'); continue; }
+      if (start) {
+        if (/^a\(/.test(code)) line = `view->tag( ${hostOf(code)} )->${line}`;
+        else if (/^\)->a\(/.test(code)) body.push(`view->tag( ${hostOf(code)}`);
+        else if (/^\)->/.test(code)) body.push('view->ele( `Page`');
+        else if (/^view->ele\( `[a-z]/.test(code)) body.push('view->ele( `Page` ).');
+        else if (/^t_arg\s*=/.test(code)) line = `client->follow_up_action( val = client->cs_event-control_by_id\n    ${line} )`;
+        else if (/^follow_up_action\s*\(/.test(code)) line = `client->${line}`;
+      }
+      body.push(line);
+      start = code.endsWith('.') || code === '';
+    }
+    closeLast(body);
+    definition.push('  PUBLIC SECTION.', ...head, ...attrs);
+    implementation.push(...ownMain(body));
+  }
+  const source = [
+    `CLASS ${DEFAULT_CLASS} DEFINITION PUBLIC FINAL CREATE PUBLIC.`,
+    ...definition,
+    'ENDCLASS.',
+    '',
+    `CLASS ${DEFAULT_CLASS} IMPLEMENTATION.`,
+    ...implementation,
+    'ENDCLASS.',
+    '',
+  ].join('\n');
+  return { name: `${DEFAULT_CLASS}.clas.abap`, source };
+}
+
+/** The playground URL carrying `files` — the share-link format, version 2. */
+export function playgroundUrl(files) {
+  const payload = Buffer.from(JSON.stringify(files.map(({ name, source }) => ({ name, source }))));
+  const deflated = zlib.deflateRawSync(payload);
+  return `${PLAYGROUND}#2${deflated.toString('base64url')}`;
+}
+
+/** rule id -> playground URL, for every card whose wrapped example the
+ *  linter itself reports under that id. Computed once per build. */
+export function playgroundLinks() {
+  const links = new Map();
+  for (const id of PAGE_RULES) {
+    if (id === RENDER_RULE) continue; // needs the render gate, which no share link runs
+    const file = playgroundSource(id);
+    let fires = false;
+    try {
+      fires = checkAbapSource(file.source, { render: false, file: file.name }).findings.some((f) => f.type === id);
+    } catch { fires = false; }
+    if (fires) links.set(id, playgroundUrl([file]));
+  }
+  return links;
+}
 
 /*
  * Where each rule is DEFINED, so a card can link at the code and not only at
@@ -136,10 +371,10 @@ article.rule p { margin: .35rem 0; }
 article.rule p.summary { font-weight: 500; }
 article.rule p.detail, article.rule p.fixnote { color: var(--muted); font-size: .94rem; }
 article.rule pre { margin: 0; font-size: .86rem; }
-/* the before/after pair - side by side where there is room, stacked below,
-   because an ABAP chain does not survive a 30-column column */
+/* the before/after pair - always stacked, reported above fixed: side by side
+   the reader's eye has to jump across the page to find the one token that
+   changed, and an ABAP chain does not survive a half-width column either */
 .ba { display: grid; gap: .6rem; margin: .6rem 0 0; grid-template-columns: 1fr; }
-@media (min-width: 56rem) { .ba { grid-template-columns: 1fr 1fr; } }
 .ba figure { margin: 0; min-width: 0; }
 .ba figcaption { font-size: .72rem; font-weight: 600; letter-spacing: .04em;
   text-transform: uppercase; margin: 0 0 .25rem; }
@@ -148,6 +383,8 @@ article.rule pre { margin: 0; font-size: .86rem; }
 .ba .before pre { box-shadow: inset 3px 0 0 var(--error); }
 .ba .after pre { box-shadow: inset 3px 0 0 var(--fix); }
 article.rule p.src { margin: .55rem 0 0; font-size: .82rem; color: var(--muted); }
+article.rule p.try { margin: .55rem 0 0; font-size: .88rem; }
+article.rule p.try .muted { color: var(--muted); font-size: .82rem; }
 .empty { color: var(--muted); font-style: italic; display: none; }
 footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
   color: var(--muted); font-size: .88rem; }
@@ -173,8 +410,9 @@ addEventListener('hashchange', () => { input.value = ''; apply(); });
 apply();
 `;
 
-function ruleCard(id, sites) {
+function ruleCard(id, sites, links) {
   const doc = RULE_DOCS[id];
+  const play = links.get(id);
   const severity = defaultSeverityOf(id);
   const fixable = FIXABLE.includes(id);
   const search = [id, doc.summary, doc.detail, severity].join(' ').toLowerCase().replace(/[`*]/g, '');
@@ -196,6 +434,7 @@ function ruleCard(id, sites) {
     '          <figure class="after"><figcaption>fixed</figcaption>',
     `            <pre><code>${esc(doc.remedy)}</code></pre></figure>`,
     '        </div>',
+    play ? `        <p class="try"><a href="${play}" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>` : null,
     site ? `        <p class="src">Defined in <a href="${REPO}/blob/main/lib/${site.file}#L${site.line}"><code>lib/${site.file}</code></a></p>` : null,
     '      </article>',
   ].filter(Boolean).join('\n');
@@ -204,13 +443,14 @@ function ruleCard(id, sites) {
 export function buildPage() {
   const counts = Object.fromEntries(SEVERITIES.map((s) => [s, PAGE_RULES.filter((r) => defaultSeverityOf(r) === s).length]));
   const sites = emitSites();
+  const links = playgroundLinks();
   const sections = CATEGORIES.map((cat) => {
     const ids = PAGE_RULES.filter((id) => RULE_DOCS[id].category === cat.id);
     return [
       `    <section class="cat" id="cat-${cat.id}">`,
       `      <h2>${esc(cat.title)}</h2>`,
       `      <p class="blurb">${inline(cat.blurb)}</p>`,
-      ...ids.map((id) => ruleCard(id, sites)),
+      ...ids.map((id) => ruleCard(id, sites, links)),
       '    </section>',
     ].join('\n');
   }).join('\n');

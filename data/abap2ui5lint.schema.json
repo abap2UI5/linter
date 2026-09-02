@@ -120,7 +120,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 119 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 124 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -247,9 +247,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'deprecated-library' — default severity: warning"
         },
+        "display-after-nav-app-call": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'display-after-nav-app-call' — default severity: hint"
+        },
         "display-root-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'display-root-mismatch' — default severity: error"
+        },
+        "double-display-in-branch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'double-display-in-branch' — default severity: hint"
         },
         "duplicate-aggregation": {
           "$ref": "#/definitions/rule",
@@ -302,6 +310,10 @@
         "event-for-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'event-for-property' — default severity: error"
+        },
+        "event-name-case-mismatch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'event-name-case-mismatch' — default severity: warning"
         },
         "event-on-disabled-control": {
           "$ref": "#/definitions/rule",
@@ -467,6 +479,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'popover-display-val' — default severity: error"
         },
+        "popup-without-close-wire": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'popup-without-close-wire' — default severity: hint"
+        },
         "private-app-attribute": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'private-app-attribute' — default severity: warning"
@@ -530,6 +546,10 @@
         "ui5-internal-access": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'ui5-internal-access' — default severity: warning"
+        },
+        "unconditional-popup-display": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unconditional-popup-display' — default severity: warning"
         },
         "unconverted-abap-boolean": {
           "$ref": "#/definitions/rule",
