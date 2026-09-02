@@ -693,6 +693,8 @@ declare module "@abap2ui5/linter/rule-docs" {
     detail: string;
     /** Optional: the shortest source that triggers the rule. */
     example?: string;
+    /** Optional: the same source, fixed - the other half of `example`. */
+    remedy?: string;
     /** Optional: what `--fix` does to it, for a rule listed in FIXABLE. */
     fixNote?: string;
   }
@@ -702,6 +704,15 @@ declare module "@abap2ui5/linter/rule-docs" {
   export const RULE_DOCS: Record<string, RuleDoc>;
 
   export const CATEGORIES: { id: string; title: string; blurb: string }[];
+
+  /** The published rule reference the two helpers below address. */
+  export const RULES_PAGE: string;
+
+  /** The card for one rule: what it means, how severe it is, how to waive it. */
+  export function ruleUrl(id: string): string;
+
+  /** The before/after pair inside that card - what a report deep-links at. */
+  export function ruleExampleUrl(id: string): string;
 }
 
 declare module "@abap2ui5/linter/config" {
@@ -796,6 +807,13 @@ declare module "@abap2ui5/linter/report" {
 
   /** NO_COLOR / FORCE_COLOR are honoured before the TTY check. */
   export function colorEnabled(stream?: { isTTY?: boolean }): boolean;
+
+  /** The distinct rules a run reported, in the order a reader first meets
+   *  them - what every format's reference block is built from. */
+  export function rulesReported(
+    results: CheckResult[],
+    quiet?: boolean,
+  ): { rule: string; severity: Severity }[];
 
   export interface Problem {
     line?: number;

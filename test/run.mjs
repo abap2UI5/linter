@@ -4910,6 +4910,22 @@ section('rules page', async () => {
     assert(!exampleless.length,
       `rules page: every rule shows the source that triggers it (no example: ${exampleless.join(', ') || 'none'})`);
 
+    /* …and the SAME source fixed. Showing only the defect leaves the reader to
+     * invent the fix, and several examples used to smuggle one in as a trailing
+     * line of the same snippet - which cost `example` its meaning, because
+     * nothing said which of the two lines was the reported one. The pair is
+     * also what the reports deep-link at, so a rule without a remedy is a
+     * report link that lands on half an answer. */
+    const remedyless = Object.entries(RULE_DOCS).filter(([, d]) => !d.remedy).map(([id]) => id);
+    assert(!remedyless.length,
+      `rules page: every rule shows the same source fixed (no remedy: ${remedyless.join(', ') || 'none'})`);
+
+    /* A remedy identical to the example documents nothing, and is what a
+     * copy-paste while adding a rule produces. */
+    const unchanged = Object.entries(RULE_DOCS).filter(([, d]) => d.example === d.remedy).map(([id]) => id);
+    assert(!unchanged.length,
+      `rules page: the remedy differs from the example (identical: ${unchanged.join(', ') || 'none'})`);
+
     // no category may become the page's dumping ground again: the abap2UI5 half
     // was one flat group of 54, which on a searchable page is no grouping at all
     const perCategory = CATEGORIES.map((c) => [c.id, Object.values(RULE_DOCS).filter((d) => d.category === c.id).length]);
@@ -5763,7 +5779,7 @@ section('rule docs', async () => {
     const wrong = [];
     for (const [id, doc] of Object.entries(RULE_DOCS)) {
       if (ABOUT_THE_OLD_BUILDER.has(id)) continue;
-      for (const field of ['summary', 'detail', 'example', 'fixNote']) {
+      for (const field of ['summary', 'detail', 'example', 'remedy', 'fixNote']) {
         const text = doc[field];
         if (typeof text !== 'string') continue;
         for (const [, verb] of text.matchAll(CHAIN_CALL)) {
