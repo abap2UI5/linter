@@ -4217,6 +4217,120 @@ section('fix (2)', async () => {
     }
 });
 
+// the 2026-09 round two: seven more rules whose correction is mechanical -
+// a token inserted, an argument deleted, a line moved, a literal split at
+// its escapes. Each asserted through applyFixes under strict-span mode, and
+// each with the shape the fix deliberately declines
+section('fix (3)', async () => {
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const { checkAbapRules, checkAbapSource } = await import('./observe.mjs');
+    const one = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+
+    // --- redundant-init-display: the OR form, either way round ----------------
+    {
+      const src = 'METHOD main.\n  IF client->check_on_init( ) OR client->check_on_navigated( ).\n    client->view_display( x ).\n  ENDIF.\nENDMETHOD.';
+      const found = one(src, 'redundant-init-display');
+      assert(found.length === 1 && found[0].fixes?.length === 1, 'fix: redundant-init-display OR carries a deletion');
+      assert(applyFixes(src, found).output === 'METHOD main.\n  IF client->check_on_navigated( ).\n    client->view_display( x ).\n  ENDIF.\nENDMETHOD.',
+        'fix: redundant-init-display drops the init call and the OR');
+      const flipped = src.replace('check_on_init( ) OR client->check_on_navigated( )', 'check_on_navigated( ) OR client->check_on_init( )');
+      assert(applyFixes(flipped, one(flipped, 'redundant-init-display')).output === applyFixes(src, found).output,
+        'fix: redundant-init-display drops the init side whichever side it is');
+      const commented = src.replace(' OR ', ' " why\n     OR ');
+      const c = one(commented, 'redundant-init-display');
+      assert(c.length === 1 && !c[0].fixes, 'fix: redundant-init-display leaves a span with a comment inside alone');
+    }
+    // --- redundant-init-display: the fork ------------------------------------
+    {
+      const src = 'METHOD main.\n  IF client->check_on_init( ).\n    client->view_display( view->stringify( ) ).\n  ELSEIF client->check_on_navigated( ).\n    client->view_display( view->stringify( ) ).\n  ENDIF.\nENDMETHOD.';
+      const found = one(src, 'redundant-init-display');
+      assert(found.length === 1 && found[0].member === 'fork' && found[0].fixes?.length === 1,
+        'fix: redundant-init-display fork carries the deletion of the init arm');
+      assert(applyFixes(src, found).output === 'METHOD main.\n  IF client->check_on_navigated( ).\n    client->view_display( view->stringify( ) ).\n  ENDIF.\nENDMETHOD.',
+        'fix: redundant-init-display fork keeps the navigated arm as the IF');
+    }
+
+    // --- binding-to-reference: dereference, REF TO data only ------------------
+    {
+      const src = 'DATA mt_data TYPE REF TO data.\nDATA mo_obj TYPE REF TO zcl_x.\n)->a( n = `items` v = client->_bind( mt_data )\n)->a( n = `x` v = client->_bind( val = mo_obj ) )';
+      const found = one(src, 'binding-to-reference');
+      assert(found.length === 2, `binding-to-reference: both references reported (got ${found.length})`);
+      const data = found.find((x) => x.member === 'mt_data');
+      const obj = found.find((x) => x.member === 'mo_obj');
+      assert(data.fixes?.length === 1 && !obj?.fixes, 'fix: binding-to-reference dereferences REF TO data and nothing else');
+      assert(applyFixes(src, found).output.includes('client->_bind( mt_data->* )'), 'fix: binding-to-reference inserts ->*');
+    }
+
+    // --- unescaped-brace-in-style: every brace, backtick literals only --------
+    {
+      const src = 'DATA(css) = `<style>.box {color:red} .b {x:1}</style>`.';
+      const found = one(src, 'unescaped-brace-in-style');
+      assert(found.length === 1 && found[0].fixes?.length === 4, 'fix: unescaped-brace-in-style carries one insertion per brace');
+      assert(applyFixes(src, found).output === 'DATA(css) = `<style>.box \\{color:red\\} .b \\{x:1\\}</style>`.',
+        'fix: unescaped-brace-in-style escapes every brace of the sheet');
+      const mixed = 'DATA(css) = `<style>.box {color:red}` && |.b { expr }</style>|.';
+      const m = one(mixed, 'unescaped-brace-in-style');
+      assert(m.length === 1 && !m[0].fixes, 'fix: unescaped-brace-in-style declines a sheet with a brace in a template');
+    }
+
+    // --- collapsed-brace-in-style: the doubled backslash, every segment -------
+    {
+      const src = 'DATA(css) = |<style>.a \\{color:red\\}| && |.b \\{x:1\\}</style>|.';
+      const found = one(src, 'collapsed-brace-in-style');
+      assert(found.length === 1 && found[0].count === 4 && found[0].fixes?.length === 4,
+        `fix: collapsed-brace-in-style counts and fixes across every template segment (count ${found[0]?.count}, fixes ${found[0]?.fixes?.length})`);
+      assert(applyFixes(src, found).output === 'DATA(css) = |<style>.a \\\\\\{color:red\\\\\\}| && |.b \\\\\\{x:1\\\\\\}</style>|.',
+        'fix: collapsed-brace-in-style writes the form a template needs');
+    }
+
+    // --- class-constructor-visibility: the line moves up --------------------
+    {
+      const src = 'CLASS zcl DEFINITION.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n  PRIVATE SECTION.\n    CLASS-METHODS class_constructor.\n    DATA x TYPE i.\nENDCLASS.';
+      const found = one(src, 'class-constructor-visibility');
+      assert(found.length === 1 && found[0].fixes?.length === 2, 'fix: class-constructor-visibility carries the insertion and the deletion');
+      assert(applyFixes(src, found).output === 'CLASS zcl DEFINITION.\n  PUBLIC SECTION.\n    CLASS-METHODS class_constructor.\n    INTERFACES z2ui5_if_app.\n  PRIVATE SECTION.\n    DATA x TYPE i.\nENDCLASS.',
+        'fix: class-constructor-visibility moves the line under PUBLIC SECTION');
+      const commented = src.replace('class_constructor.', 'class_constructor.   " why');
+      const c = one(commented, 'class-constructor-visibility');
+      assert(c.length === 1 && !c[0].fixes, 'fix: class-constructor-visibility declines a line with a comment');
+      const other = 'CLASS a DEFINITION.\n  PUBLIC SECTION.\n    DATA y TYPE i.\nENDCLASS.\nCLASS b DEFINITION.\n  PRIVATE SECTION.\n    CLASS-METHODS class_constructor.\nENDCLASS.';
+      const o = one(other, 'class-constructor-visibility');
+      assert(o.length === 1 && !o[0].fixes, 'fix: class-constructor-visibility never moves a line into another class');
+    }
+
+    // --- escape-sequence-in-backtick: split at the escapes -------------------
+    {
+      const src = 'client->message_toast_display( `saved,\\n and closed` ).\n)->a( n = `text` v = `\\tlead` )';
+      const found = one(src, 'escape-sequence-in-backtick');
+      assert(found.length === 2 && found.every((x) => x.fixes?.length === 1), 'fix: escape-sequence-in-backtick carries one rewrite per literal');
+      assert(applyFixes(src, found).output === 'client->message_toast_display( `saved,` && |\\n| && ` and closed` ).\n)->a( n = `text` v = |\\t| && `lead` )',
+        'fix: escape-sequence-in-backtick concatenates a template per escape and drops empty pieces');
+    }
+
+    // --- json-bind-on-scalar-property: the argument goes ---------------------
+    {
+      const src = `CLASS zcl_j DEFINITION PUBLIC.
+    PUBLIC SECTION.
+      INTERFACES z2ui5_if_app.
+      DATA manifest TYPE string.
+  ENDCLASS.
+  CLASS zcl_j IMPLEMENTATION.
+    METHOD z2ui5_if_app~main.
+      DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+      v->ele( n = \`View\` ns = \`mvc\`
+          )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+          )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( val = manifest json = abap_true )
+          )->end( ).
+      client->view_display( v->stringify( ) ).
+    ENDMETHOD.
+  ENDCLASS.`;
+      const found = checkAbapSource(src).findings.filter((x) => x.type === 'json-bind-on-scalar-property');
+      assert(found.length === 1 && found[0].fixes?.length === 1, 'fix: json-bind-on-scalar-property carries the deletion');
+      assert(applyFixes(src, found).output.includes('client->_bind( val = manifest )'),
+        'fix: json-bind-on-scalar-property leaves the plain bind');
+    }
+});
+
 // ----------------------------------------------------------------- stdin ----
 // --stdin: the property gate over piped source - the editor/pre-commit case.
 // The render gate stays off (a piped buffer has no file corpus), exit codes

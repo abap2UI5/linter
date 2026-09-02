@@ -678,6 +678,21 @@ declare module "@abap2ui5/linter/findings" {
     findings: T[],
     source: string
   ): T[];
+
+  /** Attaches the json-bind-on-scalar-property fix - the `json = abap_true`
+   *  argument deleted from the reported attribute's `_bind( )`. Judged on the
+   *  reconstructed view, so the source span is found here. */
+  export function attachJsonBindFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
+  /** Every fix the pipeline attaches after the rules ran, in one call - what
+   *  a gate replicating the pipeline should call. */
+  export function attachSourceFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
 }
 
 declare module "@abap2ui5/linter/rule-docs" {

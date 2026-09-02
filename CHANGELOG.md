@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Seven more rules carry a `--fix`** — 25 of the rule set now do, up from 18.
+  Each one is a correction with nothing to decide: `redundant-init-display`
+  drops the `check_on_init( )` call from the OR, or the whole init arm of the
+  fork; `binding-to-reference` inserts the `->*` (for `TYPE REF TO data` only,
+  because `->*` on an object reference does not compile); `unescaped-brace-in-style`
+  escapes every brace of the stylesheet where all of them sit in backtick
+  literals; `collapsed-brace-in-style` doubles the backslash inside the
+  template, across every segment of the sheet in one pass; `class-constructor-visibility`
+  moves the declaration line under `PUBLIC SECTION.` of the same class;
+  `escape-sequence-in-backtick` splits the literal into the `\`left\` && |\\n| &&
+  \`right\`` chain its own message recommends; `json-bind-on-scalar-property`
+  deletes the `json = abap_true` argument. Every one declines the shape where
+  a fix would be a guess — a comment inside the span, a chained `CLASS-METHODS:`,
+  a brace inside a template — and says so on the rules page (`fixNote`).
+  Findings and severities are unchanged; `--fix` simply settles more of them.
+  Considered and left without one: `boolc-instead-of-xsdbool` (the two are not
+  aliases — a blank false against an initial one), `separate-lifecycle-ifs`
+  (`IF init … ENDIF. IF navigated …` may rely on BOTH running on the first
+  start, so an ELSEIF would blank the app), `empty-catch-block` (the pragma
+  asserts an intent the linter cannot know) and `commercial-ui5-host` (a
+  `/resources/` path may not exist on the open host).
+
 - **`frozen-view-builder` says it in a friendlier, shorter way.** The message
   led with `DEPRECATED` and `NOTHING about the view was checked`, and read like
   a class on `z2ui5_cl_xml_view` was a defect on the way to breaking. It is
