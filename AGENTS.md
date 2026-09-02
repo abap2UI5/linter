@@ -206,12 +206,12 @@ theirs on purpose and a change that drifts from it needs a reason:
 
 | Ours | Modelled on |
 | --- | --- |
-| `path` heading, `line:col severity message rule-id`, `N problems (…)`, `Success! No findings detected.` | ui5lint's stylish formatter |
+| `path` heading, `line:col severity message rule-id`, `N problems (…)`, `Success! No findings detected.` — plus the rule's card URL after the id on every line, and `url` on every finding object: the one thing a log reader wants that ui5lint's format has no column for | ui5lint's stylish formatter |
 | `--format stylish\|json\|markdown`, `--quiet`, `--version` | ui5lint |
 | `--fix` plus a `*_FIX_DRY_RUN` env escape | ui5lint's `--fix` / `UI5LINT_FIX_DRY_RUN` |
 | `abap2ui5lint-disable-next-line`/`-disable-line`/`-disable`/`-enable`, reason after `--` | ui5lint directives |
 | `abap2ui5lint.jsonc`, `rules: { id: false \| severity \| { severity, exclude } }`, JSON schema for editor completion | abaplint's config and `BasicRuleConfig` |
-| `site/index.html` — one searchable page, one anchor per rule id | rules.abaplint.org |
+| `site/index.html` — one searchable page, one anchor per rule id, and on every card whose reported snippet the linter reproduces inside a class, a link that opens that class in the playground (the playground's share-link format, written at generation time and verified: `playgroundLinks( )` in `scripts/generate-rules-page.mjs`) | rules.abaplint.org, the abaplint playground |
 | bin alias `abap2ui5lint`, exit codes 0/1/2 | both |
 | workflow-command annotations on the PR diff | abaplint's `actions-abaplint` |
 

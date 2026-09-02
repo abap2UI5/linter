@@ -4562,7 +4562,11 @@ section('report', async () => {
     const dumps = f('dumps.clas.abap');
 
     const stylish = run([dumps, '--no-render']);
-    assert(/duplicate-property\s*$/m.test(stylish), 'report: every line ends in its rule id');
+    assert(/duplicate-property\s+https:\/\/abap2ui5\.github\.io\/linter\/#duplicate-property\s*$/m.test(stylish),
+      'report: every line ends in its rule id and the link to its card');
+    const asJson = JSON.parse(run([dumps, '--no-render', '--format', 'json']));
+    assert(asJson.results.every((r) => r.findings.every((x) => x.url === `https://abap2ui5.github.io/linter/#${x.type}`)),
+      'report: every finding carries its url in --format json');
     assert(/^2 problems \(2 errors, 0 warnings, 0 hints\)$/m.test(stylish), 'report: the problem count reads like ui5lint');
     assert(!/\bpass\b/.test(run([f('viewbuilder.clas.abap'), '--no-render'])) &&
       /Success! No findings detected\./.test(run([f('viewbuilder.clas.abap'), '--no-render'])),
@@ -5181,6 +5185,29 @@ section('rules page', async () => {
 
     const page = fs.readFileSync(PAGE_FILE, 'utf8');
     assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
+
+    /* The jump into the playground: the reported snippet wrapped into a class,
+     * in the playground's own share-link format, and only on a card whose rule
+     * the linter itself reports on that class - a link that opens on a clean
+     * verdict would teach the reader the rule is broken. */
+    const { playgroundLinks, playgroundSource, PLAYGROUND } = await import('../scripts/generate-rules-page.mjs');
+    const zlib = await import('zlib');
+    const links = playgroundLinks();
+    assert(links.size >= 100,
+      `rules page: the reported code of at least 100 rules opens in the playground (${links.size} of ${RULES.length})`);
+    for (const [id, url] of links) {
+      assert(url.startsWith(`${PLAYGROUND}#2`), `rules page: ${id} links the playground with a version-2 share fragment`);
+      const files = JSON.parse(zlib.inflateRawSync(Buffer.from(url.slice(PLAYGROUND.length + 2), 'base64url')).toString('utf8'));
+      const wrapped = playgroundSource(id);
+      assert(files.length === 1 && files[0].name === wrapped.name && files[0].source === wrapped.source,
+        `rules page: the ${id} fragment decodes to the wrapped example`);
+      assert(page.includes(`href="${url}"`), `rules page: the ${id} card carries its playground link`);
+    }
+    const linked = (page.match(/class="try"/g) || []).length;
+    assert(linked === links.size, `rules page: exactly the verified cards link the playground (${linked} vs ${links.size})`);
+    const control = JSON.parse(zlib.inflateRawSync(Buffer.from(links.get('unknown-control').slice(PLAYGROUND.length + 2), 'base64url')).toString('utf8'))[0].source;
+    assert(/CLASS zcl_rule DEFINITION/.test(control) && /view->tag\( `Buton` \)\./.test(control) && /view_display/.test(control),
+      'rules page: a chain fragment is wrapped into a displayed view class');
     assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
       'rules page: every rule has an anchor to link to');
     /* Self-contained: nothing the browser has to FETCH. Asked of the attributes

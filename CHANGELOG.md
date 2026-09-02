@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Every finding links its rule.** `annotate( )` sets `url` on every finding
+  — the rule's card on the rules page — so it is in `--format json` and on
+  every object a consumer gets; the stylish line carries it after the rule
+  id (`line:col severity message rule-id url`), because the reference block
+  at the end of the run is too far from the line in a log of any length.
+  Markdown, SARIF, checkstyle and JUnit already linked it and are unchanged.
+
+- **The rules page opens the reported code in the playground.** Every card
+  whose reported snippet the linter reproduces inside a class carries a link
+  that opens that class at abap2ui5.github.io/playground — the snippet in a
+  frame (`playgroundSource( )` in `scripts/generate-rules-page.mjs`: a chain
+  fragment under a namespaced View root in a displayed `main( )`, a method
+  in a class, a section in a class), in the playground's share-link format,
+  written at generation time so the page stays self-contained. The frame is
+  guessed, so every link is verified before it is written: the wrapped
+  source goes through the linter and only a card whose own rule fires on it
+  gets the link — 103 of 124 today; the rest are data-shaped or file-level
+  (a BOM, CRLF, a 255-character line) that no class frame can carry. `npm
+  test` decodes every fragment and holds the count above 100.
+
 - **Five new rules, from the flow of a method and from the one comparison
   `get_event( )` makes.** Three read the statement sequence a call sits in
   (`branchTail( )` in `abap-source.mjs` — what runs whenever the call runs,

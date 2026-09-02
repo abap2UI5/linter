@@ -303,6 +303,8 @@ declare module "@abap2ui5/linter/properties" {
 
   export interface PropertyFinding {
     type: string;
+    /** The rule's card on the rules page — set by annotate( ) on every finding. */
+    url?: string;
     control?: string;
     member?: string;
     since?: string;
