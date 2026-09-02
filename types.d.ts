@@ -687,6 +687,16 @@ declare module "@abap2ui5/linter/findings" {
     source: string
   ): T[];
 
+  /** Attaches the did-you-mean fix a finding carries as `written`/
+   *  `suggestion` but no span for (the view-side rules): the written name is
+   *  found from the finding's offset on and rewritten. `xml: true` searches
+   *  the raw text instead of the comment-scrubbed ABAP. */
+  export function attachSuggestionFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string,
+    options?: { xml?: boolean }
+  ): T[];
+
   /** Every fix the pipeline attaches after the rules ran, in one call - what
    *  a gate replicating the pipeline should call. */
   export function attachSourceFixes<T extends PropertyFinding>(

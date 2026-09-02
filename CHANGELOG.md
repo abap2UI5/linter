@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- **Five new rules, from the flow of a method and from the one comparison
+  `get_event( )` makes.** Three read the statement sequence a call sits in
+  (`branchTail( )` in `abap-source.mjs` — what runs whenever the call runs,
+  nested blocks blanked): `unconditional-popup-display` (a `popup_display( )`
+  at the top level of `main( )`, behind no guard — the frontend loads and
+  opens the fragment anew on every call, so every roundtrip rebuilds the
+  dialog; a **warning**), `display-after-nav-app-call` (a display behind the
+  hand-over, usually a missing RETURN; a hint) and `double-display-in-branch`
+  (the same slot twice in one sequence, the first dead; a hint).
+  `popup-without-close-wire` reports a `Dialog` built in a method that wires
+  no event at all (a hint, per method). `event-name-case-mismatch` is the rule
+  `event-without-handler` was deliberately blind to: a raise spelled `save`
+  against a handler reading `SAVE` — the runtime compares letter for letter,
+  so the handler never runs; a **warning**, with a `--fix` that writes the
+  handler's spelling into the raise.
+
+- **Did you mean.** Eight closed-set rules name the one candidate a written
+  name can only have meant — the same name up to letter case and `-`/`_` —
+  and carry a `--fix` that writes it: `unknown-control`, `unknown-property`,
+  `unknown-aggregation`, `invalid-property-value`, `unknown-event-parameter`,
+  `unknown-icon`, `frontend-action-unknown-id`, `popover-anchor-unknown-id`.
+  The control/aggregation pair suggests across the line UI5 XML draws with
+  the first letter (`Content` → `content`, `page` → `Page`). No edit distance,
+  on purpose: `Buttom` gets no suggestion, because `Button` would be a guess
+  and `Test` for `Text` a wrong one. `lib/suggest.mjs` holds the one
+  function; `attachSuggestionFixes( )` in `findings.mjs` finds the span for
+  the view-side five (ABAP and raw XML alike), the others compute it where
+  they report. 34 rules carry a fix now.
+
+- **`class-constructor-visibility` reads the chained form.** `CLASS-METHODS:
+  other, class_constructor.` declares it just the same and was never
+  reported; it is now, at the name, without a fix (the line is shared).
+
 - **Seven more rules carry a `--fix`** — 25 of the rule set now do, up from 18.
   Each one is a correction with nothing to decide: `redundant-init-display`
   drops the `check_on_init( )` call from the OR, or the whole init arm of the

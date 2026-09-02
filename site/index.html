@@ -87,14 +87,14 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">61 error</span>
-      <span class="badge warning">43 warning</span>
-      <span class="badge hint">16 hint</span>
-      <span class="badge fix">25 autofixable</span>
+      <span class="badge warning">45 warning</span>
+      <span class="badge hint">19 hint</span>
+      <span class="badge fix">34 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.6.1</strong>, against the OpenUI5 1.151.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx abap2ui5lint --version</code> says which that is.</p>
-    <input id="filter" type="search" placeholder="Filter 119 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 124 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -139,21 +139,23 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;ele( `Table` )-&gt;ele( `columns` )-&gt;tag( `Column` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1068"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1097"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="invalid-property-value" data-search="invalid-property-value button type="emphasised" — outside sap.m.buttontype the literal is not a member of the enum the property is typed with, or it is not a number on an int/float property, or not a boolean on a boolean one. ui5 in future mode refuses the view rather than falling back to a default. bindings and expressions are never value-checked — their value is a runtime matter. error">
         <h3><a href="#invalid-property-value">invalid-property-value</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>Button type="Emphasised"</code> — outside <code>sap.m.ButtonType</code></p>
         <p class="detail">The literal is not a member of the enum the property is typed with, or it is not a number on an int/float property, or not a boolean on a boolean one. UI5 in future mode refuses the view rather than falling back to a default. Bindings and expressions are never value-checked — their value is a runtime matter.</p>
+        <p class="fixnote"><strong>--fix:</strong> For an enum-typed property, where exactly one allowed value is the written value up to letter case (<code>emphasized</code> for <code>Emphasized</code>), the finding names it and <code>--fix</code> rewrites the value in place. A numeric or boolean property, and a value no single enum member matches that way, are reported without a suggestion.</p>
         <div class="ba" id="invalid-property-value-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasised` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L699"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L711"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="too-many-children" data-search="too-many-children two controls in a 0..1 aggregation a single-cardinality aggregation was filled more than once. only one child survives — which one is not something to rely on. error">
         <h3><a href="#too-many-children">too-many-children</a>
@@ -172,42 +174,48 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     )-&gt;ele( `customHeader`
         )-&gt;tag( `Bar` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1824"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1871"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-aggregation" data-search="unknown-aggregation page contentt — no such aggregation an aggregation tag the parent control does not declare. ui5 then looks for a control class by that name and fails. error">
         <h3><a href="#unknown-aggregation">unknown-aggregation</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>Page contentt</code> — no such aggregation</p>
         <p class="detail">An aggregation tag the parent control does not declare. UI5 then looks for a control class by that name and fails.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one aggregation or association of the owning control is the written name up to letter case — or one control of the tag's own library is, since <code>page</code> under a View is <code>Page</code> with the wrong first letter — the finding names it and <code>--fix</code> rewrites the tag. Otherwise no suggestion is made.</p>
         <div class="ba" id="unknown-aggregation-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `contentt` )-&gt;tag( `Button` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1815"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1860"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-control" data-search="unknown-control sap.m.shell2 — no such control the control name is not in the metadata snapshot under any known library. almost always a typo; ui5 fails to load the class and the view never appears. a control from a custom namespace is out of scope and never reported here. error">
         <h3><a href="#unknown-control">unknown-control</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>sap.m.Shell2</code> — no such control</p>
         <p class="detail">The control name is not in the metadata snapshot under any known library. Almost always a typo; UI5 fails to load the class and the view never appears. A control from a custom namespace is out of scope and never reported here.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one control of the same library is the written name up to letter case — or one aggregation of the owning control is, since in UI5 XML the first letter decides between the two — the finding names it and <code>--fix</code> rewrites the name in the builder call (or the XML tag). A name no single candidate matches that way is reported without a suggestion; the linter does not guess at edit distances.</p>
         <div class="ba" id="unknown-control-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;tag( `Buton` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1038"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1065"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-event-parameter" data-search="unknown-event-parameter a ${$parameters&gt;/typo} the event does not declare the parameter name is resolved against the event's own metadata — a name it does not declare usually arrives empty at get_event_arg( ), with no error anywhere. judged only against an event the control declares itself, with a parameters block: a subclass can widen an inherited event without redeclaring it (sap.m.daterangeselection fires change with from/to/valid while the declared parameters sit on inputbase). a hint, not a warning, because even that is not proof — a control can fire more than its metadata declares (colorpickerpopover forwards the picker's change parameters verbatim, colorstring included, and declares none of that). the finding lists the parameters the event does declare. hint">
         <h3><a href="#unknown-event-parameter">unknown-event-parameter</a>
           <span class="badge hint">hint</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary">a <code>${$parameters&gt;/typo}</code> the event does not declare</p>
         <p class="detail">The parameter name is resolved against the event's own metadata — a name it does not declare usually arrives <strong>empty</strong> at <code>get_event_arg( )</code>, with no error anywhere. Judged only against an event the control declares <strong>itself</strong>, with a parameters block: a subclass can widen an inherited event without redeclaring it (<code>sap.m.DateRangeSelection</code> fires <code>change</code> with <code>from</code>/<code>to</code>/<code>valid</code> while the declared parameters sit on <code>InputBase</code>). A hint, not a warning, because even that is not proof — a control can fire more than its metadata declares (<code>ColorPickerPopover</code> forwards the picker's <code>change</code> parameters verbatim, <code>colorString</code> included, and declares none of that). The finding lists the parameters the event does declare.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one parameter the event declares is the written name up to letter case (<code>Query</code> for <code>query</code>), the finding names it and <code>--fix</code> rewrites the name inside the <code>${$parameters&gt;/…}</code> reference.</p>
         <div class="ba" id="unknown-event-parameter-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>a( n = `search` v = client-&gt;_event( val   = `GO`
@@ -216,21 +224,23 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
             <pre><code>a( n = `search` v = client-&gt;_event( val   = `GO`
                                     t_arg = VALUE #( ( `${$parameters&gt;/query}` ) ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1582"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1616"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-property" data-search="unknown-property button typ="…" — no such property, event or association the attribute does not exist on the control or anywhere in its inheritance chain. ui5 in future mode rejects the view. a control whose chain leaves the snapshot is never reported as missing a member — the linter does not guess. one caveat the message now carries: the metadata snapshot is a pin, so a member released after it is absent here and reports in exactly the shape a typo has. that verdict cannot be split without demoting every real typo with it, so the way out is the allow list, which suppresses any finding on one named control.member — "allow": ["sap.ui.unified.datetyperange.ariahaspopup"] — rather than switching the rule off for a whole repository. error">
         <h3><a href="#unknown-property">unknown-property</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>Button typ="…"</code> — no such property, event or association</p>
         <p class="detail">The attribute does not exist on the control or anywhere in its inheritance chain. UI5 in future mode rejects the view. A control whose chain leaves the snapshot is never reported as missing a member — the linter does not guess. One caveat the message now carries: the metadata snapshot is a PIN, so a member released AFTER it is absent here and reports in exactly the shape a typo has. That verdict cannot be split without demoting every real typo with it, so the way out is the <code>allow</code> list, which suppresses any finding on one named <code>Control.member</code> — <code>"allow": ["sap.ui.unified.DateTypeRange.ariaHasPopup"]</code> — rather than switching the rule off for a whole repository.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one property, event, association or aggregation of the control (its parents included) is the written name up to letter case and separators, the finding names it and <code>--fix</code> rewrites the attribute name in place. Anything less exact than that is reported without a suggestion.</p>
         <div class="ba" id="unknown-property-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1161"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1192"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unresolved-attribute-value" data-search="unresolved-attribute-value an enum-typed attribute whose value the reconstructor could not follow a builder attribute written with a value this gate cannot resolve — a cond #( ), a variable, a concatenation — is dropped from the reconstructed document, so every rule downstream is blind to it. that blind spot is mostly paid for: the attribute name is still known, which is all a version check needs, so member-too-new judges it anyway. what cannot be paid for is a closed set. an enum-typed property is the one member whose value the gate would otherwise have decided outright, and ui5 rejects a value outside the enum by taking the whole view down — so the one check that mattered here went with the value. deliberately scoped to enum-typed properties: reporting every unresolved attribute would name a blind spot on almost every conditional attribute in a corpus, which is a statistic rather than a finding. hint">
         <h3><a href="#unresolved-attribute-value">unresolved-attribute-value</a>
@@ -244,7 +254,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `state` v = client-&gt;_bind( state ) )   " …and set STATE to a ValueState in ABAP</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1530"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1563"><code>lib/properties.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-structure">
@@ -267,7 +277,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     )-&gt;ele( `items`
         )-&gt;tag( `ColumnListItem` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1781"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1816"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="attribute-without-element" data-search="attribute-without-element a( ) on the bare factory root — nothing to attach it to an attribute call before any element was opened. there is no element to carry it, and the builder asserts. error">
         <h3><a href="#attribute-without-element">attribute-without-element</a>
@@ -297,7 +307,7 @@ view-&gt;ele( `Page` )-&gt;a( n = `title` v = `Hi` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>DATA(ok) = xsdbool( x &gt; 1 ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1094"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1124"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="byte-order-mark" data-search="byte-order-mark a utf-8 bom at the start of a .abap file abapgit writes the bom on .xml sidecars and never on .abap source, so a source file carrying one diffs against what the system serializes back — permanently, on every pull, for everyone (the classic "fix abapgit diffs" commit). the sidecar half of the same rule is abaplint's xml_bom; the .abap half had no rule anywhere. a warning, not an error: the import works, the tree just never stops diffing. warning">
         <h3><a href="#byte-order-mark">byte-order-mark</a>
@@ -313,7 +323,7 @@ view-&gt;ele( `Page` )-&gt;a( n = `title` v = `Hi` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.   " plain UTF-8; abap2ui5lint --fix strips the BOM</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1571"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1601"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="crlf-line-ending" data-search="crlf-line-ending crlf line endings — abapgit writes lf only abapgit serializes every file with lf endings; a file committed with crlf comes back different on the next pull, for everyone. this is exactly what a .gitattributes used to normalize in abap2ui5 until it was deleted and a gate took over — and a consumer repository has neither. one finding per file, however many lines carry it: a file is crlf or it is not, and a finding per line would drown everything else the report has to say. warning">
         <h3><a href="#crlf-line-ending">crlf-line-ending</a>
@@ -329,7 +339,7 @@ view-&gt;ele( `Page` )-&gt;a( n = `title` v = `Hi` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.\n   " LF only; abap2ui5lint --fix rewrites them</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1579"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1609"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="delete-index-in-loop" data-search="delete-index-in-loop delete itab index sy-tabix inside a loop at over the same table reported only where sy-tabix is provably not the loop's own cursor any more — because that is what the measured incidents share. where an inner construct between the loop header and the delete has overwritten it (a read table, an inner loop that ended, a do), the delete hits another table's index — or index 0, which is the table_invalid_index short dump a live app answered http 500 with. the same holds when the delete names an enclosing loop's table while an inner loop is open: sy-tabix then belongs to the inner one, and the deleted index is another table's row number. the plain current-row delete — the innermost loop's own, unclobbered cursor — is legal abap and stays silent: the kernel adjusts the loop cursor for a delete on the loop table, and so does the transpiler runtime. build the result instead — collect what is kept and assign it back — or delete itab where …; both read as what they do and survive a later statement wandering in between. the delete itab index sy-tabix directly after a read table, outside a loop over that table, is correct and common, and is not reported. error">
         <h3><a href="#delete-index-in-loop">delete-index-in-loop</a>
@@ -350,7 +360,7 @@ ENDLOOP.</code></pre></figure>
   DELETE t_rows INDEX idx.
 ENDLOOP.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1149"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1179"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="display-root-mismatch" data-search="display-root-mismatch a mvc:view handed to popup_display( ), or a core:fragmentdefinition to view_display( ) the slot decides how the client builds the document: view_display( ) and the nested variants go through xmlview.create, popup_display( ) and popover_display( ) through fragment.load. a fragment is not a view, and a view has no open( ) — so the wrong pairing fails in the browser. only reported where the document root and the consuming call are in the same statement; a bare control root is a legitimate fragment and is never reported. error">
         <h3><a href="#display-root-mismatch">display-root-mismatch</a>
@@ -385,7 +395,7 @@ client-&gt;popup_display( popup-&gt;stringify( ) ).</code></pre></figure>
         )-&gt;tag( `Button`
         )-&gt;tag( `Text` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1613"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1648"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="duplicate-id" data-search="duplicate-id the same id twice a duplicate-id error at runtime — ui5 ids are unique per view. error">
         <h3><a href="#duplicate-id">duplicate-id</a>
@@ -399,7 +409,7 @@ client-&gt;popup_display( popup-&gt;stringify( ) ).</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `id` v = `go` )-&gt;tag( `Text` )-&gt;a( n = `id` v = `goLabel` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1118"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1147"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="duplicate-property" data-search="duplicate-property the same attribute written twice on one control the view builder asserts on a repeated attribute rather than letting the second value win silently. error">
         <h3><a href="#duplicate-property">duplicate-property</a>
@@ -433,7 +443,7 @@ ENDTRY.</code></pre></figure>
   CATCH cx_root ##NO_HANDLER.   " deliberate, and says so
 ENDTRY.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1083"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1113"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="excess-shut" data-search="excess-shut one shut( ) more than the builder tree is deep the builder ascends past the root — one end( ) too many. the builder asserts on it (parent is bound), so the app dumps before it renders. the rule id keeps the older spelling shut: renaming it would silently invalidate every baseline entry and rule override that names it. error">
         <h3><a href="#excess-shut">excess-shut</a>
@@ -467,7 +477,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/N} &gt; 1 ? 'many' : 'one' }` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1191"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1224"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="missing-final-newline" data-search="missing-final-newline no newline at end of file abapgit ends every file with exactly one terminating newline; a file without one shows as \ no newline at end of file in every diff and comes back changed on the next pull (z2ui5_if_action.intf.xml carried exactly this). only a source with at least one line break is judged — a one-line string handed to the library is a snippet, not a file abapgit will ever serialize. warning">
         <h3><a href="#missing-final-newline">missing-final-newline</a>
@@ -483,7 +493,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>ENDCLASS.   " …followed by exactly one newline; abap2ui5lint --fix appends it</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1588"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1618"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="render-error" data-search="render-error the reconstructed view did not survive a real ui5 render not a pattern the rules above match, but the outcome of actually loading the view in a headless ui5: whatever the browser said — a control class that will not load, an aggregation ui5 refuses, a binding it cannot parse. it is the render gate's pseudo-rule rather than an entry in rules, so it is never emitted by a check; it appears only when --render ran and the browser objected. address it in the config like any other id: rules: { 'render-error': false } or an exclude waives it per file (a waived file that then renders clean is reported as a stale waiver), a severity re-weighs it. error">
         <h3><a href="#render-error">render-error</a>
@@ -514,7 +524,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>DATA(html) = `&lt;div class="a"&gt;…&lt;/div&gt;` &amp;&amp;
              `…`.   " wrapped, every line under 255</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1537"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1567"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="trailing-whitespace" data-search="trailing-whitespace a line ending in blanks — stripped by the editor, diffs forever the abap editor strips a trailing blank when it saves, so a line that ends in one comes back different on the next pull. it is also the round-trip defect most likely to be written: reflowing a chain or a string template leaves blanks behind that no diff view shows. abaplint's whitespace_end owns this in repositories that enable it — and it is per repository and not everywhere, which is how seven app classes once shipped trailing blanks through four green ci workflows. warning">
         <h3><a href="#trailing-whitespace">trailing-whitespace</a>
@@ -530,7 +540,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )   " nothing after the paren; abap2ui5lint --fix trims it</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1554"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1584"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="undeclared-namespace" data-search="undeclared-namespace ns = 'form' without an xmlns:form the prefix is used but never declared on the view root, so the parser cannot resolve the control at all. error">
         <h3><a href="#undeclared-namespace">undeclared-namespace</a>
@@ -551,7 +561,7 @@ ENDTRY.</code></pre></figure>
     )-&gt;a( n = `xmlns:form` v = `sap.ui.layout.form`
     )-&gt;ele( n = `SimpleForm` ns = `form` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L985"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L998"><code>lib/properties.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-version">
@@ -569,7 +579,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;ele( `Dialog` )-&gt;ele( `buttons` )   " in 1.71</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1812"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1847"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="commercial-ui5-host" data-search="commercial-ui5-host a url pinned to the commercial sapui5 host the same portability family as sapui5-only-control: sdk.openui5.org serves the open distribution, ui5.sap.com / .hana.ondemand.com serve sapui5. an app whose assets or bootstrap point at the commercial host breaks the moment it runs against an openui5-only landscape. warning">
         <h3><a href="#commercial-ui5-host">commercial-ui5-host</a>
@@ -583,7 +593,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>DATA(url) = `https://sdk.openui5.org/resources/sap-ui-core.js`.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1514"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1544"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="control-deprecated" data-search="control-deprecated control already deprecated at your target version reported only once the deprecation is in effect at the version you target — a control deprecated as of 1.149 stays silent for a 1.71 target. warning">
         <h3><a href="#control-deprecated">control-deprecated</a>
@@ -597,7 +607,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `DateTimePicker` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1049"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1078"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="control-too-new" data-search="control-too-new control introduced after your target ui5 version the control does not exist on the system you are targeting (--ui5, default 1.71), so the view will not load there — however well it works on a newer one. waive a deliberate case with --allow sap.m.control. warning">
         <h3><a href="#control-too-new">control-too-new</a>
@@ -611,7 +621,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Image` )   " or raise the floor: "ui5": "1.73"</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1043"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1072"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="deprecated-library" data-search="deprecated-library a ui5 library sap deprecated in its entirety five libraries are deprecated whole rather than control by control: sap.ui.commons and sap.ui.ux3 (1.38), sap.makit (1.38), sap.me (1.34), and the legacy chart classes directly under sap.viz.ui5 (1.32 — sap.viz.ui5.controls.vizframe is the replacement and is not reported). none of them is in the metadata snapshot every other rule reads, because the harvest only carries what current ui5 documents — so before this rule a view out of sap.ui.commons was not merely unjudged, it was invisible, and that is the one library it actually happens with: half its control names (button, label, dialog, panel, combobox) also exist in sap.m, so xml copied from an old tutorial drags the dead namespace along and still renders something. the list is hand-maintained for the same reason it is needed: it cannot be regenerated from data the snapshot does not carry. held against your target release like any other deprecation — below the deprecating version nothing is reported. warning">
         <h3><a href="#deprecated-library">deprecated-library</a>
@@ -625,7 +635,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )   " sap.m, the library that replaced it</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1004"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1017"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="enum-value-too-new" data-search="enum-value-too-new an enum value introduced after your target version the property predates version tracking, the type is old — but the specific value is not: sap.m.buttontype.critical is @since 1.73 on a property that existed forever. the member-level @since sits on the property, never on the value, so this was invisible to every gate (and a documented manual-check burden downstream). the snapshot now keeps the per-value @since from the enum's jsdoc; a value without one predates version tracking and stays silent. waive a deliberate case with --allow sap.m.control.member, like the other floor rules. warning">
         <h3><a href="#enum-value-too-new">enum-value-too-new</a>
@@ -639,7 +649,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Reject` )   " in 1.71</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L711"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L724"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="event-parameter-too-new" data-search="event-parameter-too-new a ${$parameters&gt;/name} the event only gained later an event parameter read back in a t_arg that the event did not carry yet at your floor. resolved per event, not per parameter name, so an identically named parameter on another event does not mask it. warning">
         <h3><a href="#event-parameter-too-new">event-parameter-too-new</a>
@@ -655,7 +665,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>client-&gt;_event( val   = `SEARCH`
                 t_arg = VALUE #( ( `${$parameters&gt;/query}` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1572"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1605"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="frontend-action-too-new" data-search="frontend-action-too-new a control_global target the target release does not carry yet four of the global targets are resolved with a lazy sap.ui.require, and deliberately so: a hard dependency on a module the running release does not have 404s and takes the whole component down with it. what that buys in robustness it pays for in silence — below its release the require returns undefined, the dispatch hits its "not available" guard, and the wire does nothing at all. theming.settheme needs 1.118, formatting.setcustomcurrencies/addcustomcurrencies 1.120, invisible_message.announce 1.78, and popup.setwithinarea 1.89 (there the module is old and only the method is new). this is the version half of the wire family: member-too-new and its siblings judge what the view writes, and nothing judged what the class sends. warning">
         <h3><a href="#frontend-action-too-new">frontend-action-too-new</a>
@@ -671,7 +681,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_global
                   t_arg = VALUE #( ( `MESSAGE_TOAST` ) ( `show` ) ( `saved` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L615"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L632"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="icon-removed" data-search="icon-removed an icon that left the font again the font is nearly, but not quite, additive. binary was in the font for exactly one release — 1.104 — and gone again after it; the glyph is spelled non-binary (in the font since 1.96) everywhere else. a view written against that one release renders no icon on every release after it. since a target version is a floor, the app also runs on the releases where the name is gone, which is why this is reported independently of the target. warning">
         <h3><a href="#icon-removed">icon-removed</a>
@@ -685,7 +695,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://source-code` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L121"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L130"><code>lib/icons.mjs</code></a></p>
       </article>
       <article class="rule" id="icon-too-new" data-search="icon-too-new an icon that reached the font after your target version the same silence as unknown-icon, one release boundary later: the glyph exists today and did not exist on the release you target, so the control renders without an icon there and nowhere else. information arrived in 1.80 (use message-information) and clear-all in 1.86 (use eraser) — both shipped past a green ci and were found by a user on 1.71. the registry's floor is 1.71, so a name already present there is recorded as "at or before" and a target below 1.71 is never judged. warning">
         <h3><a href="#icon-too-new">icon-too-new</a>
@@ -699,7 +709,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://message-information` )   " in 1.71</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L130"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L139"><code>lib/icons.mjs</code></a></p>
       </article>
       <article class="rule" id="member-deprecated" data-search="member-deprecated property or event already deprecated at your target version as control-deprecated, per member. the replacement is usually named in the deprecation text the finding quotes. warning">
         <h3><a href="#member-deprecated">member-deprecated</a>
@@ -713,7 +723,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Bar` )   " the property has no effect any more - drop it</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1383"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1416"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="member-too-new" data-search="member-too-new property, event or aggregation introduced after your target version same as control-too-new, one level down. members without an @since count as always available — they predate version tracking. waive with --allow sap.m.control.member. warning">
         <h3><a href="#member-too-new">member-too-new</a>
@@ -727,7 +737,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `GenericTile` )-&gt;a( n = `header` v = `PRD` )   " or raise the floor: "ui5": "1.92"</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1155"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1184"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="relative-asset-url" data-search="relative-asset-url a document-relative asset url, which an abap2ui5 app has no root to resolve a ui5 demo-kit sample is served from the sdk page, so ./test-resources/sap/uxap/images/x.png resolves there. an abap2ui5 app is served from the abap icf node and has no such document root: the request 404s and the control silently falls back to its placeholder — the view renders, and nothing is logged where anyone looks. judged on the metadata type (sap.ui.core.uri), not on attribute names, so src, icon, backgroundimage, objectimageuri and fonturi are reached alike. scoped to the two demo-kit trees that are always wrong (test-resources/…, resources/sap/…): a project serving its own icf resources may legitimately write a relative path. a binding is never judged — what the model holds is a runtime question. warning">
         <h3><a href="#relative-asset-url">relative-asset-url</a>
@@ -741,7 +751,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `src` v = `https://sdk.openui5.org/test-resources/sap/uxap/images/imageID.png` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L731"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L744"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="sapui5-only-control" data-search="sapui5-only-control needs sapui5, absent from openui5 sapui5 ships libraries openui5 does not — sap.ui.comp (smart controls), sap.suite., sap.ushell, sap.fe, sap.viz — so a smarttable is fine on sapui5 and a guaranteed runtime error on openui5. the severity therefore follows what your config says about the target, and this is the only rule of which that is true: with --distribution openui5 (or "distribution": "openui5") it is an error, because the library provably is not there; with --distribution sapui5 it is not reported at all, because you have said it is; and with no distribution configured it is a hint — the linter does not know which system the app deploys to, and a control only one distribution ships is worth knowing about either way. configure distribution to turn the hint into the answer your repository actually needs. error">
         <h3><a href="#sapui5-only-control">sapui5-only-control</a>
@@ -755,7 +765,7 @@ ENDTRY.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;ele( `Table` )   " sap.m, in OpenUI5 too; or declare "distribution": "sapui5"</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1027"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1040"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="toolbar-control-in-bar" data-search="toolbar-control-in-bar toolbarspacer/toolbarseparator inside a sap.m.bar the nastiest kind of version defect: every control and every property in the view exists on the target release, and it still renders wrong — only the css changed. toolbarspacer and toolbarseparator render a &lt;div&gt; and are laid out as intended only inside a sap.m.toolbar, which is a flex container. sap.m.bar is not, before 1.76: .sapmbarleft/.sapmbarright were position: absolute + text-align with the children in normal flow, where a block-level child starts a new line — and .sapmbarcontainer { overflow: hidden } at the bar's 3rem height cuts away everything from that line on. so a separator between two groups of icons does not draw a rule: it deletes every icon after it, without a word. and a bar is rarely written on purpose — sap.m.page headercontent is forwarded into the internal bar's contentright, which is how this reached three overview headers at once. the fix is not a different separator, it is no separator: put only inline controls in a bar and express the grouping with a margin class (sapuimediummarginbegin on the first control of the next group). reported only for a target below 1.76. warning">
         <h3><a href="#toolbar-control-in-bar">toolbar-control-in-bar</a>
@@ -772,21 +782,23 @@ ENDTRY.</code></pre></figure>
     )-&gt;tag( `Button`
         )-&gt;a( n = `class` v = `sapUiMediumMarginBegin` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1100"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1129"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-icon" data-search="unknown-icon sap-icon://textformatting — a glyph the font has in no release an unknown icon name is not an error anywhere: iconpool resolves it at render time, finds nothing, and the control renders with no icon at all. nothing is logged — not in the browser console, not in ui5lint, not in abaplint — so it ships and surfaces months later as "not all icons are shown". case matters and not in the way it looks: iconpool.geticoninfo parses the uri and reads parts.hostname, which is lower-cased, so textformatting is not "nearly right" — it matches nothing, in every release, forever. the name is text-formatting. judged against data/icons.json, the icon registry of every openui5 minor from 1.71 up; a collection-qualified name (sap-icon://tnt/actor) belongs to a custom font and is never judged. error">
         <h3><a href="#unknown-icon">unknown-icon</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>sap-icon://textFormatting</code> — a glyph the font has in no release</p>
         <p class="detail">An unknown icon name is not an error anywhere: <code>IconPool</code> resolves it at render time, finds nothing, and the control renders with <strong>no icon at all</strong>. Nothing is logged — not in the browser console, not in ui5lint, not in abaplint — so it ships and surfaces months later as "not all icons are shown". Case matters and not in the way it looks: <code>IconPool.getIconInfo</code> parses the URI and reads <code>parts.hostname</code>, which is lower-cased, so <code>textFormatting</code> is not "nearly right" — it matches nothing, in every release, forever. The name is <code>text-formatting</code>. Judged against <code>data/icons.json</code>, the icon registry of every OpenUI5 minor from 1.71 up; a collection-qualified name (<code>sap-icon://tnt/actor</code>) belongs to a custom font and is never judged.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one glyph of the font is the written name up to letter case and hyphens — <code>textFormatting</code> for <code>text-formatting</code>, the camelCase miss the message describes — the finding names it and <code>--fix</code> rewrites the name after <code>sap-icon://</code>. Wherever the name is written: an attribute value, a constant, a row of a status table.</p>
         <div class="ba" id="unknown-icon-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://textFormatting` )</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://text-formatting` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L115"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L122"><code>lib/icons.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-lifecycle">
@@ -808,7 +820,46 @@ ENDTRY.</code></pre></figure>
             <pre><code>PUBLIC SECTION.
   CLASS-METHODS class_constructor.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1026"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1043"><code>lib/abap-rules.mjs</code></a></p>
+      </article>
+      <article class="rule" id="display-after-nav-app-call" data-search="display-after-nav-app-call a display call after nav_app_call( ) in the same flow nav_app_call( ) hands the roundtrip to another app: what the browser shows next is that app's view. a view_display( ) issued behind it, in the same statement sequence, builds a view nobody sees — and a popup_display( ) behind it opens a dialog over the app being left. nearly always a missing return after the call. judged on the sequence the call sits in: a display in a nested block, or after an else/when/endif boundary, is another flow and is not reported. hint">
+        <h3><a href="#display-after-nav-app-call">display-after-nav-app-call</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a display call after <code>nav_app_call( )</code> in the same flow</p>
+        <p class="detail"><code>nav_app_call( )</code> hands the roundtrip to another app: what the browser shows next is THAT app's view. A <code>view_display( )</code> issued behind it, in the same statement sequence, builds a view nobody sees — and a <code>popup_display( )</code> behind it opens a dialog over the app being left. Nearly always a missing <code>RETURN</code> after the call. Judged on the sequence the call sits in: a display in a nested block, or after an <code>ELSE</code>/<code>WHEN</code>/<code>ENDIF</code> boundary, is another flow and is not reported.</p>
+        <div class="ba" id="display-after-nav-app-call-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>METHOD on_event.
+  client-&gt;nav_app_call( NEW zcl_detail( id ) ).
+  client-&gt;view_display( render( ) ).   " never seen
+ENDMETHOD.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD on_event.
+  client-&gt;nav_app_call( NEW zcl_detail( id ) ).
+  RETURN.
+ENDMETHOD.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L329"><code>lib/lifecycle-rules.mjs</code></a></p>
+      </article>
+      <article class="rule" id="double-display-in-branch" data-search="double-display-in-branch the same slot displayed twice in one flow — the first call is dead two view_display( ) calls in the same statement sequence — or two popup_display( ), two nest_view_display( ) — hand the frontend two documents for one slot in one roundtrip, and only the last one is ever shown. the first is dead code, and the view it built is usually a different one: the shape is a display left behind after a refactoring, or a fallthrough display under a case whose branches already display. a display inside a nested block counts as its own flow and is not paired with one outside it. hint">
+        <h3><a href="#double-display-in-branch">double-display-in-branch</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">the same slot displayed twice in one flow — the first call is dead</p>
+        <p class="detail">Two <code>view_display( )</code> calls in the same statement sequence — or two <code>popup_display( )</code>, two <code>nest_view_display( )</code> — hand the frontend two documents for one slot in one roundtrip, and only the last one is ever shown. The first is dead code, and the view it built is usually a different one: the shape is a display left behind after a refactoring, or a fallthrough display under a <code>CASE</code> whose branches already display. A display inside a nested block counts as its own flow and is not paired with one outside it.</p>
+        <div class="ba" id="double-display-in-branch-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>METHOD main.
+  client-&gt;view_display( render_list( ) ).   " replaced before it is seen
+  client-&gt;view_display( render_detail( ) ).
+ENDMETHOD.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD main.
+  client-&gt;view_display( render_detail( ) ).
+ENDMETHOD.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L342"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="duplicate-for-iterator" data-search="duplicate-for-iterator the same for iterator name twice in one method fine on abap 7.50+, where the iterator is local to its value #( ) expression — but a 7.02 downport (abaplint --fix, and the transpiler behind a node-based runtime) materializes each one as data &lt;name&gt; type i in the method body, and the second declaration fails activation with "variable already defined". use distinct names (i, j, k) per value block. warning">
         <h3><a href="#duplicate-for-iterator">duplicate-for-iterator</a>
@@ -824,7 +875,7 @@ DATA(b) = VALUE ty_t( FOR i = 1 WHILE i &lt;= 3 ( i ) ).   " downported: i decla
             <pre><code>DATA(a) = VALUE ty_t( FOR i = 1 WHILE i &lt;= 3 ( i ) ).
 DATA(b) = VALUE ty_t( FOR j = 1 WHILE j &lt;= 3 ( j ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L154"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L155"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="frozen-view-builder" data-search="frozen-view-builder the class builds its view with z2ui5_cl_xml_view — still supported, but no view rule can read it this is the only finding here about what was not judged, and it is a recommendation rather than a complaint. z2ui5_cl_xml_view was the abap2ui5 view builder before z2ui5_cl_ui5_view_builder arrived; it still compiles, still renders, and the plan is for it to move into a separate addon rather than to vanish — so an app that stays on it is making a legitimate choice. what that choice costs is this gate. the linter reconstructs a view from the current builder's five verbs (ele, tag, a, end, stringify); the old api is a different one, so there is no view to judge and every other rule stays silent for lack of anything to read. worth saying out loud, because until this rule existed such a class was not even collected: a whole app on the old builder came back as "no checkable app classes" and exit 0, which reads like approval. rewrite the chain on z2ui5_cl_ui5_view_builder and the whole gate applies again — controls, properties, bindings, render — which is the real argument for switching. reported as a warning, not an error: nothing here is broken today. an app that is staying on the old builder for now says so once, in its config: "rules": { "frozen-view-builder": "hint" }, or false to switch it off. warning">
         <h3><a href="#frozen-view-builder">frozen-view-builder</a>
@@ -854,7 +905,7 @@ view-&gt;ele( `Page` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `hi` ).</code><
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>DATA(slot) = client-&gt;cs_view-main.   " name the slot yourself</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1801"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1870"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="into-corresponding-inline-decl" data-search="into-corresponding-inline-decl into corresponding fields of table @data(…) — 7.55 syntax below 7.55 the system refuses the class with "inline data declarations cannot be used together with into corresponding additions", plus one follow-up "field … is unknown" for every later read of the table that was never declared — three errors whose cause is the first one. abaplint stays green because its select grammar puts no version gate on the inline declaration (measured at syntax.version v750 with check_syntax and downport on, control probe fired). plain into table @data(…) is fine from 7.40 on; it is only the combination with corresponding that is late. declare the table with data … type standard table of … with empty key and select into it. error">
         <h3><a href="#into-corresponding-inline-decl">into-corresponding-inline-decl</a>
@@ -869,7 +920,7 @@ view-&gt;ele( `Page` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `hi` ).</code><
             <pre><code>DATA lt_carr TYPE STANDARD TABLE OF scarr WITH EMPTY KEY.
 SELECT * FROM scarr INTO CORRESPONDING FIELDS OF TABLE @lt_carr.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1015"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1032"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="lifecycle-is-initial" data-search="lifecycle-is-initial is initial / is not initial on an abap_bool the three check_on_( ) methods return abap_bool, so the branch is the predicative call — if client-&gt;check_on_init( ). — which is how z2ui5_if_client documents it and how the whole sample corpus is written. compounds keep the shape ( elseif client-&gt;check_on_event( lock ). , if client-&gt;check_on_navigated( ) and mv_ready = abap_true.). is not initial asks a boolean whether it is empty, which is what that question means for a string, and it is one more dialect every later reader of the class has to hold. only a negative branch is spelled out, as = abap_false: there is no negated predicative form. the same rule covers every other abap_bool, in a where clause as much as in an if. a hint, deliberately — abap_false is the initial value of a char(1), so the two spellings agree and nothing here is broken; it is the one dialect question in the app guide a finding can settle mechanically. a structure component is never judged: in row-flag is initial the component may be any type, and the class's own flag attribute is not evidence about it. hint">
         <h3><a href="#lifecycle-is-initial">lifecycle-is-initial</a>
@@ -887,7 +938,7 @@ IF mv_ready IS INITIAL.</code></pre></figure>
             <pre><code>IF client-&gt;check_on_init( ).
 IF mv_ready = abap_false.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L104"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L105"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="manual-init-flag" data-search="manual-init-flag a hand-rolled init flag instead of client-&gt;check_on_init( ) the framework already knows whether this is the first run of the app instance — client-&gt;check_on_init( ) is the lifecycle contract. a boolean attribute that gates the first render duplicates that knowledge as serialized state: it ships to the browser on every roundtrip for nothing, and subtle ordering bugs grow around the moment it flips. one mass migration replaced this pattern in 111 sample classes at once. only the unambiguous shape is reported: an if on the attribute being initial/false whose branch both sets it true and hands a view over — a lazy-load guard that displays nothing is left alone. warning">
         <h3><a href="#manual-init-flag">manual-init-flag</a>
@@ -906,7 +957,7 @@ ENDIF.</code></pre></figure>
   client-&gt;view_display( render( ) ).
 ENDIF.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L51"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L52"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="missing-on-navigated-branch" data-search="missing-on-navigated-branch a lifecycle dispatcher with no check_on_navigated( ) branch at all check_on_init( ) means "this app instance never ran", not "the app starts" — abap2ui5 flips the flag after the very first roundtrip. so it is false on three roundtrips that put the app back on screen: a called app leaving through nav_app_leave( ), one of the built-in z2ui5_cl_pop_ value helps returning (those run over nav_app_call too), and a bookmarked draft being restored. all three raise check_on_navigated( ) alone; with no branch for it main( ) does nothing, the response carries no display, and the model is pushed into a main slot still holding the other app's view. the screen stays wrong with no error anywhere — which is why an app written this way works perfectly until the day something navigates into it. this is the complement of missing-view-display-on-navigated, which judges a branch that exists but never displays; the two never fire on the same class. an app whose display is not gated by the lifecycle at all — a view_display( ) after the if/elseif chain, or the client-&gt;nav_app_leave( ) a popup helper ends on — is correct as it stands and is not reported. warning">
         <h3><a href="#missing-on-navigated-branch">missing-on-navigated-branch</a>
@@ -932,7 +983,7 @@ ELSEIF client-&gt;check_on_event( ).
   on_event( ).
 ENDIF.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L358"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L423"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="missing-view-display-on-navigated" data-search="missing-view-display-on-navigated a check_on_navigated( ) branch that never re-displays the view when a called app leaves, the browser still shows that app's view — returning control alone changes nothing on screen. the check_on_navigated( ) branch has to hand a view back with client-&gt;view_display( ). a branch that only reads the result and falls through leaves the screen showing the wrong app, with no error anywhere. view_model_update( ) used to count as a re-display here and no longer does: it is an empty method now (obsolete-model-update), and the automatic model push that replaced it reaches the main slot — which is still holding the called app's view. error">
         <h3><a href="#missing-view-display-on-navigated">missing-view-display-on-navigated</a>
@@ -949,7 +1000,7 @@ ENDIF.</code></pre></figure>
   result = client-&gt;get_app( client-&gt;get( )-s_draft-id ).
   client-&gt;view_display( render_view( ) ).   " without this the sub-app stays on screen</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L316"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L381"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="non-released-api" data-search="non-released-api an abap2ui5 object outside the released src/02 package abap2ui5 releases exactly one package — src/02, six objects: z2ui5_if_app, z2ui5_if_client, z2ui5_if_exit, z2ui5_if_types, z2ui5_cl_ui5_http_handler, z2ui5_cl_ui5_view_builder. everything else the repository ships says in its own package description that it is not for consumers: src/01 is "abap2ui5 — internal use only", src/99 is frozen legacy that "ships solely so existing downstream installations keep compiling", and src/00 holds renamed copies of ajson, s-rtti and abap-util. none of them carries a compatibility promise or announces a change: one upstream commit renamed the entire core layer (z2ui5_cl_core_ → z2ui5_cl_ui5_) and moved the old view builder and http handler into the frozen package on the same day. an app that names one of those compiles today and fails to activate after the next abapgit pull, with no deprecation in between — and nothing in a systemless pipeline says so beforehand. judged only against names the linter knows are framework objects (the frozen package by name, the internal packages by the prefixes upstream reserves), so your own z2ui5_-prefixed classes are never reported. z2ui5_if_types is released rather than merely tolerated, which matters because the released z2ui5_if_client~get( ) returns z2ui5_if_types=&gt;ty_s_get — an app that declares a variable of that type cannot avoid the name. warning">
         <h3><a href="#non-released-api">non-released-api</a>
@@ -967,7 +1018,7 @@ DATA(html) = z2ui5_cl_util=&gt;xml_stringify( data ).  " retired utility class</
 " the popups moved out whole: install abap2UI5-addons/popups and call it there
 DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1255"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1285"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-bind-argument" data-search="obsolete-bind-argument _bind( view = … ) and the custom_mapper/custom_filter pair two arguments the binder still accepts and should no longer be given. view is "inactive, not passed on internally": a call scoping a binding to cs_view-popup reads as if the binding belonged to that slot, and nothing reads the value at all — so it is dead weight that documents a behaviour the framework does not have. custom_mapper and custom_filter are the opposite, and worse: they are still evaluated, but both hand the app a reference to the ajson copy bundled in src/00 — a mirror of an external project, not a contract abap2ui5 owns — so an app implementing z2ui5_if_ajson_mapping/_filter binds itself to whatever that mirror looks like today. that is the non-released-api argument one level down, at a parameter rather than a class name. everything they were reached for is declarative on the method now: omit_initial/omit_initial_paths drop initial fields and json splices a json node. warning">
         <h3><a href="#obsolete-bind-argument">obsolete-bind-argument</a>
@@ -983,7 +1034,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `value` v = client-&gt;_bind( name ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1398"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1428"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-binder" data-search="obsolete-binder client-&gt;_bind_edit( ) — superseded by client-&gt;_bind( ) _bind is two-way as well, and _bind_edit is a pure alias for it. a call passing custom_mapper_back or custom_filter_back used to be exempt, because _bind has no such parameters — that exemption is gone with the parameters' meaning: they are still accepted for source compatibility but no longer evaluated, per-direction mapping does not exist any more. such a call is reported like every other, but without the autofix: the arguments have to go with the rename, and dropping an argument is not a rename. warning">
         <h3><a href="#obsolete-binder">obsolete-binder</a>
@@ -999,7 +1050,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `value` v = client-&gt;_bind( name ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1351"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1381"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-frontend-event" data-search="obsolete-frontend-event client-&gt;_event_client( ) — superseded by client-&gt;follow_up_action( ) the same call, with the same val / view / t_arg. since follow_up_action( ) gained a returning parameter it is the same call in the same position too: where its result is consumed — the view-attribute form v = client-&gt;_event_client( … ) — it takes the if result is supplied branch straight to mo_srv_event-&gt;get_event_client( ), which is _event_client( )'s entire body. one method now both schedules a frontend action and wires one, so the second name is a leftover. the one non-equivalence is follow_up_action( )'s case, which intercepts cs_event-set_nav_routing / set_push_state / set_app_state_active before that branch: those three are backend-side navigation options, not frontend handlers, so a view attribute wired to one of them never dispatched anyway. warning">
         <h3><a href="#obsolete-frontend-event">obsolete-frontend-event</a>
@@ -1015,7 +1066,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `press` v = client-&gt;_event( `CLOSE` ) )   " …and popup_destroy( ) in the handler</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1449"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1479"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-model-update" data-search="obsolete-model-update view_model_update( ) &amp; friends — empty methods, the model is pushed automatically the framework compares the model state before main( ) with the state after it returned and, when they differ, sends it to every open view slot by itself. view_model_update( ), nest_view_model_update( ), nest2_view_model_update( ), popup_model_update( ) and popover_model_update( ) are therefore deliberately empty methods, kept in z2ui5_if_client only so existing apps keep compiling. a leftover call is not merely dead weight — it reads as "the model is pushed here" at a place where nothing at all happens. delete it. the one thing that went with them is the ability to force an unchanged model back onto the client (a control that wrote a bound property without sending it back): rebuild the view with view_display( ) for that. warning">
         <h3><a href="#obsolete-model-update">obsolete-model-update</a>
@@ -1031,7 +1082,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>" nothing - the model travels with the roundtrip; delete the call</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1427"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1457"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="private-app-attribute" data-search="private-app-attribute a private instance attribute on a z2ui5_if_app class the app's state is persisted with call transformation id, and the transpiled runtime re-implements that walk with a dynamic assign obj-&gt;(name), which reaches a protected attribute and not a private one. sy-subrc comes back 4, the serializer asserts, and every roundtrip answers assertion_failed out of lcl_heap.add_object — with nothing in the message naming the attribute that caused it, which is what makes it expensive to find rather than merely wrong. a warning rather than an error, deliberately: a real sap kernel serializes a private attribute fine, so the class works on the system it was written for and breaks on the transpiled runtime — abap2ui5's own node backend and every e2e smoke. six ports carried it while the 53 with a protected attribute were fine, which is what isolated it. app state belongs in public — that is also what makes it reach the model at all — and helpers in protected. class-data is never reported: a static attribute is not instance state and is not serialized with the app. warning">
         <h3><a href="#private-app-attribute">private-app-attribute</a>
@@ -1047,7 +1098,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
             <pre><code>PUBLIC SECTION.
   DATA t_all TYPE ty_t_row.   " PUBLIC for bound state, PROTECTED for a helper</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1696"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1745"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="redundant-conv-i" data-search="redundant-conv-i conv i( ) assigned to a target that is already type i the assignment converts by itself, so the conv says nothing and reads as if a conversion were needed; slin reports "redundant conversion for type i". both halves of the scoping are load-bearing and were measured before this shipped: the target has to be declared in this file (a type living in another class is left alone rather than guessed at), and the conv has to be the entire right-hand side — one inside a comparison or an arithmetic expression is load-bearing or at least arguable, and one inside a string template (|{ conv i( x ) width = 2 }|) is a real conversion. all three were false errors in the first draft. a hint: the code is correct, and this is an extended-check finding rather than a defect. hint">
         <h3><a href="#redundant-conv-i">redundant-conv-i</a>
@@ -1065,7 +1116,7 @@ count = CONV i( lv_text ).</code></pre></figure>
             <pre><code>DATA count TYPE i.
 count = lv_text.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1061"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1091"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="redundant-init-display" data-search="redundant-init-display a lifecycle fork whose two arms do the same thing check_on_init( ) is "this app instance never ran", and it implies check_on_navigated( ): every path to an instance's first main( ) raises the navigated flag too — factory_first_start for a fresh start and for a draft restore, factory_system_startup, and prepare_app_stack for both legs of a nav_app_call. the interface states it. so if check_on_init( ) or check_on_navigated( ) can never change its verdict on the or, and an init branch whose only statement is the same display call its elseif check_on_navigated( ) twin makes is four lines saying what the elseif says alone. the fork is only reported where both arms are one identical display call — where the navigated arm does anything else (an on_navigation( ), an app return handled first) the fork really does decide something and the init arm stays. warning">
         <h3><a href="#redundant-init-display">redundant-init-display</a>
@@ -1085,7 +1136,7 @@ ENDIF.</code></pre></figure>
   client-&gt;view_display( view-&gt;stringify( ) ).
 ENDIF.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L258"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L259"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="separate-lifecycle-ifs" data-search="separate-lifecycle-ifs lifecycle checks in separate if blocks instead of one if/elseif chain the lifecycle flags (check_on_init, check_on_event, check_on_navigated, …) are not all mutually exclusive, so separate if blocks can execute more than one branch on a single roundtrip — the classic symptom is work done twice after a navigation. one if/elseif chain makes the branches exclusive by construction. the guard idiom is exclusive too and is never reported: an if block that leaves the method (if client-&gt;check_on_event( \go\ ). … return. endif.) cannot flow into the next block. warning">
         <h3><a href="#separate-lifecycle-ifs">separate-lifecycle-ifs</a>
@@ -1108,7 +1159,31 @@ ELSEIF client-&gt;check_on_navigated( ).
   " …
 ENDIF.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L184"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L185"><code>lib/lifecycle-rules.mjs</code></a></p>
+      </article>
+      <article class="rule" id="unconditional-popup-display" data-search="unconditional-popup-display a popup_display( ) at the top level of main( ) — the dialog is rebuilt on every roundtrip popup_display( ) and popover_display( ) load the fragment anew and open it every time they are called — the frontend has no "unchanged, keep it" path for a popup the way it has for the main view. a call at the top level of main( ), outside every branch and behind no guard, therefore runs on every event the app receives: typing into a field in the dialog fires its change, the roundtrip rebuilds the dialog, the field loses focus, the scroll position resets. every popup class in the framework itself displays from its check_on_init( ) branch or behind a return guard. only z2ui5_if_app~main is judged, and only where no return, leave, check or exit precedes the call — a guard block that leaves the method makes everything after it conditional. warning">
+        <h3><a href="#unconditional-popup-display">unconditional-popup-display</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a <code>popup_display( )</code> at the top level of <code>main( )</code> — the dialog is rebuilt on every roundtrip</p>
+        <p class="detail"><code>popup_display( )</code> and <code>popover_display( )</code> load the fragment anew and open it every time they are called — the frontend has no "unchanged, keep it" path for a popup the way it has for the main view. A call at the top level of <code>main( )</code>, outside every branch and behind no guard, therefore runs on EVERY event the app receives: typing into a field in the dialog fires its <code>change</code>, the roundtrip rebuilds the dialog, the field loses focus, the scroll position resets. Every popup class in the framework itself displays from its <code>check_on_init( )</code> branch or behind a <code>RETURN</code> guard. Only <code>z2ui5_if_app~main</code> is judged, and only where no <code>RETURN</code>, <code>LEAVE</code>, <code>CHECK</code> or <code>EXIT</code> precedes the call — a guard block that leaves the method makes everything after it conditional.</p>
+        <div class="ba" id="unconditional-popup-display-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>METHOD z2ui5_if_app~main.
+  IF client-&gt;check_on_init( ).
+    init( ).
+  ENDIF.
+  client-&gt;popup_display( render_dialog( ) ).   " every roundtrip
+ENDMETHOD.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD z2ui5_if_app~main.
+  IF client-&gt;check_on_init( ).
+    init( ).
+    client-&gt;popup_display( render_dialog( ) ).   " once
+  ENDIF.
+ENDMETHOD.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L316"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="unused-public-attribute" data-search="unused-public-attribute a public attribute nothing in the class ever touches only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so every one of them is shipped to the browser on every roundtrip. one that is never bound, never read and never written is pure transport weight. deliberately narrower than "not bound in any view": an attribute used only in abap code is not dead, it is state — public is precisely how a value survives the roundtrip. only a name that appears exactly once in the whole class, its own declaration, is reported, and only as a hint: an attribute can still be read from outside the class, which no single source file can see. hint">
         <h3><a href="#unused-public-attribute">unused-public-attribute</a>
@@ -1124,7 +1199,7 @@ ENDIF.</code></pre></figure>
             <pre><code>PROTECTED SECTION.
   DATA mv_note TYPE string.   " …or delete it: nothing binds, reads or writes it</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1772"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1821"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="value-header-default-reassigned" data-search="value-header-default-reassigned a value component assigned in the header and again in a row a component assigned before the first line spec is a default for all following lines, not an overridable one, so assigning it again inside a row makes the system's syntax check refuse the whole constructor: "the component was specified more than once." abaplint accepts the construct without a finding — its value grammar does not model the one-assignment rule — so this reached a repository's main branch through a green ci and was found by a user running code inspector's syntax_check over a pulled copy. write the value per row instead, or close the header's scope with a second group: the default binds only to the lines after it. error">
         <h3><a href="#value-header-default-reassigned">value-header-default-reassigned</a>
@@ -1138,7 +1213,7 @@ ENDIF.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>VALUE #( ( a = 1 selectable = abap_true ) ( a = 2 selectable = abap_false ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1000"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1017"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="view-never-displayed" data-search="view-never-displayed a view is built but never handed to the client an empty page and no error: the builder ran, the result was never passed to client-&gt;view_display( ) (or a nested-view, popup, popover or nav call). error">
         <h3><a href="#view-never-displayed">view-never-displayed</a>
@@ -1159,7 +1234,7 @@ ENDMETHOD.</code></pre></figure>
   client-&gt;view_display( view-&gt;stringify( ) ).
 ENDMETHOD.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L140"><code>lib/lifecycle-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/lifecycle-rules.mjs#L141"><code>lib/lifecycle-rules.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-frontend-wires">
@@ -1179,7 +1254,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_by_id
                   t_arg = VALUE #( ( `nav` ) ( `back` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L636"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L653"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="control-call-arg-kind" data-search="control-call-arg-kind a t_arg value that is not the kind the control method declares the declared kinds are not decoration — castarg acts on them. an int argument runs through number( ), so a non-numeric literal arrives as nan and every comparison against it is false: sap.m.button's badge setters compare the incoming value against the stored bound, so the value is dropped into an else whose only effect is a log.warning. a bool argument is raw === "true" || raw === "x" and nothing else, so a literal meant as true in any other spelling — 1, true, abap_true, y — silently arrives as false and switches the flag the wrong way. the abap boolean tokens (x, a space, the empty string) and the literal true/false are the accepted spellings and are never reported. error">
         <h3><a href="#control-call-arg-kind">control-call-arg-kind</a>
@@ -1195,7 +1270,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_by_id
                   t_arg = VALUE #( ( `panel` ) ( `setExpanded` ) ( `X` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L653"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L670"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="control-state-lost-on-rebuild" data-search="control-state-lost-on-rebuild a control_by_id set…( ) that no binding can carry, issued only off the display path the exact inverse of settable-property-via-action, and its blind spot. that rule fires when the setter matches a bindable property and says "bind it instead"; it is silent for the three shapes where that answer does not exist — an association (setnextstep, setselectedsection, setactivepage, setcurrentstep), a function-typed property (sap.m.messagepopover.asyncurlhandler) and a method that is no member at all (setbadgeminvalue: sap.m.button declares badgestyle as its only badge property and keeps the bounds in private fields button.init resets to 1/9999). those three are live control state, and abap2ui5 does not patch a view — view_display( ) hands new xml to the view_slots action, whose displaymain destroys the main slot (taking popup and popover with it) and builds a fresh tree with xmlview.create. every control in it is a new object carrying what the xml declares and nothing else. a bound property survives that, because the binding re-applies; this state does not. so a class that sets it from an event handler and never re-issues it from the display path loses it on the next rebuild — a restored draft, a called app handing control back, any later view_display( ) — while the abap field describing it survives as class state, and the app then contradicts itself. the remedy is to re-issue the call from the method that displays the view (samples-controls app 249 re-sends both badge bounds from the values it kept; app 534 ends view_display( ) on the path_apply( ) that wires the whole wizard path). deliberately narrow: only a non-literal value is judged, because a constant carries no class state for the rebuilt view to contradict — setcurrentstep( 'productinfostep' ) is a one-shot corrective jump and setselectedsection( '' ) a reset to null, and re-issuing either on every rebuild would be the defect. a wire is silent when its own method issues a display call, when any method on that path (a helper it calls, a few levels deep) issues the same id+setter, and — the same thing seen from the other side — when it is queued next to a popup_display( )/popover_display( ), since the system-action phase is awaited before the follow-up actions run. hint">
         <h3><a href="#control-state-lost-on-rebuild">control-state-lost-on-rebuild</a>
@@ -1217,7 +1292,7 @@ ENDMETHOD.</code></pre></figure>
                             t_arg = VALUE #( ( `step1` ) ( `setNextStep` ) ( next_step ) ) ).
 ENDMETHOD.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L698"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L715"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="denied-control-method" data-search="denied-control-method a control_by_id wire naming a method the frontend denylist refuses the wire's allowed side is open by design — any public control method runs, so ordinary setters and toggles need no whitelist entry. the denied side is a closed set, and it is silent in the same way a wrong id is: frontendaction logs "method not allowed" and returns, so the abap compiles, the view renders and the button does nothing. denied are the methods that would break the framework's own invariants — teardown and reparenting (destroy, exit, setparent, adddependent, placeat), model and binding swaps (setmodel, setbinding, bind/unbind), event-handler tampering (attach/detach, fireevent), the render lifecycle (rerender, invalidate) and the generic reflection mutators that take the member name as an argument (addaggregation, removeallaggregation, setassociation, …). the named per-aggregation methods are allowed and are never reported: removeallitems and destroycontent touch only children the control itself owns, exactly like the long-allowed removeitem. error">
         <h3><a href="#denied-control-method">denied-control-method</a>
@@ -1233,7 +1308,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_by_id
                   t_arg = VALUE #( ( `list` ) ( `removeAllItems` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L581"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L598"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="event-arg-js-callback" data-search="event-arg-js-callback a js callback in a t_arg — the whole event handler fails to parse a $- or {-opening argument is sent to the frontend verbatim and resolved by ui5, which parses the entire handler string with bindingparser.parseexpression. expressionparser has no function keyword — its token table knows only false/null/true/in/typeof — and { is the object-literal nud, so .map(function (o) { … }) throws before any argument is read. this is not a wrong argument value: the exception is on the handler, so every argument is lost and the event never reaches the backend. an arrow function fails identically (=&gt; is not a token). an argument that does not open with $ or { is shipped as a js string literal, so the word "function" inside a toast template is not reported. error">
         <h3><a href="#event-arg-js-callback">event-arg-js-callback</a>
@@ -1247,7 +1322,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>t_arg = VALUE #( ( `${$source&gt;/id}` ) )   " …and bind the row's own `selected` property</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L599"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L616"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="event-arg-out-of-range" data-search="event-arg-out-of-range get_event_arg( n ) past the t_arg the event declares the arguments are static — they are written at the raise site — so reading past them is never anything but a mistake: initial in abap, a 500 in the transpiled runtime, and either way not the value the handler works with. judged only for a literal index, inside the handler of an event the class raises itself with client-&gt;_event( ), and never across a method boundary: an event arriving from a message_box_display( onclose = ) callback or a frontend action carries arguments from a source this pass cannot see. error">
         <h3><a href="#event-arg-out-of-range">event-arg-out-of-range</a>
@@ -1263,7 +1338,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${$source&gt;/id}` ) ) )
 " … WHEN `PICK`. client-&gt;get_event_arg( 1 )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L799"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L816"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="event-arg-unresolved" data-search="event-arg-unresolved a bare-brace t_arg literal ( {col} ) the runtime sends it verbatim, but only $-prefixed expressions are resolved by ui5 — so get_event_arg( ) receives an empty value, with no error anywhere. write  ${col} . a template that starts with a {0} placeholder is fine: that form is quoted. warning">
         <h3><a href="#event-arg-unresolved">event-arg-unresolved</a>
@@ -1279,7 +1354,27 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${/ID}` ) ) )   " resolved</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L691"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L708"><code>lib/abap-rules.mjs</code></a></p>
+      </article>
+      <article class="rule" id="event-name-case-mismatch" data-search="event-name-case-mismatch an event raised as save and handled as save — the handler never runs the event name travels to the browser and back as a string, and client-&gt;get_event( ) / check_on_event( ) compare it letter for letter. a raise spelled differently from its handler — _event( save ) against when save — is a dead control that looks handled: the name is there, in both places, and a case-blind reading (which is what event-without-handler does, on purpose) sees it as fine. reported where exactly one handled spelling is the raised name up to case; two handled spellings of one name are left alone rather than chosen between. the fix writes the handler's spelling into the raise, because the handler is the one place the name is compared. warning">
+        <h3><a href="#event-name-case-mismatch">event-name-case-mismatch</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">an event raised as <code>save</code> and handled as <code>SAVE</code> — the handler never runs</p>
+        <p class="detail">The event name travels to the browser and back as a string, and <code>client-&gt;get_event( )</code> / <code>check_on_event( )</code> compare it letter for letter. A raise spelled differently from its handler — <code>_event( </code>save<code> )</code> against <code>WHEN </code>SAVE`<code> — is a dead control that looks handled: the name is there, in both places, and a case-blind reading (which is what </code>event-without-handler` does, on purpose) sees it as fine. Reported where exactly ONE handled spelling is the raised name up to case; two handled spellings of one name are left alone rather than chosen between. The fix writes the handler's spelling into the raise, because the handler is the one place the name is compared.</p>
+        <p class="fixnote"><strong>--fix:</strong> The raised literal is rewritten to the handler's spelling — <code>_event( \</code>save\<code> )</code> becomes <code>_event( \</code>SAVE\<code> )</code> — inside the literal's own quotes; the arguments around it are untouched.</p>
+        <div class="ba" id="event-name-case-mismatch-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `press` v = client-&gt;_event( `save` ) )
+" … CASE client-&gt;get_event( ).
+"      WHEN `SAVE`.   " never reached</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `press` v = client-&gt;_event( `SAVE` ) )
+" … CASE client-&gt;get_event( ).
+"      WHEN `SAVE`.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1664"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="event-on-disabled-control" data-search="event-on-disabled-control an event handler on a control hard-disabled with a literal a bound enabled can flip at runtime, but a literal enabled="false" never does — the control can never fire, so the handler wired next to it is dead code that reads like a live wire. a hint, because a 1:1 port of a sample demonstrating the disabled state legitimately carries the original's handler. bind enabled if it should ever flip. hint">
         <h3><a href="#event-on-disabled-control">event-on-disabled-control</a>
@@ -1297,7 +1392,7 @@ ENDMETHOD.</code></pre></figure>
     )-&gt;a( n = `press`   v = client-&gt;_event( `SAVE` )
     )-&gt;a( n = `enabled` b = is_savable )   " bound, so it can become true</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1547"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1580"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="event-without-handler" data-search="event-without-handler an event nothing reacts to usually a dead control — but in abap2ui5 an event also forces a roundtrip, and that alone synchronises the model back into abap. so this is a hint, never an error, and it is skipped entirely when handler names are not literals. hint">
         <h3><a href="#event-without-handler">event-without-handler</a>
@@ -1314,7 +1409,7 @@ ENDMETHOD.</code></pre></figure>
 " … CASE client-&gt;get_event( ).
 "      WHEN `SAVE`.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1616"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1646"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="filter-groups-not-arrays" data-search="filter-groups-not-arrays a binding_call filter payload whose groups are objects — it clears the binding instead of filtering it the compound filter form is an array of groups, each an array of [path, operator, value1, value2?] rows. buildfiltergroups keeps only elements that pass array.isarray, so an array of objects — [{"path":…,"operator":…,"value1":…}] — is dropped whole, the group list empties, and control falls into binding.filter([]): the filter is cleared, never applied. nothing is logged on that path, because the root is an array so the malformed-json guard passes and the per-group drop is silent by construction. an intentional clear is [], which is empty to begin with and is not reported. error">
         <h3><a href="#filter-groups-not-arrays">filter-groups-not-arrays</a>
@@ -1330,14 +1425,16 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>t_arg = VALUE #( ( `d` ) ( `items` ) ( `filter` )
                  ( `NAME` ) ( `Contains` ) ( term ) )   " positional</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L318"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L333"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="frontend-action-unknown-id" data-search="frontend-action-unknown-id an id-addressed wire naming an id no view declares the frontend resolves the first t_arg as a control id. when no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does nothing: no exception, no failed render, a button that looks connected. control_by_id at least logs the miss; set_focus, scroll_to, scroll_into_view and keyboard_set_mode return without even a console line. judged only when every id attribute of the class is a literal; a class that builds ids at runtime is left alone. error">
         <h3><a href="#frontend-action-unknown-id">frontend-action-unknown-id</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary">an id-addressed wire naming an id no view declares</p>
         <p class="detail">The frontend resolves the first <code>t_arg</code> as a control id. When no view of the class gives a control that id — a typo, a renamed control, an id that only ever existed in another app — the lookup fails and the wire does <strong>nothing</strong>: no exception, no failed render, a button that looks connected. <code>CONTROL_BY_ID</code> at least logs the miss; <code>SET_FOCUS</code>, <code>SCROLL_TO</code>, <code>SCROLL_INTO_VIEW</code> and <code>KEYBOARD_SET_MODE</code> <code>return</code> without even a console line. Judged only when every <code>id</code> attribute of the class is a literal; a class that builds ids at runtime is left alone.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one id a view of this class declares is the written id up to letter case (<code>messageview</code> for <code>messageView</code>), the finding names it and <code>--fix</code> rewrites the literal inside its own quotes. An id no declared id matches that way is reported without a suggestion.</p>
         <div class="ba" id="frontend-action-unknown-id-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>a( n = `id` v = `messageView` )
@@ -1346,7 +1443,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>a( n = `id` v = `messageView` )
 " … t_arg = VALUE #( ( `messageView` ) ( `navigateBack` ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L242"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L255"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="invalid-action-payload" data-search="invalid-action-payload a json action payload the runtime silently downgrades the object-kind control methods (setsticky, sethiddeninpopin, setp13ndata) run their argument through castarg, whose catch turns a literal that does not parse as json into {} — a setsticky with a typo'd payload then un-sticks everything instead of failing. for the enum-array payloads the values are judged too: an unknown sap.m.sticky / sap.ui.core.priority key is dropped by ui5 with the same silence. binding_call's compound filter-groups json is judged the same way, including each row's operator. error">
         <h3><a href="#invalid-action-payload">invalid-action-payload</a>
@@ -1360,7 +1457,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>t_arg = VALUE #( ( `table1` ) ( `setSticky` ) ( `["ColumnHeaders"]` ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L274"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L289"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="invalid-aggregation-item" data-search="invalid-aggregation-item a slashed control id that addresses no aggregation item a cloned aggregation item has no id the backend can know — the rendered one carries the view prefix the framework assigns at runtime — so it is addressed positionally as &lt;id&gt;/&lt;aggregation&gt;/&lt;index&gt; (0-based) and resolved in the browser. two ways to get that wrong, and the id rules around this one see neither, because they judge the head segment alone: a slashed value that does not match the shape (a non-numeric index, a fourth segment) never enters the aggregation path at all and is looked up as one plain id, which resolves to nothing; and a shape that matches but names an aggregation the control does not declare makes getaggregation return nothing, so the wire is dropped with a log. the aggregation half is judged only when the head id resolves to a control the snapshot knows. error">
         <h3><a href="#invalid-aggregation-item">invalid-aggregation-item</a>
@@ -1376,7 +1473,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_by_id
                   t_arg = VALUE #( ( `carousel/pages/0` ) ( `setActivePage` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L89"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L90"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="invalid-frontend-action" data-search="invalid-frontend-action a frontend-action t_arg outside the set the runtime accepts a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) wire is dispatched in the browser by name, and a name outside the whitelist raises nothing anywhere: frontendaction logs to the console and the control does nothing when pressed. judged only for literal arguments and only where the runtime's set is closed — the control_global object and its method, the binding_call method, and control_by_id's obsolete empty view slot (which shifts the method out of position). control_by_id's method list is open by design and is never judged. error">
         <h3><a href="#invalid-frontend-action">invalid-frontend-action</a>
@@ -1392,7 +1489,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>client-&gt;_event_client( val   = client-&gt;cs_event-control_global
                        t_arg = VALUE #( ( `MESSAGE_TOAST` ) ( `show` ) ( `hi` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L333"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L348"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="invalid-keyboard-shortcut" data-search="invalid-keyboard-shortcut a shortcut combo that names no key the registration normalizes the combo (ctrl+shift+s → ctrl+shift+s, aliases like cmd/return included) and refuses one that consists of modifiers only — logged once, never registered, and every later keydown simply does nothing. the scope argument is judged separately: a slot key or a declared control id (via frontend-action-unknown-id). error">
         <h3><a href="#invalid-keyboard-shortcut">invalid-keyboard-shortcut</a>
@@ -1406,7 +1503,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>t_arg = VALUE #( ( `Ctrl+Shift+S` ) ( `SAVE` ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L407"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L422"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="literal-view-slot" data-search="literal-view-slot a view slot retyped as a string where cs_view has a constant for it the mirror image of unknown-view-slot, and the reason that rule keeps finding work to do. view = main is correct — and nothing checks it: the value travels to the browser as an object key, so a rename, a typo or the wrong half of the pairing dispatches to no view at all, silently. client-&gt;cs_view-main cannot fail that way, because the abap compiler resolves the name: cs_view-mian does not activate. it also spells the one pairing nobody remembers — the constant is cs_view-nested and its value is nest, cs_view-nested2 is nest2 — which is exactly the mistake unknown-view-slot reports once the literal is written out. a hint, because the wire works today; --fix writes the constant in place. hint">
         <h3><a href="#literal-view-slot">literal-view-slot</a>
@@ -1426,7 +1523,7 @@ ENDMETHOD.</code></pre></figure>
                        view  = client-&gt;cs_view-nested
                        t_arg = VALUE #( ( `table1` ) ( `focus` ) ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L138"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L151"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="live-event-roundtrip" data-search="live-event-roundtrip a livechange wire that round-trips per keystroke abap2ui5 serializes round-trips: an event fired while one is in flight is dropped, not queued. a livechange wired to client-&gt;_event( ) therefore sees the value of the last completed trip and skips the ones typed in between — the bound field lags under fast input and converges only when typing pauses. prefer a two-way binding (the model updates without any event) or the control's final-value event (change/search/submit); keep the live wire only when every intermediate value genuinely must reach abap. _event_client and follow_up_action are frontend-only and are not judged. hint">
         <h3><a href="#live-event-roundtrip">live-event-roundtrip</a>
@@ -1441,14 +1538,16 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>)-&gt;a( n = `value`  v = client-&gt;_bind( search_term )
 )-&gt;a( n = `change` v = client-&gt;_event( `SEARCH` ) )   " the final value, once</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1667"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1716"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="popover-anchor-unknown-id" data-search="popover-anchor-unknown-id popover_display( by_id = … ) anchored to an id no view declares a popover opens by a control — by_id names its anchor. with a literal id no view of the class declares, the fragment loads, displaypopover finds no openby control, logs it and destroys the fragment again: nothing opens, nothing renders red, and the property gate saw a perfectly valid fragment. judged under the same trust condition as frontend-action-unknown-id — only when every id attribute of the class is a literal. error">
         <h3><a href="#popover-anchor-unknown-id">popover-anchor-unknown-id</a>
           <span class="badge error">error</span>
+          <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>popover_display( by_id = … )</code> anchored to an id no view declares</p>
         <p class="detail">A popover opens <strong>by</strong> a control — <code>by_id</code> names its anchor. With a literal id no view of the class declares, the fragment loads, <code>displayPopover</code> finds no <code>openBy</code> control, logs it and <strong>destroys the fragment again</strong>: nothing opens, nothing renders red, and the property gate saw a perfectly valid fragment. Judged under the same trust condition as <code>frontend-action-unknown-id</code> — only when every <code>id</code> attribute of the class is a literal.</p>
+        <p class="fixnote"><strong>--fix:</strong> Where exactly one id a view of this class declares is the written <code>by_id</code> up to letter case, the finding names it and <code>--fix</code> rewrites the literal. Otherwise no suggestion is made.</p>
         <div class="ba" id="popover-anchor-unknown-id-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>)-&gt;a( n = `id` v = `btnInfo` )
@@ -1459,7 +1558,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btninfo` ).<
 " …
 client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1789"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1858"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="popover-display-val" data-search="popover-display-val popover_display( val = … ) — the parameter is xml the one asymmetry in the display family: popup_display( ) imports val, popover_display( ) imports xml. a val = guessed by analogy does not compile — but nothing in a systemless pipeline says so before activation, so the mistake rides along until the class first meets a compiler. one of the most common first-try mistakes in generated code. error">
         <h3><a href="#popover-display-val">popover-display-val</a>
@@ -1475,7 +1574,30 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;popover_display( xml = popover-&gt;stringify( ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1813"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1882"><code>lib/abap-rules.mjs</code></a></p>
+      </article>
+      <article class="rule" id="popup-without-close-wire" data-search="popup-without-close-wire a dialog built without a single event wire — nothing can close it a sap.m.dialog shown through popup_display( ) has no close affordance of its own: no button, no close icon. the app closes it — popup_destroy( ) or a new display from the branch that handles a button's press, an afterclose or an escapehandler — and all of those are event wires. a method that builds a dialog root and wires no event anywhere in it (no _event( ), no _event_client( ), no follow_up_action( )) has left the dialog with escape as its only exit, and the app never hears about that. judged per method, because a dialog's buttons are often chained in a second statement on the same handle; a method that hands the buttons to a helper is the shape this cannot see, which is why it is a hint. hint">
+        <h3><a href="#popup-without-close-wire">popup-without-close-wire</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a <code>Dialog</code> built without a single event wire — nothing can close it</p>
+        <p class="detail">A <code>sap.m.Dialog</code> shown through <code>popup_display( )</code> has no close affordance of its own: no button, no close icon. The app closes it — <code>popup_destroy( )</code> or a new display from the branch that handles a button's <code>press</code>, an <code>afterClose</code> or an <code>escapeHandler</code> — and all of those are event wires. A method that builds a <code>Dialog</code> root and wires NO event anywhere in it (no <code>_event( )</code>, no <code>_event_client( )</code>, no <code>follow_up_action( )</code>) has left the dialog with Escape as its only exit, and the app never hears about that. Judged per METHOD, because a dialog's buttons are often chained in a second statement on the same handle; a method that hands the buttons to a helper is the shape this cannot see, which is why it is a hint.</p>
+        <div class="ba" id="popup-without-close-wire-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>METHOD render_dialog.
+  DATA(popup) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+  popup-&gt;ele( `Dialog` )-&gt;a( n = `title` v = `Hi` )-&gt;tag( `Text` )-&gt;a( n = `text` v = `hello` ).
+  result = popup-&gt;stringify( ).
+ENDMETHOD.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD render_dialog.
+  DATA(popup) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+  popup-&gt;ele( `Dialog` )-&gt;a( n = `title` v = `Hi` )-&gt;tag( `Text` )-&gt;a( n = `text` v = `hello`
+      )-&gt;ele( `buttons` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `Close` )-&gt;a( n = `press` v = client-&gt;_event( `CLOSE` ) ).
+  result = popup-&gt;stringify( ).
+ENDMETHOD.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1839"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="raw-javascript-to-frontend" data-search="raw-javascript-to-frontend raw javascript shipped to the browser — via follow_up_action or the view abap2ui5's frontend is a renderer: behaviour travels as data (bindings, cs_event- actions), never as code. three shapes break that line, and all three run unchecked in the browser, invisible to every gate and to anyone reading the abap: a non-name val in follow_up_action( ) (the raw-js escape hatch — inserted verbatim as custom_js), a hand-written handler string on an event attribute (ui5 evaluates it as javascript), and a &lt;script&gt; tag inside an attribute value (the core:html route). use a cs_event- frontend action, a client-&gt;_event( ) wire or backend logic instead. a repo that deliberately allows the escape hatch can lower or disable the rule in its abap2ui5lint.jsonc. warning">
         <h3><a href="#raw-javascript-to-frontend">raw-javascript-to-frontend</a>
@@ -1489,7 +1611,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;follow_up_action( val = client-&gt;cs_event-set_focus t_arg = VALUE #( ( `x` ) ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L189"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L202"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="settable-property-via-action" data-search="settable-property-via-action a control_by_id set…( ) where the control has a bindable property of that name the project rule is prefer a bindable property over a frontend action: a two-way bound property keeps the state in the model, where it survives a view rebuild, a draft restore and the browser back button — a frontend action does not, and it also needs a round-trip to be re-applied. only properties are reported: an association (sap.uxap.objectpagelayout.selectedsection) and an aggregation cannot be data-bound at all, so driving those imperatively is the only way and is never flagged. a hint, not an error — an imperative call can still be the right answer when the sample's point is the imperative api itself. hint">
         <h3><a href="#settable-property-via-action">settable-property-via-action</a>
@@ -1504,7 +1626,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `showSideContent` v = client-&gt;_bind( show_side ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L481"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L498"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="trailing-empty-event-arg" data-search="trailing-empty-event-arg the last t_arg entry is empty and never arrives get_t_arg buffers an empty argument and flushes it only when a later non-empty one follows, so an empty entry between filled ones keeps its slot and a trailing one disappears. the handler's get_event_arg( n ) for that position reads initial, with no error anywhere. the framework pads a missing trailing argument only for a nullable declared kind on a control method, which does not apply to a backend _event. warning">
         <h3><a href="#trailing-empty-event-arg">trailing-empty-event-arg</a>
@@ -1520,7 +1642,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;_event( val = `PICK` t_arg = VALUE #( ( `${/ID}` ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L766"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L783"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="ui5-internal-access" data-search="ui5-internal-access mproperties &amp; friends — private ui5 internals the mproperties/maggregations/mbindinginfos/meventregistry member tables are ui5 implementation details with no api contract — they are renamed or restructured across ui5 patches without notice, so a wire or expression that reads them works on the version it was written against and breaks silently on the next one. restructure to a two-way binding or a public parameter. warning">
         <h3><a href="#ui5-internal-access">ui5-internal-access</a>
@@ -1536,7 +1658,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
             <pre><code>client-&gt;follow_up_action( val   = client-&gt;cs_event-control_by_id
                           t_arg = VALUE #( ( `list` ) ( `getVisible` ) ) )   " a public method</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1492"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1522"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-frontend-action" data-search="unknown-frontend-action a literal action name outside the frontend dispatch table a client-&gt;_event_client( ) / client-&gt;follow_up_action( ) naming its action as a string literal is dispatched exactly like the cs_event- constant — but the constant is compile-checked and the literal is not, and frontendaction.execute looks the name up in its handler table and does nothing at all on a miss: no exception, not even a console line. case matters — the runtime never upper-cases, so set_title misses where set_title works. anything not name-shaped is follow_up_action's raw-javascript escape hatch and is not judged. error">
         <h3><a href="#unknown-frontend-action">unknown-frontend-action</a>
@@ -1550,7 +1672,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;follow_up_action( val = client-&gt;cs_event-set_title t_arg = VALUE #( ( `Hi` ) ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L194"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L207"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-view-slot" data-search="unknown-view-slot a literal view slot outside main / nest / nest2 / popup / popover the view parameter (and set_size_limit's view key) names one of the five slots, case-sensitively: the server compares it as an abap string and the browser uses it as an object key. the natural guesses all miss — main (lower case), and nested for cs_view-nested, whose value is nest. for control_by_id a wrong slot is worse than none: a named slot suppresses the global id fallback, so the wire dies although the id exists in an open view. error">
         <h3><a href="#unknown-view-slot">unknown-view-slot</a>
@@ -1568,7 +1690,7 @@ client-&gt;popover_display( xml = popover-&gt;stringify( ) by_id = `btnInfo` ).<
                        view  = client-&gt;cs_view-nested
                        t_arg = VALUE #( ( `table1` ) ( `focus` ) ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L219"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L232"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-bindings">
@@ -1590,7 +1712,7 @@ a( n = `dateValue` v = `{ path: 'VALID_FROM', formatter: 'Formatter.DateCreateOb
 " …
 a( n = `dateValue` v = `{ path: 'VALID_FROM', formatter: 'Formatter.DateCreateObject' }` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L858"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L875"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-for-event" data-search="binding-for-event _bind( ) on an event — a dead control the slot is an event, so a data binding in it never becomes a handler. the control renders and does nothing. use client-&gt;_event( ). error">
         <h3><a href="#binding-for-event">binding-for-event</a>
@@ -1604,7 +1726,7 @@ a( n = `dateValue` v = `{ path: 'VALID_FROM', formatter: 'Formatter.DateCreateOb
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `press` v = client-&gt;_event( `SAVE` ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1173"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1206"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-on-association" data-search="binding-on-association a binding written into an association attribute only properties and aggregations can be data-bound. xmltemplateprocessor handles an association attribute by taking its value verbatim as a control id (createid(svalue), or a comma/space split for a 0..n association) — bindinginfo.parse is never called on it. so the braces travel into an id nothing answers to, the association stays empty, and neither the parser, the render gate nor the console says a word. drive an association imperatively instead, with a control_by_id setter — which is also why settable-property-via-action deliberately never pushes an association towards a binding. error">
         <h3><a href="#binding-on-association">binding-on-association</a>
@@ -1619,7 +1741,7 @@ a( n = `dateValue` v = `{ path: 'VALID_FROM', formatter: 'Formatter.DateCreateOb
             <pre><code>follow_up_action( val   = client-&gt;cs_event-control_by_id
                   t_arg = VALUE #( ( `opl` ) ( `setSelectedSection` ) ( section ) ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1205"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1238"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-to-local" data-search="binding-to-local a local variable bound the instance is serialized across the roundtrip, the method stack is not — so the value is gone when the answer comes back. bind an instance attribute. warning">
         <h3><a href="#binding-to-local">binding-to-local</a>
@@ -1639,7 +1761,7 @@ ENDMETHOD.</code></pre></figure>
 " …
   view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( title ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1461"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1491"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-to-nonpublic" data-search="binding-to-nonpublic a protected/private attribute bound only public attributes are serialized into the model (z2ui5_cl_ui5_srv_model filters on visibility), so binding one from another section fails the first roundtrip with binding_error — no class attribute for binding found. move the attribute to the public section. judged by the root of the bound name (a structure component travels with its root), and only when the class declares a public section to compare against. found live: an samples-controls port bound expanded from its protected section and had never worked in a running system — its live_test deviation was telling the truth the whole time. error">
         <h3><a href="#binding-to-nonpublic">binding-to-nonpublic</a>
@@ -1657,7 +1779,7 @@ ENDMETHOD.</code></pre></figure>
   DATA expanded TYPE abap_bool.
 " … )-&gt;a( n = `expanded` v = client-&gt;_bind( expanded ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1480"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1510"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-to-reference" data-search="binding-to-reference a type ref to attribute bound without dereferencing the model serializer walks data, not references — client-&gt;_bind( ) on an attribute declared type ref to … throws at runtime. bind the dereferenced data (client-&gt;_bind( ref-&gt; )) or a plain data attribute. both sample fixes that established this pattern were found by users hitting the exception in a running system. error">
         <h3><a href="#binding-to-reference">binding-to-reference</a>
@@ -1677,7 +1799,7 @@ ENDMETHOD.</code></pre></figure>
 " …
 )-&gt;a( n = `items` v = client-&gt;_bind( mt_data-&gt;* )   " binds the table</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1645"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1694"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="collapsed-brace-in-style" data-search="collapsed-brace-in-style an escaped css brace written inside a |…| template an escape only reaches the serialized attribute when the backslash is taken verbatim, which is what a backtick literal does. inside an abap string template the backslash is the template's own escape: \{ collapses to a bare { before the builder ever sees it, and the view dies exactly as if nothing had been escaped. write the stylesheet in a backtick literal — or, if it has to be a template, double the backslash (\\\{). invisible to unescaped-brace-in-style, which reads the source and sees a backslash in front of every brace; only the literal's kind tells the two apart. error">
         <h3><a href="#collapsed-brace-in-style">collapsed-brace-in-style</a>
@@ -1693,7 +1815,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>DATA(css) = `&lt;style&gt;.a \{color:red\}&lt;/style&gt;`.   " a backtick literal survives</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1879"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1948"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="enum-field-unset-on-insert" data-search="enum-field-unset-on-insert a row built at runtime without a field the view binds to an enum — the empty string takes the view down the demo-kit originals push a js object with the key absent, and ui5 falls back to the property default. abap has no absent: an unset field ships as "", which is not a member of any enum, so managedobject.validateproperty throws — and managedobjectbindingsupport re-throws anything that is not a formatexception, so the binding update dies and takes the view with it. both repairs are already in the framework: seed the default (type = 'none'), or name the field in omit_initial_paths. three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an insert/append of a value #( … ) literal, the t = value #( ( … ) ( … ) ) seed a model_init writes (including the nested elements = value #( … ) inside one), and a row assembled in a work area and inserted a few statements later. a row copied wholesale — value #( for row in t_all … ( row ) ) — has no field list to read and is not judged. fields are keyed on the table each bound aggregation names, absolute ({/t_pages}) and relative ({path: 't_appointments'}) alike, and each key gets only the fields of its own row template: a planningcalendar binds rows, specialdates and a nested appointments at once, and only the innermost carries ariahaspopup. not reported where the class fills the field afterwards — a loop … r-&gt;state = … completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an abap component name at all (type="{text}" is the demo kit's own quirk, ported verbatim: it resolves to nothing, so ui5 keeps the default). the widening came from a corpus sweep in 2026-08, where the insert-only reading had missed ten real defects across seven ports, every one of which took its view down. error">
         <h3><a href="#enum-field-unset-on-insert">enum-field-unset-on-insert</a>
@@ -1707,7 +1829,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>INSERT VALUE #( title = `New` type = `None` start_at = s ) INTO TABLE t.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L477"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L494"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="escaped-brace-in-backtick" data-search="escaped-brace-in-backtick a binding written with escaped braces inside a backtick literal brace escaping is a |…| template rule. in a template the backslash is abap's own escape, so \{ reaches the builder as a bare { — which is exactly what a binding needs. a backtick literal has no escape processing at all: the backslash is taken verbatim and lands in the serialized attribute, where ui5 reads \{ path: … \} as text rather than a binding and either renders it raw or fails to parse the view. write plain braces in a backtick literal; keep the escapes for the template form. error">
         <h3><a href="#escaped-brace-in-backtick">escaped-brace-in-backtick</a>
@@ -1723,7 +1845,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `items` v = `{ path: 'message&gt;/' }` )   " correct in a backtick literal</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1917"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1986"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="event-for-property" data-search="event-for-property _event( ) on a property the mirror image: an event handler written into a data slot. use client-&gt;_bind( ). error">
         <h3><a href="#event-for-property">event-for-property</a>
@@ -1737,7 +1859,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Text` )-&gt;a( n = `tooltip` v = client-&gt;_bind( hint ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1175"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1208"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="hardcoded-binding-path" data-search="hardcoded-binding-path an absolute binding path written as text — {/path} or path: '/path' the runtime only registers what client-&gt;_bind( ) was given, so a textual path either addresses nothing (that half is unknown-binding-path) or duplicates a bind that exists elsewhere — and then silently breaks the moment the attribute is renamed, because no compiler follows a string. derive the path instead: client-&gt;_bind( var ) for the {binding}, or the bare-path form client-&gt;_bind( val = var path = abap_true ) interpolated into a binding-info template. an odata entity path with a key predicate ({/products('4711')}) in a class that switches its default model to an odata service is exempt — that path addresses the service, not an abap variable. warning">
         <h3><a href="#hardcoded-binding-path">hardcoded-binding-path</a>
@@ -1751,7 +1873,7 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `title` v = client-&gt;_bind( title ) )   " moves with the variable</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1845"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1914"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="json-bind-on-scalar-property" data-search="json-bind-on-scalar-property a json = abap_true bind on a scalar-typed property _bind( json = abap_true ) splices the bound string into the model as a json node — built for properties typed object/any (an integration card's manifest), which no typed abap value can be. on a string/int/float/boolean property the spliced node arrives as the wrong json type — strict mode and ui5 2.x reject it — and the splice is outbound-only: the return path skips json attributes, so an edit made through a two-way binding is silently discarded on the next roundtrip. bind the plain attribute instead; json is for objects. warning">
         <h3><a href="#json-bind-on-scalar-property">json-bind-on-scalar-property</a>
@@ -1769,7 +1891,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>DATA manifest TYPE string.
 )-&gt;a( n = `value` v = client-&gt;_bind( manifest ) )   " Input.value is string-typed</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1489"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1522"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="json-literal-in-attribute" data-search="json-literal-in-attribute a raw json literal written into a view attribute ui5 parses an attribute value starting with { as a binding, so a json object literal ({"sap.card":…) is read as a binding path and the attribute ends up empty — the classic way to lose an integration card's manifest. keep the json in the model and bind it: client-&gt;_bind( manifest ). error">
         <h3><a href="#json-literal-in-attribute">json-literal-in-attribute</a>
@@ -1786,7 +1908,7 @@ ENDMETHOD.</code></pre></figure>
 view-&gt;tag( n = `Card` ns = `card`
     )-&gt;a( n = `manifest` v = client-&gt;_bind( val = manifest json = abap_true ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1234"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1267"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="relative-aggregation-without-context" data-search="relative-aggregation-without-context a root-level aggregation bound with a relative path — it resolves against nothing and renders empty inside a bound row template a relative aggregation path is the normal and correct form. outside one there is no context: model.resolve returns undefined for a relative path with none (legacy syntax is off since 1.88), bindlist never resolves, and the aggregation stays empty with no error anywhere. the complex form hides it well — {path: 't_items'} looks deliberate, and the missing leading slash is the whole defect. it falls between two existing rules: hardcoded-binding-path only matches paths that start with /, and relative-binding-without-context deliberately skips aggregations. reported only where the control has neither a binding context nor an enclosing template, which is what separates the broken cases from the dominant correct ones. three narrowings came from running it on a 637-file corpus, where it first fired 81 times: the binding's own path only (a nested sorter: { path: … } is not it), a named model stripped before asking whether the path is absolute (message&gt;/ is absolute), and an aggregation whose value the reconstructor could not resolve — a _bind( ) handed in as a method parameter — still makes its children a row template, because a blind spot is not a defect. a fourth came from the abap2ui5/samples corpus after release: a class that issues cs_event-bind_element sets a binding context on a whole view slot at runtime, so every relative path under it resolves against a row the document never names — which is the entire point of that idiom, and invisible to a static walk. which slot was bound is a second question, and a wrong second guess is worse than silence. error">
         <h3><a href="#relative-aggregation-without-context">relative-aggregation-without-context</a>
@@ -1800,7 +1922,7 @@ view-&gt;tag( n = `Card` ns = `card`
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>)-&gt;a( n = `items` v = client-&gt;_bind( val = t_legend path = abap_true ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1337"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1370"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unconverted-abap-boolean" data-search="unconverted-abap-boolean an abap boolean written straight into the view it arrives as 'x' or ' ', and ui5 reads any non-empty string as true — so visible = abap_false makes the control visible. the classic silent inversion. the way out is the builder's own boolean parameter: z2ui5_cl_ui5_view_builder takes the flag through a( b = … ), which renders true/false itself. error">
         <h3><a href="#unconverted-abap-boolean">unconverted-abap-boolean</a>
@@ -1816,7 +1938,7 @@ view-&gt;tag( n = `Card` ns = `card`
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `visible` b = flag )   " the builder renders true/false</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1205"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1235"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="unescaped-brace-in-style" data-search="unescaped-brace-in-style literal css braces in a &lt;style&gt; block ui5's xmlview parser reads an unescaped { in an attribute value as the start of a binding, so a stylesheet injected through a core:html content attribute takes the whole view down with a binding parse error. write every brace as \{ and \}. judged between &lt;style&gt; and &lt;/style&gt;, so a {0} toast template or a ${$parameters&gt;/…} wire elsewhere in the same builder chain is never mistaken for css. error">
         <h3><a href="#unescaped-brace-in-style">unescaped-brace-in-style</a>
@@ -1832,7 +1954,7 @@ view-&gt;tag( n = `Card` ns = `card`
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>DATA(css) = `&lt;style&gt;.box \{color:red\}&lt;/style&gt;`.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1749"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1798"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-binding-path" data-search="unknown-binding-path a hand-written {/typo} the derived model has no path for the field just stays empty — no error, anywhere. inside a bound aggregation a relative {typo} is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's types. never guessed. warning">
         <h3><a href="#unknown-binding-path">unknown-binding-path</a>
@@ -1850,7 +1972,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{/NAEM}` )   " the model has NAME<
 …
 view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( name ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1250"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1283"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="unknown-model" data-search="unknown-model a name&gt; binding against a model the app does not have abap2ui5 serves exactly one data model per view slot — the default one, serialized from the class's public attributes — plus the framework's own device&gt; and message&gt; (and http&gt; on a switched path). a prefix outside that set resolves to no model at all, and ui5 leaves the property unset without a word. it is the most common leftover of a ported demo-kit sample, whose original names its models freely ({ui&gt;/rowmode}, {i18n&gt;key}): the fix is to fold the field into the default model with client-&gt;_bind( ), not to add a model — and there is no i18n model by design, because translation is a backend concern. a model registered by a set_odata_model wire of the same class counts as available; a class that registers one under a non-literal name is not judged at all. error">
         <h3><a href="#unknown-model">unknown-model</a>
@@ -1864,7 +1986,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( name ) )</code></
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `text` v = client-&gt;_bind( title ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1222"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1255"><code>lib/properties.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-layout">
@@ -1942,7 +2064,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( name ) )</code></
             <pre><code>VALUE #( ( title = `a` showClose = abap_true )
          ( title = `b` showClose = abap_true ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L540"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L557"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="binding-type-mismatch" data-search="binding-type-mismatch an abap character field bound to a numeric or boolean ui5 property the model ships json, so a type string (or c, n, d) field arrives as "100" where the property declared a float. ui5 1.71 coerces it; ui5 2.x and the render gate's future mode reject the view outright ("100" is of type string, expected float). declare the field with the matching abap type, or convert it before it reaches the model. only reported when the field's type is known from the class's own declarations. warning">
         <h3><a href="#binding-type-mismatch">binding-type-mismatch</a>
@@ -1958,7 +2080,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = client-&gt;_bind( name ) )</code></
             <pre><code>DATA percent TYPE p LENGTH 5 DECIMALS 2.
 " … )-&gt;a( n = `percentValue` v = client-&gt;_bind( percent ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1466"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1499"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="collection-bound-to-property" data-search="collection-bound-to-property a table or structure bound to a scalar property the property receives an object where it expects a value. nothing throws; the control shows nothing useful. error">
         <h3><a href="#collection-bound-to-property">collection-bound-to-property</a>
@@ -1976,7 +2098,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `headerText` v = client-&gt;_bind( t_rows ) )
 …
 view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1451"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1484"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="date-type-without-source" data-search="date-type-without-source sap.ui.model.type.date / datetime / time without formatoptions.source without a source format option these types expect a js date instance in the model. an abap2ui5 model is json serialized from abap, so the value is always a string (or a timestamp number) and a date can never reach it — the type raises a formatexception on the first format() and the field stays empty, with nothing in the console for a text. add the source format the abap field actually carries, e.g. formatoptions: { source: { pattern: 'yyyy-mm-dd' } }. note the alias form is resolved through the view's core:require, so type: 'datetype' is judged like the full module name. error">
         <h3><a href="#date-type-without-source">date-type-without-source</a>
@@ -1990,7 +2112,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `text` v = |\{ path: '{ client-&gt;_bind( val = date path = abap_true ) }', type: 'DateType', formatOptions: \{ source: \{ pattern: 'yyyy-MM-dd' \} \} \}| )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1239"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1272"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="escape-sequence-in-backtick" data-search="escape-sequence-in-backtick a \n written in a backtick literal, which has no escapes an abap  backtick  literal is raw: \n inside it is a backslash followed by an n, and nothing further down the chain turns it into a line break — the client's formattemplate substitutes {n} placeholders and passes everything else through. so a toast built as  value - {0}, \n action - {1}  renders the two characters on screen, where the original (a double-quoted js string, shown through .sapmmessagetoast's white-space: pre-line) breaks the line. the |…| string template is the abap form that does process escapes, so the working spelling concatenates one. scoped to text that reaches the user — an attribute value and the on-screen message helpers — rather than to every backtick literal: a backslash is legitimate in a regex pattern and in a windows path, and nobody reads those. a doubled backslash is never reported; whoever wrote it meant a backslash. warning">
         <h3><a href="#escape-sequence-in-backtick">escape-sequence-in-backtick</a>
@@ -2006,7 +2128,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>client-&gt;message_toast_display( `saved,` &amp;&amp; |\n| &amp;&amp; ` and closed` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L913"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L930"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="missing-accessibility" data-search="missing-accessibility an icon-only button with no accessible name, a meaningful image without alt the control is unusable with a screen reader. both halves are judged the way ui5 itself treats them. a button with an icon and no text has no accessible name — unless it carries a tooltip or an arialabelledby association, either of which gives it one. an image is the case that reads backwards: decorative defaults to true, and for a decorative image ui5 ignores alt entirely ("if the image is set to decorative, this property is ignored"). so an image without decorative is one the framework hides from screen readers on purpose, and asking it for an alt asks for an attribute ui5 drops — only an image the author declared meaningful with decorative="false" and then left unnamed is reported. never wrong by itself, so it is a hint — switch it off per repo with "missing-accessibility": false if your corpus has made another decision. hint">
         <h3><a href="#missing-accessibility">missing-accessibility</a>
@@ -2023,7 +2145,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
     )-&gt;a( n = `decorative` v = `false`
     )-&gt;a( n = `alt`        v = `Company logo` )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1644"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1679"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="missing-required-aggregation" data-search="missing-required-aggregation a table bound to rows but given no columns — renders empty the control has data but not the aggregation it needs to show any of it. nothing fails: the table renders, and it renders empty, which is the hardest kind of bug to see in a screenshot. warning">
         <h3><a href="#missing-required-aggregation">missing-required-aggregation</a>
@@ -2042,7 +2164,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
         )-&gt;tag( `Column`
     )-&gt;end( )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1601"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1636"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="picker-value-without-format" data-search="picker-value-without-format a date/time picker binding value with neither a binding type nor a valueformat a picker parses and formats its value with valueformat, and when neither that nor a binding type says otherwise it falls back to the browser locale for the string it writes back. client-&gt;_bind( ) is two-way and the write-back is a bare abap assignment, so the locale string lands in the field. measured on openui5 (en-us, seeded "2018-07-09t09:00:00"): a sap.m.datetimepicker still reads the iso string — dateformat falls back to iso — but writes back "jul 12, 2018, 2:30:00 pm"; a sap.m.datepicker does not read it at all (datevalue stays null, the raw text is shown) and writes back "7/12/18". nothing raises, and en-us hides most of it — in de-de the field comes back as "04.03.2025, 10:15:00", which new date( ) parses month-first, so an appointment picked for 4 march is drawn on 3 april. declare valueformat with the pattern the abap field carries (yyyy-mm-dd't'hh:mm:ss), or bind with a sap.ui.model.type.date/datetime and its formatoptions.source — a typed binding owns the pattern and is never reported. the picker family is read off the metadata (a control declaring both value and valueformat), and the rule needs the abap class: it only fires where the class also writes the field, because a field only the picker ever writes is self-consistent whatever the locale does, and one the class writes as digit-free text (n/a) is not a date at all. warning">
         <h3><a href="#picker-value-without-format">picker-value-without-format</a>
@@ -2057,7 +2179,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
             <pre><code>a( n = `valueFormat` v = `yyyy-MM-dd'T'HH:mm:ss`
 )-&gt;a( n = `value`    v = client-&gt;_bind( start_at ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1707"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1742"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="relative-binding-without-context" data-search="relative-binding-without-context a relative {field} on a control that has no binding context a relative binding is resolved against the control's binding context. inside a bound aggregation that context is the row; outside one there is none, and jsonmodel._getobject returns undefined — the control renders empty, with no error anywhere. this is the flattened-element-binding trap: the original did bindelement('/coll/0'), the port seeded that record at the model root and kept the relative {field}. bind the root field instead (client-&gt;_bind( field )). all four shapes a property binding takes are judged, not only the bare {name} the rule started on: the composite {street} {housenumber}, the complex { path: 'price', type: … } and the expression {= ${status} ? … } each resolve slashless paths against the same missing context and render just as blank. the composite is the shape that pays for the rest — samples-controls app 592 shipped 42 dead address bindings across 21 sections in it, over correctly declared root fields, past a green gate, because the matcher was anchored ^{name}$. a name the model root does not have is reported too: the verdict never depended on the name (a slashless path with no context resolves against nothing whatever it says), only the confidence that there is no context does — so that arm additionally stays silent under a bound aggregation whose row shape could not be resolved. four things are a context and none of them is reported: an enclosing bound aggregation, a per-row template aggregation (template, rowactiontemplate, rowsettingstemplate — ui5 clones them per row and the context comes from the parent's own rows binding in a sibling aggregation), a binding="{/path}" attribute (a managedobject special setting handed to bindobject( ) — the declarative form of the wire below), and a cs_event-bind_element wire, which is scoped to the one view slot it names: one popup wire used to disarm the check for every document of the class, main slot included. error">
         <h3><a href="#relative-binding-without-context">relative-binding-without-context</a>
@@ -2071,7 +2193,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `title` v = client-&gt;_bind( name ) )</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1374"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1407"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="uncurated-formatter" data-search="uncurated-formatter formatter: 'formatter.round2dp' — not in the curated module the framework ships one formatter module (z2ui5/model/formatter), and its export surface is deliberately tiny: a function is admitted only when it formats exactly the value handed to it and there is a technical reason it cannot be done in abap (a js type the json model cannot carry, an icon-font glyph). ui5 resolves the formatter string at binding time, and an unknown name silently yields no value — the property is simply never set, the cell renders blank, nothing turns red. the demo-kit pack (round2dp, dimensions, stockstatusstate, stockstatusicon, deliverystatusstate) and weightstate were shipped and then removed upstream, breaking their users exactly this way. if the value you need is not in the curated list, it is not a formatting problem: compute it in model_init and bind the finished field. judged only for the framework's own alias (formatter via core:require, or the z2ui5.formatter global) — an alias pointed at your own module is left alone. error">
         <h3><a href="#uncurated-formatter">uncurated-formatter</a>
@@ -2085,7 +2207,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>a( n = `state` v = `{STATUS_STATE}` )   " computed in ABAP, bound finished</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1148"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1177"><code>lib/properties.mjs</code></a></p>
       </article>
       <article class="rule" id="validating-setter-out-of-range" data-search="validating-setter-out-of-range a property whose setter refuses low values, bound to a field that arrives as 0 the declared type is not the whole domain. ui5 lets a control write its own setxxx, and a few of them refuse a value the type allows — sap.ui.unified.recurringcalendarappointment declares recurrencepattern as int and throws for anything below 1. an unfilled abap type i serializes as exactly that 0, and managedobject.updateproperty rethrows anything that is not a formatexception, so the whole render dies rather than this one property being dropped. reported by a user on ui5 1.150. what keeps the rule quiet is that the snapshot carries the setter's lower bound rather than the bare fact that it throws: 23 properties throw somewhere in their setter, and for most of them the initial 0 is perfectly legal (monthpicker.month 0 is january, timesrow.intervalminutes guards &gt;= 720). only a guard of the shape if (v &lt; n) throw is harvested — exactly what makes an unfilled abap field illegal — which is two properties in the whole snapshot. a field the seed fills with an accepted number is never reported, and an opaque row resolves to nothing at all. error">
         <h3><a href="#validating-setter-out-of-range">validating-setter-out-of-range</a>
@@ -2099,7 +2221,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>t_appointments = VALUE #( ( title = `Review` start_at = s recurrence_pattern = 1 ) ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1431"><code>lib/properties.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1464"><code>lib/properties.mjs</code></a></p>
       </article>
     </section>
 
@@ -2109,9 +2231,9 @@ view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</cod
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    119 configurable rules, plus <code>render-error</code> — the render gate's
+    124 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “119 rules passed” while this page has 120 cards.
+    <code>--badge</code> says “124 rules passed” while this page has 125 cards.
   </footer>
 </div>
 <script>
