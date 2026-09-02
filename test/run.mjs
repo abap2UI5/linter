@@ -2917,10 +2917,12 @@ section('frozen view builder', async () => {
       'frozen builder: a class on z2ui5_cl_xml_view is reported, not skipped');
     assert(frozen.severity === 'warning',
       `frozen builder: a warning - the class compiles and renders today, and breaks on the upgrade the deprecation announces (got ${frozen.severity})`);
-    assert(/DEPRECATED/.test(frozen.message),
-      'frozen builder: the message says the builder is deprecated, which is what the reader has to act on');
-    assert(/NOTHING about the view was checked/.test(frozen.message),
+    assert(/recommended/.test(frozen.message) && !/DEPRECATED/.test(frozen.message),
+      'frozen builder: the message RECOMMENDS the current builder - the old one keeps working, so it is not shouted at');
+    assert(/no view check ran here/.test(frozen.message),
       'frozen builder: the message says what was not judged, not just that a name is old');
+    assert(/z2ui5_cl_ui5_view_builder/.test(frozen.message),
+      'frozen builder: the message names what to switch to, and what switching buys');
     assert(frozen.line === 13,
       `frozen builder: reported at the factory call, not at line 1 (got ${frozen.line})`);
 

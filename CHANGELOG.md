@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **`frozen-view-builder` says it in a friendlier, shorter way.** The message
+  led with `DEPRECATED` and `NOTHING about the view was checked`, and read like
+  a class on `z2ui5_cl_xml_view` was a defect on the way to breaking. It is
+  not: that builder keeps working, and the plan is for it to move into a
+  separate addon rather than to disappear, so staying on it is a legitimate
+  choice. What the finding is actually about is what such a class does not get
+  — no control, property, binding or render check can read the old API — so
+  the text now names that, names the one thing to switch to, and recommends it
+  instead of demanding it. Roughly a third shorter. Severity is unchanged
+  (**warning**), and so is everything else about the rule: same id, same
+  position on the factory call, same `"rules": { "frozen-view-builder":
+  "hint" }` (or `false`) for a repo that stays on the old builder on purpose.
+  `RULE_DOCS` and the rules page carry the same rewrite.
+
 - **Every rule documents a before/after pair, and every report links at it.**
   `RULE_DOCS` gains `remedy` — the same source as `example`, fixed — for all
   120 rules, gated like `example` is (missing one fails `npm test`, and so
