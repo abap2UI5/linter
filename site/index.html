@@ -60,10 +60,10 @@ article.rule p { margin: .35rem 0; }
 article.rule p.summary { font-weight: 500; }
 article.rule p.detail, article.rule p.fixnote { color: var(--muted); font-size: .94rem; }
 article.rule pre { margin: 0; font-size: .86rem; }
-/* the before/after pair - side by side where there is room, stacked below,
-   because an ABAP chain does not survive a 30-column column */
+/* the before/after pair - always stacked, reported above fixed: side by side
+   the reader's eye has to jump across the page to find the one token that
+   changed, and an ABAP chain does not survive a half-width column either */
 .ba { display: grid; gap: .6rem; margin: .6rem 0 0; grid-template-columns: 1fr; }
-@media (min-width: 56rem) { .ba { grid-template-columns: 1fr 1fr; } }
 .ba figure { margin: 0; min-width: 0; }
 .ba figcaption { font-size: .72rem; font-weight: 600; letter-spacing: .04em;
   text-transform: uppercase; margin: 0 0 .25rem; }
