@@ -20,9 +20,21 @@
   gate judged a view the app does not build. It resolves now, as ABAP does —
   `''` inside is one quote, and the trailing blanks of a type-C literal go.
 
+  The same blindness ran through the readers. `n = `Page`` and `n = 'Page'`
+  name the same control, but the chain reader matched only backticks for
+  `n`/`ns`, so an element call written the second way came back "unparsed
+  element call" and nothing was reconstructed from it; and the seed readers
+  behind `VALUE #( )`, the `DATA … VALUE` default and a scalar assignment
+  matched only backticks too, so a table seeded the way most ABAP is written
+  derived an EMPTY model. `npm test` now asks it of the whole fixture set at
+  once: every fixture rewritten from one literal form into the other has to
+  reconstruct to the same view and derive the same model. 45 of the 49
+  differed; none do now.
+
   No finding moves on the three sample corpora (831 classes; they are backtick
-  throughout), which is what makes this a gap rather than a regression: it was
-  only ever wrong on code nobody here writes.
+  throughout) or on the documentation's 44 runnable app classes, which is what
+  makes this a gap rather than a regression: it was only ever wrong on code
+  nobody here writes.
 
 - **A third off a full run.** `topRows( )` - the reader behind
   `value-header-default-reassigned` and the enum/boolean row rules - found the
