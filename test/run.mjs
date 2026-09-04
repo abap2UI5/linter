@@ -6381,3 +6381,101 @@ section('malformed sources are reported, not thrown at', async () => {
     }
     assert(checked > 400, `enough mutants to mean something (${checked})`);
 });
+
+/* ABAP has three literal forms and the source scanners knew two of them.
+ * `'…'` - the oldest, and the one every ABAPer outside this project's own
+ * house style writes - was not tracked at all: a `)`, a `.`, a `"` or a `=`
+ * inside a character literal read as the real thing. A `(` in one made a
+ * view unreconstructible ("no view reconstructed from builder calls", an
+ * ERROR) on ABAP a system compiles without a murmur. */
+section('a character literal is a literal', async () => {
+    const { scrub, parenRegion, topSplit, splitStatements, parseNamedArgs } = await import('../lib/abap.mjs');
+    const { checkAbapSource } = await import('../lib/index.mjs');
+
+    // the four structural characters, one per primitive
+    assert(splitStatements("DATA(v) = 'v1.0'. WRITE v.").length === 2,
+      "splitStatements: the '.' in 'v1.0' is text, not the end of the statement");
+    assert(parenRegion("f( x = 'a) b' y = 2 )", 1).body.includes('y = 2'),
+      "parenRegion: the ')' in a character literal does not close the call");
+    assert(topSplit("'a && b' && c", '&&').length === 2,
+      "topSplit: the separator inside a character literal is not a boundary");
+    assert(/lv2 = 3/.test(scrub(`lv = 'say "hi"'. lv2 = 3.`)),
+      'scrub: a double quote inside a character literal does not start a comment');
+    assert(parseNamedArgs(" n = 'a  z = 1' v = 2 ").v === '2'
+      && parseNamedArgs(" n = 'a  z = 1' v = 2 ").z === undefined,
+      "parseNamedArgs: the '=' inside a character literal is not an argument");
+
+    // the ABAP escape: '' is one quote, not the end and a new literal
+    assert(splitStatements("DATA(v) = 'it''s. fine'. WRITE v.").length === 2,
+      "splitStatements: a doubled '' is an escaped quote, not a close and reopen");
+
+    /* The other direction, which is what kept ' out of these scanners for as
+     * long as it was: an apostrophe in a COMMENT must not open anything. It
+     * cannot, because every one of these runs on a scrubbed source and scrub
+     * meets the `"` first - so this is the guard on that ordering. */
+    const commented = 'DATA(a) = 1.\n" don\'t split here\nDATA(b) = 2.\n';
+    assert(splitStatements(scrub(commented)).length === 2,
+      "an apostrophe in a comment opens no literal");
+    assert(splitStatements(scrub("* don't split here\nDATA(b) = 2.")).length === 1,
+      "an apostrophe in a full-line comment opens no literal");
+    // nor one inside another literal form
+    assert(splitStatements("DATA(v) = `it's. here`. WRITE v.").length === 2,
+      "an apostrophe inside a backtick literal is text");
+    assert(splitStatements("DATA(v) = |it's. here|. WRITE v.").length === 2,
+      "an apostrophe inside a string template is text");
+
+    /* End to end, on the shape that found this: an attribute value written as
+     * a character literal with an unbalanced paren in it. */
+    const app = (lit) => `CLASS zcl_q DEFINITION PUBLIC CREATE PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA name TYPE string.
+  PROTECTED SECTION.
+    DATA client TYPE REF TO z2ui5_if_client.
+ENDCLASS.
+CLASS zcl_q IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    me->client = client.
+    IF client->check_on_init( ).
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+          )->ele( n = \`View\` ns = \`mvc\`
+              )->a( n = \`xmlns\`     v = \`sap.m\`
+              )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\` ).
+      DATA(page) = view->ele( \`Page\` )->a( n = \`title\` v = ${lit} ).
+      page->tag( \`Text\` )->a( n = \`text\` v = client->_bind( name ) ).
+      client->view_display( view->stringify( ) ).
+      RETURN.
+    ENDIF.
+    IF client->check_on_navigated( ).
+      client->view_display( \`<x/>\` ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+`;
+    for (const lit of ["'Net (total'", "'v1.0'", `'say "hi"'`, "'it''s'"]) {
+      const found = checkAbapSource(app(lit)).findings;
+      assert(found.length === 0,
+        `a title written as ${lit} builds a view like any other (${found.map((x) => x.type).join(', ')})`);
+    }
+    /* And the value REACHES the view. It did not: the resolver knew a backtick
+     * literal and a template, so an attribute written as a character literal
+     * resolved to nothing and the attribute was dropped from the reconstructed
+     * view altogether - which is the view the property rules and the render
+     * gate then judge. */
+    const { prepareAbap } = await import('../lib/reconstruct.mjs');
+    const xmlOf = (lit) => prepareAbap(app(lit)).docs[0] ?? '';
+    assert(/title="Net \(total"/.test(xmlOf("'Net (total'")),
+      `the character literal reaches the view (${xmlOf("'Net (total'")})`);
+    assert(/title="it's"/.test(xmlOf("'it''s'")),
+      `a doubled quote inside it is one quote (${xmlOf("'it''s'")})`);
+    /* An ABAP text field literal is type C: assigning it to a string drops the
+     * trailing blanks, so `'x '` and `'x'` are the same title and `''` is the
+     * empty string rather than a blank. */
+    assert(/title="Net \(total"/.test(xmlOf("'Net (total   '")),
+      `trailing blanks go, as they do on a system (${xmlOf("'Net (total   '")})`);
+    assert(/title=""/.test(xmlOf("''")), `'' is the empty string (${xmlOf("''")})`);
+    // a variable assigned a character literal resolves the same way
+    const viaVar = prepareAbap(app('lv_t').replace('DATA(view) =', "DATA(lv_t) = 'Net (total'.\n      DATA(view) ="));
+    assert(/title="Net \(total"/.test(viaVar.docs[0] ?? ''),
+      `and through a variable holding one (${viaVar.docs[0]})`);
+});
