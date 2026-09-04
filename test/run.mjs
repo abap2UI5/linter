@@ -6216,4 +6216,78 @@ section('prose is not code', async () => {
       + '  DATA(v) = client->_bind_edit( mv_x ).\n  client->view_display( r( ) ).\nENDMETHOD.\n';
     assert(of(both, 'obsolete-binder').length === 1,
       'the real _bind_edit( ) next to the quoted one is still reported');
+
+    /* ---- and the same question asked of EVERY rule, from its own docs ----
+     *
+     * The eight above were found one at a time, by reading a report. This
+     * asks all 124 at once and needs no corpus to do it: `RULE_DOCS[id].example`
+     * is, by the rules-page gate, the shortest source that makes THAT rule
+     * fire. Put it inside a string literal and the rule must go quiet - once
+     * as a plain DATA statement (where nothing but a literal-blind scan could
+     * find it) and once as the text of a control (where a rule that reads an
+     * attribute VALUE might legitimately). Both shapes are checked because the
+     * defect had instances in both halves: the ABAP scans and the hygiene
+     * scans.
+     *
+     * A rule that reads literal content ON PURPOSE - an event name, an icon,
+     * a bound path - belongs in READS_LITERALS with the reason. It is empty
+     * today: no rule in the registry needs it, which is what makes the
+     * assertion a flat "none of them". */
+    const READS_LITERALS = new Map([
+      // A name that TRAVELS as data. The rule's subject is the string itself,
+      // so there is nothing to distinguish a quoted example from the real
+      // thing - the same design AGENTS states for the icon scan.
+      ['unknown-icon', 'an icon name is data (a status column, a constant)'],
+      ['icon-too-new', 'same scan'],
+      ['icon-removed', 'same scan'],
+      ['ui5-internal-access', '`mProperties` reaches UI5 as a t_arg string'],
+      // The rule's own example IS a literal in a DATA statement.
+      ['commercial-ui5-host', 'the finding is a URL written as text'],
+      ['unescaped-brace-in-style', 'the finding is a brace inside a literal'],
+      ['hardcoded-binding-path', 'the finding is a path written as text'],
+    ]);
+    {
+      const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+      const { RULES } = await import('../lib/findings.mjs');
+      const quote = (text) => text.replace(/`/g, '``').replace(/\r?\n/g, ' ');
+      /* A COMPLETE, clean class - so every gate actually runs - with the
+       * quoted example parked in a DATA statement that touches nothing. Not
+       * an attribute value: several rules judge those on purpose, and this
+       * has to ask the one question they cannot defend. */
+      const beside = (example) =>
+        'CLASS zcl_beside DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+        + '  PROTECTED SECTION.\n  PRIVATE SECTION.\nENDCLASS.\n\n'
+        + 'CLASS zcl_beside IMPLEMENTATION.\n\n  METHOD z2ui5_if_app~main.\n\n'
+        + '    DATA(prose) = `' + quote(example) + '`.\n\n'
+        + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+        + '    view->ele( n = `View` ns = `mvc`\n'
+        + '        )->a( n = `xmlns`     v = `sap.m`\n'
+        + '        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+        + '        )->ele( n = `Page`\n'
+        + '            )->tag( n = `Text`\n'
+        + '                )->a( n = `text` v = `hello` ).\n\n'
+        + '    client->view_display( view->stringify( ) ).\n\n  ENDMETHOD.\n\nENDCLASS.\n';
+      const judge = (src) => checkAbapSource(src, { properties: true, minUi5: '1.71' }).findings;
+      // whatever the frame reports on its own is not the literal's doing
+      const frame = new Set(judge(beside('')).map((f) => f.type));
+      assert(frame.size === 0, `the frame this asks in is clean (${[...frame].join(', ')})`);
+
+      let judged = 0;
+      const loud = [];
+      for (const [id, doc] of Object.entries(RULE_DOCS)) {
+        if (!RULES.includes(id) || !doc.example || READS_LITERALS.has(id)) continue;
+        judged++;
+        if (judge(beside(doc.example)).some((f) => f.type === id)) loud.push(id);
+      }
+      assert(judged > 100, `every registered rule with an example is asked (${judged})`);
+      assert(loud.length === 0,
+        `no rule reads its own example out of a string literal (${loud.join(', ') || 'none'})`);
+      // and the exception list stays honest: an id that no longer needs it
+      // should be taken out, not left standing as documentation of nothing
+      for (const [id] of READS_LITERALS) {
+        assert(RULES.includes(id), `READS_LITERALS names a rule that exists (${id})`);
+        assert(judge(beside(RULE_DOCS[id].example)).some((f) => f.type === id),
+          `${id} still reads a literal on purpose - otherwise drop it from READS_LITERALS`);
+      }
+    }
 });

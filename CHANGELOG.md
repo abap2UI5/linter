@@ -13,6 +13,21 @@
   quoted display as the first of two for `double-display-in-branch` — that
   last one on the framework's own Hello World sample. Worse, three of those
   rules carry a fix: `--fix` silently rewrote the sentence inside the string.
+  Fifteen more rules had the same defect and were found the way the first
+  eight should have been - by asking all 124 at once. `RULE_DOCS[id].example`
+  is, by the rules page's own gate, the shortest source that makes that rule
+  fire; quoted inside a literal in an otherwise clean class, none of them may
+  fire, and `npm test` now asserts exactly that. It caught the whole
+  lifecycle module (`missing-on-navigated-branch`, `separate-lifecycle-ifs`,
+  `lifecycle-is-initial`, `redundant-init-display`, `duplicate-for-iterator`),
+  four more hygiene and client-API scans (`value-header-default-reassigned`,
+  `get-viewname-removed`, `popover-display-val`, the DECLARATION half of
+  `abap-date-formatter-mismatch`) and the frontend-wire locator behind
+  `unknown-view-slot` and `raw-javascript-to-frontend`. Seven rules read a
+  literal ON PURPOSE - an icon name, a `t_arg` string, a URL, a brace, a
+  path - and are listed with their reason; the test also fails if one of
+  those stops needing the exception.
+
   The same held for the statement-shaped rules: a sentence naming
   `CLASS-METHODS class_constructor` or `INTO CORRESPONDING FIELDS OF TABLE
   @DATA(…)` was reported as an ERROR, and the first of those carries a fix
