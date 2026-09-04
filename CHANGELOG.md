@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+- **ABAP has three literal forms and the readers knew two.** `'…'` — the text
+  field literal, the oldest form and the one most ABAP outside this project's
+  house style is written in — was not tracked as a literal at all, so a
+  structural character inside one read as the real thing. A `(` in a title made
+  the view unreconstructible (`no view reconstructed from builder calls`, an
+  ERROR) on ABAP a system compiles without a murmur; a `.` ended the statement
+  early, a `"` started a comment that ran to the end of the line, a `)` closed
+  the call it sat in and an `=` opened an argument. Every shared scanner now
+  tracks it beside `` ` `` and `|`: `scrub( )`, `parenRegion( )`, `topSplit( )`,
+  `splitStatements( )` and `parseNamedArgs( )` in `lib/abap.mjs`, `classify( )`
+  in the chain-layout reader and the row scanner in `reconstruct.mjs`.
+
+  The quieter half is the value resolver, which knew a backtick literal and a
+  template: an attribute written `v = 'Hello'` resolved to nothing and was
+  DROPPED from the reconstructed view, so the property rules and the render
+  gate judged a view the app does not build. It resolves now, as ABAP does —
+  `''` inside is one quote, and the trailing blanks of a type-C literal go.
+
+  The same blindness ran through the readers. `n = `Page`` and `n = 'Page'`
+  name the same control, but the chain reader matched only backticks for
+  `n`/`ns`, so an element call written the second way came back "unparsed
+  element call" and nothing was reconstructed from it; and the seed readers
+  behind `VALUE #( )`, the `DATA … VALUE` default and a scalar assignment
+  matched only backticks too, so a table seeded the way most ABAP is written
+  derived an EMPTY model. `npm test` now asks it of the whole fixture set at
+  once: every fixture rewritten from one literal form into the other has to
+  reconstruct to the same view and derive the same model. 45 of the 49
+  differed; none do now.
+
+  No finding moves on the three sample corpora (831 classes; they are backtick
+  throughout) or on the documentation's 44 runnable app classes, which is what
+  makes this a gap rather than a regression: it was only ever wrong on code
+  nobody here writes.
+
 - **A third off a full run.** `topRows( )` - the reader behind
   `value-header-default-reassigned` and the enum/boolean row rules - found the
   character before a candidate `(` by copying the whole prefix and running

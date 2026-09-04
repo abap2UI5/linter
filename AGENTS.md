@@ -16,7 +16,7 @@ npx playwright install chromium   # BEFORE npm test - the first test uses the re
 npm run check                     # npm test + the github-app dry run: the two CI
                                   # jobs a pull request has to pass on a plain checkout
 npm test                          # node --test test/run.mjs: node:test, over 1000 assertions
-                                  # in ~102 isolated sections. One of them:
+                                  # in ~103 isolated sections. One of them:
                                   #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
