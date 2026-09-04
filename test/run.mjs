@@ -6195,6 +6195,9 @@ section('prose is not code', async () => {
       ['scoped with client->_bind( view = cs_view-popup )', 'obsolete-bind-argument'],
       ['bound with client->_bind( val = lv_local )', 'binding-to-local'],
       ["raised with client->_event( 'GHOST' )", 'event-without-handler'],
+      // and the statement-shaped rules, which quote ABAP rather than a call
+      ['a CLASS-METHODS class_constructor belongs in PUBLIC SECTION', 'class-constructor-visibility'],
+      ['SELECT INTO CORRESPONDING FIELDS OF TABLE @DATA(lt_x) is 7.55', 'into-corresponding-inline-decl'],
     ]) {
       assert(of(quoting(prose), type).length === 0,
         `${type}: "${prose}" inside a string literal is prose, not a call`);

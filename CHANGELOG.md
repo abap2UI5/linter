@@ -13,10 +13,13 @@
   quoted display as the first of two for `double-display-in-branch` — that
   last one on the framework's own Hello World sample. Worse, three of those
   rules carry a fix: `--fix` silently rewrote the sentence inside the string.
-  Every scan that asks WHERE A CALL IS now reads the literal-blanked copy and
-  reads the arguments out of the source, which is offset-for-offset the same
-  text; the rules that read a literal deliberately (an event name, a bound
-  path) are unchanged.
+  The same held for the statement-shaped rules: a sentence naming
+  `CLASS-METHODS class_constructor` or `INTO CORRESPONDING FIELDS OF TABLE
+  @DATA(…)` was reported as an ERROR, and the first of those carries a fix
+  too. Every scan that asks where a call or a statement IS now reads the
+  literal-blanked copy and reads the arguments out of the source, which is
+  offset-for-offset the same text; the rules that read a literal deliberately
+  (an event name, a bound path) are unchanged.
 
 - **Every finding links its rule.** `annotate( )` sets `url` on every finding
   — the rule's card on the rules page — so it is in `--format json` and on
