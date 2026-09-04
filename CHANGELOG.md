@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **A third off a full run.** `topRows( )` - the reader behind
+  `value-header-default-reassigned` and the enum/boolean row rules - found the
+  character before a candidate `(` by copying the whole prefix and running
+  `/\s+$/` over it, once per paren. Quadratic in the constructor body, and
+  pathological on a literal-blanked source, which is mostly runs of spaces:
+  41% of a 637-class run was that one regex. Walking back to the last
+  non-space character instead takes the same run from 10.4s to 6.9s, measured
+  over abap2UI5/samples-controls with the property gate off. Nothing about
+  what it decides changes; a fixture dry run reports the same 187 findings in
+  52 files.
+
 - **A half-written class is reported, not thrown at.** `npm test` now runs
   every reader in the tool over ~450 deliberately broken sources - each
   fixture truncated at twelve points, with characters deleted, doubled, and
