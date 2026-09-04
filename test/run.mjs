@@ -6478,4 +6478,36 @@ ENDCLASS.
     const viaVar = prepareAbap(app('lv_t').replace('DATA(view) =', "DATA(lv_t) = 'Net (total'.\n      DATA(view) ="));
     assert(/title="Net \(total"/.test(viaVar.docs[0] ?? ''),
       `and through a variable holding one (${viaVar.docs[0]})`);
+
+    /* ---- and the same question asked of every fixture at once ----
+     *
+     * `n = \`Page\`` and `n = 'Page'` name the same control - the builder takes
+     * a `string` and ABAP converts either form to one - so a class rewritten
+     * from one literal form into the other has to reconstruct to the SAME
+     * view and derive the SAME model. It did not: the chain reader matched
+     * only backticks for `n`/`ns`, so every element call came back
+     * "unparsed", and the seed readers behind `VALUE #( )` matched only
+     * backticks too, so a table seeded the way most ABAP is written derived
+     * an EMPTY model - and the render preview, the binding-path rules and the
+     * property gate all judged a screen with no data behind it. 45 of the 49
+     * fixtures below differed; none do now. */
+    const asCharLiterals = (src) => src.split('\n')
+      // a comment line is left alone: its apostrophes are prose
+      .map((l) => (/^\s*["*]/.test(l) ? l : l.replace(/`([^`\n']*)`/g, (_, inner) => `'${inner}'`)))
+      .join('\n');
+    let compared = 0;
+    for (const name of fs.readdirSync(FIX).filter((x) => x.endsWith('.clas.abap'))) {
+      const src = fs.readFileSync(f(name), 'utf8');
+      if (!src.includes('`')) continue;
+      compared++;
+      const a = prepareAbap(src);
+      const b = prepareAbap(asCharLiterals(src));
+      assert(JSON.stringify(a.docs) === JSON.stringify(b.docs),
+        `${name}: the same view, written with character literals\n    ` +
+        `${JSON.stringify(a.docs).slice(0, 160)}\n    ${JSON.stringify(b.docs).slice(0, 160)}`);
+      assert(JSON.stringify(a.model) === JSON.stringify(b.model),
+        `${name}: the same model, seeded with character literals\n    ` +
+        `${JSON.stringify(a.model).slice(0, 160)}\n    ${JSON.stringify(b.model).slice(0, 160)}`);
+    }
+    assert(compared > 40, `enough fixtures to mean something (${compared})`);
 });
