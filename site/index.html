@@ -849,13 +849,17 @@ ENDTRY.</code></pre></figure>
         <p class="fixnote"><strong>--fix:</strong> The declaration line is deleted where it is and written again directly after the <code>PUBLIC SECTION.</code> of the same class definition, at its own indentation. Only for the one shape that is exactly that: <code>CLASS-METHODS class_constructor.</code> alone on its line, no chained colon form, no comment on the line, and a PROTECTED or PRIVATE SECTION between the public section and the line; anything else is reported without a fix.</p>
         <div class="ba" id="class-constructor-visibility-example">
           <figure class="before"><figcaption>reported</figcaption>
-            <pre><code>PRIVATE SECTION.
+            <pre><code>PUBLIC SECTION.
+  METHODS run.
+PRIVATE SECTION.
   CLASS-METHODS class_constructor.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>PUBLIC SECTION.
-  CLASS-METHODS class_constructor.</code></pre></figure>
+  CLASS-METHODS class_constructor.
+  METHODS run.
+PRIVATE SECTION.</code></pre></figure>
         </div>
-        <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVNtr5owFP4rJ3zSZNRsyz5oIgmDmpEoGmU3Wa4LVCzeJqWQtojeZfvtSwHv1YuRL5TzvJznNIfnP5YgObUm1mvKY1lxilJOFCI7UlqfLFVUMjWoN3c3G7hwwMezIAyiYBnC6uf3eeDBLAjdOXhr7Ea4q6GtgAu8wZ5hNyWAIIzweuZ6eAOvXyr2LWZZTMqyQ303ciHljAoN0a8VhjWeQbR8p7ZYa78OnkzHW_8mrb3A0Y-lvwEzkIrTQigtq1QXEm0FDv2GhLZiKz4MFyxWc7zAYeS-WbZWN2H_5YSJrl9ObacLPIWrdO0sgyOj9RCmnTzlsXmZYryrGN9TOXUyYoKdBzDshAa2HcrpAARMIXlitE5AKHPOj2nSsswztB3SkU45FyqBozkrUqI86aETI35nVAylhaToseXEcPqqO-78lsXJuaj0I-fsSpDdMaxOpLz2bD57LE12_EPAtvRoJiL3txImND1IolkhUM32B6rVnV6968vzQqhHnVROpO6pStTUu-g90YvOL5f5onU5GY3qukb1V1TIw-jzeDwenVrKZWPavbOdZrH2TJWcnAfdHiktmTiwzCxYJ8Ch32717d9g_f39Hw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVNtr5owFP4rJ3zSZNZsyz5oIgmDmpEoGmU3WeaCFYu3SSmkLaJ32X77Uqi7l4uRL5TzvJznNIefvx1BcupMnZeUJ7LiFKWcKEQOpHQ-OKqoZGpQf-Ftt3DjQIDnYRTG4SqC9fevi9CHeRh5C_A32IuxraGdgBu8xb5hNyWAMIrxZu75eAsvnyr2JWFZQsrSooEXe5ByRoWG-McawwbPIV69UlvMspc4_rYKtiAr0TbchE8mQ7djk39045oRVZIWQmlZpbqQaCdwFDQktBM78W7ccLle4CWOYu-_ZWvVif83J0zYfjkduXaEGXTymukGZ0brIcysPOWJeZlicqgYP1I5czNigl0HMLRCA49cyukABMxg_8RovQehzDk_p_uWZZ7hyCWWdMm5UHs4m7MiJcr3PXRqxK-MiqG0kBQ9tpwaTl91x513WZxci0o_cs7eCLI7htWFlG89m88eS5MDfxewLT2aichjV8KEpidJNCsEqtnxRLW606t3fXleCPWok8qJ1D1ViZq6jd4TPev8dpnPWpfT8biua1R_RoU8jT9OJpPxpaXcNqbdu5HbLNaRqZKT68DukdKSiRPLzIJZAY6Cdqu7f4Pz59c_" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1073"><code>lib/abap-rules.mjs</code></a></p>
       </article>
       <article class="rule" id="display-after-nav-app-call" data-search="display-after-nav-app-call a display call after nav_app_call( ) in the same flow nav_app_call( ) hands the roundtrip to another app: what the browser shows next is that app's view. a view_display( ) issued behind it, in the same statement sequence, builds a view nobody sees — and a popup_display( ) behind it opens a dialog over the app being left. nearly always a missing return after the call. judged on the sequence the call sits in: a display in a nested block, or after an else/when/endif boundary, is another flow and is not reported. hint">

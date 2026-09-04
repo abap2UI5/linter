@@ -5197,6 +5197,33 @@ section('rules page', async () => {
     assert(FIXABLE.every((id) => RULES.includes(id) && RULE_DOCS[id].fixNote),
       'rules page: an autofixable rule says on the page what --fix does to it');
 
+    /* And the fix it advertises has to WORK on the example the card shows.
+     * `class-constructor-visibility` shipped a card promising a fix over an
+     * example the fix declines: the correction moves the declaration into the
+     * PUBLIC SECTION, and the example had none to move it into - so a reader
+     * pressing Autofix on exactly what the page showed them got nothing, with
+     * the badge still saying fixable. Run to a fixpoint, because `--fix` is
+     * documented as "run until it reports nothing". */
+    {
+      const { applyFixes } = await import('../lib/fix.mjs');
+      const { checkAbapRules } = await import('./observe.mjs');
+      const stubborn = [];
+      for (const id of FIXABLE) {
+        let src = RULE_DOCS[id].example.replace(/\n?$/, '\n');
+        let rounds = 0;
+        for (;;) {
+          const fixable = checkAbapRules(src).filter((f) => f.fixes?.length);
+          if (!fixable.length) break;
+          const { output } = applyFixes(src, fixable);
+          if (output === src || ++rounds > 12) break;
+          src = output;
+        }
+        if (checkAbapRules(src).some((f) => f.type === id)) stubborn.push(`${id} (${rounds} round(s))`);
+      }
+      assert(stubborn.length === 0,
+        `rules page: --fix silences every rule on its own example (${stubborn.join(', ') || 'none'})`);
+    }
+
     const page = fs.readFileSync(PAGE_FILE, 'utf8');
     assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
 

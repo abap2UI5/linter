@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The Autofix badge now means the fix works on the card's own example.**
+  `class-constructor-visibility` advertised a fix over an example the fix
+  declines: the correction moves the declaration into the `PUBLIC SECTION`,
+  and the example had none to move it into, so a reader pressing Autofix on
+  exactly what the page showed them got nothing. The pair is the real one
+  now - the example is a class shell with both sections, the remedy is what
+  `--fix` writes - and `npm test` runs every fixable rule's example to a
+  fixpoint and fails if the rule survives.
+
 - **A `client->` call written inside a string is prose, not a call.** Every
   scan that locates a call read the source with its literals intact, so a
   class that DOCUMENTS the API it uses — a MessageStrip reading "the view is
