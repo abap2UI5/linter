@@ -2,6 +2,70 @@
 
 ## Unreleased
 
+- **A third off a full run.** `topRows( )` - the reader behind
+  `value-header-default-reassigned` and the enum/boolean row rules - found the
+  character before a candidate `(` by copying the whole prefix and running
+  `/\s+$/` over it, once per paren. Quadratic in the constructor body, and
+  pathological on a literal-blanked source, which is mostly runs of spaces:
+  41% of a 637-class run was that one regex. Walking back to the last
+  non-space character instead takes the same run from 10.4s to 6.9s, measured
+  over abap2UI5/samples-controls with the property gate off. Nothing about
+  what it decides changes; a fixture dry run reports the same 187 findings in
+  52 files.
+
+- **A half-written class is reported, not thrown at.** `npm test` now runs
+  every reader in the tool over ~450 deliberately broken sources - each
+  fixture truncated at twelve points, with characters deleted, doubled, and
+  unbalanced `(`/`)`/`` ` ``/`|`/`'`/`.` spliced in - and fails if any of them
+  raises instead of reporting. Nothing did, which is the point: the VS Code
+  extension checks on every keystroke pause, so a class mid-edit is the
+  normal input, and a throw there takes the findings for every other file in
+  the run with it. The fix path is included, under the strict-span mode the
+  suite already runs with.
+
+- **The Autofix badge now means the fix works on the card's own example.**
+  `class-constructor-visibility` advertised a fix over an example the fix
+  declines: the correction moves the declaration into the `PUBLIC SECTION`,
+  and the example had none to move it into, so a reader pressing Autofix on
+  exactly what the page showed them got nothing. The pair is the real one
+  now - the example is a class shell with both sections, the remedy is what
+  `--fix` writes - and `npm test` runs every fixable rule's example to a
+  fixpoint and fails if the rule survives.
+
+- **A `client->` call written inside a string is prose, not a call.** Every
+  scan that locates a call read the source with its literals intact, so a
+  class that DOCUMENTS the API it uses — a MessageStrip reading "the view is
+  handed to `client->view_display( )`", which is how the sample corpora
+  teach — was judged on its own sentence. It reported `obsolete-binder`,
+  `obsolete-model-update`, `obsolete-frontend-event`, `obsolete-bind-argument`
+  and `binding-to-local` (four of them warnings, so CI went red), raised
+  phantom events for `event-without-handler` to call dead, and counted a
+  quoted display as the first of two for `double-display-in-branch` — that
+  last one on the framework's own Hello World sample. Worse, three of those
+  rules carry a fix: `--fix` silently rewrote the sentence inside the string.
+  Fifteen more rules had the same defect and were found the way the first
+  eight should have been - by asking all 124 at once. `RULE_DOCS[id].example`
+  is, by the rules page's own gate, the shortest source that makes that rule
+  fire; quoted inside a literal in an otherwise clean class, none of them may
+  fire, and `npm test` now asserts exactly that. It caught the whole
+  lifecycle module (`missing-on-navigated-branch`, `separate-lifecycle-ifs`,
+  `lifecycle-is-initial`, `redundant-init-display`, `duplicate-for-iterator`),
+  four more hygiene and client-API scans (`value-header-default-reassigned`,
+  `get-viewname-removed`, `popover-display-val`, the DECLARATION half of
+  `abap-date-formatter-mismatch`) and the frontend-wire locator behind
+  `unknown-view-slot` and `raw-javascript-to-frontend`. Seven rules read a
+  literal ON PURPOSE - an icon name, a `t_arg` string, a URL, a brace, a
+  path - and are listed with their reason; the test also fails if one of
+  those stops needing the exception.
+
+  The same held for the statement-shaped rules: a sentence naming
+  `CLASS-METHODS class_constructor` or `INTO CORRESPONDING FIELDS OF TABLE
+  @DATA(…)` was reported as an ERROR, and the first of those carries a fix
+  too. Every scan that asks where a call or a statement IS now reads the
+  literal-blanked copy and reads the arguments out of the source, which is
+  offset-for-offset the same text; the rules that read a literal deliberately
+  (an event name, a bound path) are unchanged.
+
 - **Every finding links its rule.** `annotate( )` sets `url` on every finding
   — the rule's card on the rules page — so it is in `--format json` and on
   every object a consumer gets; the stylish line carries it after the rule

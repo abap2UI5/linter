@@ -4385,6 +4385,20 @@ section('flow rules and did-you-mean', async () => {
         'double-display-in-branch: the same slot twice in one flow');
     }
 
+    // --- all three read the BLANKED source: a quoted call is not a call --------
+    {
+      // The shape that reported the framework's own Hello World sample: a
+      // MessageStrip that tells the reader what the class does quotes the very
+      // call it makes, and scrub( ) keeps literal content.
+      const quoted = (call) => `METHOD z2ui5_if_app~main.\n  DATA(t) = \`the view is handed to ${call} \`.\n  client->view_display( r( ) ).\nENDMETHOD.`;
+      assert(one(quoted('client->view_display( ).'), 'double-display-in-branch').length === 0,
+        'double-display-in-branch: a display call inside a string literal is prose, not a call');
+      assert(one(quoted('client->popup_display( ).'), 'unconditional-popup-display').length === 0,
+        'unconditional-popup-display: a popup call inside a string literal is prose, not a call');
+      assert(one(quoted('client->nav_app_call( ).'), 'display-after-nav-app-call').length === 0,
+        'display-after-nav-app-call: a hand-over inside a string literal is prose, not a call');
+    }
+
     // --- popup-without-close-wire: any wire in the method excuses it -----------
     {
       const dlg = (tail) => `METHOD r.\n  DATA(p) = z2ui5_cl_ui5_view_builder=>factory( ).\n  p->ele( \`Dialog\` )->a( n = \`title\` v = \`x\` ).\n${tail}\nENDMETHOD.`;
@@ -5182,6 +5196,33 @@ section('rules page', async () => {
 
     assert(FIXABLE.every((id) => RULES.includes(id) && RULE_DOCS[id].fixNote),
       'rules page: an autofixable rule says on the page what --fix does to it');
+
+    /* And the fix it advertises has to WORK on the example the card shows.
+     * `class-constructor-visibility` shipped a card promising a fix over an
+     * example the fix declines: the correction moves the declaration into the
+     * PUBLIC SECTION, and the example had none to move it into - so a reader
+     * pressing Autofix on exactly what the page showed them got nothing, with
+     * the badge still saying fixable. Run to a fixpoint, because `--fix` is
+     * documented as "run until it reports nothing". */
+    {
+      const { applyFixes } = await import('../lib/fix.mjs');
+      const { checkAbapRules } = await import('./observe.mjs');
+      const stubborn = [];
+      for (const id of FIXABLE) {
+        let src = RULE_DOCS[id].example.replace(/\n?$/, '\n');
+        let rounds = 0;
+        for (;;) {
+          const fixable = checkAbapRules(src).filter((f) => f.fixes?.length);
+          if (!fixable.length) break;
+          const { output } = applyFixes(src, fixable);
+          if (output === src || ++rounds > 12) break;
+          src = output;
+        }
+        if (checkAbapRules(src).some((f) => f.type === id)) stubborn.push(`${id} (${rounds} round(s))`);
+      }
+      assert(stubborn.length === 0,
+        `rules page: --fix silences every rule on its own example (${stubborn.join(', ') || 'none'})`);
+    }
 
     const page = fs.readFileSync(PAGE_FILE, 'utf8');
     assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
@@ -6161,4 +6202,182 @@ section('screenshot', async () => {
     const refused = await screenshotFiles([f('frozenbuilder.clas.abap')]);
     assert(refused.every((s) => !s.png) && refused[0].errors.some((e) => /no view reconstructed/.test(e)),
       `screenshot: a class no view can be reconstructed from is refused with a reason (${refused[0]?.errors?.[0] ?? 'none'})`);
+});
+
+// a `client->` written INSIDE a string literal is prose about the API, not a
+// use of it - the shape a self-documenting sample has in every corpus
+section('prose is not code', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+    /* One method, one string, one real call - the MessageStrip shape: a class
+     * that tells the reader which calls it makes, and then makes one. */
+    const quoting = (prose) => `METHOD z2ui5_if_app~main.\n  DATA(t) = \`${prose}\`.\n`
+      + '  client->view_display( r( ) ).\nENDMETHOD.\n';   // a FILE: no missing-final-newline fix in the way
+
+    for (const [prose, type] of [
+      ['bound with client->_bind_edit( )', 'obsolete-binder'],
+      ['pushed with client->view_model_update( )', 'obsolete-model-update'],
+      ['wired with client->_event_client( )', 'obsolete-frontend-event'],
+      ['scoped with client->_bind( view = cs_view-popup )', 'obsolete-bind-argument'],
+      ['bound with client->_bind( val = lv_local )', 'binding-to-local'],
+      ["raised with client->_event( 'GHOST' )", 'event-without-handler'],
+      // and the statement-shaped rules, which quote ABAP rather than a call
+      ['a CLASS-METHODS class_constructor belongs in PUBLIC SECTION', 'class-constructor-visibility'],
+      ['SELECT INTO CORRESPONDING FIELDS OF TABLE @DATA(lt_x) is 7.55', 'into-corresponding-inline-decl'],
+    ]) {
+      assert(of(quoting(prose), type).length === 0,
+        `${type}: "${prose}" inside a string literal is prose, not a call`);
+    }
+
+    /* The half that made this more than noise: three of those rules carry a
+     * fix, so a `--fix` run REWROTE the sentence - silently, inside a string
+     * the app puts on screen. */
+    const documented = quoting('bound with client->_bind_edit( )');
+    const { output } = applyFixes(documented, checkAbapRules(documented));
+    assert(output === documented,
+      '--fix leaves a string literal alone - it used to rewrite the prose inside it');
+
+    /* And the rules still see the calls that ARE calls, next to the prose. */
+    const both = 'METHOD z2ui5_if_app~main.\n  DATA(t) = `use client->_bind_edit( ) here`.\n'
+      + '  DATA(v) = client->_bind_edit( mv_x ).\n  client->view_display( r( ) ).\nENDMETHOD.\n';
+    assert(of(both, 'obsolete-binder').length === 1,
+      'the real _bind_edit( ) next to the quoted one is still reported');
+
+    /* ---- and the same question asked of EVERY rule, from its own docs ----
+     *
+     * The eight above were found one at a time, by reading a report. This
+     * asks all 124 at once and needs no corpus to do it: `RULE_DOCS[id].example`
+     * is, by the rules-page gate, the shortest source that makes THAT rule
+     * fire. Put it inside a string literal and the rule must go quiet - once
+     * as a plain DATA statement (where nothing but a literal-blind scan could
+     * find it) and once as the text of a control (where a rule that reads an
+     * attribute VALUE might legitimately). Both shapes are checked because the
+     * defect had instances in both halves: the ABAP scans and the hygiene
+     * scans.
+     *
+     * A rule that reads literal content ON PURPOSE - an event name, an icon,
+     * a bound path - belongs in READS_LITERALS with the reason. It is empty
+     * today: no rule in the registry needs it, which is what makes the
+     * assertion a flat "none of them". */
+    const READS_LITERALS = new Map([
+      // A name that TRAVELS as data. The rule's subject is the string itself,
+      // so there is nothing to distinguish a quoted example from the real
+      // thing - the same design AGENTS states for the icon scan.
+      ['unknown-icon', 'an icon name is data (a status column, a constant)'],
+      ['icon-too-new', 'same scan'],
+      ['icon-removed', 'same scan'],
+      ['ui5-internal-access', '`mProperties` reaches UI5 as a t_arg string'],
+      // The rule's own example IS a literal in a DATA statement.
+      ['commercial-ui5-host', 'the finding is a URL written as text'],
+      ['unescaped-brace-in-style', 'the finding is a brace inside a literal'],
+      ['hardcoded-binding-path', 'the finding is a path written as text'],
+    ]);
+    {
+      const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
+      const { RULES } = await import('../lib/findings.mjs');
+      const quote = (text) => text.replace(/`/g, '``').replace(/\r?\n/g, ' ');
+      /* A COMPLETE, clean class - so every gate actually runs - with the
+       * quoted example parked in a DATA statement that touches nothing. Not
+       * an attribute value: several rules judge those on purpose, and this
+       * has to ask the one question they cannot defend. */
+      const beside = (example) =>
+        'CLASS zcl_beside DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+        + '  PROTECTED SECTION.\n  PRIVATE SECTION.\nENDCLASS.\n\n'
+        + 'CLASS zcl_beside IMPLEMENTATION.\n\n  METHOD z2ui5_if_app~main.\n\n'
+        + '    DATA(prose) = `' + quote(example) + '`.\n\n'
+        + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+        + '    view->ele( n = `View` ns = `mvc`\n'
+        + '        )->a( n = `xmlns`     v = `sap.m`\n'
+        + '        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+        + '        )->ele( n = `Page`\n'
+        + '            )->tag( n = `Text`\n'
+        + '                )->a( n = `text` v = `hello` ).\n\n'
+        + '    client->view_display( view->stringify( ) ).\n\n  ENDMETHOD.\n\nENDCLASS.\n';
+      const judge = (src) => checkAbapSource(src, { properties: true, minUi5: '1.71' }).findings;
+      // whatever the frame reports on its own is not the literal's doing
+      const frame = new Set(judge(beside('')).map((f) => f.type));
+      assert(frame.size === 0, `the frame this asks in is clean (${[...frame].join(', ')})`);
+
+      let judged = 0;
+      const loud = [];
+      for (const [id, doc] of Object.entries(RULE_DOCS)) {
+        if (!RULES.includes(id) || !doc.example || READS_LITERALS.has(id)) continue;
+        judged++;
+        if (judge(beside(doc.example)).some((f) => f.type === id)) loud.push(id);
+      }
+      assert(judged > 100, `every registered rule with an example is asked (${judged})`);
+      assert(loud.length === 0,
+        `no rule reads its own example out of a string literal (${loud.join(', ') || 'none'})`);
+      // and the exception list stays honest: an id that no longer needs it
+      // should be taken out, not left standing as documentation of nothing
+      for (const [id] of READS_LITERALS) {
+        assert(RULES.includes(id), `READS_LITERALS names a rule that exists (${id})`);
+        assert(judge(beside(RULE_DOCS[id].example)).some((f) => f.type === id),
+          `${id} still reads a literal on purpose - otherwise drop it from READS_LITERALS`);
+      }
+    }
+});
+
+// A linter that THROWS on a half-written class is worse than one that reports
+// nothing: the CLI dies mid-run and takes the findings for every other file
+// with it. Every reader here walks the source with a regex or a paren scan,
+// and a half-written class is the normal state of a file in an editor - the
+// VS Code extension checks on every pause.
+section('malformed sources are reported, not thrown at', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+
+    /* Deterministic, so a failure is reproducible from the seed alone. */
+    let rnd = 20260904;
+    const next = () => (rnd = (rnd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+
+    const mutantsOf = (src) => {
+      const out = [];
+      // truncation - the shape a file has while it is being typed
+      for (let i = 1; i <= 12; i++) out.push(src.slice(0, Math.floor((src.length * i) / 13)));
+      // a character gone, and one doubled
+      for (let i = 0; i < 6; i++) {
+        const at = Math.floor(next() * src.length);
+        out.push(src.slice(0, at) + src.slice(at + 1));
+        out.push(src.slice(0, at) + src[at] + src.slice(at));
+      }
+      // an unbalanced delimiter, which is what breaks a paren or literal walk
+      for (const ch of ['(', ')', '`', '|', "'", '.']) {
+        out.push(src.slice(0, Math.floor(next() * src.length)) + ch
+          + src.slice(Math.floor(next() * src.length)));
+      }
+      return out;
+    };
+
+    const names = fs.readdirSync(FIX).filter((n) => n.endsWith('.clas.abap')).sort().slice(0, 14);
+    let checked = 0;
+    for (const name of names) {
+      const src = fs.readFileSync(f(name), 'utf8');
+      for (const m of mutantsOf(src)) {
+        checked++;
+        try {
+          checkAbapSource(m, { properties: true, minUi5: '1.71' });
+          /* and the FIX path, which the suite runs under STRICT_FIXES: a span
+           * that does not address the source it was computed from throws
+           * there, and a source being edited is where an offset goes wrong. */
+          const fixable = checkAbapRules(m).filter((x) => x.fixes?.length);
+          if (fixable.length) applyFixes(m, fixable);
+        } catch (e) {
+          assert(false, `${name} mutant (${m.length} chars) threw: ${e.message.slice(0, 120)}`);
+        }
+      }
+    }
+    for (const name of fs.readdirSync(FIX).filter((n) => /\.(view|fragment)\.xml$/.test(n))) {
+      const xml = fs.readFileSync(f(name), 'utf8');
+      for (const m of mutantsOf(xml)) {
+        checked++;
+        try {
+          checkXmlSource(m, { properties: true, minUi5: '1.71' });
+        } catch (e) {
+          assert(false, `${name} mutant (${m.length} chars) threw: ${e.message.slice(0, 120)}`);
+        }
+      }
+    }
+    assert(checked > 400, `enough mutants to mean something (${checked})`);
 });
