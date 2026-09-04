@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **A half-written class is reported, not thrown at.** `npm test` now runs
+  every reader in the tool over ~450 deliberately broken sources - each
+  fixture truncated at twelve points, with characters deleted, doubled, and
+  unbalanced `(`/`)`/`` ` ``/`|`/`'`/`.` spliced in - and fails if any of them
+  raises instead of reporting. Nothing did, which is the point: the VS Code
+  extension checks on every keystroke pause, so a class mid-edit is the
+  normal input, and a throw there takes the findings for every other file in
+  the run with it. The fix path is included, under the strict-span mode the
+  suite already runs with.
+
 - **The Autofix badge now means the fix works on the card's own example.**
   `class-constructor-visibility` advertised a fix over an example the fix
   declines: the correction moves the declaration into the `PUBLIC SECTION`,

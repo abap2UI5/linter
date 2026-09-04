@@ -6318,3 +6318,66 @@ section('prose is not code', async () => {
       }
     }
 });
+
+// A linter that THROWS on a half-written class is worse than one that reports
+// nothing: the CLI dies mid-run and takes the findings for every other file
+// with it. Every reader here walks the source with a regex or a paren scan,
+// and a half-written class is the normal state of a file in an editor - the
+// VS Code extension checks on every pause.
+section('malformed sources are reported, not thrown at', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+
+    /* Deterministic, so a failure is reproducible from the seed alone. */
+    let rnd = 20260904;
+    const next = () => (rnd = (rnd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+
+    const mutantsOf = (src) => {
+      const out = [];
+      // truncation - the shape a file has while it is being typed
+      for (let i = 1; i <= 12; i++) out.push(src.slice(0, Math.floor((src.length * i) / 13)));
+      // a character gone, and one doubled
+      for (let i = 0; i < 6; i++) {
+        const at = Math.floor(next() * src.length);
+        out.push(src.slice(0, at) + src.slice(at + 1));
+        out.push(src.slice(0, at) + src[at] + src.slice(at));
+      }
+      // an unbalanced delimiter, which is what breaks a paren or literal walk
+      for (const ch of ['(', ')', '`', '|', "'", '.']) {
+        out.push(src.slice(0, Math.floor(next() * src.length)) + ch
+          + src.slice(Math.floor(next() * src.length)));
+      }
+      return out;
+    };
+
+    const names = fs.readdirSync(FIX).filter((n) => n.endsWith('.clas.abap')).sort().slice(0, 14);
+    let checked = 0;
+    for (const name of names) {
+      const src = fs.readFileSync(f(name), 'utf8');
+      for (const m of mutantsOf(src)) {
+        checked++;
+        try {
+          checkAbapSource(m, { properties: true, minUi5: '1.71' });
+          /* and the FIX path, which the suite runs under STRICT_FIXES: a span
+           * that does not address the source it was computed from throws
+           * there, and a source being edited is where an offset goes wrong. */
+          const fixable = checkAbapRules(m).filter((x) => x.fixes?.length);
+          if (fixable.length) applyFixes(m, fixable);
+        } catch (e) {
+          assert(false, `${name} mutant (${m.length} chars) threw: ${e.message.slice(0, 120)}`);
+        }
+      }
+    }
+    for (const name of fs.readdirSync(FIX).filter((n) => /\.(view|fragment)\.xml$/.test(n))) {
+      const xml = fs.readFileSync(f(name), 'utf8');
+      for (const m of mutantsOf(xml)) {
+        checked++;
+        try {
+          checkXmlSource(m, { properties: true, minUi5: '1.71' });
+        } catch (e) {
+          assert(false, `${name} mutant (${m.length} chars) threw: ${e.message.slice(0, 120)}`);
+        }
+      }
+    }
+    assert(checked > 400, `enough mutants to mean something (${checked})`);
+});
