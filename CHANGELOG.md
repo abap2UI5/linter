@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **A `client->` call written inside a string is prose, not a call.** Every
+  scan that locates a call read the source with its literals intact, so a
+  class that DOCUMENTS the API it uses — a MessageStrip reading "the view is
+  handed to `client->view_display( )`", which is how the sample corpora
+  teach — was judged on its own sentence. It reported `obsolete-binder`,
+  `obsolete-model-update`, `obsolete-frontend-event`, `obsolete-bind-argument`
+  and `binding-to-local` (four of them warnings, so CI went red), raised
+  phantom events for `event-without-handler` to call dead, and counted a
+  quoted display as the first of two for `double-display-in-branch` — that
+  last one on the framework's own Hello World sample. Worse, three of those
+  rules carry a fix: `--fix` silently rewrote the sentence inside the string.
+  Every scan that asks WHERE A CALL IS now reads the literal-blanked copy and
+  reads the arguments out of the source, which is offset-for-offset the same
+  text; the rules that read a literal deliberately (an event name, a bound
+  path) are unchanged.
+
 - **Every finding links its rule.** `annotate( )` sets `url` on every finding
   — the rule's card on the rules page — so it is in `--format json` and on
   every object a consumer gets; the stylish line carries it after the rule

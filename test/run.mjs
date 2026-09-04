@@ -4385,6 +4385,20 @@ section('flow rules and did-you-mean', async () => {
         'double-display-in-branch: the same slot twice in one flow');
     }
 
+    // --- all three read the BLANKED source: a quoted call is not a call --------
+    {
+      // The shape that reported the framework's own Hello World sample: a
+      // MessageStrip that tells the reader what the class does quotes the very
+      // call it makes, and scrub( ) keeps literal content.
+      const quoted = (call) => `METHOD z2ui5_if_app~main.\n  DATA(t) = \`the view is handed to ${call} \`.\n  client->view_display( r( ) ).\nENDMETHOD.`;
+      assert(one(quoted('client->view_display( ).'), 'double-display-in-branch').length === 0,
+        'double-display-in-branch: a display call inside a string literal is prose, not a call');
+      assert(one(quoted('client->popup_display( ).'), 'unconditional-popup-display').length === 0,
+        'unconditional-popup-display: a popup call inside a string literal is prose, not a call');
+      assert(one(quoted('client->nav_app_call( ).'), 'display-after-nav-app-call').length === 0,
+        'display-after-nav-app-call: a hand-over inside a string literal is prose, not a call');
+    }
+
     // --- popup-without-close-wire: any wire in the method excuses it -----------
     {
       const dlg = (tail) => `METHOD r.\n  DATA(p) = z2ui5_cl_ui5_view_builder=>factory( ).\n  p->ele( \`Dialog\` )->a( n = \`title\` v = \`x\` ).\n${tail}\nENDMETHOD.`;
@@ -6161,4 +6175,42 @@ section('screenshot', async () => {
     const refused = await screenshotFiles([f('frozenbuilder.clas.abap')]);
     assert(refused.every((s) => !s.png) && refused[0].errors.some((e) => /no view reconstructed/.test(e)),
       `screenshot: a class no view can be reconstructed from is refused with a reason (${refused[0]?.errors?.[0] ?? 'none'})`);
+});
+
+// a `client->` written INSIDE a string literal is prose about the API, not a
+// use of it - the shape a self-documenting sample has in every corpus
+section('prose is not code', async () => {
+    const { checkAbapRules } = await import('./observe.mjs');
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const of = (src, type) => checkAbapRules(src).filter((x) => x.type === type);
+    /* One method, one string, one real call - the MessageStrip shape: a class
+     * that tells the reader which calls it makes, and then makes one. */
+    const quoting = (prose) => `METHOD z2ui5_if_app~main.\n  DATA(t) = \`${prose}\`.\n`
+      + '  client->view_display( r( ) ).\nENDMETHOD.\n';   // a FILE: no missing-final-newline fix in the way
+
+    for (const [prose, type] of [
+      ['bound with client->_bind_edit( )', 'obsolete-binder'],
+      ['pushed with client->view_model_update( )', 'obsolete-model-update'],
+      ['wired with client->_event_client( )', 'obsolete-frontend-event'],
+      ['scoped with client->_bind( view = cs_view-popup )', 'obsolete-bind-argument'],
+      ['bound with client->_bind( val = lv_local )', 'binding-to-local'],
+      ["raised with client->_event( 'GHOST' )", 'event-without-handler'],
+    ]) {
+      assert(of(quoting(prose), type).length === 0,
+        `${type}: "${prose}" inside a string literal is prose, not a call`);
+    }
+
+    /* The half that made this more than noise: three of those rules carry a
+     * fix, so a `--fix` run REWROTE the sentence - silently, inside a string
+     * the app puts on screen. */
+    const documented = quoting('bound with client->_bind_edit( )');
+    const { output } = applyFixes(documented, checkAbapRules(documented));
+    assert(output === documented,
+      '--fix leaves a string literal alone - it used to rewrite the prose inside it');
+
+    /* And the rules still see the calls that ARE calls, next to the prose. */
+    const both = 'METHOD z2ui5_if_app~main.\n  DATA(t) = `use client->_bind_edit( ) here`.\n'
+      + '  DATA(v) = client->_bind_edit( mv_x ).\n  client->view_display( r( ) ).\nENDMETHOD.\n';
+    assert(of(both, 'obsolete-binder').length === 1,
+      'the real _bind_edit( ) next to the quoted one is still reported');
 });
