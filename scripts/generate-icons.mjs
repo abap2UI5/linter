@@ -75,12 +75,30 @@ const OUT = outArg !== -1 && process.argv[outArg + 1]
 
 /** The version this repository pins — the newest release the scan can reach,
  *  and the one data/properties.json is generated from. Scanning past it would
- *  claim knowledge the rest of the snapshot does not have. */
-function pinnedVersion() {
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  const v = pkg.optionalDependencies?.[PKG];
-  if (!v) throw new Error(`package.json declares no ${PKG} — nothing to pin the scan to`);
-  return v.replace(/^[^\d]*/, '');
+ *  claim knowledge the rest of the snapshot does not have.
+ *
+ *  The pins live in the render-runtime WORKSPACE (`render-runtime/package.json`,
+ *  `dependencies`) since the package split — RELEASING.md step 1c is the
+ *  authority. This read the root manifest's `optionalDependencies`, where they
+ *  had been before, and threw before touching the network; the
+ *  dependabot-openui5 workflow, whose one job is to run this script, could not
+ *  go green on any bump. The root manifest stays as the fallback for a
+ *  checkout of the older layout. Exported so a test can pin the resolution
+ *  without the scan. */
+export function pinnedVersion(root = ROOT) {
+  const manifests = [
+    [path.join(root, 'render-runtime', 'package.json'), ['dependencies', 'optionalDependencies']],
+    [path.join(root, 'package.json'), ['optionalDependencies', 'dependencies']],
+  ];
+  for (const [file, sections] of manifests) {
+    if (!fs.existsSync(file)) continue;
+    const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const section of sections) {
+      const v = pkg[section]?.[PKG];
+      if (v) return String(v).replace(/^[^\d]*/, '');
+    }
+  }
+  throw new Error(`neither render-runtime/package.json nor package.json declares ${PKG} — nothing to pin the scan to`);
 }
 
 const minorOf = (v) => v.split('.').slice(0, 2).join('.');
@@ -137,49 +155,54 @@ async function iconsOf(version, scratch) {
   }
 }
 
-const pinned = pinnedVersion();
-const versions = await versionsToScan(pinned);
-if (versions[0] !== undefined && minorOf(versions[0]) !== FLOOR) {
-  throw new Error(`the floor ${FLOOR} is not on the registry — got ${versions[0]}`);
-}
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-icons-'));
-
-const since = new Map();
-const lastSeen = new Map();
-try {
-  /* Sequential on purpose: the whole run is one npm pack per minor, and a
-   * parallel fan-out over 79 releases is a burst the registry answers with
-   * rate limits rather than speed. */
-  for (const version of versions) {
-    const names = await iconsOf(version, scratch);
-    const minor = minorOf(version);
-    let added = 0;
-    for (const name of names) {
-      lastSeen.set(name, minor);
-      if (since.has(name)) continue;
-      since.set(name, minor);
-      added++;
-    }
-    process.stderr.write(`${version}: ${names.size} icons${added && minor !== FLOOR ? `, ${added} new` : ''}\n`);
+/* The scan runs when this file is the script, not when a test imports
+ * pinnedVersion — the same guard check-upstream.mjs uses. */
+const invokedDirectly = process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+  const pinned = pinnedVersion();
+  const versions = await versionsToScan(pinned);
+  if (versions[0] !== undefined && minorOf(versions[0]) !== FLOOR) {
+    throw new Error(`the floor ${FLOOR} is not on the registry — got ${versions[0]}`);
   }
-} finally {
-  fs.rmSync(scratch, { recursive: true, force: true });
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'a2ui5-icons-'));
+
+  const since = new Map();
+  const lastSeen = new Map();
+  try {
+    /* Sequential on purpose: the whole run is one npm pack per minor, and a
+     * parallel fan-out over 79 releases is a burst the registry answers with
+     * rate limits rather than speed. */
+    for (const version of versions) {
+      const names = await iconsOf(version, scratch);
+      const minor = minorOf(version);
+      let added = 0;
+      for (const name of names) {
+        lastSeen.set(name, minor);
+        if (since.has(name)) continue;
+        since.set(name, minor);
+        added++;
+      }
+      process.stderr.write(`${version}: ${names.size} icons${added && minor !== FLOOR ? `, ${added} new` : ''}\n`);
+    }
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+
+  /* Sorted by name so a regeneration produces a reviewable diff — new glyphs
+   * appear next to their neighbours instead of at the end. */
+  const byName = (entries) => Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : 1)));
+  const newest = minorOf(pinned);
+  const data = {
+    floor: FLOOR,
+    ui5Version: pinned,
+    versions: versions.length,
+    icons: byName([...since]),
+    removed: byName([...lastSeen].filter(([, v]) => v !== newest)),
+  };
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, `${JSON.stringify(data, null, 1)}\n`);
+
+  const post = [...since.values()].filter((v) => v !== FLOOR).length;
+  process.stderr.write(`\n${OUT}: ${since.size} icons, ${since.size - post} at ${FLOOR}, `
+    + `${post} added after it, ${Object.keys(data.removed).length} gone again\n`);
 }
-
-/* Sorted by name so a regeneration produces a reviewable diff — new glyphs
- * appear next to their neighbours instead of at the end. */
-const byName = (entries) => Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : 1)));
-const newest = minorOf(pinned);
-const data = {
-  floor: FLOOR,
-  ui5Version: pinned,
-  versions: versions.length,
-  icons: byName([...since]),
-  removed: byName([...lastSeen].filter(([, v]) => v !== newest)),
-};
-fs.mkdirSync(path.dirname(OUT), { recursive: true });
-fs.writeFileSync(OUT, `${JSON.stringify(data, null, 1)}\n`);
-
-const post = [...since.values()].filter((v) => v !== FLOOR).length;
-process.stderr.write(`\n${OUT}: ${since.size} icons, ${since.size - post} at ${FLOOR}, `
-  + `${post} added after it, ${Object.keys(data.removed).length} gone again\n`);

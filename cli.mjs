@@ -140,6 +140,8 @@
  *                      wall clock divides by roughly the pool size. Also
  *                      settable as "render": { "pages": n } in the config
  *   --no-properties    skip the property gate
+ *   --all-classes      collect every .clas.abap; a class that builds no view is
+ *                      judged by the source-side rules alone (config: allClasses)
  *   --advisory         report only, always exit 0 (same as --fail-on never)
  *   --verbose          print reconstruction notes
  *   --config <file>    read settings from this abap2ui5lint.jsonc; without the
@@ -168,7 +170,7 @@ import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
-import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } from './lib/cache.mjs';
+import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -179,7 +181,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
-  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--advisory] [--verbose] '
+  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
@@ -348,6 +350,7 @@ for (let i = 0; i < args.length; i++) {
     }
   }
   else if (a === '--no-properties') { opt.properties = false; seen.add('properties'); }
+  else if (a === '--all-classes') { opt.allClasses = true; seen.add('allClasses'); }
   else if (a === '--advisory') { opt.failOn = 'never'; seen.add('failOn'); }
   else if (a === '--config') configFlag = value();
   else if (a === '--no-config') noConfig = true;
@@ -536,7 +539,7 @@ if (stdinMode) {
   try {
     // `ignore` is repo-level and config-only on purpose: it describes the tree,
     // which is a property of the repo rather than of one invocation
-    files = collectFiles(paths, { ignore: opt.ignore ?? [] });
+    files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
   } catch (e) {
     // a mistyped path is bad usage, not a crash - exit 2 with one clean line
     die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
@@ -621,7 +624,9 @@ if (!files.length) {
     // frozen --json contract cannot drift between the two paths
     console.log(formatJson([], empty, opt));
   } else {
-    console.log(`abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml)`);
+    console.log(opt.allClasses
+      ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
+      : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
   }
   emitBadge(empty, runStats([]));
   process.exit(0);
@@ -718,7 +723,7 @@ try {
     for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
     results = slots.map((s) => s.result);
     const entries = {};
-    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: s.result };
+    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
     /* Written BEFORE the baseline mutates the findings, and tolerantly: a
      * cache that cannot be written costs the next run time, not correctness. */
     try { saveCache(cache.file, cache.context, entries); }

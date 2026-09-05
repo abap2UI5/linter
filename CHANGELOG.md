@@ -2,6 +2,286 @@
 
 ## Unreleased
 
+- **ABAP is case-insensitive, and now the linter is too.** Outside its
+  literals and comments ABAP does not care about case, and a pretty printer set
+  to "uppercase" or "lowercase" produces exactly the source the linter used to
+  misread: an all-uppercase class was never collected at all (no checkable app
+  classes, exit 0), and a lowercase-keyword corpus lost 166 of its 173 views
+  in the reconstructor. Every keyword and identifier regex carries the `i`
+  flag now, identifiers are folded where they are compared, and `npm test`
+  recases every fixture to upper and to lower case and demands the same
+  findings on the same lines and columns and the same reconstructed documents.
+  `usesBuilderFactory( )` from `./builders` is the one place that decides
+  whether a class calls the builder; it is spelling- and space-tolerant.
+
+- **Chained declarations are read in full.** `TYPES:` and `DATA:` chains,
+  `TABLE OF` without a category, `SORTED`/`HASHED` tables, `READ-ONLY`,
+  `CLASS-DATA`, `LIKE` and type aliases all reach the model now. A table
+  declared in a chain used to become a scalar, which silenced every row rule
+  for it; a `|…|` template inside a `VALUE #( )` row used to end the row at
+  its brace. `declarationElements( )` from `./reconstruct` is the shared
+  reader.
+
+- **`parseNamedArgs( )` no longer reads the `=` of `=>` as an argument
+  boundary**, so a static access inside a value (`v = zcl_x=>c_flag`) keeps
+  its value. `namedArgMarks( )` exposes the same read with positions, for a
+  rule that has to rewrite one argument wherever it stands.
+
+- **Smaller corrections in the same round.** The verdict badge no longer
+  counts an opt-in rule nobody switched on. The `--cache` entry stores what a
+  replay reads and leaves the documents and the model out (a third of the
+  cache on the samples corpus). `abap2ui5lint-disable` counts only in a
+  comment, never inside a string literal. The literal map reads assignments
+  (`x = \`open\`.`), no longer comparisons (`IF x = \`open\`.`), so a template
+  no longer inherits a compared value as its static text. `client->cs_view-…`
+  written as `z2ui5_if_client=>cs_view-…` or `me->client->cs_view-…` is the
+  same slot. The GitHub-app spike reads `minUi5` the way `parseConfig( )`
+  returns it.
+
+- **`--all-classes` judges the classes that build no view.** The hygiene rules
+  — the 256-column line abapGit cannot import, the round-trip family, the
+  activation rules, the released-API check — ran only over a class that calls
+  the view builder; every other `.clas.abap` in the tree was dropped at
+  collection, and the AGENTS.md sentence that justified `source-line-too-long`
+  ("a class that cannot be imported is the most severe thing this tool can
+  find") held for app classes only. With `--all-classes` (config `allClasses`)
+  every class is collected, and one that builds no view is judged by the
+  source-side rules alone — no view, wire or lifecycle rule runs over it, and
+  an app class gets the verdict it always got. Off by default: a repository
+  scan must not start judging includes and generated classes unasked.
+
+- **Findings stand where the code is.** `event-arg-unresolved` and
+  `trailing-empty-event-arg` reported an offset from two coordinate systems
+  and landed up to sixteen columns early — on the previous line where the row
+  was indented less than that, which is where a `disable-next-line` directive
+  then hit nothing. Both sit on the argument they name now. The
+  `obsolete-model-update` fix cut from `client->` and left `li_` or `me->` on
+  a torn line for every handle not spelled exactly `client`; it removes the
+  whole statement. The `trailing-empty-event-arg` fix keeps the row's
+  indentation.
+
+- **Fewer false errors on correct code.** A `WHEN \`A\`` opens the handler
+  scope of event A only inside the CASE over the event, and only at that
+  CASE's own level — a status switch nested in B's handler is a status
+  switch, not A's handler; the same depth-aware read finds a `WHEN OTHERS`
+  behind a nested CASE. An id written `n = 'id'` is an id the wire rules
+  know: the ids come from the reconstructed tree, the text scan is the
+  fallback. A class name in a `'…'` literal is text, like one in backticks.
+  `delete-index-in-loop` keeps reporting an ended inner `LOOP` and a `DO`
+  between the loop header and the DELETE, and its card now says why: the ABAP
+  kernel restores the cursor there, the transpiler runtime the same source
+  runs on does not, and both incidents were measured on the latter.
+
+- **Rules read every legal spelling.** `unconverted-abap-boolean` reads the
+  arguments by name, so `a( v = mv_flag n = \`visible\` )` and `v =
+  me->mv_flag` are the flags they are (one of three was reported before), and
+  its fix renames the parameter wherever it stands. `binding-to-reference`
+  and `binding-to-local` read chained `DATA:` declarations, where only the
+  first name used to be known. `live-event-roundtrip` sees
+  `me->client->_event( )` and either argument order. A wire whose action name
+  is not the first argument, and a `t_arg = VALUE string_table( )` (or any
+  typed table) are read like the `#` form — `frontend-action-unknown-id` and
+  its relatives never ran on them.
+
+- **`hardcoded-binding-path` judges values, not prose.** All 18 corpus
+  findings were sentences in a documentation class explaining a two-way
+  binding, and that corpus had switched the rule off. Only a literal that IS
+  a value counts now — the `v = …` of an attribute call, `&&` chains
+  included, and the rows of a `t_arg = VALUE …( )` event argument — and the
+  finding names the attribute it stands in, so two attributes with the same
+  path are two findings (their baseline keys change accordingly).
+
+- **The lifecycle heuristics follow the class's own methods.**
+  `redundant-init-display` recognises two identical helper arms
+  (`view_display( )` twice, the usual corpus spelling), not only two identical
+  `client->…display( )` calls. `missing-on-navigated-branch` follows a
+  `main( )` that only delegates into the method it delegates to.
+  `missing-view-display-on-navigated` stays silent where the branch hands
+  `client` to another object — that object may display, and the linter does
+  not see it.
+
+- **`too-many-children` read an absent `multiple` as 0..1; UI5 reads it as 0..n.**
+  `ManagedObjectMetadata` defaults `multiple` to `true` when the declaration
+  does not say, and the UI5 sources leave it out on 0..n aggregations often
+  enough — `sap.m.table.columnmenu.Menu.items` and `.quickActions`, their two
+  containers — that a column menu with two actions was an error, and one
+  samples-controls port was rebuilt around the false finding. Only an explicit
+  `multiple: false` is 0..1 now, for the explicit aggregation tag and for the
+  children written straight under a control: `<table:Column><Label/><Text/>`
+  fills the 0..1 default aggregation `label` twice, UI5 logs "multiple
+  aggregates defined for aggregation label with cardinality 0..1" and keeps
+  the last one, and the gate said nothing. Both halves need the snapshot to
+  write the flag explicitly, which the regenerated `data/properties.json` does.
+
+- **`invalid-aggregation-child` now honours the harvested `widensAggregation`.**
+  The generator has recorded for a while which classes override
+  `addAggregation( )`, and nothing read it. `sap.uxap.ObjectPageSubSection`
+  declares `blocks` as `sap.ui.core.Control` and then stashes or unwraps an
+  `ObjectPageLazyLoader` — an Element — in exactly that method, so the sample
+  that is ABOUT lazy loading was invalid by the declaration and fine in the
+  browser (samples-controls app 592 carried a `property_gate.skip` for it).
+  A flagged owner, or one whose ancestor is flagged, is no longer judged by
+  its declared child types. The flag on `sap.ui.base.ManagedObject` itself,
+  where the method is defined rather than overridden, is ignored.
+
+- **A dotted namespace prefix is a prefix.** `nsMapOf` had learned that
+  `xmlns:viz.data` is a declaration; the XML tag parser had not, so
+  `<viz.data:FlattenedDataset>` parsed as an aggregation tag NAMED `viz.data`
+  with the real name swallowed into the attribute text, and every VizFrame
+  view reported an `aggregation-in-aggregation` at its root.
+
+- **`undeclared-namespace` sees the prefix inside the name.** The builder can
+  write `tag( \`core:Icon\` )` instead of `ns = \`core\``, and `resolve( )`
+  reads both — the undeclared check read only `ns`, so the name form resolved
+  to nothing and the node was silently unjudged while the same view written
+  with `ns` was reported (the corpus writes the name form a dozen times in one
+  class). Both spellings are reported now, both carry the fix, and an
+  aggregation tag with an undeclared prefix is reported as well.
+
+- **`unknown-binding-path`: a field read straight off a table.** The path walk
+  stepped into row 0 of every array it met, so `{/T/FIELD}` passed whenever the
+  row had the field. The JSONModel reads `/T/FIELD` as the property `FIELD` of
+  the array, which is undefined, and the control renders blank. A table segment
+  now has to be followed by a row index (`/T/0/FIELD`), or the path has to end
+  at the table (`{/T}` is what an aggregation binds; `length` is the one
+  property an array has); the message says a row index is missing rather than
+  calling the field a typo.
+
+- **Two controls with the same wrong value are two findings.** The dedupe key
+  was `type|control|member|value`, so a second `<Button type="Wrong"/>` was
+  folded into the first: the count understated and `--fix` corrected one
+  Button per pass. The node's offset is part of the key now. What the dedupe
+  exists for still holds — a helper method replayed at several call sites
+  builds its nodes at the helper body's offsets and its one defect stays one
+  finding, corrected everywhere by one fix. On a corpus that repeats a
+  post-floor member across many controls, `member-too-new` and its siblings
+  are counted per occurrence from now on, so a baseline's counts move;
+  `--update-baseline` settles them.
+
+- **`member-too-new` no longer dates a member by a base class younger than the
+  control.** UI5 extracts base classes out of existing controls —
+  `sap.m.ListItemActionBase` (@1.137) out of the @1.52 `FeedListItemAction`,
+  `sap.f.cards.BaseHeader` (@1.86) out of the @1.64 `Header`,
+  `sap.tnt.NavigationListItemBase` (@1.121) out of `NavigationListItem` — and
+  the members that move up arrive untagged, so the scan dated
+  `FeedListItemAction.text` at 1.137 and `Header.press` at 1.86 although both
+  shipped with their control (checked in the tagged 1.64.0 source). A member
+  that shipped with a base class younger than the control is now dated at the
+  control's own release; a member the base class gained after its own release
+  keeps its date, because it is new for the subclass too. Sixteen findings on
+  the samples-controls corpus go with it, all of them documented in sidecars
+  as a blind spot no gate could see.
+
+- **An aggregation tag has to be in its parent tag's namespace.**
+  `XMLTemplateProcessor` recognizes an aggregation only where
+  `childNode.namespaceURI === ns`, the namespace of the control tag it sits in;
+  `<f:content>` under a `sap.m.Page` is loaded as the control `sap.f.content`
+  and the 404 takes the view down. Reported as `unknown-aggregation`, with a
+  message that names the rule and what UI5 makes of the tag. The comparison
+  is against the parent TAG's library, not the declaring class: `items` on an
+  `f:GridList` is inherited from `sap.m.ListBase` and is still `<f:items>`.
+
+- **An association written as a child tag is reported.**
+  `<Button><ariaLabelledBy>lbl</ariaLabelledBy></Button>` was accepted because
+  the tag check looked associations up alongside aggregations. UI5 knows only
+  aggregations there and resolves the tag as a control. Reported as
+  `unknown-aggregation` with the attribute form spelled out, deliberately
+  without a did-you-mean or a fix; a tag that is an association up to letter
+  case is no longer offered the association's spelling either.
+
+- **48 controls were roots that inherit nothing.** The generator read a
+  module's parent by pairing the `sap.ui.define` dependency list with the
+  first `function (` of the FILE, split on commas. Every `sap.m.p13n` module
+  and integration's `Paginator` are written with an arrow factory, four
+  calendar controls carry a comment inside the parameter list, `DragDropBase`
+  comments two dependencies out, `MockServer` writes `sap.ui` and `.define(`
+  on two lines — and all of them came out with `parent: null`, which the
+  property gate reads as "a root class": every inherited property an
+  `unknown-property`, and `sap.m.p13n.SelectionPanel is not allowed in
+  sap.m.Page content`. The header is read with its comments stripped, the
+  factory is matched right after the dependency array in every shape
+  (`function`, `(…) =>`, a bare arrow parameter), and a class extending a
+  class of the same file (`CustomLocaleData`) finds it. No class in the
+  snapshot is parentless now; the one real root, `sap.ui.base.Object`, has no
+  entry and the gate knows it by name.
+
+  Two more things the same walk got wrong, and both papered over the first.
+  `sap.ui.integration` ships a minified thirdparty bundle carrying copies of a
+  dozen core classes (`Locale`, `CustomData`, the calendars) with no header to
+  read a parent from, and because the walk is last-writer-wins those copies
+  REPLACED the real entries. And the JSDoc of `Control`, `Element`,
+  `UIComponent` and friends carries `@example` code — `sap.mylib.MyControl`,
+  `my.Component`, `myapp.views.MainView`, thirteen names in all — which the
+  snapshot listed as controls, next to a `...` that an error message in
+  `mvc/Controller.js` quotes. Thirdparty trees are skipped, example code is
+  not a class, and the two enums only the bundle had contributed
+  (`sap.ui.core.CalendarType`, `sap.ui.core.date.CalendarWeekNumbering`) are
+  read from where the core really registers them: an alias for an object a
+  `sap/base` module exports. 973 controls become 959, all of them real.
+
+- **An aggregation that says nothing is 0..n, not 0..1.** The snapshot wrote
+  `multiple` only when a declaration said `multiple: true`, and the reader
+  took its absence as "single" — the opposite of UI5's default. Eight
+  aggregations omit the flag, `sap.m.table.columnmenu.Menu.items` and
+  `quickActions` among them, so a menu with two items was `too-many-children`.
+  Every aggregation and association now carries `multiple` as
+  `ManagedObjectMetadata` resolves it (`false` written out where it used to be
+  implied), and `Page.subHeader` with two bars is still one too many.
+
+- **84 deprecations lost their release.** The sources spell it `As of version
+  1.20`, `as of 1.20`, `Since version 1.20`, `since 1.115` and `Since 1.130`;
+  the reader knew the first three, and the gate treats a deprecation without a
+  version as older than every floor. `sap.ui.core.mvc.JSView` (`Since 1.90`)
+  and `sap.ui.integration.ActionDefinition.buttonType` (`Since 1.130`) were
+  reported to a 1.71 app. Every spelling is read now (`sap.m.TablePersoController`
+  and `sap.ui.core.search.SearchProvider` included), and a version that ended
+  a sentence no longer keeps the full stop — 45 entries read `1.88.`.
+
+- **An event parameter is not the aggregation of the same name.** The flat
+  `members` map topped itself up from every `@since` block in a class, so
+  `SinglePlanningCalendar.appointments` — an aggregation with no version —
+  carried `1.67.0` from the `appointments` PARAMETER of `appointmentSelect`,
+  and 75 further entries named no member of their class at all. The map
+  covers declared members only; a parameter's version lives under its event.
+
+- **What a control fires counts as declared.** `sap.m.table.columnmenu.QuickSort`
+  declares `key` and `sortOrder` on `change` and fires `{ item }`, so an app
+  reading `$parameters>/item` — the only thing the event carries — was an
+  `unknown-event-parameter`. The generator reads the object literal of every
+  `fire<Event>({ … })` call and adds its keys to the declared parameters,
+  flagged `fired: true` so a reader can tell the two apart; 48 parameters
+  across 29 events, and two of the three findings the rule produced on the
+  samples-controls corpus are gone (the third, `ColorPickerPopover change
+  colorString`, forwards another control's parameters as a variable, which no
+  literal reader can see).
+
+- **An XML comment is not a view, and `sap-icon://status-{ code }` is not a
+  name.** The icon scan read raw view XML through, so
+  `<!-- <Button icon="sap-icon://old-typo"/> -->` was an `unknown-icon`, and an
+  interpolated template reported its prefix (`status-`) as a glyph. Comments
+  are blanked before the scan (character for character, so every offset still
+  points where it did), and a name that ends at `{` is what the reconstructor
+  already calls it: composed at runtime, not judged.
+
+- **`npm run generate-icons` runs again.** It read the `@openui5` pin from the
+  root manifest's `optionalDependencies`, where the pins had not been since the
+  render-runtime split, and threw before touching the network — the
+  dependabot-openui5 workflow, whose one job is to run it, could not go green
+  on any bump. It reads the workspace manifest now (the root stays as the
+  fallback for an older layout), and a full scan reproduces the committed
+  `data/icons.json` byte for byte.
+
+- **`HASH_REPLACE` and `HASH_ATTACH_CHANGED` are released constants.** Both
+  are in `z2ui5_if_client=>cs_event` and consumed by
+  `follow_up_action( )` like the three server events already listed, but the
+  linter's mirror did not have them, so the wire the documentation shows was an
+  `unknown-frontend-action`. They are listed, and the gap that let them arrive
+  unnoticed is closed: `check-upstream` reads the `cs_event` block of the
+  released interface and demands that every value in it is accepted by
+  `FRONTEND_EVENTS`, `FRONTEND_EVENT_ALIASES` or `SERVER_EVENTS` — the two
+  server-side lists used to be the one part of the mirror nothing gated, on
+  the grounds that they "live in the server". The server publishes them.
+
 - **One rule card taught a chain this project rejects.** The layout rules are
   the house style every sample corpus is held to, and the half of a card
   labelled "the same code, fixed" is the last place a reader should meet a

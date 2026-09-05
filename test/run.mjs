@@ -53,7 +53,8 @@ import { elementBoundSlots } from '../lib/index.mjs';
 import { severityOf, severityRank } from '../lib/findings.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const f = (n) => path.join(FIX, n);
+export const f = (n) => path.join(FIX, n);
+export { FIX };
 
 /* Every applyFixes call in this suite - and in every CLI subprocess it spawns
  * - runs with malformed fix spans as an ERROR rather than as a silent drop.
@@ -75,14 +76,14 @@ process.env.ABAP2UI5LINT_STRICT_FIXES = 'true';
  * of the suite, the coverage gate included, still runs and still reports.
  */
 let bucket = [];
-const assert = (cond, msg) => {
+export const assert = (cond, msg) => {
   console.log(`${cond ? 'ok  ' : 'FAIL'}  ${msg}`);
   if (!cond) bucket.push(msg);
 };
 
 /** One section of the suite: isolated, ordered, and failing with every one of
  *  its assertions rather than with the first. */
-const section = (name, body) => test(name, async () => {
+export const section = (name, body) => test(name, async () => {
   bucket = [];
   try {
     await body();
@@ -103,7 +104,7 @@ const section = (name, body) => test(name, async () => {
  * still remove their own where they want the removal ASSERTED; a second
  * removal of a gone directory is a no-op. */
 const tempDirs = [];
-const tempDir = (prefix) => {
+export const tempDir = (prefix) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   tempDirs.push(dir);
   return dir;
@@ -1737,14 +1738,20 @@ section('display-root-mismatch', async () => {
 
     // --- a member with no own @since inherits its DECLARING class's version ---
     // sap.f.cards.BaseHeader is @1.86 and its `press` carries no member-level
-    // @since, so the walk used to stop at "base version" and pass a press on the
-    // @1.64 sap.f.cards.Header at a 1.71 floor. A member cannot predate the class
-    // that declares it.
+    // @since, so the walk used to stop at "base version". A member cannot
+    // predate the class that declares it - and cannot postdate a subclass
+    // that already carried it, which is the case below.
     {
       const inh = checkAbapSource(fs.readFileSync(f('inheritedsince.clas.abap'), 'utf8'))
         .findings.filter((x) => x.type === 'member-too-new' && x.member === 'press');
-      assert(inh.length === 1 && inh[0].since === '1.86',
-        `member-too-new: press inherits BaseHeader's 1.86 (got ${inh.map((x) => x.since).join() || 'none'})`);
+      /* …unless the declaring class is YOUNGER than the control: UI5 extracted
+       * BaseHeader (@1.86) out of the @1.64 Header, and `press` moved up with
+       * it - the tagged 1.64.0 source declares it on Header. A member that
+       * shipped with the control is dated at the control's release, so this
+       * press is not reported at a 1.71 floor; test/review/props.mjs holds
+       * the "older base" doctrine with sap.m.plugins.ColumnResizer.enabled. */
+      assert(inh.length === 0,
+        `member-too-new: press on the @1.64 Header shipped with it - BaseHeader (@1.86) took it over later, so the younger base does not date it (got ${inh.map((x) => x.since).join() || 'none'})`);
     }
 
     // --- a value the reconstruction had to guess at is not judged ------------
@@ -5255,10 +5262,53 @@ section('rules page', async () => {
      * the linter itself reports on that class - a link that opens on a clean
      * verdict would teach the reader the rule is broken. */
     const { playgroundLinks, playgroundSource, PLAYGROUND } = await import('../scripts/generate-rules-page.mjs');
+    const { OPT_IN } = await import('../lib/findings.mjs');
     const zlib = await import('zlib');
     const links = playgroundLinks();
-    assert(links.size >= 100,
-      `rules page: the reported code of at least 100 rules opens in the playground (${links.size} of ${RULES.length})`);
+
+    /* Every card is verified, BOTH halves: the wrapped example fires the rule
+     * the card is about, and the wrapped remedy does not. The page used to
+     * link the playground for "at least 100" cards and say nothing about the
+     * rest — 22 examples were silent once wrapped and nobody learned which,
+     * and one remedy (undeclared-namespace) fired the very rule it fixed.
+     * UNWRAPPABLE names the cards the frame cannot carry, each with the
+     * reason; a card that becomes wrappable has to leave the list. */
+    const UNWRAPPABLE = new Map([
+      ['byte-order-mark', 'the frame joins lines into a class of its own: the BOM at offset 0 is gone'],
+      ['crlf-line-ending', 'the frame splits on \\n and joins with \\n: a CR does not survive'],
+      ['trailing-whitespace', 'the blanks the rule is about end a line the frame rewrites (the dot goes there)'],
+      ['missing-final-newline', 'the frame always ends its class with a newline'],
+      ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
+      ['validating-setter-out-of-range', 'the only lower-bounded setter in the snapshot belongs to sap.ui.unified.RecurringCalendarAppointment, a control newer than the default floor - there it is too new for its values to be judged at all'],
+    ]);
+    const wrappedFires = (id, half) => {
+      const file = playgroundSource(id, half);
+      const rules = OPT_IN.has(id) ? { [id]: 'warning' } : {};
+      return checkAbapSource(file.source, { render: false, file: file.name, rules }).findings.some((f) => f.type === id);
+    };
+    {
+      const silent = [];
+      const loud = [];
+      for (const id of RULES) {
+        if (UNWRAPPABLE.has(id)) continue;
+        if (!wrappedFires(id, 'example')) silent.push(id);
+        if (wrappedFires(id, 'remedy')) loud.push(id);
+      }
+      assert(silent.length === 0,
+        `rules page: every example fires its own rule once wrapped into a class (silent: ${silent.join(', ') || 'none'})`);
+      assert(loud.length === 0,
+        `rules page: no remedy fires the rule it fixes (loud: ${loud.join(', ') || 'none'})`);
+      for (const [id] of UNWRAPPABLE) {
+        assert(RULES.includes(id), `rules page: UNWRAPPABLE names a rule that exists (${id})`);
+        assert(!wrappedFires(id, 'example'), `rules page: ${id} wraps fine now - take it out of UNWRAPPABLE`);
+      }
+    }
+    // the page links exactly the verified cards: every rule the frame carries,
+    // minus the opt-in ones, which the playground's default config would open
+    // on a clean verdict
+    const linkable = RULES.filter((id) => !UNWRAPPABLE.has(id) && !OPT_IN.has(id));
+    assert(links.size === linkable.length && linkable.every((id) => links.has(id)),
+      `rules page: the reported code of every wrappable rule opens in the playground (${links.size} of ${linkable.length})`);
     for (const [id, url] of links) {
       assert(url.startsWith(`${PLAYGROUND}#2`), `rules page: ${id} links the playground with a version-2 share fragment`);
       const files = JSON.parse(zlib.inflateRawSync(Buffer.from(url.slice(PLAYGROUND.length + 2), 'base64url')).toString('utf8'));
@@ -6061,6 +6111,25 @@ section('abap hygiene (2)', async () => {
       'delete-index-in-loop: the me-> spelling names the same table');
 });
 
+/*
+ * Review-round sections live in test/review/*.mjs, one file per topic, so
+ * several fixes can grow their regression tests without every one of them
+ * editing the tail of this file. Each file exports a default function that
+ * takes the harness (`section`, `assert`, `f`, `FIX`, `tempDir`) and the
+ * observed checks, and registers its sections through them - the same
+ * isolation, the same rule-coverage accounting as a section written here.
+ * Loaded BEFORE the rule-coverage gate: a rule whose only trigger lives in a
+ * review file has to count, and the gate reads what was observed up to the
+ * moment it runs.
+ */
+const REVIEW = path.join(path.dirname(fileURLToPath(import.meta.url)), 'review');
+if (fs.existsSync(REVIEW)) {
+  for (const file of fs.readdirSync(REVIEW).filter((n) => n.endsWith('.mjs')).sort()) {
+    const mod = await import(pathToFileURL(path.join(REVIEW, file)).href);
+    await mod.default({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap });
+  }
+}
+
 /* What is recorded is what the checks actually produced (test/observe.mjs),
  * not what the test source appears to mention, so a negated assertion or a
  * renamed idiom cannot pass for coverage. A rule may be exempt, but only in
@@ -6294,7 +6363,6 @@ section('prose is not code', async () => {
       // The rule's own example IS a literal in a DATA statement.
       ['commercial-ui5-host', 'the finding is a URL written as text'],
       ['unescaped-brace-in-style', 'the finding is a brace inside a literal'],
-      ['hardcoded-binding-path', 'the finding is a path written as text'],
     ]);
     {
       const { RULE_DOCS } = await import('../lib/rule-docs.mjs');

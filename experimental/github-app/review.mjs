@@ -29,7 +29,8 @@ const PER_REQUEST = 50;
  *  a finding means for the check's conclusion. */
 export function lintSource(path, source, config = {}) {
   const opts = {
-    minUi5: config.ui5 || config.minUi5 || '1.71',
+    // parseConfig( ) normalizes `ui5` to `minUi5`, so that is the only key
+    minUi5: config.minUi5 || '1.71',
     // null, not 'sapui5': a repo that never wrote `distribution` has not
     // said its system ships sap.ui.comp, and the gate reports that as a
     // hint rather than as nothing at all
