@@ -1,0 +1,24 @@
+<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"
+    xmlns:viz="sap.viz.ui5.controls"
+    xmlns:viz.data="sap.viz.ui5.data"
+    xmlns:viz.feeds="sap.viz.ui5.controls.common.feeds">
+  <!-- a dotted prefix is a legal NCName, and the sap.viz controls are written with two of them -->
+  <Page title="VizFrame">
+    <viz:VizFrame vizType="column" width="100%">
+      <viz:dataset>
+        <viz.data:FlattenedDataset data="{/T_SALES}">
+          <viz.data:dimensions>
+            <viz.data:DimensionDefinition name="Country" value="{COUNTRY}"/>
+          </viz.data:dimensions>
+          <viz.data:measures>
+            <viz.data:MeasureDefinition name="Revenue" value="{REVENUE}"/>
+          </viz.data:measures>
+        </viz.data:FlattenedDataset>
+      </viz:dataset>
+      <viz:feeds>
+        <viz.feeds:FeedItem uid="valueAxis" type="Measure" values="Revenue"/>
+        <viz.feeds:FeedItem uid="categoryAxis" type="Dimension" values="Country"/>
+      </viz:feeds>
+    </viz:VizFrame>
+  </Page>
+</mvc:View>
