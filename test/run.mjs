@@ -53,7 +53,8 @@ import { elementBoundSlots } from '../lib/index.mjs';
 import { severityOf, severityRank } from '../lib/findings.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
-const f = (n) => path.join(FIX, n);
+export const f = (n) => path.join(FIX, n);
+export { FIX };
 
 /* Every applyFixes call in this suite - and in every CLI subprocess it spawns
  * - runs with malformed fix spans as an ERROR rather than as a silent drop.
@@ -75,14 +76,14 @@ process.env.ABAP2UI5LINT_STRICT_FIXES = 'true';
  * of the suite, the coverage gate included, still runs and still reports.
  */
 let bucket = [];
-const assert = (cond, msg) => {
+export const assert = (cond, msg) => {
   console.log(`${cond ? 'ok  ' : 'FAIL'}  ${msg}`);
   if (!cond) bucket.push(msg);
 };
 
 /** One section of the suite: isolated, ordered, and failing with every one of
  *  its assertions rather than with the first. */
-const section = (name, body) => test(name, async () => {
+export const section = (name, body) => test(name, async () => {
   bucket = [];
   try {
     await body();
@@ -103,7 +104,7 @@ const section = (name, body) => test(name, async () => {
  * still remove their own where they want the removal ASSERTED; a second
  * removal of a gone directory is a no-op. */
 const tempDirs = [];
-const tempDir = (prefix) => {
+export const tempDir = (prefix) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   tempDirs.push(dir);
   return dir;
@@ -6587,3 +6588,21 @@ ENDCLASS.
     }
     assert(compared > 40, `enough fixtures to mean something (${compared})`);
 });
+
+/*
+ * Review-round sections live in test/review/*.mjs, one file per topic, so
+ * several fixes can grow their regression tests without every one of them
+ * editing the tail of this file. Each file exports a default function that
+ * takes the harness (`section`, `assert`, `f`, `FIX`, `tempDir`) and the
+ * observed checks, and registers its sections through them - the same
+ * isolation, the same rule-coverage accounting as a section written here.
+ * Loaded after the sections above, so the coverage gate sees the same order
+ * it always did.
+ */
+const REVIEW = path.join(path.dirname(fileURLToPath(import.meta.url)), 'review');
+if (fs.existsSync(REVIEW)) {
+  for (const file of fs.readdirSync(REVIEW).filter((n) => n.endsWith('.mjs')).sort()) {
+    const mod = await import(pathToFileURL(path.join(REVIEW, file)).href);
+    await mod.default({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap });
+  }
+}
