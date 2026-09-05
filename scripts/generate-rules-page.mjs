@@ -74,13 +74,33 @@ const codeOf = (line) => {
  * the snippet does not open a root of its own. */
 const ROOT_CHAIN = [
   'view->ele( n = `View` ns = `mvc`',
-  '    )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`',
-  '    )->a( n = `xmlns:core` v = `sap.ui.core` )->a( n = `xmlns:l` v = `sap.ui.layout`',
-  '    )->a( n = `xmlns:f` v = `sap.f` )->a( n = `xmlns:uxap` v = `sap.uxap` )->a( n = `xmlns:table` v = `sap.ui.table`',
-  '    )->a( n = `xmlns:card` v = `sap.ui.integration.widgets` )->a( n = `xmlns:c` v = `sap.ui.commons`',
-  '    )->a( n = `xmlns:smart` v = `sap.ui.comp.smarttable` )->a( n = `xmlns:html` v = `http://www.w3.org/1999/xhtml` ).',
+  '    )->a( n = `xmlns` v = `sap.m`',
+  '    )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`',
+  '    )->a( n = `xmlns:core` v = `sap.ui.core`',
+  '    )->a( n = `xmlns:l` v = `sap.ui.layout`',
+  '    )->a( n = `xmlns:f` v = `sap.f`',
+  '    )->a( n = `xmlns:uxap` v = `sap.uxap`',
+  '    )->a( n = `xmlns:table` v = `sap.ui.table`',
+  '    )->a( n = `xmlns:card` v = `sap.ui.integration.widgets`',
+  '    )->a( n = `xmlns:c` v = `sap.ui.commons`',
+  '    )->a( n = `xmlns:u` v = `sap.ui.unified`',
+  '    )->a( n = `xmlns:smart` v = `sap.ui.comp.smarttable`',
+  '    )->a( n = `xmlns:html` v = `http://www.w3.org/1999/xhtml` ).',
 ];
 const FACTORY = 'DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).';
+/* The frame's own root, when the snippet opens none: `view` is the handle of
+ * a Page INSIDE the View, so that `view->tag( … )` in the snippet lands in the
+ * Page's content the way the card means it. Hung from the factory handle
+ * instead, every such call was a second document root beside the View -
+ * without a namespace, so no property rule could judge it, and a
+ * `headerContent` under it was an aggregation in an aggregation. */
+const FRAMED_ROOT = [
+  'DATA(root) = z2ui5_cl_ui5_view_builder=>factory( ).',
+  'DATA(view) = root->ele( n = `View` ns = `mvc`',
+  ...ROOT_CHAIN.slice(1, -1),
+  ROOT_CHAIN[ROOT_CHAIN.length - 1].replace(/\s*\)\.$/, ''),   // the last call stays open for the Page
+  '    )->ele( `Page` ).',
+];
 const DISPLAY = 'client->view_display( view->stringify( ) ).';
 const opensRoot = (text) => /ns\s*=\s*`mvc`|`xmlns`/.test(text);
 
@@ -102,14 +122,14 @@ const hostOf = (line) => {
 };
 /* statement heads that start a new statement even where the previous chain
  * line was left open - the previous statement gets its dot first */
-const STATEMENT_HEAD = /^(?:t_arg\s*=|client->|follow_up_action\s*\(|DATA\b|INSERT\b|CASE\b|IF\b|LOOP\b|SELECT\b|TRY\b|VALUE\b)/;
-const closeLast = (body) => {
+const STATEMENT_HEAD = /^(?:t_arg\s*=|client->|follow_up_action\s*\(|DATA\b|TYPES\b|INSERT\b|CASE\b|IF\b|ELSEIF\b|LOOP\b|SELECT\b|TRY\b|VALUE\b|view->)/;
+const closeLast = (body, suffix = '') => {
   for (let i = body.length - 1; i >= 0; i--) {
     const code = codeOf(body[i]);
     if (code === '') continue;
     if (!code.endsWith('.')) {
       const at = commentStart(body[i]);
-      body[i] = at === -1 ? `${body[i].trimEnd()}.` : `${body[i].slice(0, at).trimEnd()}.${body[i].slice(at - 1)}`;
+      body[i] = at === -1 ? `${body[i].trimEnd()}${suffix}.` : `${body[i].slice(0, at).trimEnd()}${suffix}.${body[i].slice(at - 1)}`;
     }
     break;
   }
@@ -133,10 +153,11 @@ function unelide(lines) {
   return out;
 }
 
-/** The example wrapped into a class, and the file name the playground gives it. */
-export function playgroundSource(id) {
+/** The example (or the remedy) wrapped into a class, and the file name the
+ *  playground gives it. */
+export function playgroundSource(id, half = 'example') {
   const doc = RULE_DOCS[id];
-  const lines = unelide(doc.example.split('\n').filter((l) => l.trim() !== '…'));
+  const lines = unelide(doc[half].split('\n').filter((l) => l.trim() !== '…'));
   const text = lines.join('\n');
   const named = text.match(/\bCLASS\s+(\w+)\s+DEFINITION\b/i);
   if (named) {
@@ -149,16 +170,23 @@ export function playgroundSource(id) {
   const implementation = [];
   /* a main( ) of this frame's own: the root, the snippet's statements, the
    * display — so the class is a view class whichever rule the card is about */
-  const ownMain = (statements, { displayFirst = false } = {}) => [
-    '  METHOD z2ui5_if_app~main.',
-    '    me->client = client.',
-    ...(/DATA\(view\)/.test(statements.join('\n')) ? [] : [`    ${FACTORY}`]),
-    ...(opensRoot(statements.join('\n')) ? [] : ROOT_CHAIN.map((l) => `    ${l}`)),
-    ...(displayFirst ? [`    ${DISPLAY}`] : []),
-    ...statements.map((l) => (l === '' ? '' : `    ${l}`)),
-    ...(displayFirst ? [] : [`    ${DISPLAY}`]),
-    '  ENDMETHOD.',
-  ];
+  const ownMain = (statements, { displayFirst = false } = {}) => {
+    const text = statements.join('\n');
+    /* a snippet that IS the lifecycle dispatcher displays through its own
+     * branches; a display of the frame's after it would be a display outside
+     * every branch, which is what missing-on-navigated-branch judges */
+    const dispatches = /\bcheck_on_(?:init|navigated)\s*\(/.test(text);
+    return [
+      '  METHOD z2ui5_if_app~main.',
+      '    me->client = client.',
+      ...(/DATA\(view\)/.test(text) ? []
+        : opensRoot(text) ? [`    ${FACTORY}`] : FRAMED_ROOT.map((l) => `    ${l}`)),
+      ...(displayFirst ? [`    ${DISPLAY}`] : []),
+      ...statements.map((l) => (l === '' ? '' : `    ${l}`)),
+      ...(displayFirst || dispatches ? [] : [`    ${DISPLAY}`]),
+      '  ENDMETHOD.',
+    ];
+  };
 
   if (hasMethod || hasSection) {
     const sectionLines = hasSection ? lines.filter((l) => !/^\s*(?:METHOD|ENDMETHOD)\b/i.test(l)) : [];
@@ -199,28 +227,46 @@ export function playgroundSource(id) {
     }
   } else {
     /* statements: a chain fragment gets the call it hangs from, a bare
-     * `t_arg` its action, a declaration goes up into the PUBLIC SECTION so
-     * the bindings that read it find an attribute rather than a local */
+     * `t_arg` its action, a declaration (DATA, a TYPES block) goes up into
+     * the PUBLIC SECTION so the bindings that read it find an attribute
+     * rather than a local, and a branch that begins with ELSEIF gets the IF
+     * it continues */
     const body = [];
     const attrs = [];
     let start = true; // at a statement start
+    let declaring = false; // inside a multi-line declaration bound for the section
+    let pending = ''; // the `)` closing a call the frame opened around a bare t_arg
+    let hang = ''; // extra indent for a fragment hung from a call the frame added
+    const branch = /^\s*ELSEIF\b/i.test(lines[0]);
+    if (branch) body.push('IF client->check_on_init( ).', `  ${DISPLAY}`);
     for (const raw of lines) {
       let line = raw;
       const code = codeOf(line);
-      if (!start && STATEMENT_HEAD.test(code)) { closeLast(body); start = true; }
-      if (start && /^DATA\s+\w+\s+TYPE\b/i.test(code)) { attrs.push(`    ${line.trim()}`); start = code.endsWith('.'); continue; }
+      if (declaring) {
+        attrs.push(`    ${line.trim()}`);
+        declaring = !code.endsWith('.');
+        continue;
+      }
+      if (!start && STATEMENT_HEAD.test(code)) { closeLast(body, pending); pending = ''; hang = ''; start = true; }
+      if (start && /^(?:DATA\s+\w+\s+TYPE\b|TYPES\b)/i.test(code)) {
+        attrs.push(`    ${line.trim()}`);
+        declaring = !code.endsWith('.');
+        start = !declaring;
+        continue;
+      }
       if (start) {
+        hang = '';
         if (/^a\(/.test(code)) line = `view->tag( ${hostOf(code)} )->${line}`;
-        else if (/^\)->a\(/.test(code)) body.push(`view->tag( ${hostOf(code)}`);
-        else if (/^\)->/.test(code)) body.push('view->ele( `Page`');
-        else if (/^view->ele\( `[a-z]/.test(code)) body.push('view->ele( `Page` ).');
-        else if (/^t_arg\s*=/.test(code)) line = `client->follow_up_action( val = client->cs_event-control_by_id\n    ${line} )`;
+        else if (/^\)->a\(/.test(code)) { body.push(`view->tag( ${hostOf(code)}`); hang = '    '; }
+        else if (/^\)->/.test(code)) { body.push('view->ele( `Page`'); hang = '    '; }
+        else if (/^t_arg\s*=/.test(code)) { line = `client->follow_up_action( val   = client->cs_event-control_by_id\n                              ${line.trim()}`; pending = ' )'; }
         else if (/^follow_up_action\s*\(/.test(code)) line = `client->${line}`;
       }
-      body.push(line);
+      body.push(hang && line !== '' ? `${hang}${line}` : line);
       start = code.endsWith('.') || code === '';
     }
-    closeLast(body);
+    if (branch) body.push('ENDIF.');
+    closeLast(body, pending);
     definition.push('  PUBLIC SECTION.', ...head, ...attrs);
     implementation.push(...ownMain(body));
   }

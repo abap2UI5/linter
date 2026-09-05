@@ -5256,10 +5256,53 @@ section('rules page', async () => {
      * the linter itself reports on that class - a link that opens on a clean
      * verdict would teach the reader the rule is broken. */
     const { playgroundLinks, playgroundSource, PLAYGROUND } = await import('../scripts/generate-rules-page.mjs');
+    const { OPT_IN } = await import('../lib/findings.mjs');
     const zlib = await import('zlib');
     const links = playgroundLinks();
-    assert(links.size >= 100,
-      `rules page: the reported code of at least 100 rules opens in the playground (${links.size} of ${RULES.length})`);
+
+    /* Every card is verified, BOTH halves: the wrapped example fires the rule
+     * the card is about, and the wrapped remedy does not. The page used to
+     * link the playground for "at least 100" cards and say nothing about the
+     * rest — 22 examples were silent once wrapped and nobody learned which,
+     * and one remedy (undeclared-namespace) fired the very rule it fixed.
+     * UNWRAPPABLE names the cards the frame cannot carry, each with the
+     * reason; a card that becomes wrappable has to leave the list. */
+    const UNWRAPPABLE = new Map([
+      ['byte-order-mark', 'the frame joins lines into a class of its own: the BOM at offset 0 is gone'],
+      ['crlf-line-ending', 'the frame splits on \\n and joins with \\n: a CR does not survive'],
+      ['trailing-whitespace', 'the blanks the rule is about end a line the frame rewrites (the dot goes there)'],
+      ['missing-final-newline', 'the frame always ends its class with a newline'],
+      ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
+      ['validating-setter-out-of-range', 'the only lower-bounded setter in the snapshot belongs to sap.ui.unified.RecurringCalendarAppointment, a control newer than the default floor - there it is too new for its values to be judged at all'],
+    ]);
+    const wrappedFires = (id, half) => {
+      const file = playgroundSource(id, half);
+      const rules = OPT_IN.has(id) ? { [id]: 'warning' } : {};
+      return checkAbapSource(file.source, { render: false, file: file.name, rules }).findings.some((f) => f.type === id);
+    };
+    {
+      const silent = [];
+      const loud = [];
+      for (const id of RULES) {
+        if (UNWRAPPABLE.has(id)) continue;
+        if (!wrappedFires(id, 'example')) silent.push(id);
+        if (wrappedFires(id, 'remedy')) loud.push(id);
+      }
+      assert(silent.length === 0,
+        `rules page: every example fires its own rule once wrapped into a class (silent: ${silent.join(', ') || 'none'})`);
+      assert(loud.length === 0,
+        `rules page: no remedy fires the rule it fixes (loud: ${loud.join(', ') || 'none'})`);
+      for (const [id] of UNWRAPPABLE) {
+        assert(RULES.includes(id), `rules page: UNWRAPPABLE names a rule that exists (${id})`);
+        assert(!wrappedFires(id, 'example'), `rules page: ${id} wraps fine now - take it out of UNWRAPPABLE`);
+      }
+    }
+    // the page links exactly the verified cards: every rule the frame carries,
+    // minus the opt-in ones, which the playground's default config would open
+    // on a clean verdict
+    const linkable = RULES.filter((id) => !UNWRAPPABLE.has(id) && !OPT_IN.has(id));
+    assert(links.size === linkable.length && linkable.every((id) => links.has(id)),
+      `rules page: the reported code of every wrappable rule opens in the playground (${links.size} of ${linkable.length})`);
     for (const [id, url] of links) {
       assert(url.startsWith(`${PLAYGROUND}#2`), `rules page: ${id} links the playground with a version-2 share fragment`);
       const files = JSON.parse(zlib.inflateRawSync(Buffer.from(url.slice(PLAYGROUND.length + 2), 'base64url')).toString('utf8'));
