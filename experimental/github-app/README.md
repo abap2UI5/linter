@@ -89,6 +89,10 @@ service:
   App decides deliberately what to do with those.
 - **No concurrency control.** Two pushes in a row produce two check runs; the
   older one is not cancelled.
+- **Only `minUi5` is read from the repository's `abap2ui5lint.jsonc`.**
+  `extends`, `properties`, `ignore`, `rules` and `baseline` are not applied,
+  so where a repository relies on them the check run's verdict differs from
+  the CLI's. A product would run `loadConfig( )` the way `cli.mjs` does.
 - **Nothing operational.** No metrics, no structured logging, no alerting, no
   deployment, no uptime, and nobody paying for the container.
 

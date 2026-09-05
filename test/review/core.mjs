@@ -10,6 +10,7 @@ import { elementBoundSlots } from '../../lib/abap-source.mjs';
 import { badgeEndpoint, summarize, runStats } from '../../lib/report.mjs';
 import { cacheable } from '../../lib/cache.mjs';
 import { collectFiles } from '../../lib/index.mjs';
+import { parseConfig } from '../../lib/config.mjs';
 
 /*
  * ABAP is case-insensitive outside its literals and comments. `DATA(VIEW) =
@@ -151,4 +152,53 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
       assert(!r.all && r.slots.has('POPUP') && r.slots.size === 1, `${view} binds exactly the POPUP slot (all=${r.all}, slots=${[...r.slots]})`);
     }
   });
+
+  /*
+   * Every ABAP hygiene rule - the 256-column line that fails to import, the
+   * abapGit round-trip family, the activation rules - ran only over a class
+   * that calls the view builder; every other .clas.abap was dropped at
+   * collection. AGENTS.md justified source-line-too-long with "a class that
+   * cannot be imported is the most severe thing this tool can find", which held
+   * for app classes only. `allClasses` collects every class and judges the ones
+   * that build no view by the source-side rules alone.
+   */
+  section('all classes: a class that builds no view is judged by the source-side rules alone', () => {
+    const plain = 'CLASS zcl_helper DEFINITION PUBLIC.\r\n  PUBLIC SECTION.\r\n    METHODS run.\r\nENDCLASS.\r\n\r\n'
+      + 'CLASS zcl_helper IMPLEMENTATION.\r\n  METHOD run.   \r\n    DATA t TYPE STANDARD TABLE OF i WITH DEFAULT KEY.\r\n'
+      + '    LOOP AT t INTO DATA(row).\r\n      READ TABLE t INDEX 1 INTO DATA(x).\r\n      DELETE t INDEX sy-tabix.\r\n    ENDLOOP.\r\n  ENDMETHOD.\r\nENDCLASS.\r\n';
+    const dir = tempDir('abap2ui5lint-allclasses-');
+    fs.writeFileSync(path.join(dir, 'zcl_helper.clas.abap'), plain);
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'zcl_app.clas.abap'));
+    fs.writeFileSync(path.join(dir, 'zcl_helper.clas.testclasses.abap'), plain);
+    assert(collectFiles([dir]).length === 1, 'without the option only the app class is collected');
+    const all = collectFiles([dir], { allClasses: true });
+    assert(all.length === 2 && all.some((x) => x.endsWith('zcl_helper.clas.abap')), `with it every class is (${all.length})`);
+    assert(!all.some((x) => x.includes('testclasses')), 'a test include is still not a class to judge');
+
+    const off = checkAbapSource(plain, { render: false });
+    assert(off.usesBuilder === false && off.findings.length === 0, 'handed the class without the option, the library says nothing');
+    const on = checkAbapSource(plain, { render: false, allClasses: true });
+    const types = [...new Set(on.findings.map((x) => x.type))].sort();
+    assert(on.usesBuilder === false, 'the class is still not a builder class');
+    assert(types.includes('crlf-line-ending') && types.includes('trailing-whitespace') && types.includes('delete-index-in-loop'),
+      `the round-trip family and the activation rules report (${types.join(', ')})`);
+    assert(!types.some((t) => /^(?:view-|missing-|unknown-|chain-|event-|redundant-|lifecycle-)/.test(t)),
+      `no view, wire or lifecycle rule runs over a class with no view (${types.join(', ')})`);
+    assert(on.findings.filter((x) => x.type === 'crlf-line-ending').every((x) => x.fixes?.length),
+      'the fixes travel with the findings, as for an app class');
+    assert(on.ruleHits['crlf-line-ending'] === 1, 'the rule hits are counted');
+
+    // an app class is judged exactly as before, option or not
+    const app = fs.readFileSync(f('good.clas.abap'), 'utf8');
+    const shape = (r) => r.findings.map((x) => `${x.type}@${x.line}:${x.column}`).sort().join(' ');
+    assert(shape(checkAbapSource(app, { render: false, allClasses: true })) === shape(checkAbapSource(app, { render: false })),
+      'an app class gets the same verdict with the option');
+
+    // the config key, validated like the other booleans
+    assert(parseConfig('abap2ui5lint.jsonc', '{ "allClasses": true }').allClasses === true, 'the config key is read');
+    let threw = null;
+    try { parseConfig('abap2ui5lint.jsonc', '{ "allClasses": "yes" }'); } catch (e) { threw = e.message; }
+    assert(/allClasses/.test(threw || ''), `a non-boolean is refused (${threw})`);
+  });
+
 }

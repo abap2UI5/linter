@@ -31,6 +31,7 @@ Then, when you want it to stay green:
 ```sh
 npm install -D @abap2ui5/linter          # pin it for CI and for your machine
 npx abap2ui5lint --init                  # write a commented abap2ui5lint.jsonc
+npx abap2ui5lint src --all-classes       # every class: the ones that build no view get the source-side rules
 ```
 
 ## Documentation

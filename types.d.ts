@@ -32,6 +32,9 @@ declare module "@abap2ui5/linter" {
     renderPages?: number;
     /** Run the property gate (default true). */
     properties?: boolean;
+    /** Collect every .clas.abap and judge a class that builds no view by the
+     *  source-side rules alone (checkSourceRules). Default false. */
+    allClasses?: boolean;
     /** Per-rule off / severity / exclude — the config's `rules` block. */
     rules?: Record<string, unknown>;
     /** The path the source came from — `rules.*.exclude` matches on it. */
@@ -171,7 +174,7 @@ declare module "@abap2ui5/linter" {
    *  realpath). */
   export function collectFiles(
     paths: string[],
-    opts?: { ignore?: (string | RegExp)[] }
+    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean }
   ): string[];
 }
 
@@ -511,6 +514,11 @@ declare module "@abap2ui5/linter/render" {
 }
 
 declare module "@abap2ui5/linter/abap-rules" {
+  /** The source-side rules alone - what a class that builds no view is judged
+   *  by under `allClasses`: the abapGit round-trip family, the activation and
+   *  hygiene rules, the released-API check. */
+  export function checkSourceRules(source: string): PropertyFinding[];
+
   import type { PropertyFinding } from "@abap2ui5/linter/properties";
 
   /** The `name>` model prefixes the class itself registers (SET_ODATA_MODEL).
@@ -778,6 +786,9 @@ declare module "@abap2ui5/linter/config" {
     allow?: string[];
     render?: boolean;
     properties?: boolean;
+    /** Collect every .clas.abap and judge a class that builds no view by the
+     *  source-side rules alone (checkSourceRules). Default false. */
+    allClasses?: boolean;
     failOn?: string;
     rules?: Record<string, unknown>;
     /** Path of the adoption baseline, relative to the config file. */

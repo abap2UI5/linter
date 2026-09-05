@@ -102,6 +102,10 @@ export function buildSchema() {
         description: 'false skips the render gate (no browser needed); true requires it; { "pages": N } requires it and sizes its page pool (default 4).',
       },
       properties: { type: 'boolean', description: 'false skips the property gate.' },
+      allClasses: {
+        type: 'boolean',
+        description: 'true collects every .clas.abap, not only the classes that build a view; a class that builds no view is judged by the source-side rules alone (the abapGit round-trip family, the activation and hygiene rules, the released-API check). Same as --all-classes.',
+      },
       cache: {
         type: 'boolean',
         description: 'true stores each file’s result across runs and replays it while nothing relevant changed (file content, linter version, metadata snapshot, resolved settings). Same as --cache; --cache-location names the file (default .abap2ui5lintcache).',

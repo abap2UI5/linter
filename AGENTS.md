@@ -169,7 +169,13 @@ is a new file, nothing to register. `test/review/README.md` has the pattern.
 fail in two places and only one of them is visible: it can judge wrongly, or it
 can never be handed the file. `collectFiles` keeps a class that calls a view
 builder's factory — anything else is dropped, and a dropped file leaves the run
-saying `no checkable app classes` with exit 0, which reads like approval.
+saying `no checkable app classes` with exit 0, which reads like approval. The
+one exception is opt-in: `allClasses` (`--all-classes`) collects every
+`.clas.abap`, and a class that builds no view is judged by `checkSourceRules( )`
+alone — the abapGit round-trip family, the activation and hygiene rules of
+`checkAbapHygiene( )`, the released-API check. A source-side rule that belongs
+to helper classes too goes into one of those three; the view, wire and
+lifecycle rules read an app class and stay out.
 
 That is how `frozen-view-builder` was missed for a year: a complete app written
 on `z2ui5_cl_xml_view` was not merely unjudged, it was invisible, and the
