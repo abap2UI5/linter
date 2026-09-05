@@ -1670,8 +1670,14 @@ ENDMETHOD.</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>METHOD render_dialog.
   DATA(popup) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
-  popup-&gt;ele( `Dialog` )-&gt;a( n = `title` v = `Hi` )-&gt;tag( `Text` )-&gt;a( n = `text` v = `hello`
-      )-&gt;ele( `buttons` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `Close` )-&gt;a( n = `press` v = client-&gt;_event( `CLOSE` ) ).
+  popup-&gt;ele( `Dialog`
+      )-&gt;a( n = `title` v = `Hi`
+      )-&gt;tag( `Text`
+          )-&gt;a( n = `text` v = `hello`
+      )-&gt;ele( `buttons`
+          )-&gt;tag( `Button`
+              )-&gt;a( n = `text`  v = `Close`
+              )-&gt;a( n = `press` v = client-&gt;_event( `CLOSE` ) ).
   result = popup-&gt;stringify( ).
 ENDMETHOD.</code></pre></figure>
         </div>

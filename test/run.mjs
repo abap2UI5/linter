@@ -5224,6 +5224,29 @@ section('rules page', async () => {
         `rules page: --fix silences every rule on its own example (${stubborn.join(', ') || 'none'})`);
     }
 
+    /* And a card must not teach a chain THIS PROJECT would reject. The layout
+     * rules are the house style every sample corpus is held to, and the half
+     * of a card labelled "the same code, fixed" is the last place a reader
+     * should meet a chain that fails them. `popup-without-close-wire` did
+     * exactly that: its remedy squeezed a Dialog, a Text and a buttons
+     * aggregation onto two lines, and `chain-element-per-line` said so. */
+    {
+      const { checkAbapSource } = await import('../lib/index.mjs');
+      const badLayout = [];
+      for (const id of Object.keys(RULE_DOCS)) {
+        for (const half of ['example', 'remedy']) {
+          let found;
+          try { found = checkAbapSource(RULE_DOCS[id][half], { properties: true, minUi5: '1.71' }).findings; }
+          catch { continue; }   // a snippet the parser cannot take alone is not this gate's business
+          const layout = [...new Set(found.map((f) => f.type))]
+            .filter((t) => t.startsWith('chain-') && t !== id);
+          if (layout.length) badLayout.push(`${id}.${half} -> ${layout.join(', ')}`);
+        }
+      }
+      assert(badLayout.length === 0,
+        `rules page: no card shows a chain the layout rules reject (${badLayout.join(' | ') || 'none'})`);
+    }
+
     const page = fs.readFileSync(PAGE_FILE, 'utf8');
     assert(page === buildPage(), 'rules page: site/index.html is in sync (npm run generate-rules-page)');
 

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **One rule card taught a chain this project rejects.** The layout rules are
+  the house style every sample corpus is held to, and the half of a card
+  labelled "the same code, fixed" is the last place a reader should meet a
+  chain that fails them. `popup-without-close-wire`'s remedy squeezed a
+  `Dialog`, a `Text` and a `buttons` aggregation onto two lines, and
+  `chain-element-per-line` said so. It is one call per line now, and `npm test`
+  asks all 125 cards — both halves — whether any of them still shows a chain
+  the layout rules reject. It was the only one.
+
 - **`|\n|` is a newline, and the view now says so.** The template resolver
   dropped the backslash and kept the letter, so `|\n|` became `n` and `|\t|`
   became `t` in every value it resolved. The transpiler settles what they
