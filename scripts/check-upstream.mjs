@@ -8,6 +8,11 @@
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
+ *                             <- src/02/z2ui5_if_client.intf.abap (cs_event:
+ *                                every event name an app may wire, which is
+ *                                what gates the two lists the frontend source
+ *                                does not hold - FRONTEND_EVENT_ALIASES and
+ *                                SERVER_EVENTS)
  *   lib/released-api.mjs      <- the abapGit object layout of src/
  *                                (the released package src/02, the frozen
  *                                package src/99, and the prefix families
@@ -38,7 +43,8 @@ import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
 import {
   GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
-  FRONTEND_EVENTS, VIEW_SLOTS, FILTER_OPERATORS, URLHELPER_ACTIONS,
+  FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS,
+  VIEW_SLOTS, FILTER_OPERATORS, URLHELPER_ACTIONS,
   CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS, CONTROL_METHOD_KINDS, URL_POLICIES,
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
@@ -48,6 +54,15 @@ import { CC_CONTROLS } from '../lib/cc-controls.mjs';
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
+/* The released client interface. Its `cs_event` constant names EVERY event an
+ * app may hand to _event_client( ) / follow_up_action( ) — the dispatch-table
+ * names, the ones the server remaps (FRONTEND_EVENT_ALIASES) and the ones the
+ * server consumes itself (SERVER_EVENTS). The latter two are in no frontend
+ * source, so until this file was read they were the one part of the mirror
+ * nothing gated: HASH_REPLACE and HASH_ATTACH_CHANGED arrived upstream and
+ * `follow_up_action( val = \`HASH_REPLACE\` )` was an unknown-frontend-action
+ * on correct code. */
+const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
 
 /* The frontend action JS lives embedded in the generated ABAP classes under
  * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
@@ -114,6 +129,19 @@ export function embeddedJs(abapSrc) {
   return [...abapSrc.matchAll(/`((?:[^`]|``)*)`/g)]
     .map((m) => m[1].replace(/``/g, '`'))
     .join('\n');
+}
+
+/** The wire values of `z2ui5_if_client=>cs_event`: every `VALUE \`NAME\`` (or
+ *  `'NAME'`) between `BEGIN OF cs_event` and its `END OF`, de-duplicated —
+ *  the obsolete spellings share a value with their successors (hash_set and
+ *  set_push_state are both SET_PUSH_STATE), and the value is what travels.
+ *  Comment lines (`"…`) are dropped first: the run's labels quote the
+ *  members by name, never by value, but a value in a comment must not count. */
+export function parseClientEvents(intfSrc) {
+  const m = intfSrc.match(/BEGIN OF cs_event\b([\s\S]*?)\bEND OF cs_event\b/i);
+  if (!m) return [];
+  const code = m[1].split('\n').map((line) => line.replace(/^\s*".*$/, '')).join('\n');
+  return [...new Set([...code.matchAll(/\bVALUE\s+(?:`([^`]+)`|'([^']+)')/gi)].map((x) => x[1] ?? x[2]))];
 }
 
 /** The property names a companion control declares: the keys of the
@@ -372,6 +400,7 @@ if (invokedDirectly) {
   }
 
   let formatterSrc;
+  let clientIntfSrc;
   let actionSrc;
   let actionPaths = [];
   let srcPaths;
@@ -379,6 +408,7 @@ if (invokedDirectly) {
   try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
+      clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
@@ -387,8 +417,9 @@ if (invokedDirectly) {
         if (fs.existsSync(at)) ccSrc[name] = fs.readFileSync(at, 'utf8');
       }
     } else {
-      [formatterSrc, srcPaths] = await Promise.all([
+      [formatterSrc, clientIntfSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
+        fetchText(`${RAW}/${CLIENT_INTF_PATH}`),
         fetchTree(TREE),
       ]);
       actionPaths = actionPathsOf(srcPaths);
@@ -399,7 +430,7 @@ if (invokedDirectly) {
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
-    console.error(`(if a file moved upstream, update FORMATTER_PATH / ACTION_DIR here)`);
+    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / ACTION_DIR here)`);
     process.exit(2);
   }
   if (!actionPaths.length) {
@@ -530,10 +561,7 @@ if (invokedDirectly) {
   }
   /* The 2026-08-11 round mirrored the REMAINING closed sets — each gated
    * here the moment it was added, so none of them can rot the way
-   * BINDING_METHODS almost did. FRONTEND_EVENT_ALIASES is the one deliberate
-   * exception: the five *_NAV_CONTAINER_TO names live in the SERVER's remap
-   * (z2ui5_cl_ui5_srv_event), not in the frontend source this script
-   * fetches, and are marked obsolete upstream. */
+   * BINDING_METHODS almost did. */
   {
     const theirs = parseHandlers(actionSrc);
     if (!theirs.length) {
@@ -541,6 +569,37 @@ if (invokedDirectly) {
       process.exit(2);
     }
     report('frontend action dispatch table (lib/frontend-actions.mjs)', [...FRONTEND_EVENTS], theirs);
+  }
+  /* FRONTEND_EVENT_ALIASES and SERVER_EVENTS are in no frontend source — the
+   * aliases are remapped by z2ui5_cl_ui5_srv_event, the server events are
+   * consumed by z2ui5_cl_ui5_client~follow_up_action — and used to be the one
+   * part of the mirror nothing gated ("they live in the server"). The server
+   * does publish them, though: `z2ui5_if_client=>cs_event` is the closed set
+   * of every event name an app may wire, and the linter's promise is to
+   * accept each of them somewhere. So, in both directions: a cs_event value
+   * none of the three lists knows is a released constant the linter reports
+   * as unknown (HASH_REPLACE and HASH_ATTACH_CHANGED were that), and an alias
+   * or server event the interface no longer names is an acceptance of a name
+   * that stopped meaning anything. The dispatch-table names are not judged
+   * the second way — the table is gated above, against its own source. */
+  {
+    const theirs = parseClientEvents(clientIntfSrc);
+    if (!theirs.length) {
+      console.error('check-upstream: could not find BEGIN OF cs_event in z2ui5_if_client — the interface changed, update parseClientEvents');
+      process.exit(2);
+    }
+    const what = 'client interface events, z2ui5_if_client=>cs_event (lib/frontend-actions.mjs)';
+    const serverSide = [...FRONTEND_EVENT_ALIASES, ...SERVER_EVENTS];
+    const missingHere = setDiff(theirs, [...FRONTEND_EVENTS, ...serverSide]);
+    const staleHere = setDiff(serverSide, theirs);
+    if (!missingHere.length && !staleHere.length) {
+      console.log(`ok    ${what}: every constant is accepted (${theirs.length} values, ${serverSide.length} of them server-side)`);
+    } else {
+      drift++;
+      console.log(`DRIFT ${what}:`);
+      for (const n of missingHere) console.log(`  + upstream has '${n}' — accepted by none of FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS (correct code gets reported as unknown-frontend-action until it is added)`);
+      for (const n of staleHere) console.log(`  - '${n}' is gone from cs_event upstream — stale in FRONTEND_EVENT_ALIASES/SERVER_EVENTS (a dead name passes until it is removed)`);
+    }
   }
   {
     const theirs = parseStringList(actionSrc, 'FILTER_OPERATORS');
