@@ -6388,6 +6388,59 @@ section('malformed sources are reported, not thrown at', async () => {
  * inside a character literal read as the real thing. A `(` in one made a
  * view unreconstructible ("no view reconstructed from builder calls", an
  * ERROR) on ABAP a system compiles without a murmur. */
+/* `|\n|` is a NEWLINE in the running app, and the transpiler is what settles
+ * it: @abaplint/transpiler's StringTemplateTranspiler emits the template body
+ * VERBATIM into a JavaScript backtick literal (it escapes only the backtick),
+ * so the browser reads the escape with JavaScript's rules. The resolver here
+ * dropped the backslash and kept the letter, which is how a documented type
+ * binding came out as `{ type : "…",n path:"…" }` - a render error reported
+ * against an example that runs. */
+section('a template escape is the character it stands for', async () => {
+    const { prepareAbap } = await import('../lib/reconstruct.mjs');
+    const app = (value) => `CLASS zcl_tpl DEFINITION PUBLIC CREATE PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+  PROTECTED SECTION.
+    DATA client TYPE REF TO z2ui5_if_client.
+ENDCLASS.
+CLASS zcl_tpl IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    me->client = client.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory(
+        )->ele( n = \`View\` ns = \`mvc\`
+            )->a( n = \`xmlns\`     v = \`sap.m\`
+            )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+            )->ele( \`Page\` )->a( n = \`title\` v = ${value} ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+    const titleOf = (value) => /title="([^"]*)"/.exec(prepareAbap(app(value)).docs?.[0] ?? '')?.[1] ?? '(none)';
+
+    // the three control characters, as the transpiler passes them to the browser
+    assert(titleOf('`a` && |\\n| && `b`') === 'a&#xA;b',
+      `a template newline is a newline (${titleOf('`a` && |\\n| && `b`')})`);
+    assert(titleOf('`a` && |\\t| && `b`') === 'a&#x9;b',
+      `a template tab is a tab (${titleOf('`a` && |\\t| && `b`')})`);
+    assert(titleOf('|a\\rb|') === 'a&#xD;b', `a template CR is a CR (${titleOf('|a\\rb|')})`);
+
+    /* And everything OUTSIDE that set is still the character itself - which is
+     * also JavaScript's rule, so the two agree the whole way. `\\|`, `\\{` and
+     * `\\}` are how a template writes a delimiter at all. */
+    assert(titleOf('|a\\|b|') === 'a|b', `an escaped pipe is a pipe (${titleOf('|a\\|b|')})`);
+    assert(titleOf('|a\\{b\\}c|') === 'a{b}c', `escaped braces are braces (${titleOf('|a\\{b\\}c|')})`);
+    assert(titleOf('|a\\\\b|') === 'a\\b', `an escaped backslash is one backslash (${titleOf('|a\\\\b|')})`);
+
+    /* The shape that found it: a UI5 type binding written across two lines,
+     * which the corpus and cookbook/model/expression_binding.md both use.
+     * With the letter in place of the newline UI5 answers "Expected ':'
+     * instead of 'p'" and the whole view fails to load. */
+    const typed = '`{ type : "sap.ui.model.type.Integer",` && |\\n| && `  path:"/X" }`';
+    assert(/title="\{ type : &quot;sap\.ui\.model\.type\.Integer&quot;,&#xA;  path:&quot;\/X&quot; \}"/.test(
+      prepareAbap(app(typed)).docs?.[0] ?? ''),
+      `the two-line type binding keeps its line break (${titleOf(typed)})`);
+});
+
 section('a character literal is a literal', async () => {
     const { scrub, parenRegion, topSplit, splitStatements, parseNamedArgs } = await import('../lib/abap.mjs');
     const { checkAbapSource } = await import('../lib/index.mjs');

@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **`|\n|` is a newline, and the view now says so.** The template resolver
+  dropped the backslash and kept the letter, so `|\n|` became `n` and `|\t|`
+  became `t` in every value it resolved. The transpiler settles what they
+  actually mean: `@abaplint/transpiler`'s `StringTemplateTranspiler` emits the
+  template body VERBATIM into a JavaScript backtick literal (it escapes only
+  the backtick), so the browser reads the escape with JavaScript's rules — and
+  the corpus writes `… && |\n| && …` between the lines of a message box for
+  exactly that reason.
+
+  What it cost: the two-line UI5 type binding that
+  `cookbook/model/expression_binding.md` teaches reconstructed as
+  `{ type : "sap.ui.model.type.Integer",n path:"/INPUT32" }`, and UI5 answers
+  *SyntaxError: Expected ':' instead of 'p'* — a render error against an
+  example that runs correctly in a playground. Found by running the render gate
+  over the documentation's own 69 examples, which its CI cannot do.
+
+  Everything outside `\n`, `\r` and `\t` keeps the old behaviour, which is
+  also JavaScript's: `\|`, `\{`, `\}` and `\\` are the character itself.
+
+  Over the three sample corpora (819 results) no finding moves. Three
+  reconstructions gain the line breaks and tabs the running app has — a
+  `core:HTML` stylesheet, a `CodeEditor` showing JSON and one more — and each
+  drops one from its `bindings` count, because a `{ … }` that a newline
+  interrupts is not one binding, which is what UI5 sees too.
+
 - **ABAP has three literal forms and the readers knew two.** `'…'` — the text
   field literal, the oldest form and the one most ABAP outside this project's
   house style is written in — was not tracked as a literal at all, so a
