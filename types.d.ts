@@ -227,6 +227,13 @@ declare module "@abap2ui5/linter/reconstruct" {
 
   export function prepareAbap(source: string): PreparedAbap;
 
+  /** The elements of every `keyword` declaration in `content` - the single
+   *  form and the chained `DATA: a TYPE i, b TYPE string.` form alike, each
+   *  element as its text (`a TYPE i`); a `BEGIN OF … END OF` block counts as
+   *  its one opening element. `keyword` is a RegExp over the statement's
+   *  first word, e.g. /^(?:CLASS-)?DATA$/i. */
+  export function declarationElements(content: string, keyword: RegExp): string[];
+
   /** Serialize a reconstructed node tree back to XML ('' for an empty tree). */
   export function toXml(node: ViewNode): string;
 

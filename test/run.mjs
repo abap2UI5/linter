@@ -6295,7 +6295,6 @@ section('prose is not code', async () => {
       // The rule's own example IS a literal in a DATA statement.
       ['commercial-ui5-host', 'the finding is a URL written as text'],
       ['unescaped-brace-in-style', 'the finding is a brace inside a literal'],
-      ['hardcoded-binding-path', 'the finding is a path written as text'],
     ]);
     {
       const { RULE_DOCS } = await import('../lib/rule-docs.mjs');
