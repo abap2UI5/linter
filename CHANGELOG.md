@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+<!-- review-round:start -->
+<!-- review-round:end -->
+
 - **One rule card taught a chain this project rejects.** The layout rules are
   the house style every sample corpus is held to, and the half of a card
   labelled "the same code, fixed" is the last place a reader should meet a
