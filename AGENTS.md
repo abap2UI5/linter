@@ -16,7 +16,8 @@ npx playwright install chromium   # BEFORE npm test - the first test uses the re
 npm run check                     # npm test + the github-app dry run: the two CI
                                   # jobs a pull request has to pass on a plain checkout
 npm test                          # node --test test/run.mjs: node:test, over 1000 assertions
-                                  # in ~104 isolated sections. One of them:
+                                  # in ~125 isolated sections (its own + test/review/*.mjs,
+                                  # loaded at the end). One of them:
                                   #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
@@ -67,6 +68,19 @@ every PR, and the same thing runs locally against sibling checkouts:
   rule is identical (`IF t_child IS INITIAL` / last-child-or-self) — which is
   what makes one reconstructor enough; a fixture pair (`good.clas.abap`,
   `viewbuilder.clas.abap`) pins that they rebuild the SAME document.
+- **ABAP is case-insensitive outside its literals and comments, and so is
+  every reader here.** `DATA(VIEW) = Z2UI5_CL_UI5_VIEW_BUILDER=>FACTORY( )` is
+  the statement `data(view) = …` is, and a pretty printer set to "uppercase"
+  or "lowercase" produces exactly such sources — an all-uppercase class used
+  to be not collected at all, and a lowercase-keyword corpus lost 166 of 173
+  views. The policy: every keyword and identifier regex carries the `i` flag,
+  identifiers are folded (`toLowerCase( )`/`toUpperCase( )`) wherever they
+  are compared or used as keys, and only literal CONTENT (an event name, an
+  attribute name, an id) keeps its case. `test/review/core.mjs` gates it:
+  every fixture is recased to upper and to lower case outside literals and
+  comments, and the findings (type, line, column) and the reconstructed
+  documents have to be identical. A new regex over ABAP text that forgets the
+  flag fails that gate on the first fixture that exercises it.
 - Classes built with the **`z2ui5_cl_xml_view` fluent builder** (the
   per-control wrapper API, also frozen) are still **silently skipped** — that
   design boundary stands, and it is a different thing from the two generic
@@ -140,6 +154,16 @@ which nothing was in a position to notice.
 Import the checks from `./observe.mjs` in tests, not from `../lib/index.mjs`
 or `../lib/abap-rules.mjs` — a check called around the observer counts for
 nothing.
+
+`test/run.mjs` ends by loading every `test/review/*.mjs` — one file per topic
+of the 2026-09 review round (`core.mjs`: reconstructor, CLI plumbing and the
+case policy; `rules.mjs`: the ABAP-side rules and the lifecycle heuristics;
+the generator and property-gate files beside them). Each file's default export
+receives the harness `{ section, assert, f, FIX, tempDir, checkAbapSource,
+checkXmlSource, checkFiles, prepareAbap }` — the observed checks, so the
+sections count for the rule-coverage gate. A regression test for a rule fix
+goes into the topic's file, not into the 6000-line `test/run.mjs`; a new topic
+is a new file, nothing to register. `test/review/README.md` has the pattern.
 
 **Before writing a rule, ask whether the file is even collected.** A rule can
 fail in two places and only one of them is visible: it can judge wrongly, or it
