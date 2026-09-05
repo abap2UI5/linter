@@ -8,6 +8,24 @@
  * aggregations (type + cardinality), associations and events. Plus a
  * global enum table (allowed values per enum type).
  *
+ * Shape notes a consumer relies on:
+ *   - `multiple` is written on EVERY aggregation and association, resolved the
+ *     way ManagedObjectMetadata resolves it: an aggregation that says nothing
+ *     is 0..n (`multiple: true`), an association that says nothing is 0..1
+ *     (`multiple: false`). A missing key used to mean "0..1" to the reader and
+ *     "0..n" to UI5 — sap.m.table.columnmenu.Menu.items was the case.
+ *   - `members` (name -> @since) covers the DECLARED members only. An event
+ *     parameter's @since sits under `events.<name>.params.<param>.since` and
+ *     nowhere else, so a parameter named like an aggregation (the two
+ *     `appointments` of SinglePlanningCalendar) cannot lend it a version.
+ *   - `events.<name>.params` is the metadata's `parameters` block plus every
+ *     key the class itself passes to `fire<Name>({ … })`, the latter flagged
+ *     `fired: true`: QuickSort declares key/sortOrder and fires `{ item }`, and
+ *     an app reading `$parameters>/item` is right to.
+ *   - a `deprecated.since` is read from every spelling the sources use
+ *     (`As of version 1.20`, `as of 1.20`, `Since version 1.20`, `since 1.115`,
+ *     `Since 1.130`); `null` now really means the text names no version.
+ *
  * That is what lets the property gate answer, statically:
  *   does this control exist?                       -> unknown-control
  *   does this property/event/association exist?    -> unknown-property
@@ -30,6 +48,13 @@
  *                                          ADDS libraries to the default set;
  *                                          resolves them from @sapui5/* too
  *       OPENUI5_DIR=/path/to/openui5 node scripts/generate-metadata.mjs --out …
+ *       node scripts/generate-metadata.mjs --parse a.js b.js [--base sap/m]
+ *                                          parse only the given control sources
+ *                                          and print the result as JSON - how
+ *                                          the tests pin the parser on small
+ *                                          synthetic modules (--base is the
+ *                                          module path relative deps resolve
+ *                                          against)
  */
 
 import fs from 'fs';
@@ -133,6 +158,14 @@ const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 function collect(dir, moduleBase, acc) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort(byName)) {
     const p = path.join(dir, e.name);
+    /* Not UI5 API surface, and worse than noise: sap.ui.integration bundles a
+     * minified copy of a dozen core classes (Locale, CustomData, the date
+     * calendars, …) under thirdparty/webcomponents. It has no sap.ui.define
+     * header to resolve a parent from, and because the walk is last-writer-
+     * wins and sap.ui.integration sorts after sap.ui.core, those copies
+     * replaced the real entries with `parent: null` - a root class as far as
+     * the property gate could tell. */
+    if (e.isDirectory() && e.name === 'thirdparty') continue;
     if (e.isDirectory()) collect(p, `${moduleBase}/${e.name}`, acc);
     else if (e.name.endsWith('.js') && !e.name.endsWith('Renderer.js')) acc.push([p, moduleBase]);
   }
@@ -218,18 +251,56 @@ function section(body, key) {
  * abap2UI5/samples-controls app 432, which binds two @ui5-experimental-since
  * 1.142 properties of sap.m.Tokenizer and passed every gate while declaring a
  * floor of 1.82. One matcher now, so the four sites cannot drift again. */
-const SINCE_RE = /@(?:ui5-experimental-)?since\s+(?:version\s+)?([\d.]+)/i;
+/* The version itself is `\d+(\.\d+)*` and not `[\d.]+`: a sentence ending
+ * right after the number (`@deprecated Since version 1.88.`) handed the reader
+ * `1.88.` - 45 entries of the snapshot carried a trailing dot. */
+const VERSION = String.raw`(\d+(?:\.\d+)*)`;
+const SINCE_RE = new RegExp(String.raw`@(?:ui5-experimental-)?since\s+(?:version\s+)?${VERSION}`, 'i');
 const sinceOf = (doc) => doc?.match(SINCE_RE)?.[1];
 /* Whether the tag was the experimental one - carried separately because "too
  * new for your floor" and "this API may change under you" are different things
  * to tell a consumer, and only the first is a version question. */
 const EXPERIMENTAL_RE = /@ui5-experimental-since\s/i;
 
-function declEntry(decl, doc) {
+/* Every spelling the sources give a deprecation's version. Counted over the
+ * ten default libraries: `As of version N` 807, `since N` 256, `as of N` 139,
+ * `Since version N` 136, `Since N` 134, `since version N` 18, `Deprecated as
+ * of version N` 39 and one `As ofVersion N`. The reader used to know the
+ * first three, so 84 entries whose text plainly named a release were stored
+ * with `since: null` - which the gate reads as "older than the floor", i.e.
+ * deprecated on every release it can target: sap.m.upload.UploadSet.noDataText
+ * (`Since version 1.121`) was reported to a 1.71 app. */
+const DEPRECATED_RE = new RegExp(
+  String.raw`@deprecated(?:\s+deprecated)?(?:\s+(?:as\s+of|since)(?:\s*version)?\s*${VERSION})?([^\n]*)`, 'i',
+);
+
+/** `{ since, text }` of a JSDoc block's @deprecated tag, or null without one.
+ *  `since` is null when the text names no release. */
+function deprecationOf(doc) {
+  const dep = doc?.match(DEPRECATED_RE);
+  if (!dep) return null;
+  // keep the version: a member deprecated in 1.120 is fine for a 1.71 target
+  return {
+    since: dep[1] || null,
+    text: (dep[2] || '').replace(/^[\s.,;:—-]+/, '').replace(/\s+/g, ' ').trim(),
+  };
+}
+
+/* UI5's own defaults (ManagedObjectMetadata): an aggregation is 0..n unless
+ * it says `multiple: false`, an association is 0..1 unless it says `multiple:
+ * true`. Written out for both kinds so the snapshot never leaves a reader to
+ * guess a default - the reader guessed 0..1 for aggregations, the opposite of
+ * what UI5 does, and reported a second child of Menu.items as
+ * too-many-children. */
+const MULTIPLE_DEFAULT = { aggregations: true, associations: false };
+
+function declEntry(decl, doc, kind) {
   const entry = {};
   const type = decl.match(/\btype\s*:\s*["']([\w.:/]+)["']/)?.[1];
   if (type) entry.type = type;
-  if (/\bmultiple\s*:\s*true/.test(decl)) entry.multiple = true;
+  const multiple = decl.match(/\bmultiple\s*:\s*(true|false)\b/);
+  if (multiple) entry.multiple = multiple[1] === 'true';
+  else if (kind in MULTIPLE_DEFAULT) entry.multiple = MULTIPLE_DEFAULT[kind];
   /* An event's own parameters, kept PER EVENT rather than merged into the
    * flat member map: sap.m.Menu declares an `item` parameter on both
    * itemSelected (since forever) and beforeClose (@since 1.136), and one
@@ -237,7 +308,7 @@ function declEntry(decl, doc) {
    * it is looking at. */
   const params = section(decl, 'parameters');
   if (params) {
-    const parsed = declarations(params);
+    const parsed = declarations(params, 'parameters');
     if (Object.keys(parsed).length) entry.params = parsed;
   }
   /* Only a defaultValue of TRUE is kept, and the asymmetry is the point.
@@ -251,21 +322,16 @@ function declEntry(decl, doc) {
   const since = sinceOf(doc);
   if (since) entry.since = since;
   if (doc && EXPERIMENTAL_RE.test(doc)) entry.experimental = true;
-  const dep = doc?.match(/@deprecated(?:\s+As of(?:\s+version)?\s+([\d.]+))?([^\n]*)/i);
-  if (dep) {
-    // keep the version: a member deprecated in 1.120 is fine for a 1.71 target
-    entry.deprecated = {
-      since: dep[1] || null,
-      text: (dep[2] || '').replace(/^[\s.,;:—-]+/, '').replace(/\s+/g, ' ').trim(),
-    };
-  }
+  const dep = deprecationOf(doc);
+  if (dep) entry.deprecated = dep;
   return entry;
 }
 
 /** Top-level declarations of one metadata section. Handles both the full
  *  form (`name : { type: "...", multiple: true }`) and UI5's shorthand
- *  (`name : "string"`), each with the @since of its preceding JSDoc block. */
-function declarations(body) {
+ *  (`name : "string"`), each with the @since of its preceding JSDoc block.
+ *  `kind` is the section's name - it decides the cardinality default. */
+function declarations(body, kind) {
   if (!body) return {};
   const out = {};
   let doc = '';
@@ -284,12 +350,12 @@ function declarations(body) {
       const [name, valueAt] = hit;
       if (body[valueAt] === '{') {
         const decl = braceBody(body, valueAt);
-        out[name] = declEntry(decl, doc);
+        out[name] = declEntry(decl, doc, kind);
         i = valueAt + decl.length + 1;
       } else {
         // shorthand: name : "type"
         const type = /^["']([\w.:/]+)["']/.exec(body.slice(valueAt));
-        out[name] = declEntry(type ? `type: "${type[1]}"` : '', doc);
+        out[name] = declEntry(type ? `type: "${type[1]}"` : '', doc, kind);
         i = valueAt + (type ? type[0].length : 0);
       }
       doc = '';
@@ -325,13 +391,9 @@ function classMeta(src, name) {
   const header = last && !/[;}]/.test(before.slice(last.index + last[0].length))
     ? last[1]
     : '';
-  const sinceM = header.match(SINCE_RE);
-  const depM = header.match(/@deprecated(?:\s+As of(?:\s+version)?\s+([\d.]+))?([^\n]*)/i);
   return {
-    since: sinceM ? sinceM[1] : null,
-    deprecated: depM
-      ? { since: depM[1] || null, text: (depM[2] || '').replace(/^[\s.,;:—-]+/, '').replace(/\s+/g, ' ').trim() }
-      : null,
+    since: sinceOf(header) ?? null,
+    deprecated: deprecationOf(header),
   };
 }
 
@@ -342,9 +404,26 @@ function classMeta(src, name) {
  *  (profiled 2026-08-04). This form is linear and took the run to seconds. */
 function extendHits(src) {
   const hits = [];
-  const re = /\.extend\(\s*["']([\w.]+)["']/g;
+  /* A dotted identifier, not `[\w.]+`: mvc/Controller.js builds an error
+   * message containing `Controller.extend("...")`, and `...` landed in the
+   * snapshot as a control. */
+  const re = /\.extend\(\s*["'](\w+(?:\.\w+)*)["']/g;
   let m;
   while ((m = re.exec(src)) !== null) {
+    /* Not a comment. The JSDoc of Control, Element, UIComponent and a dozen
+     * more carries `@example` code that defines `sap.mylib.MyControl`,
+     * `my.Component`, `myapp.views.MainView` - 18 hits, 13 names - and every
+     * one of them was harvested as a real class with no parent.
+     *
+     * Decided by the LINE, not by a scanner: every line of a JSDoc block opens
+     * with `*`, a line comment with `//`, and no statement that defines a
+     * class can start with either. A scanner that tracks strings to find the
+     * comments has to get regex literals right too, and the one in
+     * ExportTypeCSV (`/[\r\n"\t;,]/`) opened a phantom string that swallowed
+     * the real class - the failure this heuristic cannot have: at worst a
+     * commented-out class is kept, which is what happened before. */
+    const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
+    if (/^\s*(?:\*|\/\/)/.test(line)) continue;
     let start = m.index;
     while (start > 0 && /\w/.test(src[start - 1])) start--;
     if (start === m.index) continue; // nothing to the left that could hold the class
@@ -353,24 +432,67 @@ function extendHits(src) {
   return hits;
 }
 
+/** The `sap.ui.define([deps], factory)` header: the dependency paths and the
+ *  factory's parameter names, positionally paired. Null when the module has
+ *  no such header (a bundle, a `sap.ui.define(function () {…})` with no deps).
+ *
+ *  Comments go first, and that is most of what this function is for. The
+ *  old reader took the first `function (` of the FILE and split its parameter
+ *  list on commas: an arrow factory (`], (BasePanel, Label, …) => {`, all 27
+ *  sap.m.p13n modules and integration's Paginator) made it read some later
+ *  callback instead, a comment inside the list (MonthPicker, MonthsRow,
+ *  TimesRow, SinglePlanningCalendarMonthGrid) or a commented-out tail
+ *  (DragDropBase comments two of its dependencies out of the list) broke the
+ *  pairing - and every one of those 33 classes came out with `parent: null`,
+ *  which the property gate
+ *  reads as "a root class that inherits nothing": every inherited property an
+ *  unknown-property, every "is a Control" test false. MockServer writes
+ *  `sap.ui\n\t.define(`, hence the whitespace between the tokens. */
+function defineHeader(src) {
+  // the header sits at the top of the module, after the licence block; 20 KB
+  // leaves room for p13n's longest dependency list with its comments
+  const head = stripComments(src.slice(0, 20000));
+  const m = head.match(new RegExp(String.raw`\bsap\.ui\s*\.\s*define\s*\(\s*\[([^\]]*)\]\s*,\s*`
+    + String.raw`(?:(?:async\s+)?function\s*\w*\s*\(([^)]*)\)|(?:async\s*)?\(([^)]*)\)\s*=>|(\w+)\s*=>)`));
+  if (!m) return null;
+  return {
+    deps: [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1]),
+    params: (m[2] ?? m[3] ?? m[4] ?? '').split(',').map((p) => p.trim()).filter(Boolean),
+  };
+}
+
+/** `ident -> full class name` for a module: the factory parameter that holds
+ *  a dependency, or a class the SAME file defines (LocaleData.js declares
+ *  `var LocaleData = BaseObject.extend(…)` and then
+ *  `LocaleData.extend("sap.ui.core.CustomLocaleData", …)`; the receiver is
+ *  not a dependency, it is the class two hundred lines up). */
+function parentResolver(src, base) {
+  const header = defineHeader(src);
+  const local = new Map();
+  for (const m of src.matchAll(/\b(\w+)\s*=\s*\w+\.extend\(\s*["'](\w+(?:\.\w+)*)["']/g)) {
+    if (!local.has(m[1])) local.set(m[1], m[2]);
+  }
+  return (ident) => {
+    if (!ident) return null;
+    const i = header ? header.params.indexOf(ident) : -1;
+    if (i >= 0 && header.deps[i]) return dotted(header.deps[i], base);
+    return local.get(ident) ?? null;
+  };
+}
+
 /** Every class a file defines - a source file can hold several
  *  (HeaderContainer.js defines HeaderContainerItemContainer AND
  *  HeaderContainer), and taking only the first loses the rest. */
 function parseControls(file, base) {
-  const src = fs.readFileSync(file, 'utf8');
+  return parseControlSource(fs.readFileSync(file, 'utf8'), base);
+}
+
+function parseControlSource(src, base) {
   const hits = extendHits(src);
   if (!hits.length) return [];
 
   // dependency -> parent resolution is file-wide (the sap.ui.define header)
-  const defineDeps = src.match(/sap\.ui\.define\(\s*\[([^\]]*)\]/);
-  const factory = src.match(/function\s*\(([^)]*)\)/);
-  const parentOf = (extId) => {
-    if (!extId || !defineDeps || !factory) return null;
-    const deps = [...defineDeps[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
-    const params = factory[1].split(',').map((p) => p.trim());
-    const i = params.indexOf(extId);
-    return i >= 0 && deps[i] ? dotted(deps[i], base) : null;
-  };
+  const parentOf = parentResolver(src, base);
 
   return hits.map((hit, ix) => {
     // the class's own metadata block: the first one after its extend call,
@@ -386,10 +508,10 @@ function parseControls(file, base) {
 
 function parseClass(src, region, meta, name, parent) {
 
-  const properties = declarations(section(meta, 'properties'));
-  const aggregations = declarations(section(meta, 'aggregations'));
-  const associations = declarations(section(meta, 'associations'));
-  const events = declarations(section(meta, 'events'));
+  const properties = declarations(section(meta, 'properties'), 'properties');
+  const aggregations = declarations(section(meta, 'aggregations'), 'aggregations');
+  const associations = declarations(section(meta, 'associations'), 'associations');
+  const events = declarations(section(meta, 'events'), 'events');
   const defaultAggregation = meta.match(/defaultAggregation\s*:\s*["'](\w+)["']/)?.[1] ?? null;
   const interfaces = [];
   const ifaceBlock = meta.match(/interfaces\s*:\s*\[([^\]]*)\]/);
@@ -435,15 +557,39 @@ function parseClass(src, region, meta, name, parent) {
   }
   const widensAggregation = /\bprototype\.addAggregation\s*=\s*function\b/.test(region);
 
-  // legacy shape kept for the @since floor check: member -> since
+  /* What the class actually passes to `fire<Event>({ … })`, added to the
+   * event's declared parameters. The metadata block is the documentation and
+   * the fire call is the truth, and the two disagree: QuickSort declares
+   * `key` and `sortOrder` on `change` and fires `{ item: oItem }`, so an app
+   * reading `$parameters>/item` - the only thing the event carries - was an
+   * unknown-event-parameter. Additive only, and only for an event whose
+   * metadata declares parameters at all: an event declaring none may fire a
+   * computed object the reader cannot see, and a list that started empty
+   * would turn every read of it into a finding. */
+  for (const [event, decl] of Object.entries(events)) {
+    if (!decl.params) continue;
+    const cap = event[0].toUpperCase() + event.slice(1);
+    const fireRe = new RegExp(String.raw`\bfire(?:${rxEscape(cap)}\s*\(|Event\s*\(\s*["']${rxEscape(event)}["']\s*,)\s*\{`, 'g');
+    for (const m of region.matchAll(fireRe)) {
+      const body = braceBody(region, m.index + m[0].length - 1);
+      for (const key of literalKeys(body)) {
+        if (!(key in decl.params)) decl.params[key] = { fired: true };
+      }
+    }
+  }
+
+  /* Flat `member -> @since` for the floor check - the DECLARED members only.
+   * It used to be topped up from every `@since` JSDoc block in the class
+   * region, which is how event PARAMETERS got in: SinglePlanningCalendar's
+   * `appointmentSelect` carries an `appointments` parameter @since 1.67.0,
+   * the `appointments` aggregation carries no @since, and the flat map made
+   * the aggregation 1.67.0 too. 75 more entries named no member of the class
+   * at all, so a typo that happened to hit a parameter name would have been
+   * reported as too new rather than as unknown. A parameter's @since lives
+   * under its event's `params`, and only there. */
   const members = {};
   for (const set of [properties, aggregations, associations, events]) {
     for (const [k, v] of Object.entries(set)) if (v.since) members[k] = v.since;
-  }
-  // event PARAMETERS and other nested @since members the old parser saw too
-  for (const m of region.matchAll(/\/\*\*((?:[^*]|\*(?!\/))*?)\*\/\s*(\w+)\s*:\s*\{/g)) {
-    const since = sinceOf(m[1]);
-    if (since && members[m[2]] === undefined) members[m[2]] = since;
   }
 
   return {
@@ -455,6 +601,30 @@ function parseClass(src, region, meta, name, parent) {
 }
 
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+
+/** The top-level keys of an object literal body: `a: 1, "b": x, c, ...rest`
+ *  gives a, b, c - a shorthand property is a key too, a spread and a computed
+ *  key are not (nothing to name). Nested literals and calls are skipped. */
+function literalKeys(body) {
+  const keys = [];
+  let depth = 0;
+  let atKey = true;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (depth === 0 && atKey && /[\w"']/.test(c)) {
+      const m = /^(["']?)(\w+)\1\s*(?::|,|$)/.exec(body.slice(i));
+      atKey = false;
+      if (m) { keys.push(m[2]); i += m[1].length * 2 + m[2].length - 1; continue; }
+    }
+    const skipped = skipTrivia(body, i);
+    if (skipped !== i) { i = skipped - 1; continue; }
+    if (c === '{' || c === '[' || c === '(') depth++;
+    else if (c === '}' || c === ']' || c === ')') depth--;
+    else if (depth === 0 && c === ',') atKey = true;
+    else if (depth === 0 && atKey && /\S/.test(c)) atKey = false;
+  }
+  return keys;
+}
 
 /** `Key: "Value"` pairs of an object literal body - the values are what an
  *  XML view may write for a property of that enum type. */
@@ -515,17 +685,35 @@ function parseLibraryEnums(file, lib) {
 
 /** Enums declared in their own module:
  *    const Name = { Key: "Value" }; DataType.registerEnum("full.Name", Name)
- *  Also catches `@enum` modules whose object is exported directly. */
-function parseModuleEnums(file) {
+ *  Also catches `@enum` modules whose object is exported directly, and the
+ *  ALIAS registration: `DataType.registerEnum("sap.ui.core.CalendarType",
+ *  CalendarType)` where CalendarType is a DEPENDENCY - sap/base/i18n/date/
+ *  CalendarType, a module outside every library path - so the values are read
+ *  from that module. `sap.ui.core.CalendarType` and
+ *  `sap.ui.core.date.CalendarWeekNumbering` are both registered that way, and
+ *  until the thirdparty bundle was excluded from the walk its minified copy of
+ *  the alias was the only reason either was in the snapshot at all. `base` is
+ *  the file's module path, which is what an absolute dependency path resolves
+ *  against. */
+function parseModuleEnums(file, base) {
   const src = fs.readFileSync(file, 'utf8');
   const out = {};
   const sinces = {};
+  let header;
   for (const m of src.matchAll(/DataType\.registerEnum\(\s*["']([\w.]+)["']\s*,\s*(\w+)\s*\)/g)) {
     const [, fullName, ident] = m;
-    const declRe = new RegExp(`(?:var|const|let)\\s+${ident}\\s*=\\s*\\{`);
-    const decl = src.match(declRe);
-    if (!decl) continue;
-    const body = braceBody(src, src.indexOf('{', decl.index + decl[0].length - 1));
+    let body = enumBody(src, ident);
+    if (body === null) {
+      header ??= defineHeader(src);
+      const dep = header?.deps[header.params.indexOf(ident)];
+      const depFile = dep && dependencyFile(file, base, dep);
+      if (depFile && fs.existsSync(depFile)) {
+        const depSrc = fs.readFileSync(depFile, 'utf8');
+        // the module's own name for the object, or whatever it returns
+        body = enumBody(depSrc, ident) ?? enumBody(depSrc, depSrc.match(/\breturn\s+(\w+)\s*;\s*\}\s*\)\s*;?\s*$/)?.[1]);
+      }
+    }
+    if (body === null) continue;
     const values = enumValues(body);
     if (!values.length) continue;
     out[fullName] = values;
@@ -535,19 +723,78 @@ function parseModuleEnums(file) {
   return { values: out, sinces };
 }
 
+/** The body of `var|const|let <ident> = { … }` in a source, or null. */
+function enumBody(src, ident) {
+  if (!ident) return null;
+  const decl = src.match(new RegExp(`(?:var|const|let)\\s+${rxEscape(ident)}\\s*=\\s*\\{`));
+  return decl ? braceBody(src, src.indexOf('{', decl.index + decl[0].length - 1)) : null;
+}
+
+/** The file a sap.ui.define dependency names, seen from the module naming it:
+ *  `./Foo` beside it, `sap/base/i18n/date/Foo` under the package's src root,
+ *  which is `base` levels above the file. */
+function dependencyFile(file, base, dep) {
+  const dir = path.dirname(file);
+  if (dep.startsWith('.')) return path.join(dir, `${dep}.js`);
+  const up = base.split('/').filter(Boolean).map(() => '..');
+  return `${path.join(dir, ...up, ...dep.split('/'))}.js`;
+}
+
+/** The snapshot entry of one parsed class - what the walk and `--parse` both
+ *  write, so a test of the one is a test of the other. */
+function controlEntry(c) {
+  const entry = { parent: c.parent, members: c.members };
+  if (c.since) entry.since = c.since;
+  if (c.deprecated) entry.deprecated = c.deprecated;
+  if (Object.keys(c.properties).length) entry.properties = c.properties;
+  if (Object.keys(c.aggregations).length) entry.aggregations = c.aggregations;
+  if (Object.keys(c.associations).length) entry.associations = c.associations;
+  if (Object.keys(c.events).length) entry.events = c.events;
+  if (c.defaultAggregation) entry.defaultAggregation = c.defaultAggregation;
+  if (c.interfaces.length) entry.interfaces = c.interfaces;
+  if (c.widensAggregation) entry.widensAggregation = true;
+  return entry;
+}
+
 const controls = {};
 const enums = {};
 const enumSince = {};
 let files = 0;
+const takeEnums = ({ values, sinces }) => {
+  Object.assign(enums, values);
+  Object.assign(enumSince, sinces);
+};
+
+/* --parse: the given files only, printed rather than written. The parser has
+ * no other seam - this script runs on import, on purpose (the NTFS-order test
+ * imports it through a wrapper) - and a unit test of parentOf or of the
+ * @deprecated reader wants a synthetic module, not the whole install. */
+const parseArg = process.argv.indexOf('--parse');
+if (parseArg !== -1) {
+  const baseArg = process.argv.indexOf('--base');
+  const base = baseArg !== -1 && process.argv[baseArg + 1] ? process.argv[baseArg + 1] : '';
+  const given = [];
+  for (let i = parseArg + 1; i < process.argv.length; i++) {
+    if (process.argv[i] === '--base') { i++; continue; }
+    if (!process.argv[i].startsWith('--')) given.push(process.argv[i]);
+  }
+  if (!given.length) {
+    console.error('--parse needs at least one source file');
+    process.exit(1);
+  }
+  for (const file of given) {
+    takeEnums(parseModuleEnums(file, base));
+    for (const c of parseControls(file, base)) controls[c.name] = controlEntry(c);
+  }
+  process.stdout.write(`${JSON.stringify({ enums, enumSince, controls })}\n`);
+  process.exit(0);
+}
+
 const dirs = libDirs();
 if (!dirs.length) {
   console.error('no control sources found - run npm ci, or set OPENUI5_DIR');
   process.exit(1);
 }
-const takeEnums = ({ values, sinces }) => {
-  Object.assign(enums, values);
-  Object.assign(enumSince, sinces);
-};
 for (const [base, dir] of dirs) {
   const lib = base.replace(/\//g, '.');
   const libJs = path.join(dir, 'library.js');
@@ -556,19 +803,9 @@ for (const [base, dir] of dirs) {
   const acc = [];
   collect(dir, base, acc);
   for (const [file, fileBase] of acc) {
-    takeEnums(parseModuleEnums(file));
+    takeEnums(parseModuleEnums(file, fileBase));
     for (const c of parseControls(file, fileBase)) {
-      const entry = { parent: c.parent, members: c.members };
-      if (c.since) entry.since = c.since;
-      if (c.deprecated) entry.deprecated = c.deprecated;
-      if (Object.keys(c.properties).length) entry.properties = c.properties;
-      if (Object.keys(c.aggregations).length) entry.aggregations = c.aggregations;
-      if (Object.keys(c.associations).length) entry.associations = c.associations;
-      if (Object.keys(c.events).length) entry.events = c.events;
-      if (c.defaultAggregation) entry.defaultAggregation = c.defaultAggregation;
-      if (c.interfaces.length) entry.interfaces = c.interfaces;
-      if (c.widensAggregation) entry.widensAggregation = true;
-      controls[c.name] = entry;
+      controls[c.name] = controlEntry(c);
       files++;
     }
   }

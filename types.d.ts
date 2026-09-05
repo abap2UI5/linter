@@ -1026,10 +1026,12 @@ declare module "@abap2ui5/linter/icons" {
    * hand the linter a path).
    *
    * `iconData` overrides the registry, for a caller that loaded it from
-   * somewhere other than a file.
+   * somewhere other than a file. `xml: true` says the text is view XML, whose
+   * `<!-- … -->` comments are blanked before the scan (offsets kept) - the
+   * ABAP entry point hands its source over with the comments already scrubbed.
    */
   export function checkIcons(
     text: string,
-    opts?: { minUi5?: string; iconData?: IconData }
+    opts?: { minUi5?: string; iconData?: IconData; xml?: boolean }
   ): PropertyFinding[];
 }

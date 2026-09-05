@@ -851,13 +851,29 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 481 KB one-line snapshot (`ui5Version` 1.151.0, 973 controls, 235
+The 493 KB one-line snapshot (`ui5Version` 1.151.0, 959 controls, 235
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
 ```bash
 npm run generate-metadata
 ```
+
+What a reader may rely on about its shape (the generator's header comment is
+the authority): every control has a `parent` — the one real root,
+`sap.ui.base.Object`, has no entry and `chainComplete( )` knows it by name;
+every aggregation and association carries a boolean `multiple`, resolved the
+way `ManagedObjectMetadata` resolves it (an aggregation saying nothing is
+0..n, an association saying nothing is 0..1); `members` maps DECLARED members
+to their `@since` and nothing else — an event parameter's version sits under
+`events.<name>.params`; a parameter the class passes to `fire<Event>({ … })`
+without declaring it is listed there too, flagged `fired: true`; and a
+`deprecated.since` of `null` means the text names no release, not that the
+reader missed a spelling. Thirdparty bundles under the library paths are not
+walked (sap.ui.integration ships a minified copy of a dozen core classes) and
+example code in JSDoc is not a class. `node scripts/generate-metadata.mjs
+--parse <files> --base <module/path>` runs the parser over synthetic sources,
+which is how `test/review/gen.mjs` pins all of that.
 
 Regenerate it **only** when bumping the `@openui5/*` pins — which live in
 **`render-runtime/package.json`**, the workspace, not in the root manifest
