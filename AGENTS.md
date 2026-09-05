@@ -235,7 +235,7 @@ theirs on purpose and a change that drifts from it needs a reason:
 | `--fix` plus a `*_FIX_DRY_RUN` env escape | ui5lint's `--fix` / `UI5LINT_FIX_DRY_RUN` |
 | `abap2ui5lint-disable-next-line`/`-disable-line`/`-disable`/`-enable`, reason after `--` | ui5lint directives |
 | `abap2ui5lint.jsonc`, `rules: { id: false \| severity \| { severity, exclude } }`, JSON schema for editor completion | abaplint's config and `BasicRuleConfig` |
-| `site/index.html` — one searchable page, one anchor per rule id, and on every card whose reported snippet the linter reproduces inside a class, a link that opens that class in the playground (the playground's share-link format, written at generation time and verified: `playgroundLinks( )` in `scripts/generate-rules-page.mjs`) | rules.abaplint.org, the abaplint playground |
+| `site/index.html` — one searchable page, one anchor per rule id, and on every card whose reported snippet the linter reproduces inside a class, a link that opens that class in the playground (the playground's share-link format, written at generation time and verified: `playgroundLinks( )` in `scripts/generate-rules-page.mjs`). The frame hands the snippet the handle of a Page inside a View; `npm test` asks EVERY card both questions — the wrapped example fires the card's rule, the wrapped remedy does not — and names the six cards the frame cannot carry (the byte-level hygiene rules, the 256-column line, a setter bound only on a control newer than the default floor) with their reason in `UNWRAPPABLE` | rules.abaplint.org, the abaplint playground |
 | bin alias `abap2ui5lint`, exit codes 0/1/2 | both |
 | workflow-command annotations on the PR diff | abaplint's `actions-abaplint` |
 
