@@ -1738,14 +1738,20 @@ section('display-root-mismatch', async () => {
 
     // --- a member with no own @since inherits its DECLARING class's version ---
     // sap.f.cards.BaseHeader is @1.86 and its `press` carries no member-level
-    // @since, so the walk used to stop at "base version" and pass a press on the
-    // @1.64 sap.f.cards.Header at a 1.71 floor. A member cannot predate the class
-    // that declares it.
+    // @since, so the walk used to stop at "base version". A member cannot
+    // predate the class that declares it - and cannot postdate a subclass
+    // that already carried it, which is the case below.
     {
       const inh = checkAbapSource(fs.readFileSync(f('inheritedsince.clas.abap'), 'utf8'))
         .findings.filter((x) => x.type === 'member-too-new' && x.member === 'press');
-      assert(inh.length === 1 && inh[0].since === '1.86',
-        `member-too-new: press inherits BaseHeader's 1.86 (got ${inh.map((x) => x.since).join() || 'none'})`);
+      /* …unless the declaring class is YOUNGER than the control: UI5 extracted
+       * BaseHeader (@1.86) out of the @1.64 Header, and `press` moved up with
+       * it - the tagged 1.64.0 source declares it on Header. A member that
+       * shipped with the control is dated at the control's release, so this
+       * press is not reported at a 1.71 floor; test/review/props.mjs holds
+       * the "older base" doctrine with sap.m.plugins.ColumnResizer.enabled. */
+      assert(inh.length === 0,
+        `member-too-new: press on the @1.64 Header shipped with it - BaseHeader (@1.86) took it over later, so the younger base does not date it (got ${inh.map((x) => x.since).join() || 'none'})`);
     }
 
     // --- a value the reconstruction had to guess at is not judged ------------
@@ -6105,6 +6111,25 @@ section('abap hygiene (2)', async () => {
       'delete-index-in-loop: the me-> spelling names the same table');
 });
 
+/*
+ * Review-round sections live in test/review/*.mjs, one file per topic, so
+ * several fixes can grow their regression tests without every one of them
+ * editing the tail of this file. Each file exports a default function that
+ * takes the harness (`section`, `assert`, `f`, `FIX`, `tempDir`) and the
+ * observed checks, and registers its sections through them - the same
+ * isolation, the same rule-coverage accounting as a section written here.
+ * Loaded BEFORE the rule-coverage gate: a rule whose only trigger lives in a
+ * review file has to count, and the gate reads what was observed up to the
+ * moment it runs.
+ */
+const REVIEW = path.join(path.dirname(fileURLToPath(import.meta.url)), 'review');
+if (fs.existsSync(REVIEW)) {
+  for (const file of fs.readdirSync(REVIEW).filter((n) => n.endsWith('.mjs')).sort()) {
+    const mod = await import(pathToFileURL(path.join(REVIEW, file)).href);
+    await mod.default({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap });
+  }
+}
+
 /* What is recorded is what the checks actually produced (test/observe.mjs),
  * not what the test source appears to mention, so a negated assertion or a
  * renamed idiom cannot pass for coverage. A rule may be exempt, but only in
@@ -6630,21 +6655,3 @@ ENDCLASS.
     }
     assert(compared > 40, `enough fixtures to mean something (${compared})`);
 });
-
-/*
- * Review-round sections live in test/review/*.mjs, one file per topic, so
- * several fixes can grow their regression tests without every one of them
- * editing the tail of this file. Each file exports a default function that
- * takes the harness (`section`, `assert`, `f`, `FIX`, `tempDir`) and the
- * observed checks, and registers its sections through them - the same
- * isolation, the same rule-coverage accounting as a section written here.
- * Loaded after the sections above, so the coverage gate sees the same order
- * it always did.
- */
-const REVIEW = path.join(path.dirname(fileURLToPath(import.meta.url)), 'review');
-if (fs.existsSync(REVIEW)) {
-  for (const file of fs.readdirSync(REVIEW).filter((n) => n.endsWith('.mjs')).sort()) {
-    const mod = await import(pathToFileURL(path.join(REVIEW, file)).href);
-    await mod.default({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap });
-  }
-}

@@ -129,12 +129,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <section class="cat" id="cat-metadata">
       <h2>Controls and members</h2>
       <p class="blurb">Everything the view writes, resolved against the UI5 metadata snapshot generated from the OpenUI5 sources.</p>
-      <article class="rule" id="invalid-aggregation-child" data-search="invalid-aggregation-child a control the aggregation's type does not accept the aggregation declares a type, and the control put inside it does not inherit from it. ui5 refuses to add the child, so the part of the view below it silently disappears. error">
+      <article class="rule" id="invalid-aggregation-child" data-search="invalid-aggregation-child a control the aggregation's type does not accept the aggregation declares a type, and the control put inside it does not inherit from it. ui5 refuses to add the child, so the part of the view below it silently disappears. an owner that overrides addaggregation( ) (the snapshot's widensaggregation, e.g. sap.uxap.objectpagesubsection) decides for itself what it accepts and is not judged by its declared type. error">
         <h3><a href="#invalid-aggregation-child">invalid-aggregation-child</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">a control the aggregation's type does not accept</p>
-        <p class="detail">The aggregation declares a type, and the control put inside it does not inherit from it. UI5 refuses to add the child, so the part of the view below it silently disappears.</p>
+        <p class="detail">The aggregation declares a type, and the control put inside it does not inherit from it. UI5 refuses to add the child, so the part of the view below it silently disappears. An owner that overrides <code>addAggregation( )</code> (the snapshot's <code>widensAggregation</code>, e.g. <code>sap.uxap.ObjectPageSubSection</code>) decides for itself what it accepts and is not judged by its declared type.</p>
         <div class="ba" id="invalid-aggregation-child-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;ele( `Table` )-&gt;ele( `columns` )-&gt;tag( `Button` )</code></pre></figure>
@@ -161,12 +161,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZNvq9owFMa_yqGvFGZkG3uhYKFXIytolWs3GHPY2KY1kKQlSa3esX32kVr_1Atd3zQ95_k95yTN-fnbkURQZ-y8xXynSk5RzIlGZE8K54Oj81LFNjtdeJsNXDUww3M_8EN_FcD628vCn8LcD7wFTF-xF-ImhrYSrukNnlp1HQLwgxC_zr0p3sDbp5J92bF0R4qiyc680IOYMyoNhD_WGF7xHMLVXXrJoa3EwaxuDG3lVj616C_XC7zEQejdCi9x-HU1a5X8KwiTTV1BB25TdgK3GteOeirPTR8mDR7znX0dGa12-5LxhKqJm5LY5Orcg_4jaDUWtAYDl3LaAwkTiL4zWkUgtV2LYxxdEPv0By5pRCfBpY7gaNeaFEh0yMbW5S4tGYpzRVG399hq3lNdBG_LOTnnpekC0gcg7RKWJ1I8mtvPDrkhe_7U-yXUtV2ikjbCpKGZIoblElUsyajRnQbPhyVELjuJsk2UkqWMJl2EFkSZd3UKVMf_u8WDEddfdDCmGA-HVVWh6jPKVTb8OBqNhqda0rKo72W0JhmNbtfX3tyBa0jWg-ilNCaX0WM1cy6up49FcSCaaZrc6csIDdx6RhKmC07OvcZTG8VkxlI7Kw2Ag9llQNuD7fz59Q8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L768"><code>lib/properties.mjs</code></a></p>
       </article>
-      <article class="rule" id="too-many-children" data-search="too-many-children two controls in a 0..1 aggregation a single-cardinality aggregation was filled more than once. only one child survives — which one is not something to rely on. error">
+      <article class="rule" id="too-many-children" data-search="too-many-children two controls in a 0..1 aggregation a single-cardinality aggregation was filled more than once. only one child survives — which one is not something to rely on. only an aggregation the metadata declares multiple: false is 0..1 — ui5 defaults an undeclared flag to 0..n, and so does this rule. the children written straight under a control fill its default aggregation and are held to the same cardinality. error">
         <h3><a href="#too-many-children">too-many-children</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">two controls in a 0..1 aggregation</p>
-        <p class="detail">A single-cardinality aggregation was filled more than once. Only one child survives — which one is not something to rely on.</p>
+        <p class="detail">A single-cardinality aggregation was filled more than once. Only one child survives — which one is not something to rely on. Only an aggregation the metadata declares <code>multiple: false</code> is 0..1 — UI5 defaults an undeclared flag to 0..n, and so does this rule. The children written straight under a control fill its default aggregation and are held to the same cardinality.</p>
         <div class="ba" id="too-many-children-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;ele( `Page`
@@ -180,13 +180,13 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
         </div>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1885"><code>lib/properties.mjs</code></a></p>
       </article>
-      <article class="rule" id="unknown-aggregation" data-search="unknown-aggregation page contentt — no such aggregation an aggregation tag the parent control does not declare. ui5 then looks for a control class by that name and fails. error">
+      <article class="rule" id="unknown-aggregation" data-search="unknown-aggregation page contentt — no such aggregation an aggregation tag the parent control does not declare. ui5 then looks for a control class by that name and fails. two more readings share the id: an aggregation tag written in a namespace other than its parent tag's (&lt;f:content&gt; under a sap.m.page — ui5 loads it as the control sap.f.content), and an association written as a child tag (&lt;arialabelledby&gt; — write it as an attribute). error">
         <h3><a href="#unknown-aggregation">unknown-aggregation</a>
           <span class="badge error">error</span>
           <span class="badge fix">--fix</span>
         </h3>
         <p class="summary"><code>Page contentt</code> — no such aggregation</p>
-        <p class="detail">An aggregation tag the parent control does not declare. UI5 then looks for a control class by that name and fails.</p>
+        <p class="detail">An aggregation tag the parent control does not declare. UI5 then looks for a control class by that name and fails. Two more readings share the id: an aggregation tag written in a namespace other than its parent tag's (<code>&lt;f:content&gt;</code> under a <code>sap.m.Page</code> — UI5 loads it as the control <code>sap.f.content</code>), and an association written as a child tag (<code>&lt;ariaLabelledBy&gt;</code> — write it as an attribute).</p>
         <p class="fixnote"><strong>--fix:</strong> Where exactly one aggregation or association of the owning control is the written name up to letter case — or one control of the tag's own library is, since <code>page</code> under a View is <code>Page</code> with the wrong first letter — the finding names it and <code>--fix</code> rewrites the tag. Otherwise no suggestion is made.</p>
         <div class="ba" id="unknown-aggregation-example">
           <figure class="before"><figcaption>reported</figcaption>
@@ -764,12 +764,12 @@ ENDTRY.</code></pre></figure>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVNtq9owFP4rh35SmBE3NqZgoVcjK2gV7QZjDhvbtDeQpiVJrd7L9ttH2uq1Xuj6pck5z1vanF-vliAptSbWS8gPsuAUhZwoRI4ktz5YKitkaLqzpbPbwRUDc7xwPdd31x5svj8t3RksXM9ZwmyLHR83NbQXcG3v8MygqxKA6_l4u3BmeAcvHwv2-cDiA8nzpjt3fAdCzqjQ4P_cYNjiBfjrN2jdQ3uBvXkVDO3FXjxEdFebJV5hz3duxivsf1vPW5Z_U8JE45vSgd3YTuHmcU3Uk1mm-zBt6CE_mNeJ0fJwLBiPqJzaMQl1Ji896N8TDcYQjcDAppz2QMAUgh-MlgEIZdbpKQxqinn6A5s0oHPKhQrgZNaK5CjtgE2Myhu0YCjMJEXd2hODec_qYvA2nJNLVuguQnxHiLuAxZnk9-Jm2wHX5MgfstelruMSGbUpTGiaSKJZJlDJooRq1Snw-LHSNBOdjKLNKASLGY26GColUr_zyVFV_-8Rn3V6_UXPWueT4bAsS1R-QplMhqPxeDw8V5CWRHUvgw1JaHC7vubmDmxNkh4ET0QG91ZaEqF4EVJxDaplUXFhb0FEc0lDomkEiomQwgiNvqIvtWw9WwO7Gp6IqZyTS68xU1oykbDYDFGTA3vzenLbE2_9-f0P" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/properties.mjs#L1504"><code>lib/properties.mjs</code></a></p>
       </article>
-      <article class="rule" id="member-too-new" data-search="member-too-new property, event or aggregation introduced after your target version same as control-too-new, one level down. members without an @since count as always available — they predate version tracking. waive with --allow sap.m.control.member. warning">
+      <article class="rule" id="member-too-new" data-search="member-too-new property, event or aggregation introduced after your target version same as control-too-new, one level down. members without an @since count as always available — they predate version tracking. waive with --allow sap.m.control.member. a member that shipped with a base class younger than the control (a base class ui5 extracted later, taking the member with it) is dated at the control's own release. warning">
         <h3><a href="#member-too-new">member-too-new</a>
           <span class="badge warning">warning</span>
         </h3>
         <p class="summary">property, event or aggregation introduced after your target version</p>
-        <p class="detail">Same as <code>control-too-new</code>, one level down. Members without an <code>@since</code> count as always available — they predate version tracking. Waive with <code>--allow sap.m.Control.member</code>.</p>
+        <p class="detail">Same as <code>control-too-new</code>, one level down. Members without an <code>@since</code> count as always available — they predate version tracking. Waive with <code>--allow sap.m.Control.member</code>. A member that shipped with a base class younger than the control (a base class UI5 extracted later, taking the member with it) is dated at the control's own release.</p>
         <div class="ba" id="member-too-new-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>view-&gt;tag( `GenericTile` )-&gt;a( n = `systemInfo` v = `PRD` )   " @since 1.92</code></pre></figure>
@@ -2108,12 +2108,12 @@ view-&gt;tag( `Button` )-&gt;a( n = `visible` b = flag )   " the builder renders
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZNhb9owEIb_yimfQBpG27QPoBIpA6NFgoAgmzSNiZjEoZYcO7IdAq3a3z45CS2hUpYvse_e595z4vvz7AiSUWfsPMV8rwpOUcyJRuRAcueTo2WhYpudLrztFq4amOG5H_ihvwpg_fP7wp_C3A-8BUw32AtxE0M7Adf0Fk-tugoB-EGIN3Nvirfw9KVg3_Ys3ZM8b7IzL_Qg5owKA-HvNYYNnkO4epfWObQTOJhVjaGd2Im7Fv3leoGXOAi9N-MlDn-sZi3L14ww0fhmdOA2thN487h21FNSmj5MGjzme_s6MVruDwXjCVUTNyWxkerSg_4taDUWtAUGLuW0BwImEP1itIxAaLvOTnFUI_bpD1zSiM4ZFzqCk11rkqOsQza2Vd6lBUOxVBR11x5bzUeqi-BtOScXWZguIL0B0i5hcSb5bXG77ZAbcuB3vdehruMSlbQRJgw9KmKYFKhkyZEa3Vng_mNlmRSdRNEmCsFSRpMuQmdEmQ8-Oari_z3io8muv-jRmHw8HJZlicqvSKrj8PNoNBqeK0mrRHUvozU50qh9fWOt7e2NHrS5cOqigzzDcyy5VGNFk5eHYR2PGqYenIFbTUbCdM7JpQd2N3C1UUwcWWonpDHBwawey_Y4Oy9__wE" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L1966"><code>lib/abap-rules.mjs</code></a></p>
       </article>
-      <article class="rule" id="unknown-binding-path" data-search="unknown-binding-path a hand-written {/typo} the derived model has no path for the field just stays empty — no error, anywhere. inside a bound aggregation a relative {typo} is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's types. never guessed. warning">
+      <article class="rule" id="unknown-binding-path" data-search="unknown-binding-path a hand-written {/typo} the derived model has no path for the field just stays empty — no error, anywhere. inside a bound aggregation a relative {typo} is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's types. never guessed. a field read straight off a table ({/t/field}) is reported as a missing row index: the jsonmodel reads field off the array itself. write {/t/0/field}, or bind the table. warning">
         <h3><a href="#unknown-binding-path">unknown-binding-path</a>
           <span class="badge warning">warning</span>
         </h3>
         <p class="summary">a hand-written <code>{/TYPO}</code> the derived model has no path for</p>
-        <p class="detail">The field just stays empty — no error, anywhere. Inside a bound aggregation a relative <code>{TYPO}</code> is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's <code>TYPES</code>. Never guessed.</p>
+        <p class="detail">The field just stays empty — no error, anywhere. Inside a bound aggregation a relative <code>{TYPO}</code> is resolved against the row, so a misspelled column field is caught too, but only where the row shape is known from the class's <code>TYPES</code>. Never guessed. A field read straight off a table (<code>{/T/FIELD}</code>) is reported as a missing row index: the JSONModel reads <code>FIELD</code> off the array itself. Write <code>{/T/0/FIELD}</code>, or bind the table.</p>
         <div class="ba" id="unknown-binding-path-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>DATA name TYPE string.
