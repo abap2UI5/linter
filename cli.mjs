@@ -168,7 +168,7 @@ import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
-import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf } from './lib/cache.mjs';
+import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -718,7 +718,7 @@ try {
     for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
     results = slots.map((s) => s.result);
     const entries = {};
-    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: s.result };
+    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
     /* Written BEFORE the baseline mutates the findings, and tolerantly: a
      * cache that cannot be written costs the next run time, not correctness. */
     try { saveCache(cache.file, cache.context, entries); }
