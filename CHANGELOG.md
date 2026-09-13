@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **`CLIPBOARD_APP_STATE` and `WIZARD_SET_NEXT_STEP` are gone from the
+  dispatch table, because they are gone from abap2UI5.** Both constants and
+  both frontend handlers were removed upstream
+  (abap2UI5/abap2UI5#2752), so a wire naming either reaches
+  `handlers[args[0]]`, finds nothing and does nothing — not even a console
+  line, which is what makes an unknown action the quietest miss there is. The
+  mirror kept accepting them, so the linter was telling app authors that a
+  dead wire was fine. `WIZARD_SET_NEXT_STEP`'s three `ACTION_ID_SLOTS` entries
+  go with it; the multi-slot path they covered is asserted through
+  `SMART_VARIANT_INIT` now, and a literal `WIZARD_SET_NEXT_STEP` is an
+  `unknown-frontend-action` like any other retired name. Migration, which the
+  framework's own deprecations page carries: the wizard pair is two
+  `CONTROL_BY_ID` calls (`discardProgress` then `setNextStep`, and `goToStep`
+  is reachable that way too, which the bundled event could not express), and
+  the share link is `app_state_get_href( )` + `CLIPBOARD_COPY`, which hands
+  the string to ABAP instead of only to the clipboard.
+  `test/fixtures/cs_event.intf.abap` is re-synced with the interface, which
+  also drops the three obsolete URL-API alias constants; `SERVER_EVENTS` is
+  unchanged, since `SET_NAV_ROUTING` / `SET_PUSH_STATE` /
+  `SET_APP_STATE_ACTIVE` are still live wire values — the `hash_*` /
+  `app_state_*` constants that replaced those names kept them.
+
 - **An XML view writes the enum KEY, and `invalid-property-value` judged the
   VALUE — which is the spelling that breaks.** A UI5 enum is a
   `{ Key: "Value" }` map, and for 227 of the snapshot's 235 the two are the
