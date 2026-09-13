@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **The companion-control mirror carries all eleven controls a view can name,
+  not two.** The render harness boots metadata mirrors of abap2UI5's bundled
+  `cc/*.js` controls, and it held `MultiInputExt` and `MessageManager` — so a
+  view naming any of the other nine failed view CREATION on a control that
+  exists in every real installation. Found downstream, on the shape it is
+  easiest to find it: abap2UI5/samples-controls' Shopping Cart demo app keeps
+  its cart in browser storage the way abap2UI5/samples app 327 documents, with
+  `<z2ui5:Storage>` reading the key back, and the render gate answered
+  `failed to load 'z2ui5/cc/Storage.js'`. Added: `CameraPicture`,
+  `CameraSelector`, `Dirty`, `FileUploader`, `Geolocation`, `Storage`, `Tree`,
+  `UITableExt`, `Websocket`. An entry may now carry `base` — the module the
+  mirror extends, default `sap/ui/core/Control` — because `CameraSelector`
+  extends `sap.m.ComboBox` and the aggregation rules judge it by that type.
+  `check-upstream` compares the properties of the names it finds in the file,
+  so a control that was never mirrored is the one drift it cannot see; the
+  file says so now, next to the list.
+
 - **`a( t = … )` is read, and a value carrying data on `v =` is a finding.**
   abap2UI5's view builder takes text through a third parameter now: `t` applies
   `escape_literal( )` to the whole value, so a brace or backslash in it is
