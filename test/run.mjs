@@ -2090,9 +2090,12 @@ section('display-root-mismatch', async () => {
       .some((x) => x.type === 'invalid-action-payload' && x.control === 'BINDING_CALL'),
       'invalid-action-payload: malformed filter-groups JSON is rejected with a log upstream');
 
-    assert(act('client->follow_up_action( val = client->cs_event-wizard_set_next_step t_arg = VALUE #( ( `wiz` ) ( `step1` ) ( `step2` ) ) ).')
-      .filter((x) => x.type === 'frontend-action-unknown-id').length === 3,
-      'frontend-action-unknown-id: every id slot of WIZARD_SET_NEXT_STEP is judged');
+    assert(act('client->follow_up_action( val = client->cs_event-smart_variant_init t_arg = VALUE #( ( `vm` ) ( `vmTable` ) ) ).')
+      .filter((x) => x.type === 'frontend-action-unknown-id').length === 2,
+      'frontend-action-unknown-id: every id slot of a multi-slot action is judged (SMART_VARIANT_INIT)');
+    assert(act('client->follow_up_action( val = `WIZARD_SET_NEXT_STEP` t_arg = VALUE #( ( `wiz` ) ( `step1` ) ( `step2` ) ) ).')
+      .some((x) => x.type === 'unknown-frontend-action'),
+      'the removed WIZARD_SET_NEXT_STEP is an unknown action now, not a set of id slots');
     assert(!act('client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `tbl/items/0` ) ( `focus` ) ) ).')
       .some((x) => x.type === 'frontend-action-unknown-id'),
       'frontend-action-unknown-id: the aggregation-item form judges only its id segment');
