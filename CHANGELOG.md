@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- **An XML view writes the enum KEY, and `invalid-property-value` judged the
+  VALUE — which is the spelling that breaks.** A UI5 enum is a
+  `{ Key: "Value" }` map, and for 227 of the snapshot's 235 the two are the
+  same string, which is why this stood for a year. For the eight where they
+  differ the spellings are not interchangeable, and which one is right depends
+  on how the value reaches the control: `XMLTemplateProcessor` puts an
+  attribute through `parseValue( )` (key → value) *before* `isValid( )`, while
+  a setter or a binding goes to `validateProperty` and `isValid( )` alone —
+  and `isValid( )` is keyed by VALUE (`DataType.createEnumType`:
+  `mValues[sValue] = sName`). So the gate had it exactly backwards: it rejected
+  `intervalType="OneMonth"`, which the demo kit has shipped for years, and
+  accepted `"One Month"`, which parses to `undefined`, logs an error and leaves
+  the property at its default. The property gate judges views, so it judges
+  keys now; the two ABAP-side checks that read the enum table (an
+  `INVISIBLE_MESSAGE.announce` mode, a `setSticky` payload) judge arguments
+  that reach a *setter* and stay on the values. Writing the value form is
+  reported with its own message — the reason, not just "not a valid value",
+  because the API reference is where its author read that string — and with a
+  `--fix` that rewrites it into the key. The snapshot gained an additive
+  `enumKeys` section for it (`{ "<value>": "<key>" }`, only where they differ);
+  a snapshot without it judges every enum as before. The eight:
+  `CalendarIntervalType` and `PlanningCalendarBuiltInView` (`OneMonth` =
+  "One Month"), `sap.m`/`sap.tnt` `IllustratedMessageType` (`NoData` =
+  "sapIllus-NoData"), `FileUploaderHttpRequestMethod` (`Post` = "POST"),
+  `LightBoxLoadingStates`, `SharedDomRef`, `BackgroundHelper`. Measured: 0
+  findings across the samples-controls (642 files) and samples (159) corpora,
+  before and after — this direction only removes false positives, and neither
+  corpus writes a value form. Found downstream rebuilding the Team Calendar
+  demo app (abap2UI5/samples-controls `z2ui5_cl_smpc_demo_003`), where the
+  correct spelling had to be waived with a disable comment.
+
 - **The companion-control mirror carries all eleven controls a view can name,
   not two.** The render harness boots metadata mirrors of abap2UI5's bundled
   `cc/*.js` controls, and it held `MultiInputExt` and `MessageManager` — so a

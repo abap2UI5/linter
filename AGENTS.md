@@ -907,7 +907,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 493 KB one-line snapshot (`ui5Version` 1.151.0, 959 controls, 235
+The 497 KB one-line snapshot (`ui5Version` 1.151.0, 959 controls, 235
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
@@ -925,7 +925,12 @@ to their `@since` and nothing else — an event parameter's version sits under
 `events.<name>.params`; a parameter the class passes to `fire<Event>({ … })`
 without declaring it is listed there too, flagged `fired: true`; and a
 `deprecated.since` of `null` means the text names no release, not that the
-reader missed a spelling. Thirdparty bundles under the library paths are not
+reader missed a spelling. `enums` holds an enum's RUNTIME values — what
+`isValid( )` tests, so what a setter and a bound value must carry — and
+`enumKeys` holds `{ "<value>": "<key>" }` for the eight whose key differs from
+it, which is the spelling an XML VIEW has to write instead (an attribute goes
+through `parseValue( )`, key → value, before it is validated); an enum absent
+from `enumKeys`, which is 227 of the 235, spells both the same. Thirdparty bundles under the library paths are not
 walked (sap.ui.integration ships a minified copy of a dozen core classes) and
 example code in JSDoc is not a class. `node scripts/generate-metadata.mjs
 --parse <files> --base <module/path>` runs the parser over synthetic sources,

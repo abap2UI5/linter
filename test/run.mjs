@@ -3750,6 +3750,94 @@ section('xmlns (6)', async () => {
       'undeclared-namespace: …and the declaration it inserted instead really fixes the view');
 });
 
+/* ------------------------------------------------------- enum key vs value --
+ *
+ * A UI5 enum is a `{ Key: "Value" }` map, and for 227 of the snapshot's 235
+ * the two are the same string - which is why this gate judged the VALUES for
+ * a year and nobody noticed. For the eight where they differ the spellings
+ * are not interchangeable, and which one is right depends on how the value
+ * reaches the control:
+ *
+ *   XMLTemplateProcessor   parseValue( ) (KEY -> value), then isValid( )
+ *   setProperty / binding  validateProperty -> isValid( ) alone, no parse
+ *
+ * and isValid( ) is keyed by VALUE. So a VIEW has to write the key, and the
+ * gate had it exactly backwards: it rejected `intervalType="OneMonth"` -
+ * copied verbatim out of the demo kit, where it has shipped for years - and
+ * accepted `"One Month"`, which parses to undefined and leaves the property
+ * at its default. Found rebuilding the Team Calendar demo app
+ * (abap2UI5/samples-controls z2ui5_cl_smpc_demo_003), where it was waived
+ * with a disable comment rather than written the way the gate asked.
+ *
+ * The fixture is the whole point of the pair: every attribute in it is
+ * CORRECT, so it must produce no invalid-property-value at all - and it is
+ * rendered, which is the only check that answers the question first-hand.
+ */
+const enumKeySrc = fs.readFileSync(f('enumkey.clas.abap'), 'utf8');
+const enumKeyRendered = await checkFiles([f('enumkey.clas.abap')]);
+section('enum key vs value', async () => {
+    const { applyFixes } = await import('../lib/fix.mjs');
+    const values = (src, minUi5 = '1.71') => checkAbapSource(src, { render: false, minUi5 })
+      .findings.filter((x) => x.type === 'invalid-property-value');
+    const pcv = (value) => view('  )->ele( `PlanningCalendar` )->ele( `views` )'
+      + `)->tag( \`PlanningCalendarView\` )->a( n = \`intervalType\` v = \`${value}\` )`);
+
+    // the negative counter-case, and the false positive this rule change is about
+    assert(!values(pcv('OneMonth')).length,
+      `enum key: the KEY is the spelling an XML view needs, and is left alone (got ${values(pcv('OneMonth')).map((x) => x.value).join() || 'none'})`);
+
+    const written = values(pcv('One Month'));
+    assert(written.length === 1 && written[0].enumValueForm === true && written[0].suggestion === 'OneMonth',
+      `enum key: the runtime VALUE is reported with the key to write (got ${written.length} finding(s), suggestion ${written[0]?.suggestion})`);
+    assert(written[0]?.allowed?.includes('OneMonth') && !written[0]?.allowed?.includes('One Month'),
+      `enum key: the allowed list names the keys, not the values (got ${JSON.stringify(written[0]?.allowed)})`);
+    assert(/parseValue\( \)/.test(written[0]?.message || '') && /keeps its default/.test(written[0]?.message || ''),
+      'enum key: the message says WHY the value form is wrong, not merely that it is');
+    assert(applyFixes(pcv('One Month'), written).output.includes('v = `OneMonth`'),
+      'enum key: --fix rewrites the value into the key');
+
+    // …and everything around it is unchanged
+    const typo = values(pcv('OneMonthh'));
+    assert(typo.length === 1 && typo[0].enumValueForm === undefined,
+      'enum key: a real typo is still a plain invalid-property-value, with no parseValue story attached');
+    assert(!values(view('  )->tag( `Button` )->a( n = `type` v = `Emphasized` )')).length,
+      'enum key: an enum whose key IS its value is judged exactly as before');
+
+    /* The second shape, and the one that shows this is not one enum's quirk:
+     * a PREFIXED value (`POST` for `Post`, `sapIllus-NoData` for `NoData`).
+     * Read at 1.120 because httpRequestMethod is @since 1.81 and a member
+     * past the floor never reaches the value check at all. */
+    assert(!values(enumKeySrc, '1.120').length,
+      `enum key: the fixture is correct as written, at a floor that judges every member (got ${values(enumKeySrc, '1.120').map((x) => `${x.member}=${x.value}`).join() || 'none'})`);
+    const post = values(enumKeySrc.replace('v = `Post`', 'v = `POST`'), '1.120');
+    assert(post.length === 1 && post[0].enumValueForm === true && post[0].suggestion === 'Post',
+      `enum key: FileUploaderHttpRequestMethod.Post = "POST" - the same defect with a prefix instead of a space (got ${post[0]?.suggestion})`);
+
+    /* The per-value @since table is keyed by the runtime VALUE, because that
+     * is what the attribute parses to - so a written KEY has to be translated
+     * back through it or enum-value-too-new goes blind on exactly the eight
+     * enums this change is about. CalendarIntervalType.OneMonth is @1.46. */
+    const tooNew = (minUi5) => checkAbapSource(pcv('OneMonth'), { render: false, minUi5 })
+      .findings.filter((x) => x.type === 'enum-value-too-new');
+    assert(tooNew('1.40').length === 1 && tooNew('1.40')[0].since === '1.46',
+      `enum key: the KEY still finds the VALUE's @since (got ${tooNew('1.40').map((x) => x.since).join() || 'none'})`);
+    assert(!tooNew('1.71').length,
+      'enum key: …and is silent once the floor reaches it');
+
+    /* First-hand, in a browser: the key form renders, the value form does not.
+     * The render gate turns UI5's future mode on around view creation, which
+     * is what makes parseValue( ) returning undefined an error rather than a
+     * line in a log nobody reads. */
+    assert(!enumKeyRendered[0].renderErrors.length,
+      `enum key: the fixture RENDERS - UI5 takes the key (${enumKeyRendered[0].renderErrors[0] || ''})`);
+    const dir = tempDir('abap2ui5lint-enumkey-');
+    const broken = path.join(dir, 'enumkey.clas.abap');
+    fs.writeFileSync(broken, enumKeySrc.replace('n = `intervalType` v = `OneMonth`', 'n = `intervalType` v = `One Month`'));
+    const brokenRun = await checkFiles([broken]);
+    assert(brokenRun[0].renderErrors.some((e) => /Value 'One Month' is not valid/.test(e)),
+      `enum key: …and the value form does NOT render - UI5 says so in as many words, which is the claim the whole rule rests on (${brokenRun[0].renderErrors[0] || 'no render error'})`);
+});
+
 // ------------------------------------------------ sarif + baseline + cli ----
 section('sarif, baseline and cli', async () => {
     const cp = await import('node:child_process');
