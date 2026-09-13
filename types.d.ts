@@ -331,6 +331,10 @@ declare module "@abap2ui5/linter/properties" {
     value?: string;
     allowed?: string[];
     memberType?: string;
+    /** invalid-property-value: the written value is the enum's runtime VALUE
+     *  where its KEY differs from it, which is the spelling an XML view
+     *  cannot use (`suggestion` carries the key). */
+    enumValueForm?: boolean;
     /** invalid-aggregation-child */
     parentControl?: string;
     parentAggregation?: string;
