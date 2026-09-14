@@ -1189,7 +1189,12 @@ ENDIF.</code></pre></figure>
 z2ui5_cl_pop_to_confirm=&gt;factory( ).                " frozen — use the popups addon
 DATA(html) = z2ui5_cl_util=&gt;xml_stringify( data ).  " retired utility class</code></pre></figure>
           <figure class="after"><figcaption>fixed</figcaption>
-            <pre><code>DATA(json) = z2ui5_cl_ui5_json=&gt;factory( body ).   " released, src/02
+            <pre><code>" JSON is built and read BY HAND - there is no released parser, and
+" no portable substitute (/ui2/cl_json is not released for ABAP Cloud,
+" xco_cp_json is missing on 7.02). Outbound, bind the string as a node:
+client-&gt;_bind( val = mv_card_manifest json = abap_true ).
+" Inbound, read the one field you need - abap2UI5/samples _197 and _327:
+DATA(off) = find( val = json sub = |"{ name }":"| case = abap_false ).
 " the popups moved out whole: install abap2UI5-addons/popups and call it there
 DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
         </div>
