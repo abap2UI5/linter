@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **New rule `event-arg-single-row-table`** — a `client->_event( )` whose
+  `t_arg` is a `VALUE #( ( x ) )` with ONE row, where `arg = x` says the same
+  thing. The client folds `arg` into the same `string_table`, so the wire and
+  the handler's `get_event_arg( )` are byte for byte unchanged; the single
+  argument is what most wires carry (a row key, a `${$source>/…}`, one event
+  parameter) and there the table constructor is longer than the value inside
+  it. A hint with a `--fix`: the `t_arg = VALUE #( ( x ) )` span becomes
+  `arg = x` in place, so a two-line call collapses onto its first line and the
+  continuation keeps its column. From two rows on `t_arg` is the right
+  parameter and the rule is silent, as it is when both spellings are passed
+  (the documented composition appends `arg` behind the rows, so the call sends
+  one more argument, not the same one) and on a row containing a `#`: `arg` is
+  generic (`TYPE clike`), so a `CONV #( )` or nested `VALUE #( )` has no type
+  to derive `#` from and the remedy would not compile. Only
+  `client->_event( )` is judged — `_event_client( )` and `follow_up_action( )`
+  are frontend actions and have no `arg` parameter at all. Measured on the
+  corpora: 17 findings in abap2UI5/samples, 9 in samples-stack, 1 in
+  samples-controls, all of them hints, so no gate changes colour.
+
 - **`CLIPBOARD_APP_STATE` and `WIZARD_SET_NEXT_STEP` are gone from the
   dispatch table, because they are gone from abap2UI5.** Both constants and
   both frontend handlers were removed upstream
