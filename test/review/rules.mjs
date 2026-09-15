@@ -70,6 +70,37 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(silenced, 'event-arg-unresolved').length === 0, 'a disable-next-line above the t_arg row suppresses the finding');
   });
 
+  section('review rules: event-arg-single-row-table - one row is arg, and only on client->_event( )', () => {
+    const attrs = '            )->a( n = `press` v = client->_event( val   = `GO`\n'
+      + '                                                          t_arg = VALUE #( ( `${$source>/text}` ) ) ) )\n';
+    const src = frame({ attrs, main: '    IF client->check_on_event( `GO` ).\n      mv_text = client->get_event_arg( ).\n    ENDIF.\n' });
+    const hits = of(src, 'event-arg-single-row-table');
+    assert(hits.length === 1 && hits[0].severity === 'hint' && hits[0].fixes?.length === 1, `one hint, fixable (${hits.length})`);
+    const row = lineOf(src, 't_arg = VALUE');
+    assert(hits[0].line === row && hits[0].column === src.split('\n')[row - 1].indexOf('t_arg') + 1,
+      `on the t_arg token itself, so a disable-next-line above the row reaches it (${hits[0].line}:${hits[0].column})`);
+    const out = fixed(src);
+    // \b, because `get_event_arg` ends in the same five characters
+    assert(/arg = `\$\{\$source>\/text\}` \) \)/.test(out) && !/\bt_arg/.test(out), 'the table constructor became arg = the value inside it');
+    assert(out.split('\n')[row - 1].indexOf('arg') === src.split('\n')[row - 1].indexOf('t_arg'),
+      'the continuation keeps its column - a chain stays aligned under the fix');
+    assert(of(out, 'event-arg-single-row-table').length === 0 && of(out, 'event-arg-out-of-range').length === 0,
+      'the fixed source is clean, and the handler still reads one argument');
+
+    // two rows is what t_arg is for, and stays it
+    const two = frame({ attrs: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ( `b` ) ) ) )\n' });
+    assert(of(two, 'event-arg-single-row-table').length === 0, 'from two values on, t_arg is the right parameter');
+    // both spellings: the documented composition appends arg BEHIND the rows, so the call sends two
+    const both = frame({ attrs: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( `a` ) ) arg = `b` ) )\n' });
+    assert(of(both, 'event-arg-single-row-table').length === 0, 'a call that already passes arg sends one more argument, not the same one');
+    // arg is generic (TYPE clike): # has no type to derive there, so the remedy would not compile
+    const conv = frame({ attrs: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( CONV #( mv_text ) ) ) ) )\n' });
+    assert(of(conv, 'event-arg-single-row-table').length === 0, 'a row containing a # is left alone');
+    // the two frontend siblings have no arg parameter at all
+    const action = frame({ main: '    client->follow_up_action( val = client->cs_event-hash_attach_changed t_arg = VALUE #( ( `HASH_CHANGED` ) ) ).\n' });
+    assert(of(action, 'event-arg-single-row-table').length === 0, 'follow_up_action( ) is a frontend action and has no arg');
+  });
+
   section('review rules: the fix for a trailing empty event argument keeps the indentation', () => {
     const src = frame({ attrs: '            )->a( n = `press` v = client->_event( val = `GO`\n'
       + '              t_arg = VALUE #( ( `x` )\n'
