@@ -123,10 +123,10 @@ exact line):
 | `lib/reconstruct.mjs` | `excess-shut`, `duplicate-property`, `attribute-without-element`, `display-root-mismatch`, `open-levels` (note-only) — via `prep.structure`, consumed in `lib/index.mjs` |
 | `lib/render.mjs` | render-gate failures (real `XMLView.create` errors); also the screenshot session behind `--screenshot` — same harness, view kept and photographed, theme LESS compiled on demand |
 | `lib/index.mjs` | `frozen-view-builder` — the ONE finding a class on the retired `z2ui5_cl_xml_view` builder gets, emitted where the decision to judge it at all is made. Everything else about such a class is deliberately silent: the other rules are written for the current dialect, and running them over an API they do not model would trade a silent miss for confident noise |
-| `lib/suggest.mjs` | no findings — `caseMatch( )`, the one did-you-mean the linter makes: the unique member of a closed set that is the written name up to letter case and `-`/`_`. Eight rules carry it as `written`/`suggestion` and a fix (`unknown-control`, `unknown-property`, `unknown-aggregation`, `invalid-property-value`, `unknown-event-parameter`, `unknown-icon`, `frontend-action-unknown-id`, `popover-anchor-unknown-id`); the view-side five get their span from `attachSuggestionFixes( )` in `findings.mjs`, the others compute it where they report. No edit distance, on purpose: `Buttom` → `Button` is a guess, `button` → `Button` is not |
+| `lib/suggest.mjs` | no findings — `caseMatch( )`, the one did-you-mean the linter makes: the unique member of a closed set that is the written name up to letter case and `-`/`_`. Eight rules carry it as `written`/`suggestion` and a fix (`unknown-control`, `unknown-property`, `unknown-aggregation`, `invalid-property-value`, `unknown-event-parameter`, `unknown-icon`, `frontend-action-unknown-id`, `popover-anchor-unknown-id`); the view-side five get their span from `attachSuggestionFixes( )` in `findings.mjs`, the others compute it where they report. The CLI's `--explain` uses it for a mistyped rule id against the same closed set. No edit distance, on purpose: `Buttom` → `Button` is a guess, `button` → `Button` is not |
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
 | `lib/findings.mjs` | no findings — the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments). Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
-| `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters and the GitHub workflow-command annotations. The CLI only parses flags and picks one |
+| `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters, the GitHub workflow-command annotations, and the terminal rendering of `RULE_DOCS` behind `--explain` (`ruleIndex`, `formatExplain`, `formatRuleIndex`, `explainFooter`). The CLI only parses flags and picks one |
 
 **A new rule moves four places together** — forgetting one has happened:
 
@@ -268,7 +268,23 @@ render gate is on, never a non-zero exit while watching (`watchLoop` in
 `cli.mjs`; `test/review/watch.mjs` spawns a real one). It is refused with the
 single-run modes and outputs (`--stdin`, `--screenshot`, `--fix`,
 `--update-baseline`, the badge, SARIF and JSON files, any `--format` but
-stylish), because each of those is a record of ONE run.
+stylish), because each of those is a record of ONE run. `--explain` is a
+fourth, for the same reader: both reference linters have a rules website and
+an editor that shows the paragraph on hover, and this one's reader has a
+terminal. `abap2ui5lint --explain <id>…` prints what `RULE_DOCS` holds for
+each id (summary, detail, fix note, the before/after pair, the card's URL —
+`formatExplain( )` in `lib/report.mjs`), with no id every rule id and summary
+in the page's order (`formatRuleIndex( )`, over `ruleIndex( )`: the registry
+plus `render-error`, category by category, alphabetical within one — the
+order `generate-rules-page.mjs` writes), and an unknown id is exit 2 with the
+one did-you-mean `lib/suggest.mjs` makes. It is a documentation command, not
+a run: decided on the raw argument list before the option loop, so `--init`
+cannot answer first, and refused with exit 2 together with a path or any
+other option. And after a stylish report with findings, ONE line on stderr
+names the command for the first three ids reported (`explainFooter( )`) —
+only where stderr is a terminal, the way the progress line decides, never in
+`--quiet` and never beside a machine format. `test/review/explain.mjs`
+spawns the CLI for all of it.
 
 The former test-coverage debt (`invalid-aggregation-child`,
 `sapui5-only-control`, `open-levels`) is worked off — every rule now has an

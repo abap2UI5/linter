@@ -33,6 +33,7 @@ npm install -D @abap2ui5/linter          # pin it for CI and for your machine
 npx abap2ui5lint --init                  # write a commented abap2ui5lint.jsonc
 npx abap2ui5lint src --all-classes       # every class: the ones that build no view get the source-side rules
 npx abap2ui5lint src --watch             # run, then re-run on every save - the loop for Eclipse ADT + abapGit
+npx abap2ui5lint --explain unknown-control   # what a reported id means, with the before/after pair - in the terminal
 ```
 
 ## Documentation

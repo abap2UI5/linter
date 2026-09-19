@@ -938,6 +938,26 @@ declare module "@abap2ui5/linter/report" {
   /** GitHub workflow-command lines that annotate findings onto the diff. */
   export function githubAnnotations(results: CheckResult[], opt?: FormatOptions): string[];
 
+  /** Every id the rules page has a card for (the registry plus `render-error`),
+   *  in the page's order: category by category, alphabetical within one. */
+  export function ruleIndex(): { id: string; title: string; blurb: string; ids: string[] }[];
+
+  /** `--explain <id>…`: summary, detail, fix note, before/after pair and card
+   *  URL per id, wrapped for a terminal. Every id must be one ruleIndex lists. */
+  export function formatExplain(ids: string[], opt?: { color?: boolean; width?: number }): string;
+
+  /** `--explain` with no id: every rule id with its summary, one per line,
+   *  under the page's category headings. */
+  export function formatRuleIndex(opt?: { color?: boolean }): string;
+
+  /** The stderr line after a report with findings that names
+   *  `abap2ui5lint --explain <id>…` for the first ids reported — null unless a
+   *  terminal is reading (`tty`), or in --quiet, or beside a machine format. */
+  export function explainFooter(
+    results: CheckResult[],
+    opt?: { quiet?: boolean; format?: string; tty?: boolean; limit?: number },
+  ): string | null;
+
   /** What the run looked at, aggregated from the per-result profiles. */
   export interface RunStats {
     abap: number;

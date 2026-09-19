@@ -168,6 +168,17 @@
  *   --init             write a commented abap2ui5lint.jsonc into the current
  *                      directory, with $schema resolved against the version
  *                      actually installed, and exit
+ *   --explain [<rule-id>...]
+ *                      the rule reference, in the terminal: for each id its
+ *                      summary, the paragraph behind it, the before/after
+ *                      pair and the card's URL - the same prose the rules
+ *                      page is generated from, for the reader who has a log
+ *                      and no browser (Eclipse ADT inside --watch, a CI log).
+ *                      With no id, every rule id with its summary, one per
+ *                      line, in the page's order. An unknown id is exit 2,
+ *                      with the id it can only have meant where there is one.
+ *                      A documentation command: refused with a path or any
+ *                      other option, and nothing else in the run happens
  *   --version, -v      print version and script location
  *   --help, -h         print this text
  *
@@ -187,7 +198,9 @@ import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
+import { RULES_PAGE } from './lib/rule-docs.mjs';
+import { caseMatch } from './lib/suggest.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
@@ -200,7 +213,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] [--watch] '
-  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
+  + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--explain rule-id...] [--version] [--help]';
 
 /* USAGE is one 679-character string, and it was printed as one line. `--help`
  * was moved off it for exactly that reason ("800 characters of bracketed flag
@@ -283,6 +296,54 @@ const THEME_RE = /^[a-z][a-z0-9_]*$/i;
 const SIZE_RE = /^(\d{2,5})x(\d{2,5})$/i;
 
 const args = process.argv.slice(2);
+
+/*
+ * --explain: the rule reference, in the terminal.
+ *
+ * Every reported line ends in a rule id and the card's URL, and the block
+ * under the count line lists both again - and the reader this CLI was given
+ * --watch for (Eclipse ADT, abapGit, no editor linter) still had to leave the
+ * terminal for the paragraph. RULE_DOCS is the same prose the page is
+ * generated from and the same prose mcp-server hands an agent through
+ * `validate_view`; this prints it for the third reader.
+ *
+ * Decided BEFORE the option loop, on the raw argument list, because it is a
+ * documentation command and not a run: the loop's own early exits (--init,
+ * --version, --help) would otherwise answer first for `--init --explain x`,
+ * and the config, the paths and every run option are simply not its business.
+ * The ids are the arguments behind the flag up to the next option; anything
+ * else on the line is refused with exit 2, the way --watch refuses --stdin.
+ */
+{
+  const at = args.indexOf('--explain');
+  if (at >= 0) {
+    let end = at + 1;
+    while (end < args.length && !args[end].startsWith('-')) end++;
+    const ids = [...new Set(args.slice(at + 1, end))];
+    const rest = [...args.slice(0, at), ...args.slice(end)];
+    if (rest.length) {
+      die(`--explain is a documentation command and runs on its own - it takes rule ids only, not ${rest[0]}`
+        + `${rest[0].startsWith('-') ? '' : ' (a path)'}`);
+    }
+    if (!ids.length) {
+      console.log(formatRuleIndex());
+      process.exit(0);
+    }
+    const known = ruleIndex().flatMap((c) => c.ids);
+    for (const id of ids) {
+      if (known.includes(id)) continue;
+      // the one did-you-mean the linter makes (lib/suggest.mjs): the id this
+      // can only be up to letter case and -/_; anything fuzzier is a guess
+      const meant = caseMatch(id, known);
+      die(`--explain: no rule '${id}'${meant
+        ? ` - did you mean ${meant}?`
+        : ` - \`abap2ui5lint --explain\` lists every id, and so does ${RULES_PAGE}`}`);
+    }
+    console.log(formatExplain(ids));
+    process.exit(0);
+  }
+}
+
 const opt = {
   minUi5: '1.71', distribution: null, allow: [], render: true, properties: true,
   failOn: 'warning', rules: {}, verbose: false,
@@ -961,6 +1022,13 @@ async function runOnce({ opt, paths }) {
   if (overWarningCap) {
     console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
   }
+
+  /* …and where a PERSON is reading, the command that explains the ids just
+   * printed. Decided the way the progress line is - stderr is a terminal -
+   * and on stderr like it, so a redirected stdout stays the report; never in
+   * --quiet and never beside a machine format (explainFooter returns null). */
+  const footer = explainFooter(results, { quiet: opt.quiet, format: opt.format, tty: process.stderr.isTTY === true });
+  if (footer) console.error(footer);
 
   return summary.failing > 0 || baselineStale.length > 0 || overWarningCap ? 1 : 0;
 }

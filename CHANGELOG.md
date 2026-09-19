@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **`--explain`: the rule reference, in the terminal.** Every reported line
+  ends in a rule id and the card's URL, and the block under the count line
+  lists both again - and the reader `--watch` was written for (Eclipse ADT,
+  abapGit, no editor linter) still had to leave the terminal for the
+  paragraph, as does anyone reading a CI log. `npx abap2ui5lint --explain
+  <rule-id> [<rule-id>...]` prints, per id, the id with its default severity
+  (and `--fix` where the fix knows it), the summary, the detail paragraph,
+  the fix note where the rule has one, the before/after pair and the card's
+  URL (`https://abap2ui5.github.io/linter/#<id>`) - the same `RULE_DOCS`
+  prose the page is generated from and mcp-server's `validate_view` hands an
+  agent, wrapped for a terminal. With no id it lists every rule id with its
+  summary, one per line, under the page's category headings and in the
+  page's order (`render-error` included, as on the page). An unknown id is
+  exit 2 with the one did-you-mean `lib/suggest.mjs` makes
+  (`Duplicate_Property` → `duplicate-property`; a real typo is pointed at the
+  list, not guessed at). It is a documentation command, not a run: decided on
+  the raw argument list before the options are read, so `--init --explain x`
+  writes no config, and refused with exit 2 together with a path or any other
+  option. And a stylish report with findings now ends with ONE line on
+  stderr naming the command for the ids it reported (the first three, `...`
+  beyond) - only where stderr is a terminal, the way the progress line
+  decides, never in `--quiet` and never beside `--format json`/`markdown`/
+  `sarif`/`checkstyle`/`junit`, so a redirected report is byte for byte what
+  it was. `lib/report.mjs` gained `ruleIndex( )`, `formatExplain( )`,
+  `formatRuleIndex( )` and `explainFooter( )` (typed in `types.d.ts`);
+  `test/review/explain.mjs` spawns the CLI for every path, and the footer's
+  terminal case runs through util-linux `script` where that is installed.
+
 - **`--watch`: the run, again on every save.** `npx abap2ui5lint src --watch`
   checks once and then keeps running: every path given is watched (a
   directory recursively, a named file through its parent directory), plus the
