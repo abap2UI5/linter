@@ -727,6 +727,12 @@ declare module "@abap2ui5/linter/findings" {
     source: string
   ): T[];
 
+  /** Attach the excess-shut fix: the `->end( )` call the finding sits on is deleted. */
+  export function attachExcessShutFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
   /** Attaches the did-you-mean fix a finding carries as `written`/
    *  `suggestion` but no span for (the view-side rules): the written name is
    *  found from the finding's offset on and rewritten. `xml: true` searches

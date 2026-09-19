@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- **Four more abap2UI5-specific rules.** `loop-work-area-bound` (a
+  `_bind( )` on the work area of a `LOOP AT` — an attribute work area binds
+  ONE path for every row, a local or a field symbol a path the model never
+  carries; a warning, with a `--fix` for the ASSIGNING shape into the
+  framework's own cell binding `tab = … tab_index = sy-tabix`, and only
+  while nothing between the loop header and the call has moved `sy-tabix`),
+  `bound-aggregation-without-template` (an error: `bindAggregation` throws
+  "Missing template or factory function" and the whole view fails to load),
+  `unknown-source-property` (the `$source>/name` twin of
+  `unknown-event-parameter` — the reconstructor now records `sourceParams`
+  beside `eventParams`; a hint with a did-you-mean), and
+  `editable-control-without-binding` (an Input, CheckBox, Switch, Select …
+  whose value property is neither bound nor read back by an event — a hint,
+  judged per family through `INPUT_FAMILIES` in `properties.mjs`; a control
+  disabled or read-only by a literal stays out). Measured on abap2UI5's own
+  app classes and on app-template: 0 findings for all four.
+
+- **Six more fixes.** `client-handle-capture` inlines the call where the
+  captured name is read exactly once as an attribute value, and deletes the
+  capturing statement; `missing-view-display-on-navigated` copies the init
+  branch's single display statement into the navigated branch (the same
+  scanner `missing-on-navigated-branch` uses, shared now as
+  `singleDisplayStatement( )`); `unknown-binding-path` carries a did-you-mean
+  and a fix where the missing segment is a field of that level up to letter
+  case (`pathProblem( )` names the segment and the keys it was judged
+  against; `pathFinding( )` turns that into the pair, and the finding itself
+  carries no key list); `excess-shut` deletes the `->end( )` it sits on;
+  `insecure-asset-url` rewrites a LOADED uri to `https://` (the `href` hint
+  keeps its finding); and `loop-work-area-bound` as above.
+
 - **Five abap2UI5-specific rules, and the split that produced them.** The
   linter keeps the checks about an abap2UI5 app and its view; rules about
   ABAP as a language go to abaplint (abap2UI5's `backlog/ABAPLINT.md` carries

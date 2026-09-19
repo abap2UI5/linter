@@ -222,4 +222,110 @@ export default async function ({ section, assert, checkAbapSource }) {
     const o = fixed(header, 'external-link-without-target');
     assert(o.includes('->a( n = `titleTarget` v = `_blank` )'), 'the ObjectHeader pair writes its own target attribute');
   });
+
+  // ---------------------------------------------------------------- second batch: rules
+
+  section('loop-work-area-bound: the three work-area shapes, the fix on ASSIGNING, silence with tab =', () => {
+    const loop = (header, bind) => dispatcher('    IF client->check_on_init( ).\n      mv_text = `x`.\n      client->view_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      client->view_display( render( ) ).\n    ENDIF.\n', {
+      defs: '    TYPES: BEGIN OF ty_row, name TYPE string, END OF ty_row.\n    DATA mt_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.\n    DATA ms_row TYPE ty_row.\n',
+    }).replace('    result = view->stringify', `    ${header}\n      view->tag( \`Input\` )->a( n = \`value\` v = client->_bind( ${bind} ) ).\n    ENDLOOP.\n    result = view->stringify`);
+    const fs = loop('LOOP AT mt_rows ASSIGNING FIELD-SYMBOL(<row>).', '<row>-name');
+    const a = of(fs, 'loop-work-area-bound');
+    assert(a.length === 1 && a[0].member === 'field symbol' && a[0].control === 'mt_rows' && a[0].fixes?.length === 1, `the ASSIGNING shape is reported with a fix (${a.length}, ${a[0]?.member})`);
+    const out = fixed(fs, 'loop-work-area-bound');
+    assert(out.includes('client->_bind( val = <row>-name tab = mt_rows tab_index = sy-tabix )'), 'the fix writes the cell binding');
+    assert(of(out, 'loop-work-area-bound').length === 0, 'and the finding is gone');
+    const attr = of(loop('LOOP AT mt_rows INTO ms_row.', 'ms_row-name'), 'loop-work-area-bound');
+    assert(attr.length === 1 && attr[0].member === 'attribute' && !attr[0].fixes, 'an attribute work area is reported without a fix');
+    const local = of(loop('LOOP AT mt_rows INTO DATA(row).', 'row-name'), 'loop-work-area-bound');
+    assert(local.length === 1 && local[0].member === 'local' && !local[0].fixes, 'a local work area is reported without a fix');
+    const clobbered = loop('LOOP AT mt_rows ASSIGNING FIELD-SYMBOL(<row>).\n      READ TABLE mt_rows INDEX 1 TRANSPORTING NO FIELDS.', '<row>-name');
+    const c = of(clobbered, 'loop-work-area-bound');
+    assert(c.length === 1 && !c[0].fixes, 'a READ TABLE before the bind has moved sy-tabix: no fix');
+    assert(of(loop('LOOP AT mt_rows ASSIGNING FIELD-SYMBOL(<row>).', 'val = <row>-name tab = mt_rows tab_index = sy-tabix'), 'loop-work-area-bound').length === 0, 'the cell binding is the remedy and is not reported');
+  });
+
+  section('bound-aggregation-without-template: a bound items with no child, and the two template shapes', () => {
+    const list = (chain) => frame({ defs: '    DATA mt_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.\n', chain });
+    const bare = list('          )->ele( `List` )->a( n = `items` v = client->_bind( mt_rows )\n          )->end(\n');
+    const hits = of(bare, 'bound-aggregation-without-template');
+    assert(hits.length === 1 && hits[0].member === 'items' && hits[0].severity === 'error', `one error on items (${hits.length})`);
+    assert(of(list('          )->ele( `List` )->a( n = `items` v = client->_bind( mt_rows )\n            )->tag( `StandardListItem` )->a( n = `title` v = `{TEXT}`\n          )->end(\n'), 'bound-aggregation-without-template').length === 0, 'a template under the default aggregation is fine');
+    assert(of(list('          )->ele( `List` )->a( n = `items` v = client->_bind( mt_rows )\n            )->ele( `items` )->tag( `StandardListItem` )->a( n = `title` v = `{TEXT}`\n            )->end(\n          )->end(\n'), 'bound-aggregation-without-template').length === 0, 'a template under the explicit aggregation tag is fine');
+  });
+
+  section('unknown-source-property: a $source path the control does not have, with the did-you-mean', () => {
+    const src = frame({ chain: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( `${$source>/txt}` ) ( `${$source>/Text}` ) ( `${$source>/text}` ) ) )\n', main: '    IF client->check_on_event( `GO` ).\n      mv_text = client->get_event_arg( ).\n    ENDIF.\n' });
+    const hits = of(src, 'unknown-source-property');
+    assert(hits.length === 2 && hits.every((h) => h.severity === 'hint'), `two hints (${hits.length})`);
+    const cased = hits.find((h) => h.member === 'Text');
+    assert(cased?.suggestion === 'text' && cased.fixes?.length === 1, 'the case miss carries the suggestion and a fix');
+    assert(!hits.find((h) => h.member === 'txt')?.fixes, 'the typo carries none');
+  });
+
+  section('editable-control-without-binding: an unbound Input, a bound one, a wired one, a read-only one', () => {
+    const one = (attrs) => frame({ chain: `          )->tag( \`Input\` )${attrs}\n` });
+    assert(of(one('->a( n = `placeholder` v = `type` )'), 'editable-control-without-binding').length === 1, 'an Input with a placeholder and nothing else is reported');
+    assert(of(one('->a( n = `value` v = client->_bind( mv_text ) )'), 'editable-control-without-binding').length === 0, 'a bound value is not');
+    assert(of(one('->a( n = `change` v = client->_event( `GO` ) )'), 'editable-control-without-binding').length === 0, 'a wired event is not');
+    assert(of(one('->a( n = `value` v = `fixed` )->a( n = `editable` v = `false` )'), 'editable-control-without-binding').length === 0, 'a read-only control is not an input');
+    const check = frame({ chain: '          )->tag( `CheckBox` )->a( n = `text` v = `ok`\n          )->tag( `Text` )->a( n = `text` v = `plain`\n' });
+    const c = of(check, 'editable-control-without-binding');
+    assert(c.length === 1 && c[0].member === 'selected' && c[0].control === 'sap.m.CheckBox', 'a CheckBox is judged on selected, a Text not at all');
+  });
+
+  // ---------------------------------------------------------------- second batch: fixes
+
+  section('client-handle-capture fix: the call is inlined at its one read, twice read keeps the finding', () => {
+    const cap = (extra = '') => dispatcher('    IF client->check_on_init( ).\n      mv_text = `x`.\n      client->view_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      client->view_display( render( ) ).\n    ENDIF.\n')
+      .replace('    view->ele( n = `View`', `    DATA(lv_value) = client->_bind( mv_text ).\n${extra}    view->ele( n = \`View\``)
+      .replace('v = client->_bind( mv_text ) )->end( ).', 'v = lv_value )->end( ).');
+    const src = cap();
+    const hits = of(src, 'client-handle-capture');
+    assert(hits.length === 1 && hits[0].fixes?.length === 2, 'one finding, a delete and an inline');
+    const out = fixed(src, 'client-handle-capture');
+    assert(!/lv_value/.test(out) && out.includes('v = client->_bind( mv_text ) )->end( ).'), 'the call stands where the name was, the capture is gone');
+    assert(of(out, 'client-handle-capture').length === 0, 'and the finding is gone');
+    const twice = of(cap('    mv_text = lv_value.\n'), 'client-handle-capture');
+    assert(twice.length === 1 && !twice[0].fixes, 'a name read twice keeps the finding without a fix');
+  });
+
+  section('missing-view-display-on-navigated fix: the init branch\'s display is copied into the branch', () => {
+    const src = dispatcher('    IF client->check_on_init( ).\n      mv_text = `x`.\n      client->view_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      mv_text = `back`.\n    ENDIF.\n');
+    const hits = of(src, 'missing-view-display-on-navigated');
+    assert(hits.length === 1 && hits[0].fixes?.length === 1, 'the branch carries a fix');
+    const out = fixed(src, 'missing-view-display-on-navigated');
+    assert(out.includes('      mv_text = `back`.\n      client->view_display( render( ) ).\n    ENDIF.'), 'written as the branch\'s last statement');
+    assert(judge(out).length === 0, 'the fixed class is clean');
+    const two = dispatcher('    IF client->check_on_init( ).\n      client->view_display( render( ) ).\n      client->popup_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      mv_text = `back`.\n    ENDIF.\n');
+    const t = of(two, 'missing-view-display-on-navigated');
+    assert(t.length === 1 && !t[0].fixes, 'two displays in the init branch: reported, no fix');
+  });
+
+  section('unknown-binding-path fix: a case miss on a field is rewritten, a missing field keeps the finding', () => {
+    const src = frame({ attrs: '            )->a( n = `tooltip` v = `{/mv_text}`\n            )->a( n = `icon` v = `{/NOPE}`\n' });
+    const hits = of(src, 'unknown-binding-path');
+    assert(hits.length === 2 && hits[0].suggestion === 'MV_TEXT' && hits[0].fixes?.length === 1 && !hits[1].fixes && !('keys' in hits[0]), 'the case miss carries the pair, the finding no key list');
+    const out = fixed(src, 'unknown-binding-path');
+    assert(out.includes('v = `{/MV_TEXT}`') && of(out, 'unknown-binding-path').length === 1, 'rewritten; the real miss stays');
+  });
+
+  section('excess-shut fix: the end( ) past the root is deleted', () => {
+    const src = frame({ chain: '        )->end(\n        )->end(\n' });
+    const hits = of(src, 'excess-shut');
+    assert(hits.length === 1 && hits[0].fixes?.length === 1, 'one finding with a fix');
+    const out = fixed(src, 'excess-shut');
+    assert(out.includes('        )->end(\n        )->end(\n        ).') && of(out, 'excess-shut').length === 0, 'the last end( ) is gone, the paren stays');
+  });
+
+  section('insecure-asset-url fix: a loaded uri goes https, a hyperlink keeps its hint', () => {
+    const src = frame({ chain: '          )->tag( `Image` )->a( n = `src` v = `http://x.org/a.png`\n          )->tag( `Link` )->a( n = `href` v = `http://x.org/` )->a( n = `target` v = `_blank`\n' });
+    const hits = of(src, 'insecure-asset-url');
+    assert(hits.length === 2, `two findings (${hits.length})`);
+    const img = hits.find((h) => h.member === 'src');
+    const link = hits.find((h) => h.member === 'href');
+    assert(img?.fixes?.length === 1 && img.severity === 'error' && !link?.fixes && link?.severity === 'hint', 'the image carries the fix, the link does not');
+    const out = fixed(src, 'insecure-asset-url');
+    assert(out.includes('v = `https://x.org/a.png`') && out.includes('v = `http://x.org/`'), 'only the image is rewritten');
+  });
 }

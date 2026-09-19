@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 140 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 144 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -190,6 +190,10 @@
         "boolc-instead-of-xsdbool": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'boolc-instead-of-xsdbool' — default severity: warning"
+        },
+        "bound-aggregation-without-template": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'bound-aggregation-without-template' — default severity: error"
         },
         "byte-order-mark": {
           "$ref": "#/definitions/rule",
@@ -302,6 +306,10 @@
         "duplicate-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'duplicate-property' — default severity: error"
+        },
+        "editable-control-without-binding": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'editable-control-without-binding' — default severity: hint"
         },
         "empty-catch-block": {
           "$ref": "#/definitions/rule",
@@ -462,6 +470,10 @@
         "live-event-roundtrip": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'live-event-roundtrip' — default severity: hint"
+        },
+        "loop-work-area-bound": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'loop-work-area-bound' — default severity: warning"
         },
         "manual-init-flag": {
           "$ref": "#/definitions/rule",
@@ -662,6 +674,10 @@
         "unknown-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-property' — default severity: error"
+        },
+        "unknown-source-property": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-source-property' — default severity: hint"
         },
         "unknown-view-slot": {
           "$ref": "#/definitions/rule",
