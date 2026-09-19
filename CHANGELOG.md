@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Three more rules, and `live-event-roundtrip` learns the framework's own
+  remedy.** `second-root` (an error: a second element at the document's top
+  level — the split chain after a standalone `factory( ).`, whose variable
+  holds the root so the next statement adds a sibling of the `mvc:View`;
+  the render gate rejected the document as native HTML, the property gate
+  never said why), `message-box-removed-parameter` (an error: the pure UI5
+  options abap2UI5#2748 took off `message_box_display( )` and
+  `message_toast_display( )` — a call naming one does not compile on a
+  current pin; no fix, the value moves into the CONTROL_GLOBAL option
+  object), `smart-variant-without-init` (a warning: a SmartVariantManagement
+  in the view and no `cs_event-smart_variant_init` wire in the class —
+  saving a variant fails inside sap.ui.fl with nothing red). And
+  `live-event-roundtrip` judges every `live*` event now, is silent for a
+  wire carrying `s_ctrl-check_queue_last`, and carries a `--fix` that
+  writes that flag with `check_no_busy` (a positional event name becomes
+  `val = …` to make room).
+
 - **Four more abap2UI5-specific rules.** `loop-work-area-bound` (a
   `_bind( )` on the work area of a `LOOP AT` — an attribute work area binds
   ONE path for every row, a local or a field symbol a path the model never

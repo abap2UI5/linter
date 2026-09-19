@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 144 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 147 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -487,6 +487,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'member-too-new' — default severity: warning"
         },
+        "message-box-removed-parameter": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'message-box-removed-parameter' — default severity: error"
+        },
         "missing-accessibility": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-accessibility' — default severity: hint"
@@ -579,6 +583,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'sapui5-only-control' — default severity: error"
         },
+        "second-root": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'second-root' — default severity: error"
+        },
         "separate-lifecycle-ifs": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'separate-lifecycle-ifs' — default severity: warning"
@@ -586,6 +594,10 @@
         "settable-property-via-action": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'settable-property-via-action' — default severity: hint"
+        },
+        "smart-variant-without-init": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'smart-variant-without-init' — default severity: warning"
         },
         "source-line-too-long": {
           "$ref": "#/definitions/rule",

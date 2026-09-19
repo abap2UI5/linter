@@ -328,4 +328,50 @@ export default async function ({ section, assert, checkAbapSource }) {
     const out = fixed(src, 'insecure-asset-url');
     assert(out.includes('v = `https://x.org/a.png`') && out.includes('v = `http://x.org/`'), 'only the image is rewritten');
   });
+
+  // ---------------------------------------------------------------- third batch
+
+  section('second-root: the split chain after a standalone factory( ), and the hanging form', () => {
+    const head = 'CLASS zcl_roots DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_text TYPE string.\nENDCLASS.\n\nCLASS zcl_roots IMPLEMENTATION.\n\n  METHOD z2ui5_if_app~main.\n';
+    const tail = '    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const broken = head + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc` )->ele( `Page` ).\n    view->tag( `Button` )->a( n = `text` v = client->_bind( mv_text ) ).\n' + tail;
+    const hits = of(broken, 'second-root');
+    assert(hits.length === 1 && hits[0].control === 'Button' && hits[0].value === 'View' && hits[0].severity === 'error', `one error naming both roots (${hits.length}, ${hits[0]?.control}/${hits[0]?.value})`);
+    assert(hits[0].line === 12, `reported on the second root's statement (${hits[0].line})`);
+    const hanging = head + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( )->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc` )->ele( `Page` ).\n    view->tag( `Button` )->a( n = `text` v = client->_bind( mv_text ) ).\n' + tail;
+    assert(of(hanging, 'second-root').length === 0, 'the chain hanging off the factory( ) is one document');
+  });
+
+  section('message-box-removed-parameter: the options #2748 took off both methods', () => {
+    const src = frame({ main: '    client->message_box_display( text = `x` type = `error` icon = `WARNING` contentwidth = `30rem` ).\n    client->message_toast_display( text = `saved` duration = `3000` width = `20em` ).\n' });
+    const hits = of(src, 'message-box-removed-parameter');
+    assert(hits.length === 3 && hits.every((h) => h.severity === 'error'), `three errors (${hits.length})`);
+    assert(hits.map((h) => h.member).join(',') === 'icon,contentwidth,width', `each names its parameter (${hits.map((h) => h.member).join(',')})`);
+    assert(hits[0].line === 13 && hits[2].line === 14 && hits[2].value === 'message_toast_display', 'each sits on its call and names the method');
+    const fine = frame({ main: '    client->message_box_display( text = `x` type = `error` title = `T` onclose = client->_event( `CLOSE` ) ).\n    IF client->check_on_event( `CLOSE` ).\n    ENDIF.\n' });
+    assert(of(fine, 'message-box-removed-parameter').length === 0, 'the parameters that stayed are fine');
+  });
+
+  section('smart-variant-without-init: the control without the handshake, and with it', () => {
+    const smart = (main = '') => frame({ main, chain: '          )->tag( n = `SmartVariantManagement` ns = `smartvariants` )->a( n = `id` v = `pageVariant`\n' }).replace('        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n', '        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n        )->a( n = `xmlns:smartvariants` v = `sap.ui.comp.smartvariants`\n');
+    const hits = of(smart(), 'smart-variant-without-init');
+    assert(hits.length === 1 && hits[0].member === 'pageVariant' && hits[0].severity === 'warning', `one warning naming the id (${hits.length}, ${hits[0]?.member})`);
+    assert(of(smart('    client->follow_up_action( val = client->cs_event-smart_variant_init t_arg = VALUE #( ( `pageVariant` ) ) ).\n'), 'smart-variant-without-init').length === 0, 'the wire silences it');
+  });
+
+  section('live-event-roundtrip: every live* event, silent with check_queue_last, the fix writes the flag', () => {
+    const wire = (attr, call) => frame({ chain: `          )->tag( \`Input\` )->a( n = \`${attr}\` v = ${call}\n`, main: '    IF client->check_on_event( `S` ).\n    ENDIF.\n' });
+    const pos = wire('liveChange', 'client->_event( `S` )');
+    const p = of(pos, 'live-event-roundtrip');
+    assert(p.length === 1 && p[0].fixes?.length === 1 && p[0].member === 'liveChange', 'a positional live wire is reported with a fix');
+    const out = fixed(pos, 'live-event-roundtrip');
+    assert(out.includes('client->_event( val = `S` s_ctrl = VALUE #( check_queue_last = abap_true check_no_busy = abap_true ) )'), 'the positional name becomes val = and the flag follows');
+    assert(of(out, 'live-event-roundtrip').length === 0, 'and the finding is gone');
+    const named = fixed(wire('liveChange', 'client->_event( val = `S` arg = `${$source>/value}` )'), 'live-event-roundtrip');
+    assert(named.includes('arg = `${$source>/value}` s_ctrl = VALUE #( check_queue_last = abap_true check_no_busy = abap_true ) )'), 'a named call gets the flag appended');
+    assert(of(wire('liveChange', 'client->_event( val = `S` s_ctrl = VALUE #( check_queue_last = abap_true ) )'), 'live-event-roundtrip').length === 0, 'the flag silences the rule');
+    const other = of(wire('liveChange', 'client->_event( val = `S` s_ctrl = ms_ctrl )'), 'live-event-roundtrip');
+    assert(other.length === 1 && !other[0].fixes, 'an s_ctrl the rule cannot read: reported, no fix');
+    assert(of(wire('change', 'client->_event( `S` )'), 'live-event-roundtrip').length === 0, 'a final-value event is not a live wire');
+  });
 }
