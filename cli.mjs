@@ -128,6 +128,22 @@
  *                      .view.xml/.fragment.xml is checked as a raw view,
  *                      anything else as an ABAP class - unless the content
  *                      itself starts with '<'
+ *   --watch            run once, then keep running: every checked file (and
+ *                      every new file under a checked directory), the config
+ *                      file and the baseline are watched, and a change re-runs
+ *                      the same run - the config is read again, so an edit to
+ *                      it takes effect too. The loop for an editor that has no
+ *                      linter of its own (Eclipse ADT, synced through abapGit):
+ *                      save, pull, read. Reports go to stdout as usual, a
+ *                      separator with the time and the changed file goes to
+ *                      stderr between runs, and the render gate, when it is
+ *                      configured, keeps one warm browser across the runs. The
+ *                      process never fails while watching - Ctrl+C ends it
+ *                      with exit 0. Refused with the single-run modes and
+ *                      outputs (--stdin, --screenshot, --fix, --fix-dry-run,
+ *                      --update-baseline, --badge, --badge-corpus, --sarif-out,
+ *                      --json-out) and with any --format but stylish; a badge
+ *                      the config names is not written either
  *   --no-render        skip the render gate (no browser/@openui5 needed)
  *   --render           require the render gate: without its runtime the run
  *                      fails instead of falling back to the property gate.
@@ -168,7 +184,7 @@ import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
-import { missingRenderDeps, renderFallback, renderDepsError } from './lib/render.mjs';
+import { missingRenderDeps, renderFallback, renderDepsError, openRenderer } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint } from './lib/report.mjs';
@@ -183,7 +199,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
-  + '[--screenshot-model <file.json>] '
+  + '[--screenshot-model <file.json>] [--watch] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--version] [--help]';
 
 /* USAGE is one 679-character string, and it was printed as one line. `--help`
@@ -215,7 +231,17 @@ const wrapUsage = (text, width = 78) => {
 const usageBlock = () =>
   `${wrapUsage(USAGE)}\ntry \`abap2ui5lint --help\` for what each flag does.`;
 
+/* Bad usage or a bad config: one line on stderr and exit 2. Inside the watch
+ * loop (`watching`, set once the first run is through) the same condition is
+ * printed and the loop goes on waiting - a config edited into a syntax error
+ * is exactly the kind of change the next save corrects, and a watcher that
+ * dies on it has to be restarted by hand for every typo. */
+class UsageError extends Error {
+  constructor(message) { super(message); this.code = 'ERR_USAGE'; }
+}
+let watching = false;
 const die = (message) => {
+  if (watching) throw new UsageError(message);
   console.error(`abap2ui5lint: ${message}`);
   process.exit(2);
 };
@@ -284,6 +310,8 @@ let stdinMode = false;
 let stdinName = '<stdin>';
 // --screenshot and its two dials: a MODE, not a gate (see the run below)
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
+// --watch: the same run, again on every change (see watchLoop below)
+let watchMode = false;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   // a flag that takes a value must actually have one - `--allow` as the last
@@ -362,6 +390,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--cache-location') { opt.cacheLocation = value(); }
   else if (a === '--stdin') stdinMode = true;
   else if (a === '--stdin-filename') stdinName = value();
+  else if (a === '--watch') watchMode = true;
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
@@ -472,388 +501,609 @@ for (let i = 0; i < args.length; i++) {
   else paths.push(a);
 }
 
-// abap2ui5lint.jsonc - the committed settings of the checked repo
-if (!noConfig) {
-  const configFile = configFlag ?? findConfig(process.cwd(), paths);
-  if (configFlag || configFile) {
-    let cfg;
-    try {
-      cfg = loadConfig(configFile);
-    } catch (e) {
-      die(e.message);
-    }
-    applyConfig(opt, seen, cfg);
-    // a config that names the render gate is asking for it, the same way
-    // --render does: from here on a missing runtime is an error, not a
-    // fallback. `render: false` says property-only, which needs no runtime.
-    if (cfg.render === true && !seen.has('render')) renderAsked = true;
-    if (!paths.length && cfg.paths) {
-      const base = path.dirname(configFile);
-      paths.push(...cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p))));
-    }
-    // a baseline named in the config lives next to the config, not the cwd
-    if (!seen.has('baseline') && cfg.baseline) {
-      opt.baseline = path.resolve(path.dirname(configFile), cfg.baseline);
-    }
-    // ditto the badge files: the config says where in the REPO they belong
-    if (!seen.has('badge') && cfg.badge) {
-      opt.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file) }));
-    }
-  }
-}
-if (!paths.length) paths.push('src');
-
-/* --stdin: the property gate over piped source. The render gate stays off -
- * it is built around a file corpus and a browser session, and a piped buffer
- * is the one-file editor/pre-commit case where the property gate is the
- * value. Asked-for render, --fix and --screenshot are refused rather than
- * silently ignored. */
-if (stdinMode) {
-  if (opt.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
-  if (shot.out) die('--stdin cannot be combined with --screenshot');
-  if (renderAsked) die('--stdin runs the property gate only - write the source to a file to render it');
-  opt.render = false;
-  opt.cache = false;
-}
-
-/* The render gate is on by default and its ~118 MB runtime is deliberately
- * not, so a fresh `npx @abap2ui5/linter src` would refuse to run at all. A
- * gate nobody asked for therefore steps aside for the property gate and says
- * so - loudly, on stderr, so a piped --json stays parseable and the notice
- * still reaches a terminal. An ASKED-for gate keeps the hard refusal. */
-{
-  const fallback = renderFallback({
-    render: opt.render, asked: renderAsked, missing: opt.render ? missingRenderDeps() : [],
-  });
-  if (fallback) {
-    opt.render = false;
-    console.error(process.env.GITHUB_ACTIONS === 'true'
-      ? `::warning::${fallback}` : `abap2ui5lint: ${fallback}`);
+/* --watch is a loop over the whole run, and the run's single-document modes
+ * and outputs have no place in one: a SARIF or JSON document is a record of
+ * ONE run, a badge is a verdict written to disk, --fix rewrites the files the
+ * loop watches (its own edits would re-trigger it), --stdin has nothing to
+ * watch and --screenshot/--update-baseline are modes that end. Refused rather
+ * than silently ignored, the way --stdin refuses --fix. */
+if (watchMode) {
+  const clash = stdinMode ? '--stdin'
+    : shot.out ? '--screenshot'
+      : updateBaseline ? '--update-baseline'
+        : opt.fixDryRun ? '--fix-dry-run'
+          : opt.fix ? '--fix'
+            : opt.badge?.some((b) => b.kind === 'corpus') ? '--badge-corpus'
+              : opt.badge?.length ? '--badge'
+                : opt.sarifOut ? '--sarif-out'
+                  : opt.jsonOut ? '--json-out'
+                    : null;
+  if (clash) die(`--watch cannot be combined with ${clash} - a watch re-runs the report, and ${clash} is a single-run mode or output`);
+  if (opt.format !== 'stylish') {
+    die(`--watch prints the stylish report only - --format ${opt.format} is one document per run, not a loop`);
   }
 }
 
-let files;
-if (stdinMode) {
-  files = [stdinName]; // one virtual file - the source arrives below
-} else {
-  try {
-    // `ignore` is repo-level and config-only on purpose: it describes the tree,
-    // which is a property of the repo rather than of one invocation
-    files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
-  } catch (e) {
-    // a mistyped path is bad usage, not a crash - exit 2 with one clean line
-    die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
-  }
-}
-/*
- * --screenshot: the render gate turned around. Instead of asking whether the
- * view survives creation, it keeps the view standing and photographs it - the
- * only way to SEE an abap2UI5 view without activating the class on a system
- * and launching the app.
- *
- * A mode, not an additional gate: nothing else runs, and stdout carries the
- * written paths and nothing else, one per line, so a caller (an editor, a
- * workflow uploading screenshots as artefacts) can just read them. Everything
- * a human wants to know beyond that goes to stderr.
- */
-if (shot.out) {
-  const missing = missingRenderDeps();
-  if (missing.length) die(renderDepsError(missing).message);
-  if (!files.length) die('no view to photograph in the given path(s)');
-  const shots = await screenshotFiles(files, shot);
-  const taken = shots.filter((s) => s.png);
-  /* One picture keeps the name it was given; several have to be told apart,
-   * and by the CLASS they came from rather than by a counter - a directory
-   * full of shot-1.png says nothing about which app broke. */
-  const base = shot.out.replace(/\.png$/i, '');
-  const nameOf = (s) => {
-    if (taken.length === 1) return shot.out.endsWith('.png') ? shot.out : `${shot.out}.png`;
-    const stem = path.basename(s.file).replace(/\.(clas\.abap|abap|view\.xml|fragment\.xml|xml)$/i, '');
-    // the viewport belongs in the name as soon as there is more than one:
-    // three files called zcl_app.png would be a device matrix nobody can read
-    const size = shot.sizes.length > 1 ? `-${s.size.width}x${s.size.height}` : '';
-    return `${base}-${stem}${s.index ? `-${s.index + 1}` : ''}${size}.png`;
-  };
-  for (const s of shots) {
-    const where = path.relative(process.cwd(), s.file) || s.file;
-    if (!s.png) {
-      console.error(`abap2ui5lint: ${where} - ${s.errors[0] ?? 'no picture'}`);
-      continue;
-    }
-    const target = path.resolve(nameOf(s));
-    try {
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, s.png);
-    } catch (e) {
-      die(`could not write ${target}: ${e.message}`);
-    }
-    console.log(target);
-    /* Render errors do NOT suppress the picture: a view with one broken
-     * binding still comes up, and the half that rendered is exactly what the
-     * author needs to look at. They are said out loud all the same. */
-    for (const e of s.errors) console.error(`abap2ui5lint: ${where} - ${e}`);
-  }
-  process.exit(taken.length ? 0 : 1);
-}
+/* The flags as parsed, kept apart from any run: a run starts from a COPY and
+ * lays the config over it, so that under --watch an edited abap2ui5lint.jsonc
+ * is read again and lands on the flags as they were typed - not on top of the
+ * settings the previous config left behind. */
+const parsed = { opt: structuredClone(opt), paths: [...paths], renderAsked };
 
-/* The badges: shields.io endpoint files, so the README of a checked repo can
- * carry what its corpus IS and what the gate said about it. Written on every
- * run that got as far as a verdict - including a failing one and including
- * the one below that found NOTHING, which is the state a stale "148 apps"
- * and "clean" would hide longest - and always before the exit code is
- * decided. */
-const emitBadge = (summary, stats) => {
-  if (!opt.badge) return;
-  for (const badge of opt.badge) {
-    try {
-      fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
-      fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`);
-    } catch (e) {
-      die(`could not write the badge file ${badge.file}: ${e.message}`);
-    }
-    if (opt.format === 'stylish' && !opt.quiet) {
-      console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+/** The settings of one run: the parsed flags, the config file (found or
+ *  named), the paths, and the render gate's fallback decided. */
+function resolveRun() {
+  const o = structuredClone(parsed.opt);
+  const runPaths = [...parsed.paths];
+  let asked = parsed.renderAsked;
+  let configFile = null;
+  // abap2ui5lint.jsonc - the committed settings of the checked repo
+  if (!noConfig) {
+    configFile = configFlag ?? findConfig(process.cwd(), runPaths);
+    if (configFlag || configFile) {
+      let cfg;
+      try {
+        cfg = loadConfig(configFile);
+      } catch (e) {
+        die(e.message);
+      }
+      applyConfig(o, seen, cfg);
+      // a config that names the render gate is asking for it, the same way
+      // --render does: from here on a missing runtime is an error, not a
+      // fallback. `render: false` says property-only, which needs no runtime.
+      if (cfg.render === true && !seen.has('render')) asked = true;
+      if (!runPaths.length && cfg.paths) {
+        const base = path.dirname(configFile);
+        runPaths.push(...cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p))));
+      }
+      // a baseline named in the config lives next to the config, not the cwd
+      if (!seen.has('baseline') && cfg.baseline) {
+        o.baseline = path.resolve(path.dirname(configFile), cfg.baseline);
+      }
+      // ditto the badge files: the config says where in the REPO they belong
+      if (!seen.has('badge') && cfg.badge) {
+        o.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file) }));
+      }
     }
   }
-};
+  if (!runPaths.length) runPaths.push('src');
+  // a badge is a verdict written to disk, and a watch is not one verdict -
+  // the flags are refused above, the config's block is stood down here
+  if (watchMode) o.badge = null;
 
-if (!files.length) {
-  const empty = { ...summarize([]), failing: 0 };
-  if (opt.format === 'json') {
-    // the same shape a real run prints - built by the one formatter, so the
-    // frozen --json contract cannot drift between the two paths
-    console.log(formatJson([], empty, opt));
-  } else {
-    console.log(opt.allClasses
-      ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
-      : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
-  }
-  emitBadge(empty, runStats([]));
-  process.exit(0);
-}
-
-/* --fix is a pass of its own: the property gate alone (a fix never depends on
- * the render result), rewrite, then the normal run reports what is left -
- * which is what makes `--fix` safe to put in front of any other flag. */
-if (opt.fix) {
-  const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
-  let files_ = 0;
-  let fixed = 0;
-  let deferred = 0;
-  let dropped = 0;
-  const droppedIn = [];
-  for (const r of await checkFiles(files, { ...opt, render: false })) {
-    const source = fs.readFileSync(r.file, 'utf8');
-    const result = applyFixes(source, r.findings);
-    deferred += result.deferred;
-    if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
-    if (!result.applied) continue;
-    files_++;
-    fixed += result.applied;
-    if (!dryRun) fs.writeFileSync(r.file, result.output);
-  }
-  if (fixed && opt.format === 'stylish') {
-    console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
-      `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
-  }
-  /* A dropped span is a defect in a RULE, not in the checked repo, and it is
-   * the one outcome `--fix` used to keep to itself: the finding survives every
-   * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
-   * a piped --json run stays parseable. */
-  if (dropped) {
-    console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
-      + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`
-      + ' This is a linter bug, not a defect in your source - please report it at'
-      + ' https://github.com/abap2UI5/linter/issues');
-  }
-}
-
-/* The gates report themselves while they run — on stderr, so a `--json` run
- * piped into something stays exactly as parseable as before. The reporter
- * keeps the phase timings either way: the run summary wants them even when
- * nothing was printed. */
-const progress = createProgress({
-  enabled: opt.progress && !opt.quiet,
-  github: process.env.GITHUB_ACTIONS === 'true',
-});
-opt.onProgress = (ev) => progress.update(ev);
-
-/* The cross-run cache (--cache / "cache": true). Everything a verdict depends
- * on keys the entry — the file's content hash per file, and one context hash
- * over the linter version, the snapshot's ui5Version and the resolved
- * settings — so a hit can safely skip BOTH gates and replay the stored result.
- * The stored result is the full pre-baseline result: the baseline and the
- * exit code are decided per RUN, on replayed findings like on fresh ones. */
-let cache = null;
-if (opt.cache) {
-  const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
-  const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
-  const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
-  cache = { file, context, entries: loadCache(file, context) };
-}
-
-let results;
-try {
+  /* --stdin: the property gate over piped source. The render gate stays off -
+   * it is built around a file corpus and a browser session, and a piped buffer
+   * is the one-file editor/pre-commit case where the property gate is the
+   * value. Asked-for render, --fix and --screenshot are refused rather than
+   * silently ignored. */
   if (stdinMode) {
-    const src = fs.readFileSync(0, 'utf8');
-    // the filename decides the handling, exactly as collectFiles decides it
-    // for a named path: the XML spellings, else content sniff, else ABAP
-    const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
-    const r = isXml
-      ? checkXmlSource(src, { ...opt, file: stdinName })
-      : checkAbapSource(src, { ...opt, file: stdinName });
-    r.file = stdinName;
-    results = [r];
-  } else if (cache) {
-    const slots = files.map((file) => {
-      const hash = hashOf(fs.readFileSync(file, 'utf8'));
-      const hit = cache.entries[path.resolve(file)];
-      /* An entry that parses but does not hold a result (result: null, a
-       * truncated write, a hand-edited file) is a MISS, not a crash - the
-       * cache is expendable by contract, so nothing read from it may be
-       * trusted to have a shape. */
-      const valid = hit && hit.hash === hash
-        && hit.result && typeof hit.result === 'object'
-        && Array.isArray(hit.result.findings);
-      return { file, hash, result: valid ? { ...hit.result, file } : null };
-    });
-    const missing = slots.filter((s) => !s.result).map((s) => s.file);
-    const fresh = missing.length ? await checkFiles(missing, opt) : [];
-    const byFile = new Map(fresh.map((r) => [r.file, r]));
-    for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
-    results = slots.map((s) => s.result);
-    const entries = {};
-    for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
-    /* Written BEFORE the baseline mutates the findings, and tolerantly: a
-     * cache that cannot be written costs the next run time, not correctness. */
-    try { saveCache(cache.file, cache.context, entries); }
-    catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
-  } else {
-    results = await checkFiles(files, opt);
+    if (o.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
+    if (shot.out) die('--stdin cannot be combined with --screenshot');
+    if (asked) die('--stdin runs the property gate only - write the source to a file to render it');
+    o.render = false;
+    o.cache = false;
   }
-  progress.finish();
-} catch (e) {
-  progress.finish();
-  // the render gate's optional deps and the metadata snapshot are both
-  // environment problems worth one actionable line, not a stack trace
-  if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
-  throw e;
+
+  /* The render gate is on by default and its ~118 MB runtime is deliberately
+   * not, so a fresh `npx @abap2ui5/linter src` would refuse to run at all. A
+   * gate nobody asked for therefore steps aside for the property gate and says
+   * so - loudly, on stderr, so a piped --json stays parseable and the notice
+   * still reaches a terminal. An ASKED-for gate keeps the hard refusal. */
+  {
+    const fallback = renderFallback({
+      render: o.render, asked, missing: o.render ? missingRenderDeps() : [],
+    });
+    if (fallback) {
+      o.render = false;
+      console.error(process.env.GITHUB_ACTIONS === 'true'
+        ? `::warning::${fallback}` : `abap2ui5lint: ${fallback}`);
+    }
+  }
+  return { opt: o, paths: runPaths, configFile };
 }
 
-/* The baseline: adopt the linter on a repo that already has findings.
- * --update-baseline freezes the CURRENT findings as accepted debt;
- * a configured baseline suppresses exactly those on every later run, new
- * findings fail normally, and a STALE entry (its finding is gone) fails
- * too — a suppression can never quietly outlive what it suppressed. */
-if (updateBaseline) {
-  const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
-  // keys are relative to the baseline file's own directory, so every runner
-  // (CLI from any cwd, the Action, the VS Code extension) computes the same
-  const map = buildBaseline(results, baselineBase(file));
-  writeBaseline(file, map);
-  const n = [...map.values()].reduce((s, c) => s + c, 0);
-  console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
-  process.exit(0);
-}
-let baselineNote = null;
-let baselineStale = [];
-let baselineStats = null;
-if (opt.baseline && fs.existsSync(opt.baseline)) {
-  let map;
-  try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-  const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
-  baselineStale = stale;
-  baselineStats = { suppressed, byRule, stale: stale.length, file: path.relative(process.cwd(), opt.baseline) };
-  baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
-    + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
-} else if (opt.baseline && !updateBaseline) {
-  die(`baseline file not found: ${opt.baseline} (create it with --update-baseline)`);
-}
-
-const threshold = opt.failOn === 'never' ? Infinity : severityRank(opt.failOn);
-/** Findings at or above the threshold decide the exit code - a hint never
- *  breaks a build unless it was asked to. Render errors count as errors (the
- *  view demonstrably did not load) unless the config's rules['render-error']
- *  says they weigh less. */
-const failsBuild = (r) =>
-  (r.renderErrors.length > 0 && severityRank(r.renderSeverity ?? 'error') >= threshold)
-  || r.findings.some((f) => severityRank(severityOf(f)) >= threshold);
-
-const summary = summarize(results);
-summary.failing = results.filter(failsBuild).length;
-const context = contextLine(opt, summary, snapshotVersion());
-const stats = runStats(results);
-
-/* The run summary answers what the findings cannot: WHAT was checked. A clean
- * corpus is otherwise three lines that read the same whether four thousand
- * controls were judged or the reconstruction produced nothing at all. One
- * file needs none of that, so the default is by corpus size. */
-const showStats = (opt.stats ?? files.length > 1) && !opt.quiet;
-const reportOpt = {
-  ...opt,
-  context,
-  stats: showStats ? stats : null,
-  times: progress.times,
-  baseline: baselineStats,
+/* The watch loop's renderer: one browser and one UI5 boot for the whole
+ * session instead of one per run. checkFiles takes an ALREADY-OPEN renderer
+ * (`opt.renderer`, the contract mcp-server keeps a warm Chromium on) and then
+ * never closes it, so the loop owns it: opened on the first run that renders,
+ * dropped when a run fails through it (a browser that died is replaced by the
+ * next run, not reported forever), closed on Ctrl+C. The pool size is the
+ * run's --render-pages, decided at open time - a later change to it in the
+ * config only takes effect on the next start. */
+let warm = null;
+const rendererFor = async (o) => {
+  if (!watchMode || !o.render) return undefined;
+  if (!warm) {
+    const pages = Number.isInteger(o.renderPages) && o.renderPages > 0 ? o.renderPages : 4;
+    // Ctrl+C is this loop's to answer (exit 0, see stop below), not
+    // Playwright's, whose default handler would exit the process with 130
+    warm = await openRenderer({ pages, handleSIGINT: false });
+  }
+  return warm;
+};
+const dropWarm = async () => {
+  const r = warm;
+  warm = null;
+  if (r) await r.close().catch(() => {});
 };
 
-if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
-else if (opt.format === 'sarif') console.log(formatSarif(results));
-else if (opt.format === 'checkstyle') console.log(formatCheckstyle(results));
-else if (opt.format === 'junit') console.log(formatJunit(results));
-else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
-else console.log(formatStylish(results, summary, reportOpt));
-
-/* A machine report written BESIDE the human one, in the same run.
- *
- * Without this a workflow that wants both - the annotated stylish report in
- * the log AND a SARIF file for code scanning, or the counts for a later step -
- * has to run the whole thing twice, and the second run pays the render gate
- * again. The formatters are pure functions of `results`, so the sidecar costs
- * a serialization and nothing else. */
-for (const [file, text] of [
-  [opt.sarifOut, () => formatSarif(results)],
-  [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
-]) {
-  if (!file) continue;
-  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-  fs.writeFileSync(file, `${text()}\n`);
-}
-
-emitBadge(summary, stats);
-
-/* Baseline prose rides alongside the HUMAN report only — `--json`/`--sarif`
- * exist to be piped, and a prose line after the document breaks the parse
- * (the same rule the annotations follow). The stale entries still decide
- * the exit code in every format. The note itself is redundant once the run
- * summary carries the same count, so there it shrinks to the stale entries. */
-if (baselineNote && opt.format === 'stylish') {
-  if (!showStats) console.log(baselineNote);
-  for (const s of baselineStale) console.log(`  ! stale: ${s.key} (${s.count})`);
-}
-
-if (opt.verbose && opt.format === 'stylish') {
-  for (const r of results) {
-    for (const n of r.notes) console.log(`note: ${path.relative(process.cwd(), r.file)}: ${n}`);
+/**
+ * One run over the resolved settings, returning the exit code instead of
+ * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
+ * run exits with it; the watch loop reports it and waits for the next change.
+ */
+async function runOnce({ opt, paths }) {
+  let files;
+  if (stdinMode) {
+    files = [stdinName]; // one virtual file - the source arrives below
+  } else {
+    try {
+      // `ignore` is repo-level and config-only on purpose: it describes the tree,
+      // which is a property of the repo rather than of one invocation
+      files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
+    } catch (e) {
+      // a mistyped path is bad usage, not a crash - exit 2 with one clean line
+      die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
+    }
   }
+  /*
+   * --screenshot: the render gate turned around. Instead of asking whether the
+   * view survives creation, it keeps the view standing and photographs it - the
+   * only way to SEE an abap2UI5 view without activating the class on a system
+   * and launching the app.
+   *
+   * A mode, not an additional gate: nothing else runs, and stdout carries the
+   * written paths and nothing else, one per line, so a caller (an editor, a
+   * workflow uploading screenshots as artefacts) can just read them. Everything
+   * a human wants to know beyond that goes to stderr.
+   */
+  if (shot.out) {
+    const missing = missingRenderDeps();
+    if (missing.length) die(renderDepsError(missing).message);
+    if (!files.length) die('no view to photograph in the given path(s)');
+    const shots = await screenshotFiles(files, shot);
+    const taken = shots.filter((s) => s.png);
+    /* One picture keeps the name it was given; several have to be told apart,
+     * and by the CLASS they came from rather than by a counter - a directory
+     * full of shot-1.png says nothing about which app broke. */
+    const base = shot.out.replace(/\.png$/i, '');
+    const nameOf = (s) => {
+      if (taken.length === 1) return shot.out.endsWith('.png') ? shot.out : `${shot.out}.png`;
+      const stem = path.basename(s.file).replace(/\.(clas\.abap|abap|view\.xml|fragment\.xml|xml)$/i, '');
+      // the viewport belongs in the name as soon as there is more than one:
+      // three files called zcl_app.png would be a device matrix nobody can read
+      const size = shot.sizes.length > 1 ? `-${s.size.width}x${s.size.height}` : '';
+      return `${base}-${stem}${s.index ? `-${s.index + 1}` : ''}${size}.png`;
+    };
+    for (const s of shots) {
+      const where = path.relative(process.cwd(), s.file) || s.file;
+      if (!s.png) {
+        console.error(`abap2ui5lint: ${where} - ${s.errors[0] ?? 'no picture'}`);
+        continue;
+      }
+      const target = path.resolve(nameOf(s));
+      try {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, s.png);
+      } catch (e) {
+        die(`could not write ${target}: ${e.message}`);
+      }
+      console.log(target);
+      /* Render errors do NOT suppress the picture: a view with one broken
+       * binding still comes up, and the half that rendered is exactly what the
+       * author needs to look at. They are said out loud all the same. */
+      for (const e of s.errors) console.error(`abap2ui5lint: ${where} - ${e}`);
+    }
+    return taken.length ? 0 : 1;
+  }
+
+  /* The badges: shields.io endpoint files, so the README of a checked repo can
+   * carry what its corpus IS and what the gate said about it. Written on every
+   * run that got as far as a verdict - including a failing one and including
+   * the one below that found NOTHING, which is the state a stale "148 apps"
+   * and "clean" would hide longest - and always before the exit code is
+   * decided. */
+  const emitBadge = (summary, stats) => {
+    if (!opt.badge) return;
+    for (const badge of opt.badge) {
+      try {
+        fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
+        fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`);
+      } catch (e) {
+        die(`could not write the badge file ${badge.file}: ${e.message}`);
+      }
+      if (opt.format === 'stylish' && !opt.quiet) {
+        console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
+      }
+    }
+  };
+
+  if (!files.length) {
+    const empty = { ...summarize([]), failing: 0 };
+    if (opt.format === 'json') {
+      // the same shape a real run prints - built by the one formatter, so the
+      // frozen --json contract cannot drift between the two paths
+      console.log(formatJson([], empty, opt));
+    } else {
+      console.log(opt.allClasses
+        ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
+        : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
+    }
+    emitBadge(empty, runStats([]));
+    return 0;
+  }
+
+  /* --fix is a pass of its own: the property gate alone (a fix never depends on
+   * the render result), rewrite, then the normal run reports what is left -
+   * which is what makes `--fix` safe to put in front of any other flag. */
+  if (opt.fix) {
+    const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
+    let files_ = 0;
+    let fixed = 0;
+    let deferred = 0;
+    let dropped = 0;
+    const droppedIn = [];
+    for (const r of await checkFiles(files, { ...opt, render: false })) {
+      const source = fs.readFileSync(r.file, 'utf8');
+      const result = applyFixes(source, r.findings);
+      deferred += result.deferred;
+      if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
+      if (!result.applied) continue;
+      files_++;
+      fixed += result.applied;
+      if (!dryRun) fs.writeFileSync(r.file, result.output);
+    }
+    if (fixed && opt.format === 'stylish') {
+      console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
+        `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
+    }
+    /* A dropped span is a defect in a RULE, not in the checked repo, and it is
+     * the one outcome `--fix` used to keep to itself: the finding survives every
+     * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
+     * a piped --json run stays parseable. */
+    if (dropped) {
+      console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
+        + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`
+        + ' This is a linter bug, not a defect in your source - please report it at'
+        + ' https://github.com/abap2UI5/linter/issues');
+    }
+  }
+
+  /* The gates report themselves while they run — on stderr, so a `--json` run
+   * piped into something stays exactly as parseable as before. The reporter
+   * keeps the phase timings either way: the run summary wants them even when
+   * nothing was printed. */
+  const progress = createProgress({
+    enabled: opt.progress && !opt.quiet,
+    github: process.env.GITHUB_ACTIONS === 'true',
+  });
+  opt.onProgress = (ev) => progress.update(ev);
+
+  /* The cross-run cache (--cache / "cache": true). Everything a verdict depends
+   * on keys the entry — the file's content hash per file, and one context hash
+   * over the linter version, the snapshot's ui5Version and the resolved
+   * settings — so a hit can safely skip BOTH gates and replay the stored result.
+   * The stored result is the full pre-baseline result: the baseline and the
+   * exit code are decided per RUN, on replayed findings like on fresh ones. */
+  let cache = null;
+  if (opt.cache) {
+    const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+    const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
+    const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
+    cache = { file, context, entries: loadCache(file, context) };
+  }
+
+  let results;
+  try {
+    // the watch loop's warm browser, or nothing: checkFiles opens its own then
+    opt.renderer = await rendererFor(opt);
+    if (stdinMode) {
+      const src = fs.readFileSync(0, 'utf8');
+      // the filename decides the handling, exactly as collectFiles decides it
+      // for a named path: the XML spellings, else content sniff, else ABAP
+      const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
+      const r = isXml
+        ? checkXmlSource(src, { ...opt, file: stdinName })
+        : checkAbapSource(src, { ...opt, file: stdinName });
+      r.file = stdinName;
+      results = [r];
+    } else if (cache) {
+      const slots = files.map((file) => {
+        const hash = hashOf(fs.readFileSync(file, 'utf8'));
+        const hit = cache.entries[path.resolve(file)];
+        /* An entry that parses but does not hold a result (result: null, a
+         * truncated write, a hand-edited file) is a MISS, not a crash - the
+         * cache is expendable by contract, so nothing read from it may be
+         * trusted to have a shape. */
+        const valid = hit && hit.hash === hash
+          && hit.result && typeof hit.result === 'object'
+          && Array.isArray(hit.result.findings);
+        return { file, hash, result: valid ? { ...hit.result, file } : null };
+      });
+      const missing = slots.filter((s) => !s.result).map((s) => s.file);
+      const fresh = missing.length ? await checkFiles(missing, opt) : [];
+      const byFile = new Map(fresh.map((r) => [r.file, r]));
+      for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
+      results = slots.map((s) => s.result);
+      const entries = {};
+      for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
+      /* Written BEFORE the baseline mutates the findings, and tolerantly: a
+       * cache that cannot be written costs the next run time, not correctness. */
+      try { saveCache(cache.file, cache.context, entries); }
+      catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
+    } else {
+      results = await checkFiles(files, opt);
+    }
+    progress.finish();
+  } catch (e) {
+    progress.finish();
+    // a run that failed through the warm browser does not keep it: the next
+    // run opens a fresh one instead of failing the same way forever
+    if (opt.renderer) await dropWarm();
+    // the render gate's optional deps and the metadata snapshot are both
+    // environment problems worth one actionable line, not a stack trace
+    if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
+    throw e;
+  }
+
+  /* The baseline: adopt the linter on a repo that already has findings.
+   * --update-baseline freezes the CURRENT findings as accepted debt;
+   * a configured baseline suppresses exactly those on every later run, new
+   * findings fail normally, and a STALE entry (its finding is gone) fails
+   * too — a suppression can never quietly outlive what it suppressed. */
+  if (updateBaseline) {
+    const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
+    // keys are relative to the baseline file's own directory, so every runner
+    // (CLI from any cwd, the Action, the VS Code extension) computes the same
+    const map = buildBaseline(results, baselineBase(file));
+    writeBaseline(file, map);
+    const n = [...map.values()].reduce((s, c) => s + c, 0);
+    console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
+    return 0;
+  }
+  let baselineNote = null;
+  let baselineStale = [];
+  let baselineStats = null;
+  if (opt.baseline && fs.existsSync(opt.baseline)) {
+    let map;
+    try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
+    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
+    baselineStale = stale;
+    baselineStats = { suppressed, byRule, stale: stale.length, file: path.relative(process.cwd(), opt.baseline) };
+    baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
+      + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
+  } else if (opt.baseline && !updateBaseline) {
+    die(`baseline file not found: ${opt.baseline} (create it with --update-baseline)`);
+  }
+
+  const threshold = opt.failOn === 'never' ? Infinity : severityRank(opt.failOn);
+  /** Findings at or above the threshold decide the exit code - a hint never
+   *  breaks a build unless it was asked to. Render errors count as errors (the
+   *  view demonstrably did not load) unless the config's rules['render-error']
+   *  says they weigh less. */
+  const failsBuild = (r) =>
+    (r.renderErrors.length > 0 && severityRank(r.renderSeverity ?? 'error') >= threshold)
+    || r.findings.some((f) => severityRank(severityOf(f)) >= threshold);
+
+  const summary = summarize(results);
+  summary.failing = results.filter(failsBuild).length;
+  const context = contextLine(opt, summary, snapshotVersion());
+  const stats = runStats(results);
+
+  /* The run summary answers what the findings cannot: WHAT was checked. A clean
+   * corpus is otherwise three lines that read the same whether four thousand
+   * controls were judged or the reconstruction produced nothing at all. One
+   * file needs none of that, so the default is by corpus size. */
+  const showStats = (opt.stats ?? files.length > 1) && !opt.quiet;
+  const reportOpt = {
+    ...opt,
+    context,
+    stats: showStats ? stats : null,
+    times: progress.times,
+    baseline: baselineStats,
+  };
+
+  if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
+  else if (opt.format === 'sarif') console.log(formatSarif(results));
+  else if (opt.format === 'checkstyle') console.log(formatCheckstyle(results));
+  else if (opt.format === 'junit') console.log(formatJunit(results));
+  else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
+  else console.log(formatStylish(results, summary, reportOpt));
+
+  /* A machine report written BESIDE the human one, in the same run.
+   *
+   * Without this a workflow that wants both - the annotated stylish report in
+   * the log AND a SARIF file for code scanning, or the counts for a later step -
+   * has to run the whole thing twice, and the second run pays the render gate
+   * again. The formatters are pure functions of `results`, so the sidecar costs
+   * a serialization and nothing else. */
+  for (const [file, text] of [
+    [opt.sarifOut, () => formatSarif(results)],
+    [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
+  ]) {
+    if (!file) continue;
+    fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+    fs.writeFileSync(file, `${text()}\n`);
+  }
+
+  emitBadge(summary, stats);
+
+  /* Baseline prose rides alongside the HUMAN report only — `--json`/`--sarif`
+   * exist to be piped, and a prose line after the document breaks the parse
+   * (the same rule the annotations follow). The stale entries still decide
+   * the exit code in every format. The note itself is redundant once the run
+   * summary carries the same count, so there it shrinks to the stale entries. */
+  if (baselineNote && opt.format === 'stylish') {
+    if (!showStats) console.log(baselineNote);
+    for (const s of baselineStale) console.log(`  ! stale: ${s.key} (${s.count})`);
+  }
+
+  if (opt.verbose && opt.format === 'stylish') {
+    for (const r of results) {
+      for (const n of r.notes) console.log(`note: ${path.relative(process.cwd(), r.file)}: ${n}`);
+    }
+  }
+
+  /* Annotations ride ALONGSIDE the human report, never inside a machine-readable
+   * one: `--format json` exists to be piped into something, and a workflow
+   * command appended after the document turns that document into a parse error.
+   * Inside Actions the default is on, so `--json | jq` in a workflow would have
+   * broken without this - which is exactly how CI found it. */
+  if (opt.annotate && opt.format === 'stylish') {
+    for (const line of githubAnnotations(results, opt)) console.log(line);
+  }
+
+  /* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
+   * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
+   * while still holding the line on warning debt. Said on stderr, so a piped
+   * machine format stays parseable. */
+  const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
+  if (overWarningCap) {
+    console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+  }
+
+  return summary.failing > 0 || baselineStale.length > 0 || overWarningCap ? 1 : 0;
 }
 
-/* Annotations ride ALONGSIDE the human report, never inside a machine-readable
- * one: `--format json` exists to be piped into something, and a workflow
- * command appended after the document turns that document into a parse error.
- * Inside Actions the default is on, so `--json | jq` in a workflow would have
- * broken without this - which is exactly how CI found it. */
-if (opt.annotate && opt.format === 'stylish') {
-  for (const line of githubAnnotations(results, opt)) console.log(line);
+/*
+ * --watch: the run above, again on every change.
+ *
+ * The audience is the developer whose editor has no linter in it - Eclipse
+ * ADT, with abapGit pulling the classes into a checkout - for whom the loop
+ * is save, pull, read. Everything given on the command line is watched: a
+ * directory recursively (fs.watch's own recursion where the platform has it,
+ * one watcher per subdirectory where it does not - there a directory created
+ * later is not seen until the next start), a named file through its parent
+ * directory (an editor that saves by rename replaces the inode a watcher on
+ * the file itself would keep following), plus the config file and the
+ * baseline, each by name. Events are debounced (a save is often two or three
+ * of them), a change during a run queues one more run rather than a parallel
+ * one, and the settings are resolved again on every run so an edited config
+ * takes effect without a restart.
+ *
+ * A watch never fails: the exit code of each run is what the report says
+ * about the corpus, not what the process says about itself, and the only way
+ * out is Ctrl+C, which is exit 0.
+ */
+const WATCH_DEBOUNCE_MS = 250;
+// what a directory walk collects (collectFiles): the rest is noise - the
+// cache file, a badge, an editor's swap file
+const WATCHED_IN_DIR = /\.(clas\.abap|view\.xml|fragment\.xml)$/i;
+const SKIPPED_SEGMENT = (name) => name === 'node_modules' || name.startsWith('.');
+
+async function watchLoop() {
+  const first = resolveRun();
+  const watchers = [];
+  const changed = new Set();
+  let timer = null;
+  let running = false;
+
+  const hasFile = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+  const stamp = () => new Date().toTimeString().slice(0, 8);
+  // a path as the reader knows it: relative to the cwd where that is shorter,
+  // as given otherwise (an absolute /tmp path is not `../../../tmp`)
+  const nice = (p) => {
+    const rel = path.relative(process.cwd(), p);
+    return rel && !rel.startsWith('..') ? rel : p;
+  };
+  const announce = () => {
+    console.error(`abap2ui5lint: watching ${first.paths.join(', ')}`
+      + `${first.configFile ? ` and ${nice(first.configFile)}` : ''}`
+      + `${first.opt.baseline && hasFile(first.opt.baseline) ? ` and ${nice(first.opt.baseline)}` : ''}`
+      + ' - Ctrl+C stops');
+  };
+
+  const rerun = async () => {
+    if (running) return;
+    running = true;
+    const names = [...changed];
+    changed.clear();
+    console.error(`\n${'-'.repeat(8)} ${stamp()}  changed: ${names.join(', ')} ${'-'.repeat(8)}`);
+    try {
+      await runOnce(resolveRun());
+    } catch (e) {
+      // a config error, a bad path or a crashed gate is one line and the
+      // loop goes on: the next save is the fix
+      console.error(`abap2ui5lint: ${e.code === 'ERR_USAGE' ? e.message : (e.stack ?? e.message)}`);
+    }
+    announce();
+    running = false;
+    // what arrived while the run was busy is one more run, not a lost one
+    if (changed.size) timer = setTimeout(rerun, WATCH_DEBOUNCE_MS);
+  };
+  const schedule = (name) => {
+    changed.add(name);
+    if (running) return;
+    clearTimeout(timer);
+    timer = setTimeout(rerun, WATCH_DEBOUNCE_MS);
+  };
+
+  const watch = (dir, opts, onEvent) => {
+    const w = fs.watch(dir, opts, onEvent);
+    // a watcher that dies (the directory removed under it) is reported, not fatal
+    w.on('error', (e) => console.error(`abap2ui5lint: watch on ${dir}: ${e.message}`));
+    watchers.push(w);
+    return w;
+  };
+  /* A file by name: its directory, filtered to the one basename. */
+  const watchFile = (file) => {
+    const abs = path.resolve(file);
+    watch(path.dirname(abs), {}, (_, filename) => {
+      if (filename === path.basename(abs)) schedule(nice(file));
+    });
+  };
+  /* A tree: recursive where the platform offers it, else one watcher per
+   * subdirectory (node_modules and dot-directories skipped, as in the walk). */
+  const relevant = (rel) => {
+    const segments = rel.split(/[\\/]/);
+    return WATCHED_IN_DIR.test(rel) && !segments.some(SKIPPED_SEGMENT);
+  };
+  const watchTree = (dir) => {
+    const abs = path.resolve(dir);
+    const shown = nice(dir);
+    const onEvent = (base) => (_, filename) => {
+      if (!filename) return;
+      const rel = base ? path.join(base, filename) : filename;
+      if (relevant(rel)) schedule(path.join(shown, rel));
+    };
+    try {
+      watch(abs, { recursive: true }, onEvent(''));
+      return;
+    } catch (e) {
+      if (e.code !== 'ERR_FEATURE_UNAVAILABLE_ON_PLATFORM') throw e;
+    }
+    const walk = (at, rel) => {
+      watch(at, {}, onEvent(rel));
+      for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+        if (entry.isDirectory() && !SKIPPED_SEGMENT(entry.name)) walk(path.join(at, entry.name), path.join(rel, entry.name));
+      }
+    };
+    walk(abs, '');
+  };
+
+  // the first run is an ordinary one: bad usage still exits 2, because nothing
+  // is being watched yet and a wrong path is not something a save corrects
+  await runOnce(first);
+  watching = true;
+  for (const p of first.paths) {
+    if (fs.statSync(p).isDirectory()) watchTree(p); else watchFile(p);
+  }
+  if (first.configFile) watchFile(first.configFile);
+  if (first.opt.baseline && hasFile(first.opt.baseline)) watchFile(first.opt.baseline);
+  announce();
+
+  const stop = async () => {
+    for (const w of watchers) w.close();
+    await dropWarm();
+    process.exit(0);
+  };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
 }
 
-/* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
- * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
- * while still holding the line on warning debt. Said on stderr, so a piped
- * machine format stays parseable. */
-const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
-if (overWarningCap) {
-  console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+if (watchMode) {
+  await watchLoop();
+} else {
+  const code = await runOnce(resolveRun());
+  if (code) process.exit(code);
 }
-
-if (summary.failing > 0 || baselineStale.length > 0 || overWarningCap) process.exit(1);

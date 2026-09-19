@@ -5238,6 +5238,68 @@ section('schema', async () => {
       `schema: the offered keys are exactly the ones the loader accepts (loader-only: ${missing.join(', ') || 'none'}; schema-only: ${extra.join(', ') || 'none'})`);
 });
 
+// ---------------------------------------------------------------- compat ----
+/* data/compat.json says which abap2UI5 framework releases this linter line
+ * understands - the one thing the three independent pins in the ecosystem
+ * (app-template's framework release, its linter version, this snapshot's
+ * ui5Version) had nothing to be checked against. Generated like the schema,
+ * gated like the schema: `linter` follows package.json, `ui5.snapshot` follows
+ * the metadata, and the two decided numbers have to be releases. */
+section('compat', async () => {
+    const cp = await import('node:child_process');
+    const ROOT = path.join(FIX, '..', '..');
+    const { render, COMPAT_FILE, FRAMEWORK_MINIMUM, UI5_FLOOR, SEMVER, buildCompat } = await import('../scripts/generate-compat.mjs');
+    const committed = fs.readFileSync(COMPAT_FILE, 'utf8');
+    assert(committed === render(), 'compat: data/compat.json is in sync (npm run generate-compat)');
+    let checked = true;
+    try { cp.execFileSync('node', [path.join(ROOT, 'scripts', 'generate-compat.mjs'), '--check'], { encoding: 'utf8', stdio: 'pipe' }); }
+    catch { checked = false; }
+    assert(checked, 'compat: generate-compat --check agrees, from the command line');
+
+    const compat = JSON.parse(committed);
+    assert(JSON.stringify(Object.keys(compat)) === JSON.stringify(['note', 'linter', 'framework', 'ui5'])
+      && JSON.stringify(Object.keys(compat.framework)) === JSON.stringify(['minimum', 'mirrored'])
+      && JSON.stringify(Object.keys(compat.ui5)) === JSON.stringify(['floor', 'snapshot']),
+      `compat: exactly the documented keys, in order (${Object.keys(compat).join(', ')})`);
+    assert(typeof compat.note === 'string' && compat.note.length > 200 && /check-pin/.test(compat.note) && /generate-compat/.test(compat.note),
+      'compat: the note says what the file is, who reads it and how it is regenerated');
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    assert(compat.linter === pkg.version, `compat: linter is the package version (${compat.linter} vs ${pkg.version})`);
+    const props = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8'));
+    assert(compat.ui5.snapshot === props.ui5Version, `compat: ui5.snapshot is the snapshot's ui5Version (${compat.ui5.snapshot} vs ${props.ui5Version})`);
+    for (const [name, value] of [['linter', compat.linter], ['framework.minimum', compat.framework.minimum],
+      ['framework.mirrored', compat.framework.mirrored], ['ui5.snapshot', compat.ui5.snapshot]]) {
+      assert(SEMVER.test(value), `compat: ${name} is a release number (${value})`);
+    }
+    assert(/^\d+\.\d+$/.test(compat.ui5.floor) && compat.ui5.floor === UI5_FLOOR,
+      `compat: ui5.floor is a UI5 minor (${compat.ui5.floor})`);
+    // the floor the generator states is the one the library defaults to
+    const defaults = fs.readFileSync(path.join(ROOT, 'lib', 'index.mjs'), 'utf8').match(/minUi5: '([\d.]+)'/);
+    assert(defaults && defaults[1] === compat.ui5.floor,
+      `compat: ui5.floor is the library's default minUi5 (${compat.ui5.floor} vs ${defaults?.[1]})`);
+    const num = (v) => v.split('.').map(Number);
+    const le = (a, b) => { const [x, y] = [num(a), num(b)]; for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] < y[i]; } return true; };
+    assert(compat.framework.minimum === FRAMEWORK_MINIMUM && le(compat.framework.minimum, compat.framework.mirrored),
+      `compat: the mirrors are synced at or above the minimum (${compat.framework.minimum} <= ${compat.framework.mirrored})`);
+    assert(le(compat.ui5.floor + '.0', compat.ui5.snapshot),
+      `compat: the snapshot is at or above the floor (${compat.ui5.floor} <= ${compat.ui5.snapshot})`);
+
+    // an offline regeneration keeps the mirrored release; --local reads it
+    assert(buildCompat().framework.mirrored === compat.framework.mirrored,
+      'compat: regenerating without --local keeps the committed framework.mirrored');
+    assert(buildCompat({ mirrored: '9.9.9' }).framework.mirrored === '9.9.9',
+      'compat: a checkout handed in through --local sets framework.mirrored');
+
+    // published: the exports map names it, files[] ships data/
+    assert(pkg.exports['./compat'] === './data/compat.json' && pkg.files.includes('data/'),
+      'compat: exported as ./compat and shipped with data/');
+    const dts = fs.readFileSync(path.join(ROOT, 'types.d.ts'), 'utf8');
+    assert(dts.includes('declare module "@abap2ui5/linter/compat"')
+      && ['note', 'linter', 'minimum', 'mirrored', 'floor', 'snapshot'].every((k) => new RegExp(`\\b${k}: string`).test(dts.slice(dts.indexOf('declare module "@abap2ui5/linter/compat"')))),
+      'compat: types.d.ts declares the ./compat subpath with every key');
+});
+
 // ----------------------------------------------------------- rules page ----
 section('rules page', async () => {
     const { RULES, RENDER_RULE } = await import('../lib/findings.mjs');

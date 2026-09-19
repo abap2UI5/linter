@@ -32,6 +32,7 @@ Then, when you want it to stay green:
 npm install -D @abap2ui5/linter          # pin it for CI and for your machine
 npx abap2ui5lint --init                  # write a commented abap2ui5lint.jsonc
 npx abap2ui5lint src --all-classes       # every class: the ones that build no view get the source-side rules
+npx abap2ui5lint src --watch             # run, then re-run on every save - the loop for Eclipse ADT + abapGit
 ```
 
 ## Documentation
@@ -97,13 +98,14 @@ npm test
 `AGENTS.md` carries the conventions and what every gate checks;
 `CONTRIBUTING.md` and `RELEASING.md` the rest of the workflow.
 
-Three artefacts are generated and gated by `npm test`, so a stale one fails the
+Four artefacts are generated and gated by `npm test`, so a stale one fails the
 build:
 
 ```sh
 npm run generate-metadata    # data/properties.json, from the @openui5 sources
 npm run generate-schema      # data/abap2ui5lint.schema.json — editor completion
 npm run generate-rules-page  # site/index.html — the published rule reference
+npm run generate-compat      # data/compat.json — which abap2UI5 releases this linter line understands (the ./compat export)
 ```
 
 Two further generators need network, so the suite cannot regenerate them and

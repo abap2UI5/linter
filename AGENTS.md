@@ -21,6 +21,8 @@ npm test                          # node --test test/run.mjs: node:test, over 10
                                   #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
 npm run generate-rules-page       # ditto: site/index.html, the published reference
+npm run generate-compat           # data/compat.json - after a version bump, or with
+                                  # -- --local <abap2UI5 checkout> after a mirror sync
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
@@ -28,6 +30,8 @@ npm run generate-dependents       # the README "Used by" list - NEEDS NETWORK
                                   # too (GitHub's dependents page), same deal:
                                   # monthly workflow, committed block is truth
 node cli.mjs <files> --no-render  # fast property-gate-only loop while iterating
+node cli.mjs src --watch          # the same, re-run on every save (Eclipse ADT + abapGit
+                                  # developers have no editor linter; this is their loop)
 # settings can be pinned in the checked repo's abap2ui5lint.jsonc (lib/config.mjs;
 # CLI flag > config > default; unknown keys and unknown rule ids fail loudly)
 ```
@@ -254,7 +258,17 @@ abaplint's `Error/Warning/Info` — `hint` is already load-bearing across
 consumers), rule ids are kebab-case like ui5lint's rather than abaplint's
 snake_case, and a corpus run adds the run summary below — neither reference
 linter has one, because neither is usually pointed at a few hundred files
-whose findings are all baselined.
+whose findings are all baselined. `--watch` is a third: neither reference
+linter has one, because both live next to an editor that lints as you type.
+This one's audience includes the Eclipse ADT developer who syncs through
+abapGit and has no editor linter at all, so the CLI carries the loop itself —
+the run again on every change to a checked file, the config or the baseline,
+the config re-read each time, one warm browser across the runs when the
+render gate is on, never a non-zero exit while watching (`watchLoop` in
+`cli.mjs`; `test/review/watch.mjs` spawns a real one). It is refused with the
+single-run modes and outputs (`--stdin`, `--screenshot`, `--fix`,
+`--update-baseline`, the badge, SARIF and JSON files, any `--format` but
+stylish), because each of those is a record of ONE run.
 
 The former test-coverage debt (`invalid-aggregation-child`,
 `sapui5-only-control`, `open-levels`) is worked off — every rule now has an
@@ -989,6 +1003,30 @@ in scope (`sap.f.HeroBanner` @1.152 is the live example). So: **one generator,
 two invocations**, each at the version its own consumer needs. Keep the
 generator's output shape additive for the same reason the `--json` shape is
 frozen — samples-controls's coverage docs read `controls[…].since` / `.deprecated`.
+
+## `data/compat.json` — the ecosystem compatibility record
+
+Three versions are pinned independently across the ecosystem and nothing
+tied them together: the framework release an app runs on (app-template pins
+`1.144.0`), the linter version it installs, and the UI5 release the snapshot
+above was generated at. `data/compat.json` is the linter's statement about
+that: `linter` (package.json's version), `framework.minimum` (the oldest
+abap2UI5 release whose released client API the rules assume — 1.144.0, the
+first with `z2ui5_cl_ui5_view_builder` and `client->get_event( )`; `1.142.0`
+has neither), `framework.mirrored` (the release the hand-maintained mirrors
+in `lib/` and `test/fixtures/cs_event.intf.abap` were last synced against),
+`ui5.floor` and `ui5.snapshot`. Exported as `./compat`, typed in
+`types.d.ts`, read by app-template's `check-pin`/doctor and by the VS Code
+extension.
+
+It is generated (`scripts/generate-compat.mjs`, `npm run generate-compat`)
+and gated like the schema: `npm test` fails while `linter` lags a version
+bump or `ui5.snapshot` lags the metadata. Two numbers are decisions, not
+derivations — `FRAMEWORK_MINIMUM` lives in the script and moves only when a
+rule starts to assume a newer client API (say which rule in the CHANGELOG),
+and `framework.mirrored` is read off an abap2UI5 checkout with
+`-- --local <dir>` after a mirror sync and otherwise kept as committed, so an
+offline regeneration cannot forget it.
 
 ## `@abap2ui5/render-runtime` — the second package, and why it exists
 

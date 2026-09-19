@@ -77,14 +77,19 @@ npm run sync-peer-range
 #     pins, so a half-moved release makes the two gates judge the same
 #     control differently.
 
-# 1d. Two generated artefacts carry the version, so they follow the bump:
+# 1d. Three generated artefacts carry the version, so they follow the bump:
 #     data/abap2ui5lint.schema.json ($id names the tag, never main - an editor
-#     must not validate a pinned config against rules main happens to hold)
-#     and site/index.html (the page follows main while every consumer pins, so
-#     it stamps the release it was generated from).
-npm run generate-schema && npm run generate-rules-page
-#     `npm test` fails while either is stale, so this cannot be forgotten -
+#     must not validate a pinned config against rules main happens to hold),
+#     site/index.html (the page follows main while every consumer pins, so
+#     it stamps the release it was generated from) and data/compat.json
+#     (its `linter` has to match package.json - it is what app-template's
+#     pin checks and the VS Code extension read to learn which framework
+#     releases this linter line understands).
+npm run generate-schema && npm run generate-rules-page && npm run generate-compat
+#     `npm test` fails while any of them is stale, so this cannot be forgotten -
 #     but running it here keeps the release commit a single coherent diff.
+#     generate-compat keeps `framework.mirrored` as committed; it moves only
+#     with `-- --local <abap2UI5 checkout>`, after a mirror sync.
 
 # 2. Rename the CHANGELOG.md "Unreleased" heading to the new version. The
 #     publish job refuses a tag whose version has no section, or one that
