@@ -2,75 +2,105 @@
 
 ## Unreleased
 
-- **`--explain`: the rule reference, in the terminal.** Every reported line
-  ends in a rule id and the card's URL, and the block under the count line
-  lists both again - and the reader `--watch` was written for (Eclipse ADT,
-  abapGit, no editor linter) still had to leave the terminal for the
-  paragraph, as does anyone reading a CI log. `npx abap2ui5lint --explain
-  <rule-id> [<rule-id>...]` prints, per id, the id with its default severity
-  (and `--fix` where the fix knows it), the summary, the detail paragraph,
-  the fix note where the rule has one, the before/after pair and the card's
-  URL (`https://abap2ui5.github.io/linter/#<id>`) - the same `RULE_DOCS`
-  prose the page is generated from and mcp-server's `validate_view` hands an
-  agent, wrapped for a terminal. With no id it lists every rule id with its
-  summary, one per line, under the page's category headings and in the
-  page's order (`render-error` included, as on the page). An unknown id is
-  exit 2 with the one did-you-mean `lib/suggest.mjs` makes
-  (`Duplicate_Property` → `duplicate-property`; a real typo is pointed at the
-  list, not guessed at). It is a documentation command, not a run: decided on
-  the raw argument list before the options are read, so `--init --explain x`
-  writes no config, and refused with exit 2 together with a path or any other
-  option. And a stylish report with findings now ends with ONE line on
-  stderr naming the command for the ids it reported (the first three, `...`
-  beyond) - only where stderr is a terminal, the way the progress line
-  decides, never in `--quiet` and never beside `--format json`/`markdown`/
-  `sarif`/`checkstyle`/`junit`, so a redirected report is byte for byte what
-  it was. `lib/report.mjs` gained `ruleIndex( )`, `formatExplain( )`,
-  `formatRuleIndex( )` and `explainFooter( )` (typed in `types.d.ts`);
-  `test/review/explain.mjs` spawns the CLI for every path, and the footer's
-  terminal case runs through util-linux `script` where that is installed.
+- **Three more rules, and `live-event-roundtrip` learns the framework's own
+  remedy.** `second-root` (an error: a second element at the document's top
+  level — the split chain after a standalone `factory( ).`, whose variable
+  holds the root so the next statement adds a sibling of the `mvc:View`;
+  the render gate rejected the document as native HTML, the property gate
+  never said why), `message-box-removed-parameter` (an error: the pure UI5
+  options abap2UI5#2748 took off `message_box_display( )` and
+  `message_toast_display( )` — a call naming one does not compile on a
+  current pin; no fix, the value moves into the CONTROL_GLOBAL option
+  object), `smart-variant-without-init` (a warning: a SmartVariantManagement
+  in the view and no `cs_event-smart_variant_init` wire in the class —
+  saving a variant fails inside sap.ui.fl with nothing red). And
+  `live-event-roundtrip` judges every `live*` event now, is silent for a
+  wire carrying `s_ctrl-check_queue_last`, and carries a `--fix` that
+  writes that flag with `check_no_busy` (a positional event name becomes
+  `val = …` to make room).
 
-- **`--watch`: the run, again on every save.** `npx abap2ui5lint src --watch`
-  checks once and then keeps running: every path given is watched (a
-  directory recursively, a named file through its parent directory), plus the
-  config file and the baseline when one is used, and a change re-runs the
-  same run - the config is read again, so an edit to `abap2ui5lint.jsonc`
-  takes effect without a restart, and a config edited into an error is one
-  line on stderr and the loop goes on. Events are debounced (250 ms), a change
-  during a run queues one more run, a separator with the time and the changed
-  file goes to stderr between reports, and when the render gate is configured
-  it keeps ONE warm browser across the runs (`checkFiles`'s `renderer`
-  option, the contract mcp-server already used). A watch never exits 1 -
-  Ctrl+C ends it with 0. This is the loop for the developer whose editor has
-  no linter in it: Eclipse ADT, with abapGit pulling the classes into a
-  checkout. Refused with exit 2 together with the single-run modes and outputs
-  (`--stdin`, `--screenshot`, `--fix`, `--fix-dry-run`, `--update-baseline`,
-  `--badge`, `--badge-corpus`, `--sarif-out`, `--json-out`) and with any
-  `--format` but stylish; a badge named in the config is not written by a
-  watch. `test/review/watch.mjs` spawns a real loop over a temp directory:
-  a fixture copied in, the config edited, broken and fixed, then SIGINT -
-  and once more with the render gate on, because that one came back 130:
-  Playwright answers Ctrl+C itself (closes the browser, then exits the
-  process) and its handler was registered before the loop's. `openRenderer`
-  therefore takes Playwright's own `handleSIGINT` option now (default true,
-  unchanged for every existing caller); the loop passes false and closes the
-  renderer itself.
+- **Four more abap2UI5-specific rules.** `loop-work-area-bound` (a
+  `_bind( )` on the work area of a `LOOP AT` — an attribute work area binds
+  ONE path for every row, a local or a field symbol a path the model never
+  carries; a warning, with a `--fix` for the ASSIGNING shape into the
+  framework's own cell binding `tab = … tab_index = sy-tabix`, and only
+  while nothing between the loop header and the call has moved `sy-tabix`),
+  `bound-aggregation-without-template` (an error: `bindAggregation` throws
+  "Missing template or factory function" and the whole view fails to load),
+  `unknown-source-property` (the `$source>/name` twin of
+  `unknown-event-parameter` — the reconstructor now records `sourceParams`
+  beside `eventParams`; a hint with a did-you-mean), and
+  `editable-control-without-binding` (an Input, CheckBox, Switch, Select …
+  whose value property is neither bound nor read back by an event — a hint,
+  judged per family through `INPUT_FAMILIES` in `properties.mjs`; a control
+  disabled or read-only by a literal stays out). Measured on abap2UI5's own
+  app classes and on app-template: 0 findings for all four.
 
-- **`data/compat.json` — the ecosystem compatibility record, exported as
-  `@abap2ui5/linter/compat`.** app-template pins the framework release
-  (1.144.0) and the linter version independently, and nothing said which
-  framework releases a linter line understands. The file does:
-  `linter` (this package's version), `framework.minimum` (the oldest abap2UI5
-  release whose released client API the rules assume - 1.144.0, the first
-  with `z2ui5_cl_ui5_view_builder` and `client->get_event( )`),
-  `framework.mirrored` (the release the hand-maintained mirrors in `lib/` and
-  the `cs_event` fixture were last synced against), `ui5.floor` and
-  `ui5.snapshot` (the default `--ui5` and the snapshot's `ui5Version`).
-  Generated by `scripts/generate-compat.mjs` (`npm run generate-compat`,
-  `--local <abap2UI5 checkout>` reads `mirrored` off that checkout, `--check`
-  for the gate) and gated by `npm test` like the schema, so a release bump
-  that forgets it fails the suite. Typed in `types.d.ts`; `RELEASING.md`
-  step 1d names it.
+- **Six more fixes.** `client-handle-capture` inlines the call where the
+  captured name is read exactly once as an attribute value, and deletes the
+  capturing statement; `missing-view-display-on-navigated` copies the init
+  branch's single display statement into the navigated branch (the same
+  scanner `missing-on-navigated-branch` uses, shared now as
+  `singleDisplayStatement( )`); `unknown-binding-path` carries a did-you-mean
+  and a fix where the missing segment is a field of that level up to letter
+  case (`pathProblem( )` names the segment and the keys it was judged
+  against; `pathFinding( )` turns that into the pair, and the finding itself
+  carries no key list); `excess-shut` deletes the `->end( )` it sits on;
+  `insecure-asset-url` rewrites a LOADED uri to `https://` (the `href` hint
+  keeps its finding); and `loop-work-area-bound` as above.
+
+- **Five abap2UI5-specific rules, and the split that produced them.** The
+  linter keeps the checks about an abap2UI5 app and its view; rules about
+  ABAP as a language go to abaplint (abap2UI5's `backlog/ABAPLINT.md` carries
+  the stock — nine items filed there in the same round, each measured on
+  abaplint 2.120.52 first). What was left for here:
+  `handler-without-event` (the inverse of `event-without-handler`: a `WHEN`
+  nothing raises — a hint, judged only when every raise and every handler is
+  a literal, the class raises at least one event itself and never hands its
+  client to another object), `binding-to-expression` (a `_bind( )` on a
+  literal, a method call or a constructor expression — the framework derives
+  the path from the ATTRIBUTE it is handed, and a temporary is found nowhere;
+  an error), `association-unknown-id` (the other half of
+  `binding-on-association`: a `labelFor` / `initialFocus` / `ariaLabelledBy`
+  naming an id no control of the document declares, judged only when every
+  id in it is a literal), `column-cell-count-mismatch` (a `ColumnListItem`
+  with a different number of cells than its `sap.m.Table` has columns —
+  mapped by index, rendered shifted, nothing logged), and
+  `obsolete-event-constant` (the run under the `"obsolete` label of
+  `z2ui5_if_client=>cs_event`, mirrored as `OBSOLETE_EVENT_CONSTANTS` in
+  `lib/frontend-actions.mjs` and gated by `check-upstream` against that
+  label). Measured on abap2UI5's own classes and on app-template before
+  shipping: 0 findings for all five.
+
+- **Six fixes on rules that had none, each mechanical or absent.**
+  `missing-on-navigated-branch` writes the `ELSEIF client->check_on_navigated( ).`
+  branch with a copy of the init branch's own display statement — only when
+  that branch has exactly one statement at its level that displays;
+  `separate-lifecycle-ifs` folds ADJACENT blocks into one `ELSEIF` chain (a
+  block with an `ELSE`, or statements between two blocks, keeps the finding);
+  `binding-to-nonpublic` and `private-app-attribute` MOVE the single-line
+  declaration into the section the remedy names (`private-app-attribute`
+  renames `PRIVATE SECTION.` outright where the class has no PROTECTED one),
+  a chained `DATA:` element keeping the finding; `hardcoded-binding-path`
+  rewrites a value that IS the literal `{/NAME}` of a public attribute to
+  `client->_bind( name )`; `external-link-without-target` writes the
+  `target` call behind the href's own, on a line of its own in the house
+  layout. Moving a declaration is the first fix made of two spans (a delete
+  and an insert) — `fix.mjs` applies them like any other non-overlapping
+  pair.
+
+- **Did-you-mean on the five closed sets that had none.** `unknown-model`
+  (`Device>` for `device>`), `uncurated-formatter`, `unknown-view-slot`
+  (`main` for `MAIN`), `unknown-frontend-action` (`set_title` for
+  `SET_TITLE`) and the filter-row operator of `invalid-frontend-action`
+  (`contains` for `Contains` — the set is case-sensitive upstream, and the
+  miss leaves the binding unfiltered) now carry `written`/`suggestion` where
+  the written name is a member of the set up to letter case, and
+  `attachSuggestionFixes` turns that into the fix. No edit distance, as
+  before: a case miss is not a guess. `unknown-view-slot` and
+  `invalid-frontend-action` carry the fix without joining `FIXABLE`: their
+  card examples (`NESTED`, a wrong global target) are the lesson and are not
+  case misses, and a card must not promise a fix its own example declines.
 
 - **New rule `event-arg-single-row-table`** — a `client->_event( )` whose
   `t_arg` is a `VALUE #( ( x ) )` with ONE row, where `arg = x` says the same

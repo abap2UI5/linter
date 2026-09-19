@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 135 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 147 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -151,6 +151,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'aggregation-too-new' — default severity: error"
         },
+        "association-unknown-id": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'association-unknown-id' — default severity: warning"
+        },
         "attribute-without-element": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'attribute-without-element' — default severity: error"
@@ -162,6 +166,10 @@
         "binding-on-association": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-on-association' — default severity: error"
+        },
+        "binding-to-expression": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'binding-to-expression' — default severity: error"
         },
         "binding-to-local": {
           "$ref": "#/definitions/rule",
@@ -182,6 +190,10 @@
         "boolc-instead-of-xsdbool": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'boolc-instead-of-xsdbool' — default severity: warning"
+        },
+        "bound-aggregation-without-template": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'bound-aggregation-without-template' — default severity: error"
         },
         "byte-order-mark": {
           "$ref": "#/definitions/rule",
@@ -214,6 +226,10 @@
         "collection-bound-to-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'collection-bound-to-property' — default severity: error"
+        },
+        "column-cell-count-mismatch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'column-cell-count-mismatch' — default severity: warning"
         },
         "commercial-ui5-host": {
           "$ref": "#/definitions/rule",
@@ -290,6 +306,10 @@
         "duplicate-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'duplicate-property' — default severity: error"
+        },
+        "editable-control-without-binding": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'editable-control-without-binding' — default severity: hint"
         },
         "empty-catch-block": {
           "$ref": "#/definitions/rule",
@@ -379,6 +399,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'get-viewname-removed' — default severity: error"
         },
+        "handler-without-event": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'handler-without-event' — default severity: hint"
+        },
         "hardcoded-binding-path": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'hardcoded-binding-path' — default severity: warning"
@@ -447,6 +471,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'live-event-roundtrip' — default severity: hint"
         },
+        "loop-work-area-bound": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'loop-work-area-bound' — default severity: warning"
+        },
         "manual-init-flag": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'manual-init-flag' — default severity: warning"
@@ -458,6 +486,10 @@
         "member-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'member-too-new' — default severity: warning"
+        },
+        "message-box-removed-parameter": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'message-box-removed-parameter' — default severity: error"
         },
         "missing-accessibility": {
           "$ref": "#/definitions/rule",
@@ -490,6 +522,10 @@
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-binder' — default severity: warning"
+        },
+        "obsolete-event-constant": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'obsolete-event-constant' — default severity: warning"
         },
         "obsolete-frontend-event": {
           "$ref": "#/definitions/rule",
@@ -547,6 +583,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'sapui5-only-control' — default severity: error"
         },
+        "second-root": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'second-root' — default severity: error"
+        },
         "separate-lifecycle-ifs": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'separate-lifecycle-ifs' — default severity: warning"
@@ -554,6 +594,10 @@
         "settable-property-via-action": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'settable-property-via-action' — default severity: hint"
+        },
+        "smart-variant-without-init": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'smart-variant-without-init' — default severity: warning"
         },
         "source-line-too-long": {
           "$ref": "#/definitions/rule",
@@ -642,6 +686,10 @@
         "unknown-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-property' — default severity: error"
+        },
+        "unknown-source-property": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-source-property' — default severity: hint"
         },
         "unknown-view-slot": {
           "$ref": "#/definitions/rule",
