@@ -2,6 +2,59 @@
 
 ## Unreleased
 
+- **Five abap2UI5-specific rules, and the split that produced them.** The
+  linter keeps the checks about an abap2UI5 app and its view; rules about
+  ABAP as a language go to abaplint (abap2UI5's `backlog/ABAPLINT.md` carries
+  the stock — nine items filed there in the same round, each measured on
+  abaplint 2.120.52 first). What was left for here:
+  `handler-without-event` (the inverse of `event-without-handler`: a `WHEN`
+  nothing raises — a hint, judged only when every raise and every handler is
+  a literal, the class raises at least one event itself and never hands its
+  client to another object), `binding-to-expression` (a `_bind( )` on a
+  literal, a method call or a constructor expression — the framework derives
+  the path from the ATTRIBUTE it is handed, and a temporary is found nowhere;
+  an error), `association-unknown-id` (the other half of
+  `binding-on-association`: a `labelFor` / `initialFocus` / `ariaLabelledBy`
+  naming an id no control of the document declares, judged only when every
+  id in it is a literal), `column-cell-count-mismatch` (a `ColumnListItem`
+  with a different number of cells than its `sap.m.Table` has columns —
+  mapped by index, rendered shifted, nothing logged), and
+  `obsolete-event-constant` (the run under the `"obsolete` label of
+  `z2ui5_if_client=>cs_event`, mirrored as `OBSOLETE_EVENT_CONSTANTS` in
+  `lib/frontend-actions.mjs` and gated by `check-upstream` against that
+  label). Measured on abap2UI5's own classes and on app-template before
+  shipping: 0 findings for all five.
+
+- **Six fixes on rules that had none, each mechanical or absent.**
+  `missing-on-navigated-branch` writes the `ELSEIF client->check_on_navigated( ).`
+  branch with a copy of the init branch's own display statement — only when
+  that branch has exactly one statement at its level that displays;
+  `separate-lifecycle-ifs` folds ADJACENT blocks into one `ELSEIF` chain (a
+  block with an `ELSE`, or statements between two blocks, keeps the finding);
+  `binding-to-nonpublic` and `private-app-attribute` MOVE the single-line
+  declaration into the section the remedy names (`private-app-attribute`
+  renames `PRIVATE SECTION.` outright where the class has no PROTECTED one),
+  a chained `DATA:` element keeping the finding; `hardcoded-binding-path`
+  rewrites a value that IS the literal `{/NAME}` of a public attribute to
+  `client->_bind( name )`; `external-link-without-target` writes the
+  `target` call behind the href's own, on a line of its own in the house
+  layout. Moving a declaration is the first fix made of two spans (a delete
+  and an insert) — `fix.mjs` applies them like any other non-overlapping
+  pair.
+
+- **Did-you-mean on the five closed sets that had none.** `unknown-model`
+  (`Device>` for `device>`), `uncurated-formatter`, `unknown-view-slot`
+  (`main` for `MAIN`), `unknown-frontend-action` (`set_title` for
+  `SET_TITLE`) and the filter-row operator of `invalid-frontend-action`
+  (`contains` for `Contains` — the set is case-sensitive upstream, and the
+  miss leaves the binding unfiltered) now carry `written`/`suggestion` where
+  the written name is a member of the set up to letter case, and
+  `attachSuggestionFixes` turns that into the fix. No edit distance, as
+  before: a case miss is not a guess. `unknown-view-slot` and
+  `invalid-frontend-action` carry the fix without joining `FIXABLE`: their
+  card examples (`NESTED`, a wrong global target) are the lesson and are not
+  case misses, and a card must not promise a fix its own example declines.
+
 - **New rule `event-arg-single-row-table`** — a `client->_event( )` whose
   `t_arg` is a `VALUE #( ( x ) )` with ONE row, where `arg = x` says the same
   thing. The client folds `arg` into the same `string_table`, so the wire and

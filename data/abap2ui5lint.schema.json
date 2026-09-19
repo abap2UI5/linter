@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 135 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 140 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -151,6 +151,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'aggregation-too-new' — default severity: error"
         },
+        "association-unknown-id": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'association-unknown-id' — default severity: warning"
+        },
         "attribute-without-element": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'attribute-without-element' — default severity: error"
@@ -162,6 +166,10 @@
         "binding-on-association": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-on-association' — default severity: error"
+        },
+        "binding-to-expression": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'binding-to-expression' — default severity: error"
         },
         "binding-to-local": {
           "$ref": "#/definitions/rule",
@@ -214,6 +222,10 @@
         "collection-bound-to-property": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'collection-bound-to-property' — default severity: error"
+        },
+        "column-cell-count-mismatch": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'column-cell-count-mismatch' — default severity: warning"
         },
         "commercial-ui5-host": {
           "$ref": "#/definitions/rule",
@@ -379,6 +391,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'get-viewname-removed' — default severity: error"
         },
+        "handler-without-event": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'handler-without-event' — default severity: hint"
+        },
         "hardcoded-binding-path": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'hardcoded-binding-path' — default severity: warning"
@@ -490,6 +506,10 @@
         "obsolete-binder": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-binder' — default severity: warning"
+        },
+        "obsolete-event-constant": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'obsolete-event-constant' — default severity: warning"
         },
         "obsolete-frontend-event": {
           "$ref": "#/definitions/rule",

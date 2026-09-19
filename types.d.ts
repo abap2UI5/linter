@@ -721,6 +721,12 @@ declare module "@abap2ui5/linter/findings" {
     source: string
   ): T[];
 
+  /** Attach the external-link-without-target fix: a `target` call written behind the href's own `a( )` call. */
+  export function attachTargetFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
   /** Attaches the did-you-mean fix a finding carries as `written`/
    *  `suggestion` but no span for (the view-side rules): the written name is
    *  found from the finding's offset on and rewritten. `xml: true` searches
