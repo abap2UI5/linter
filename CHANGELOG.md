@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **The windows-latest leg of CI is green again.** Both `--watch` sections
+  failed there from the day the flag landed, on their last assertion each:
+  *"Ctrl+C ends the watch with exit 0 (got SIGINT)"*. Not a defect in the loop
+  - every other assertion in those sections passes on Windows, so the first
+  run, the re-run on a new file, the re-read config, the survived broken
+  config and the reused browser are all covered there. It is that a PARENT
+  PROCESS cannot ask for a Ctrl+C on Windows: `subprocess.kill()` ends the
+  target with TerminateProcess whatever signal name it is given, so the
+  child never reaches its handler and the exit event carries
+  `{ code: null, signal: 'SIGINT' }`. (A real Ctrl+C in a console does reach
+  a Node process there - the runtime synthesizes SIGINT from the console
+  control handler - which no test can generate from outside.) The exit code
+  is asserted where it can be asked for, and the half that holds everywhere -
+  the loop ENDS rather than hanging on the watcher handles it keeps open - on
+  every platform. Nothing about the product changed.
+
 - **`redundant-serializable`** (a hint, fixable): a class that declares
   `INTERFACES if_serializable_object.` beside `INTERFACES z2ui5_if_app.`.
   `z2ui5_if_app` includes it - the framework persists the app instance with
