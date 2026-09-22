@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **`redundant-serializable`** (a hint, fixable): a class that declares
+  `INTERFACES if_serializable_object.` beside `INTERFACES z2ui5_if_app.`.
+  `z2ui5_if_app` includes it - the framework persists the app instance with
+  `CALL TRANSFORMATION id` between roundtrips, so an app that cannot be
+  serialized is not an app - and the second declaration compiles and changes
+  nothing. What it costs is the reading: an app class is the most copied piece
+  of ABAP in this ecosystem, and the extra line says that serialization is
+  something an app has to ask for, so the next class carries it too. The names
+  are read out of the INTERFACES STATEMENTS rather than with the usual
+  `INTERFACES z2ui5_if_app` guard, which does not see the chained
+  `INTERFACES: if_serializable_object, z2ui5_if_app.` - the shape that carries
+  the redundancy most often. `--fix` deletes the line where it is a statement
+  of its own; the chained form is reported without one, since deleting a name
+  out of it would leave a dangling comma.
+
 - **Three more rules, and `live-event-roundtrip` learns the framework's own
   remedy.** `second-root` (an error: a second element at the document's top
   level — the split chain after a standalone `factory( ).`, whose variable
