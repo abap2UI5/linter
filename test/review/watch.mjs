@@ -21,6 +21,42 @@ export default function ({ section, assert, f, FIX, tempDir }) {
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
 
+  /* Ctrl+C, and what a PARENT PROCESS can ask for on each platform.
+   *
+   * POSIX: `child.kill('SIGINT')` delivers the signal, the loop's own handler
+   * runs - closes the watchers, drops the warm renderer, exits 0 - and that
+   * exit code is the thing worth asserting, because it is what a shell sees
+   * and what the render section exists for (Playwright's own handler would
+   * end the process with 130 instead).
+   *
+   * Windows has no signal delivery between processes. `subprocess.kill()`
+   * there ends the target with TerminateProcess whatever signal NAME it is
+   * handed, so the child never reaches its handler and the exit event carries
+   * `{ code: null, signal: 'SIGINT' }`. A real Ctrl+C in a console does reach
+   * a Node process on Windows - the runtime synthesizes SIGINT from the
+   * console control handler - but no parent can generate that event, so the
+   * assertion below is not a thing the platform can be asked to do rather
+   * than a thing the loop gets wrong: every OTHER assertion in both sections
+   * passes there, which is what says the watch loop itself is fine.
+   *
+   * So the exit code is asserted where it can be asked for, and the half that
+   * holds everywhere - the loop ENDS, rather than hanging on the watcher
+   * handles it keeps open - is asserted on every platform. Both sections
+   * failed on the windows-latest leg from the day --watch landed (#108) until
+   * this split was written; nothing about the product changed with it.
+   */
+  const WINDOWS = process.platform === 'win32';
+  const endsOnCtrlC = (end, what) => {
+    const got = end.code ?? end.signal;
+    if (WINDOWS) {
+      assert(end.code !== 'timeout',
+        `${what}: killed, the watch ends instead of hanging on its watchers `
+        + `(got ${got}; Windows cannot deliver the signal, so the exit CODE is asserted on POSIX only)`);
+      return;
+    }
+    assert(end.code === 0, `${what} (got ${got})`);
+  };
+
   section('watch: the single-run modes and outputs are refused', async () => {
     const refused = (args) => {
       try {
@@ -119,7 +155,7 @@ export default function ({ section, assert, f, FIX, tempDir }) {
       child.kill('SIGINT');
     }
     const end = await Promise.race([exited, new Promise((r) => setTimeout(() => r({ code: 'timeout' }), 10000))]);
-    assert(end.code === 0, `watch: Ctrl+C ends the watch with exit 0 (got ${end.code ?? end.signal})`);
+    endsOnCtrlC(end, 'watch: Ctrl+C ends the watch with exit 0');
   });
 
   /* The render gate under --watch: one browser for the whole session, and
@@ -165,6 +201,6 @@ export default function ({ section, assert, f, FIX, tempDir }) {
       child.kill('SIGINT');
     }
     const end = await Promise.race([exited, new Promise((r) => setTimeout(() => r({ code: 'timeout' }), 15000))]);
-    assert(end.code === 0, `watch/render: Ctrl+C ends a rendering watch with exit 0, not Playwright's 130 (got ${end.code ?? end.signal})`);
+    endsOnCtrlC(end, "watch/render: Ctrl+C ends a rendering watch with exit 0, not Playwright's 130");
   });
 }
