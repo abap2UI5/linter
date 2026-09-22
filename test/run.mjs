@@ -4261,6 +4261,36 @@ section('fix (2)', async () => {
         'fix: redundant-conv-i unwraps to the bare assignment');
     }
 
+    // --- redundant-serializable: delete the line, and only the own-line form --
+    {
+      const src = 'CLASS z2ui5_cl_app DEFINITION PUBLIC.\n  PUBLIC SECTION.\n'
+        + '    INTERFACES if_serializable_object.\n    INTERFACES z2ui5_if_app.\n'
+        + 'ENDCLASS.\n';
+      const found = checkAbapRules(src).filter((x) => x.type === 'redundant-serializable');
+      assert(found.length === 1 && found[0].fixes?.length === 1,
+        'fix: redundant-serializable carries the deletion');
+      assert(applyFixes(src, found).output
+        === 'CLASS z2ui5_cl_app DEFINITION PUBLIC.\n  PUBLIC SECTION.\n'
+          + '    INTERFACES z2ui5_if_app.\nENDCLASS.\n',
+        'fix: redundant-serializable deletes the whole line, indentation included');
+
+      // chained: both names in ONE statement - reported, never fixed
+      const chained = 'CLASS z2ui5_cl_app DEFINITION PUBLIC.\n  PUBLIC SECTION.\n'
+        + '    INTERFACES: if_serializable_object, z2ui5_if_app.\nENDCLASS.\n';
+      const two = checkAbapRules(chained).filter((x) => x.type === 'redundant-serializable');
+      assert(two.length === 1 && two[0].fixes === undefined,
+        'redundant-serializable: a chained declaration is reported without a fix');
+
+      // an app that does NOT ask for it, and a serializable class that is no app
+      const clean = 'CLASS z2ui5_cl_app DEFINITION PUBLIC.\n  PUBLIC SECTION.\n'
+        + '    INTERFACES z2ui5_if_app.\nENDCLASS.\n';
+      const plain = 'CLASS zcl_data DEFINITION PUBLIC.\n  PUBLIC SECTION.\n'
+        + '    INTERFACES if_serializable_object.\nENDCLASS.\n';
+      assert(checkAbapRules(clean).concat(checkAbapRules(plain))
+        .filter((x) => x.type === 'redundant-serializable').length === 0,
+        'redundant-serializable: nothing to say about an app without the line, or a non-app with it');
+    }
+
     // --- lifecycle-is-initial: the three shapes -------------------------------
     {
       const src = fs.readFileSync(f('isinitial.clas.abap'), 'utf8');
