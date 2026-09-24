@@ -3,7 +3,7 @@
   "linter": "0.6.1",
   "framework": {
     "minimum": "1.144.0",
-    "mirrored": "1.144.0"
+    "mirrored": "1.144.1"
   },
   "ui5": {
     "floor": "1.71",

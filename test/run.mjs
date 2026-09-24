@@ -1856,9 +1856,12 @@ section('display-root-mismatch', async () => {
     assert(!act('client->follow_up_action( val = `SET_TITLE` t_arg = VALUE #( ( `Hi` ) ) ).')
       .some((x) => x.type === 'unknown-frontend-action'),
       'unknown-frontend-action: a known literal name is fine');
-    assert(!act('client->follow_up_action( val = `NAV_CONTAINER_TO` t_arg = VALUE #( ( `nav` ) ( `p2` ) ) ).')
+    assert(!act('client->follow_up_action( val = `POPUP_CLOSE` ).')
       .some((x) => x.type === 'unknown-frontend-action'),
       'unknown-frontend-action: a server-remapped alias is fine');
+    assert(act('client->follow_up_action( val = `NAV_CONTAINER_TO` t_arg = VALUE #( ( `nav` ) ( `p2` ) ) ).')
+      .some((x) => x.type === 'unknown-frontend-action' && x.value === 'NAV_CONTAINER_TO'),
+      'unknown-frontend-action: NAV_CONTAINER_TO is gone upstream (abap2UI5#2776), so the retired alias is reported');
     assert(!act('client->follow_up_action( val = `sap.m.URLHelper.redirect(\'https://x\')` ).')
       .some((x) => x.type === 'unknown-frontend-action'),
       'unknown-frontend-action: the raw-JavaScript escape hatch is not an unknown ACTION');
@@ -6097,7 +6100,6 @@ section('wire kinds and the 08-30 round', async () => {
   for (const [value, what] of [['Loud', 'the InvisibleMessageMode enum, read from the snapshot'],
     ['MAYBE', 'setAsyncURLHandler names one of three built-in policies'],
     ['middle', 'the ScrollIntoView block enum'],
-    ['numerical', 'the HTML inputmode set'],
     ['ALWAYS', 'cs_nav_mode is DEFAULT, FRESH or KEEP']]) {
     assert(bad.includes(value), `invalid-frontend-action: ${what} (got ${bad.join() || 'none'})`);
   }

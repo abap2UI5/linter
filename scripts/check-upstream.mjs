@@ -43,7 +43,7 @@ import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
 import {
   GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
-  FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS, OBSOLETE_EVENT_CONSTANTS,
+  FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS,
   VIEW_SLOTS, FILTER_OPERATORS, URLHELPER_ACTIONS,
   CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS, CONTROL_METHOD_KINDS, URL_POLICIES,
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
@@ -142,19 +142,6 @@ export function parseClientEvents(intfSrc) {
   if (!m) return [];
   const code = m[1].split('\n').map((line) => line.replace(/^\s*".*$/, '')).join('\n');
   return [...new Set([...code.matchAll(/\bVALUE\s+(?:`([^`]+)`|'([^']+)')/gi)].map((x) => x[1] ?? x[2]))];
-}
-
-/** The constant NAMES under the `"obsolete` label of `cs_event` - the run
- *  the interface keeps for compatibility only, which is what
- *  `obsolete-event-constant` reports. The label is a one-word comment line
- *  the interface's own docs generator reads the same way; everything from it
- *  to `END OF cs_event` is that run. */
-export function parseObsoleteEventConstants(intfSrc) {
-  const m = intfSrc.match(/BEGIN OF cs_event\b([\s\S]*?)\bEND OF cs_event\b/i);
-  if (!m) return [];
-  const at = m[1].search(/^\s*"obsolete\s*$/im);
-  if (at === -1) return [];
-  return [...m[1].slice(at).matchAll(/^\s*(\w+)\s+TYPE\s+string\s+VALUE\b/gim)].map((x) => x[1].toLowerCase());
 }
 
 /** The property names a companion control declares: the keys of the
@@ -612,26 +599,6 @@ if (invokedDirectly) {
       console.log(`DRIFT ${what}:`);
       for (const n of missingHere) console.log(`  + upstream has '${n}' — accepted by none of FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS (correct code gets reported as unknown-frontend-action until it is added)`);
       for (const n of staleHere) console.log(`  - '${n}' is gone from cs_event upstream — stale in FRONTEND_EVENT_ALIASES/SERVER_EVENTS (a dead name passes until it is removed)`);
-    }
-  }
-  /* The obsolete run of cs_event, by NAME: a constant upstream moves under
-   * the label is a wire the linter still calls current, and one that leaves
-   * the interface altogether is a name the rule keeps reporting for nothing. */
-  {
-    const theirs = parseObsoleteEventConstants(clientIntfSrc);
-    const what = 'obsolete cs_event constants, the `"obsolete` label of z2ui5_if_client=>cs_event (lib/frontend-actions.mjs OBSOLETE_EVENT_CONSTANTS)';
-    const missingHere = setDiff(theirs, OBSOLETE_EVENT_CONSTANTS);
-    const staleHere = setDiff(OBSOLETE_EVENT_CONSTANTS, theirs);
-    if (!theirs.length) {
-      drift++;
-      console.log(`DRIFT ${what}: no "obsolete label found in cs_event - the interface changed, update parseObsoleteEventConstants`);
-    } else if (!missingHere.length && !staleHere.length) {
-      console.log(`ok    ${what}: the same ${theirs.length} names`);
-    } else {
-      drift++;
-      console.log(`DRIFT ${what}:`);
-      for (const n of missingHere) console.log(`  + upstream marks '${n}' obsolete - not in OBSOLETE_EVENT_CONSTANTS (a wire on it passes as current)`);
-      for (const n of staleHere) console.log(`  - '${n}' is no longer under the obsolete label upstream - stale here`);
     }
   }
   {

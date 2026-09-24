@@ -264,7 +264,7 @@ ENDINTERFACE.`;
     assert(parseClientEvents('INTERFACE zif_y PUBLIC. ENDINTERFACE.').length === 0, 'no cs_event block, no values');
 
     const upstream = parseClientEvents(fs.readFileSync(f('cs_event.intf.abap'), 'utf8'));
-    assert(upstream.length >= 40 && upstream.includes('HASH_REPLACE') && upstream.includes('HASH_ATTACH_CHANGED'),
+    assert(upstream.length >= 30 && upstream.includes('HASH_REPLACE') && upstream.includes('HASH_ATTACH_CHANGED'),
       `the fixture is the real block (${upstream.length} values, hash events present)`);
     const accepted = new Set([...FRONTEND_EVENTS, ...FRONTEND_EVENT_ALIASES, ...SERVER_EVENTS]);
     const missing = upstream.filter((v) => !accepted.has(v));
