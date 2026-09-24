@@ -14,7 +14,10 @@
   container filled inside a branch (`branched`), and the rule stands down on
   it. The other findings on that corpus were real and are fixed in the
   ports (samples-controls: wrong `labelFor` targets copied from the
-  originals, template text through `v` instead of `t`).
+  originals, template text through `v` instead of `t`), and the Downstream
+  job now runs samples-controls' view gates with `VIEW_GATES_LINTER=next`, so
+  that repository judges this unreleased linter against a budget recorded for
+  it rather than against the one its pinned release keeps.
 
 - **`bound-aggregation-without-template` no longer reports
   `sap.ui.table.Table`'s `rows`.** That aggregation is bound without a
