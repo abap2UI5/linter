@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **`bound-aggregation-without-template` no longer reports
+  `sap.ui.table.Table`'s `rows`.** That aggregation is bound without a
+  template by design: the table builds its rows from each column's
+  `template`, and UI5 sets `_doesNotRequireFactory` on it so
+  `bindAggregation` skips the "Missing template or factory function" check.
+  The rule did not know the flag, and reported four samples-controls ports
+  (115, 137, 164, 174) that load and render fine — which is what kept the
+  Downstream `samples-controls corpus` job red on main. The same exemption
+  covers every aggregation UI5 marks that way (`sap.ui.core.util.Export.rows`,
+  `sap.gantt.GanttChartBase.rows`/`relationships`,
+  `sap.suite.ui.microchart.LineMicroChartLine.points`,
+  `sap.viz.ui5.data.FlattenedDataset.data`), and through inheritance
+  `TreeTable` and `AnalyticalTable`. The flag is set in code after the class
+  is defined, so the metadata snapshot does not carry it; the list sits next
+  to the rule in `lib/properties.mjs`.
+
 - **The mirrors follow abap2UI5's 2026-09-22 removals
   (abap2UI5/abap2UI5#2776, #2777).** `check-upstream` was red against
   abap2UI5 main, and with it abap2UI5's own `check_gates`. Every entry here

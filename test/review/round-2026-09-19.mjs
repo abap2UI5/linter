@@ -246,6 +246,24 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(list('          )->ele( `List` )->a( n = `items` v = client->_bind( mt_rows )\n            )->ele( `items` )->tag( `StandardListItem` )->a( n = `title` v = `{TEXT}`\n            )->end(\n          )->end(\n'), 'bound-aggregation-without-template').length === 0, 'a template under the explicit aggregation tag is fine');
   });
 
+  section('bound-aggregation-without-template: sap.ui.table rows bind without a template', () => {
+    /* sap.ui.table.Table sets _doesNotRequireFactory on `rows`: the cells
+     * come from each column's template, and a row template is not even
+     * supported. Reported on four samples-controls ports (115, 137, 164,
+     * 174) that load and render fine. */
+    const table = (tag) => frame({ defs: '    DATA mt_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.\n', chain:
+      `          )->ele( n = \`${tag}\` ns = \`table\` )->a( n = \`xmlns:table\` v = \`sap.ui.table\` )->a( n = \`rows\` v = client->_bind( mt_rows )\n`
+      + '            )->ele( n = `columns` ns = `table` )->ele( n = `Column` ns = `table` )->ele( n = `template` ns = `table` )->tag( `Text` )->a( n = `text` v = `{TEXT}`\n'
+      + '            )->end( )->end( )->end(\n          )->end(\n' });
+    for (const tag of ['Table', 'TreeTable', 'AnalyticalTable']) {
+      const src = table(tag);
+      assert(of(src, 'bound-aggregation-without-template').length === 0, `sap.ui.table.${tag} rows with column templates is not reported`);
+      assert(of(src, 'unknown-control').length === 0 && of(src, 'unknown-aggregation').length === 0, `the fixture really is a sap.ui.table.${tag} (no unknown control or aggregation)`);
+    }
+    const list = frame({ defs: '    DATA mt_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.\n', chain: '          )->ele( `List` )->a( n = `items` v = client->_bind( mt_rows )\n          )->end(\n' });
+    assert(of(list, 'bound-aggregation-without-template').length === 1, 'the exemption is per aggregation: a bare List items is still reported');
+  });
+
   section('unknown-source-property: a $source path the control does not have, with the did-you-mean', () => {
     const src = frame({ chain: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( `${$source>/txt}` ) ( `${$source>/Text}` ) ( `${$source>/text}` ) ) )\n', main: '    IF client->check_on_event( `GO` ).\n      mv_text = client->get_event_arg( ).\n    ENDIF.\n' });
     const hits = of(src, 'unknown-source-property');
