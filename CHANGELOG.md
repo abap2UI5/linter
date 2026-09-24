@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- **The mirrors follow abap2UI5's 2026-09-22 removals
+  (abap2UI5/abap2UI5#2776, #2777).** `check-upstream` was red against
+  abap2UI5 main, and with it abap2UI5's own `check_gates`. Every entry here
+  was a name that no longer exists upstream, which is the worse direction of
+  drift: the linter passed a wire or a call that now does nothing, or does
+  not compile.
+  - The dispatch table loses `KEYBOARD_SET_MODE` (the `inputmode` action,
+    replaced by `z2ui5.cc.InputExt`'s bound property, so `INPUT_MODES` and
+    its `invalid-action-payload` / `ACTION_ID_SLOTS` entries go with it),
+    `IMAGE_EDITOR_POPUP_CLOSE` and `Z2UI5` (removed with the `z2ui5` global).
+    A literal naming one is an `unknown-frontend-action` now.
+  - `FRONTEND_EVENT_ALIASES` loses the five `*_NAV_CONTAINER_TO` names: the
+    constants are gone from `cs_event`, and so is the server remap into a
+    `CONTROL_BY_ID` `to` wire. `POPUP_CLOSE` / `POPOVER_CLOSE` stay.
+  - `lib/released-api.mjs` loses the released structure `z2ui5_t_02`
+    (nothing in the ecosystem named it; it falls into the `z2ui5_t_` table
+    family now) and the frozen `z2ui5_cl_pop_js_loader`.
+  - **`obsolete-event-constant` is withdrawn before it was ever released.**
+    It judged the run under the `"obsolete` label of `cs_event`, and
+    abap2UI5 removed every constant of that run, and the label, three days
+    after the rule landed. A class naming one no longer compiles, which
+    abaplint reports, and a rule that cannot fire is one this suite rejects
+    (every rule has to fire somewhere, every example has to fire its rule).
+    No released version carried it, so no configuration can name it.
+  - `test/fixtures/cs_event.intf.abap` is re-synced with the interface.
+
 - **The windows-latest leg of CI is green again.** Both `--watch` sections
   failed there from the day the flag landed, on their last assertion each:
   *"Ctrl+C ends the watch with exit 0 (got SIGINT)"*. Not a defect in the loop
@@ -80,7 +106,7 @@
   `insecure-asset-url` rewrites a LOADED uri to `https://` (the `href` hint
   keeps its finding); and `loop-work-area-bound` as above.
 
-- **Five abap2UI5-specific rules, and the split that produced them.** The
+- **Four abap2UI5-specific rules, and the split that produced them.** The
   linter keeps the checks about an abap2UI5 app and its view; rules about
   ABAP as a language go to abaplint (abap2UI5's `backlog/ABAPLINT.md` carries
   the stock — nine items filed there in the same round, each measured on
@@ -96,12 +122,10 @@
   naming an id no control of the document declares, judged only when every
   id in it is a literal), `column-cell-count-mismatch` (a `ColumnListItem`
   with a different number of cells than its `sap.m.Table` has columns —
-  mapped by index, rendered shifted, nothing logged), and
-  `obsolete-event-constant` (the run under the `"obsolete` label of
-  `z2ui5_if_client=>cs_event`, mirrored as `OBSOLETE_EVENT_CONSTANTS` in
-  `lib/frontend-actions.mjs` and gated by `check-upstream` against that
-  label). Measured on abap2UI5's own classes and on app-template before
-  shipping: 0 findings for all five.
+  mapped by index, rendered shifted, nothing logged). Measured on abap2UI5's
+  own classes and on app-template before shipping: 0 findings for all four.
+  A fifth, `obsolete-event-constant`, was withdrawn before release — see the
+  entry on the 2026-09-22 removals above.
 
 - **Six fixes on rules that had none, each mechanical or absent.**
   `missing-on-navigated-branch` writes the `ELSEIF client->check_on_navigated( ).`

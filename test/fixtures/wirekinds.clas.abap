@@ -78,12 +78,6 @@ CLASS zcl_fixture_wirekinds IMPLEMENTATION.
         client->follow_up_action( val   = client->cs_event-scroll_into_view
                                   t_arg = VALUE #( ( `btn` ) ( `smooth` ) ( `middle` ) ) ).
 
-      WHEN `KEYS`.
-        " reported (invalid-frontend-action) - `numerical` is no inputmode, so
-        " the browser ignores it and the soft keyboard stays text
-        client->follow_up_action( val   = client->cs_event-keyboard_set_mode
-                                  t_arg = VALUE #( ( `btn` ) ( `numerical` ) ) ).
-
       WHEN `ROUTE`.
         " reported (invalid-frontend-action) - cs_nav_mode is DEFAULT, FRESH
         " or KEEP; anything else routes as if routing were off

@@ -1,8 +1,9 @@
 /*
  * The 2026-09-19 round: the abap2UI5-specific rules and fixes that came out
- * of the "pure ABAP goes to abaplint" split. Five rules (handler-without-event,
- * binding-to-expression, association-unknown-id, column-cell-count-mismatch,
- * obsolete-event-constant), six new fixes on rules that had none, and the
+ * of the "pure ABAP goes to abaplint" split. Four rules (handler-without-event,
+ * binding-to-expression, association-unknown-id, column-cell-count-mismatch;
+ * a fifth, obsolete-event-constant, was withdrawn before release when
+ * abap2UI5 removed every constant it judged), six new fixes on rules that had none, and the
  * did-you-mean batch on the closed sets that had no caseMatch yet. See
  * test/review/README.md for the harness.
  */
@@ -107,15 +108,6 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(table('                    )->tag( `Text` )->a( n = `text` v = `a`\n                    )->tag( `Text` )->a( n = `text` v = `b`\n'), 'column-cell-count-mismatch').length === 0, 'two cells for two columns is fine');
     const bound = frame({ defs: '    DATA mt_cols TYPE STANDARD TABLE OF string WITH EMPTY KEY.\n', chain: '            )->ele( `Table` )->a( n = `columns` v = client->_bind( mt_cols )\n              )->ele( `items`\n                )->ele( `ColumnListItem`\n                  )->ele( `cells`\n                    )->tag( `Text` )->a( n = `text` v = `a`\n                  )->end(\n                )->end(\n              )->end(\n            )->end(\n' });
     assert(of(bound, 'column-cell-count-mismatch').length === 0, 'bound columns are a runtime shape and not judged');
-  });
-
-  section('obsolete-event-constant: the nav_container_to family, and the successor wire is silent', () => {
-    const src = frame({ main: '    client->follow_up_action( val = client->cs_event-nav_container_to t_arg = VALUE #( ( `nav` ) ( `page2` ) ) ).\n' });
-    const hits = of(src, 'obsolete-event-constant');
-    assert(hits.length === 1 && hits[0].member === 'nav_container_to' && hits[0].severity === 'warning', `one warning naming the constant (${hits.length})`);
-    assert(of(src, 'unknown-frontend-action').length === 0, 'the wire itself is still accepted (the value is an alias)');
-    const good = frame({ main: '    client->follow_up_action( val = client->cs_event-control_by_id t_arg = VALUE #( ( `nav` ) ( `to` ) ( `page2` ) ) ).\n' });
-    assert(of(good, 'obsolete-event-constant').length === 0, 'the CONTROL_BY_ID form is not reported');
   });
 
   // ---------------------------------------------------------------- fixes
