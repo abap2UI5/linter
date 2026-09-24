@@ -962,7 +962,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 497 KB one-line snapshot (`ui5Version` 1.151.0, 959 controls, 235
+The 500 KB one-line snapshot (`ui5Version` 1.152.0, 962 controls, 240
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
