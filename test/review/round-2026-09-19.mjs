@@ -264,6 +264,33 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(list, 'bound-aggregation-without-template').length === 1, 'the exemption is per aggregation: a bare List items is still reported');
   });
 
+  section('association-unknown-id: an internal part of a known control, and the rest still reported', () => {
+    /* sap.m.Page renders its title as `<page id>-title`; samples-controls
+     * port 565 labels its Popover by `master-title` exactly as the demo kit
+     * original does. */
+    const doc = (labelled) => frame({ chain: '          )->ele( `Page` )->a( n = `id` v = `master` )->a( n = `title` v = `Products`\n'
+      + `            )->tag( \`Button\` )->a( n = \`id\` v = \`btn\` )->a( n = \`ariaLabelledBy\` v = \`${labelled}\`\n          )->end(\n` });
+    assert(of(doc('master-title'), 'association-unknown-id').length === 0, 'an id under a known control id plus a suffix is not reported');
+    assert(of(doc('mainPage'), 'association-unknown-id').length === 0, 'a known id is fine');
+    const miss = of(doc('masterTitle'), 'association-unknown-id');
+    assert(miss.length === 1 && miss[0].value === 'masterTitle', `an id with no known prefix is still reported (${miss.length})`);
+  });
+
+  section('column-cell-count-mismatch: a row template filled from two exclusive branches', () => {
+    /* samples-controls port 570 builds its ColumnListItem's cells in an
+     * IF edit_mode / ELSE pair, four cells each - the replay runs both
+     * branches and used to count eight. */
+    const cls = (body) => frame({ defs: '    DATA mt_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.\n    DATA mv_edit TYPE abap_bool.\n', methods: '', main: '' })
+      .replace('    client->view_display( view->stringify( ) ).', body + '\n    client->view_display( view->stringify( ) ).');
+    const table = '    DATA(cells) = view->ele( `Table` )->a( n = `items` v = client->_bind( mt_rows )\n'
+      + '        )->ele( `columns` )->ele( `Column` )->end( )->ele( `Column` )->end( )->end(\n'
+      + '        )->ele( `items` )->ele( `ColumnListItem` )->ele( `cells` ).\n';
+    const branched = cls(table + '    IF mv_edit = abap_true.\n      cells->tag( `Input` )->tag( `Input` ).\n    ELSE.\n      cells->tag( `Text` )->tag( `Text` ).\n    ENDIF.\n');
+    assert(of(branched, 'column-cell-count-mismatch').length === 0, 'two branches of two cells for two columns are not reported');
+    const short = cls(table + '    cells->tag( `Text` ).\n');
+    assert(of(short, 'column-cell-count-mismatch').length === 1, 'one unconditional cell for two columns is still reported');
+  });
+
   section('unknown-source-property: a $source path the control does not have, with the did-you-mean', () => {
     const src = frame({ chain: '            )->a( n = `press` v = client->_event( val = `GO` t_arg = VALUE #( ( `${$source>/txt}` ) ( `${$source>/Text}` ) ( `${$source>/text}` ) ) )\n', main: '    IF client->check_on_event( `GO` ).\n      mv_text = client->get_event_arg( ).\n    ENDIF.\n' });
     const hits = of(src, 'unknown-source-property');

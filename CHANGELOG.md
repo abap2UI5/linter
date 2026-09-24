@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Two more false positives the samples-controls corpus turned up.**
+  `association-unknown-id` no longer reports an id of the form
+  `<known id>-<suffix>`: a control renders its internal parts under its own
+  id plus a suffix, and port 565 labels its Popover by `master-title`, the
+  title of `sap.m.Page` `master`, exactly as the demo kit original does.
+  `column-cell-count-mismatch` no longer counts a row template whose cells
+  are filled in exclusive `IF` / `CASE` branches: the reconstructor replays
+  every branch, so port 570's edit and display templates (four cells each)
+  came out as one template with eight. The replay now marks a held
+  container filled inside a branch (`branched`), and the rule stands down on
+  it. The other findings on that corpus were real and are fixed in the
+  ports (samples-controls: wrong `labelFor` targets copied from the
+  originals, template text through `v` instead of `t`).
+
 - **`bound-aggregation-without-template` no longer reports
   `sap.ui.table.Table`'s `rows`.** That aggregation is bound without a
   template by design: the table builds its rows from each column's
