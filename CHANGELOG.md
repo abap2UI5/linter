@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - 2026-09-24
+
+- **The linter judges against OpenUI5 1.152.0.** The render runtime's
+  `@openui5/*` pins, `data/properties.json` and `data/icons.json` move
+  together from 1.151.0 (RELEASING.md step 1c). A member released in 1.152 -
+  `sap.ui.unified.DateTypeRange.ariaHasPopup`, `sap.f.HeroBanner` - exists
+  now, where it was an `unknown-property` / `unknown-control` plus a failed
+  render; a consumer that pins its runtime to the linter's metadata version
+  (samples-controls' check-pins policy 5) can move to 1.152 with this
+  release.
 
 - **Two more false positives the samples-controls corpus turned up.**
   `association-unknown-id` no longer reports an id of the form
