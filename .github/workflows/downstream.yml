@@ -83,6 +83,11 @@ jobs:
 
       - name: View gates over every port
         working-directory: samples-controls
+        # tells samples-controls this is the UNRELEASED linter: its ratchet
+        # reads the budget recorded for the next linter, and a skip only the
+        # pinned release still needs is a note (scripts/view-gates.mjs there)
+        env:
+          VIEW_GATES_LINTER: next
         run: node scripts/view-gates.mjs --strict
 
   mcp-server:

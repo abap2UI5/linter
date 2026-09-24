@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- **Two more false positives the samples-controls corpus turned up.**
+  `association-unknown-id` no longer reports an id of the form
+  `<known id>-<suffix>`: a control renders its internal parts under its own
+  id plus a suffix, and port 565 labels its Popover by `master-title`, the
+  title of `sap.m.Page` `master`, exactly as the demo kit original does.
+  `column-cell-count-mismatch` no longer counts a row template whose cells
+  are filled in exclusive `IF` / `CASE` branches: the reconstructor replays
+  every branch, so port 570's edit and display templates (four cells each)
+  came out as one template with eight. The replay now marks a held
+  container filled inside a branch (`branched`), and the rule stands down on
+  it. The other findings on that corpus were real and are fixed in the
+  ports (samples-controls: wrong `labelFor` targets copied from the
+  originals, template text through `v` instead of `t`), and the Downstream
+  job now runs samples-controls' view gates with `VIEW_GATES_LINTER=next`, so
+  that repository judges this unreleased linter against a budget recorded for
+  it rather than against the one its pinned release keeps.
+
+- **`bound-aggregation-without-template` no longer reports
+  `sap.ui.table.Table`'s `rows`.** That aggregation is bound without a
+  template by design: the table builds its rows from each column's
+  `template`, and UI5 sets `_doesNotRequireFactory` on it so
+  `bindAggregation` skips the "Missing template or factory function" check.
+  The rule did not know the flag, and reported four samples-controls ports
+  (115, 137, 164, 174) that load and render fine — which is what kept the
+  Downstream `samples-controls corpus` job red on main. The same exemption
+  covers every aggregation UI5 marks that way (`sap.ui.core.util.Export.rows`,
+  `sap.gantt.GanttChartBase.rows`/`relationships`,
+  `sap.suite.ui.microchart.LineMicroChartLine.points`,
+  `sap.viz.ui5.data.FlattenedDataset.data`), and through inheritance
+  `TreeTable` and `AnalyticalTable`. The flag is set in code after the class
+  is defined, so the metadata snapshot does not carry it; the list sits next
+  to the rule in `lib/properties.mjs`.
+
 - **The mirrors follow abap2UI5's 2026-09-22 removals
   (abap2UI5/abap2UI5#2776, #2777).** `check-upstream` was red against
   abap2UI5 main, and with it abap2UI5's own `check_gates`. Every entry here
