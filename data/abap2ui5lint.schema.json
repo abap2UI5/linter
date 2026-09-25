@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 147 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 149 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -183,6 +183,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-to-reference' — default severity: error"
         },
+        "binding-to-static": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'binding-to-static' — default severity: error"
+        },
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
@@ -210,6 +214,10 @@
         "chain-indentation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'chain-indentation' — default severity: hint"
+        },
+        "chain-unbalanced-parens": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'chain-unbalanced-parens' — default severity: warning"
         },
         "class-constructor-visibility": {
           "$ref": "#/definitions/rule",

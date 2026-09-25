@@ -80,6 +80,9 @@ declare module "@abap2ui5/linter" {
     kind: "abap" | "xml";
     /** ABAP results only: the class builds views with one of the view builders. */
     usesBuilder?: boolean;
+    /** ABAP results only: an app class (`INTERFACES z2ui5_if_app`) that builds
+     *  no view itself — judged by the source-side and lifecycle rules only. */
+    appWithoutView?: boolean;
     /** The reconstructed (or given) XML documents. */
     docs: string[];
     /** The mock model derived from the class's literal seeds. */
@@ -176,6 +179,11 @@ declare module "@abap2ui5/linter" {
     paths: string[],
     opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean }
   ): string[];
+
+  /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
+   *  literals blanked) - what makes a class without a factory call an app
+   *  class collectFiles keeps and checkAbapSource judges as `appWithoutView`. */
+  export function declaresApp(source: string): boolean;
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -978,6 +986,8 @@ declare module "@abap2ui5/linter/report" {
     builder: number;
     /** Builder classes whose reconstruction produced no document at all. */
     emptyViews: number;
+    /** App classes whose view is built in another class - no view judged. */
+    appsWithoutView: number;
     documents: number;
     controls: number;
     aggregations: number;

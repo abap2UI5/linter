@@ -84,7 +84,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      147 rules passed" green, "7 errors" red)
+ *                      149 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -970,6 +970,21 @@ async function runOnce({ opt, paths }) {
   else if (opt.format === 'junit') console.log(formatJunit(results));
   else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
   else console.log(formatStylish(results, summary, reportOpt));
+
+  /* Two things the run summary says and a one-file run, which prints none,
+   * used to keep to itself - each the one line that stops a green report
+   * from reading as approval: a class that opened a builder and produced no
+   * view (the gate judged nothing of it), and an app class whose view is
+   * built elsewhere (the gate judged the class, not a view). Always, when
+   * the count is non-zero; the summary carries the same numbers when it
+   * prints. */
+  if (opt.format === 'stylish' && !showStats) {
+    if (stats.emptyViews) console.log(`abap2ui5lint: ${stats.emptyViews} class${stats.emptyViews === 1 ? '' : 'es'} opened a builder and produced no view`);
+    if (stats.appsWithoutView) {
+      console.log(`abap2ui5lint: ${stats.appsWithoutView} app class${stats.appsWithoutView === 1 ? ' builds' : 'es build'} no view here (the view comes from another class)`
+        + ' - judged by the source-side and lifecycle rules only, no view was checked');
+    }
+  }
 
   /* A machine report written BESIDE the human one, in the same run.
    *
