@@ -80,6 +80,9 @@ declare module "@abap2ui5/linter" {
     kind: "abap" | "xml";
     /** ABAP results only: the class builds views with one of the view builders. */
     usesBuilder?: boolean;
+    /** ABAP results only: an app class (`INTERFACES z2ui5_if_app`) that builds
+     *  no view itself — judged by the source-side and lifecycle rules only. */
+    appWithoutView?: boolean;
     /** The reconstructed (or given) XML documents. */
     docs: string[];
     /** The mock model derived from the class's literal seeds. */
@@ -176,6 +179,11 @@ declare module "@abap2ui5/linter" {
     paths: string[],
     opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean }
   ): string[];
+
+  /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
+   *  literals blanked) - what makes a class without a factory call an app
+   *  class collectFiles keeps and checkAbapSource judges as `appWithoutView`. */
+  export function declaresApp(source: string): boolean;
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -610,6 +618,8 @@ declare module "@abap2ui5/linter/fix" {
      *  against different text. A DEFECT in the linter, surfaced rather than
      *  swallowed; `ABAP2UI5LINT_STRICT_FIXES=true` makes it throw. */
     dropped: number;
+    /** The findings whose fixes were applied (additive) - what a dry run lists. */
+    findings: PropertyFinding[];
   };
 }
 
@@ -695,17 +705,27 @@ declare module "@abap2ui5/linter/findings" {
   ): T[];
 
   /** The `abap2ui5lint-disable…` directives of a source, or null when it
-   *  holds none. */
+   *  holds none. `suppresses` remembers which directive answered, so that
+   *  `findings()` afterwards names the ones nothing asked (`unused-directive`)
+   *  and the ids no rule has (`unknown-directive-rule`). */
   export function parseDirectives(
     source: string
-  ): { suppresses(line: number, rule: string): boolean } | null;
+  ): {
+    suppresses(line: number, rule: string, own?: unknown): boolean;
+    findings(): PropertyFinding[];
+    stillUnused(directive: unknown): boolean;
+  } | null;
 
   /** Drops the findings an `abap2ui5lint-disable…` directive in the source
-   *  suppresses. Returns the input array unchanged when it holds none. */
+   *  suppresses, and adds the findings about the directives themselves
+   *  (`unknown-directive-rule`, `unused-directive`) - those go through the
+   *  `rules` block and the directives too. Returns the input array unchanged
+   *  when the source holds no directive. */
   export function applyDirectives<T extends PropertyFinding>(
     findings: T[],
-    source: string
-  ): T[];
+    source: string,
+    opts?: { rules?: Record<string, unknown>; file?: string }
+  ): (T | PropertyFinding)[];
 
   /** Attaches the undeclared-namespace fix for conventional prefixes - the
    *  same fixes the CLI attaches, for gates that replicate the pipeline. */
@@ -978,6 +998,8 @@ declare module "@abap2ui5/linter/report" {
     builder: number;
     /** Builder classes whose reconstruction produced no document at all. */
     emptyViews: number;
+    /** App classes whose view is built in another class - no view judged. */
+    appsWithoutView: number;
     documents: number;
     controls: number;
     aggregations: number;

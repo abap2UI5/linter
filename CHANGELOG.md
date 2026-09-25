@@ -1,5 +1,170 @@
 # Changelog
 
+## Unreleased
+
+- **`unescaped-text-in-attribute` no longer reports a constant, a
+  literal-fed helper parameter, or a property that cannot show text.**
+  abap2UI5's own start app carried ten warnings under the rule, nine of them
+  false: `a( n = \`size\` v = c_icon_size_header )` where the name is a
+  `CONSTANTS … VALUE \`1.125rem\``, and `v = label` in a row helper every
+  call of which passes a literal. A `CONSTANTS` (single, chained, or a
+  component of a structured one) is a literal with a name, never data. An
+  `IMPORTING` parameter of the class's own method is a literal when every
+  call site in the class passes it a literal, a constant, an uninterpolated
+  template or another such parameter (`render_samples( name = \`x\` )`
+  handing `name` on as `text = name`) — judged per method AND parameter,
+  because `text` is a parameter of more than one helper and only the method
+  the `v = text` sits in says which. And where the snapshot is there, the
+  rule stands down on a property no text can be shown in — `int`, `float`,
+  `boolean`, `sap.ui.core.CSSSize`/`CSSColor`/`ID`/`URI`, an enum — resolved
+  through the element literal nearest before the `a( )` call and the class's
+  `xmlns` declarations; a wrong guess there can only make it stand down.
+  The tenth warning was real and stays: `render_text( )`'s `v = text` is fed
+  an interpolated template and a method result, and it had been hidden
+  behind the first `text: text` finding, which the collector collapses
+  repeats of.
+
+- **`_bind_path( )` and `_event_nav_app_leave( )`** (abap2UI5's
+  `z2ui5_if_client`, 2026-09-13) are known to the reconstructor and the
+  rules. `_bind_path( x )` is `_bind( val = x path = abap_true )` and nothing
+  else, so it reconstructs as the same bare path and every rule that reads
+  a bound name (`binding-to-local`, `-nonpublic`, `-static`, `-reference`,
+  `-expression`, `loop-work-area-bound`, `client-handle-capture`) reads it
+  too; before, the attribute written from it was dropped from the
+  reconstructed view with no finding. `_event_nav_app_leave( )` is a handler
+  expression like `_event( )`: it reconstructs as one, closes a Dialog for
+  `popup-without-close-wire`, is a handle for `client-handle-capture`, and
+  raises no event a `WHEN` has to handle. The remedies of
+  `hardcoded-binding-path` and `relative-aggregation-without-context` name
+  `_bind_path( )` as the readable spelling of the bare path.
+
+- **An app class whose view is built elsewhere is collected and judged.**
+  A class with `INTERFACES z2ui5_if_app` and no factory call — the app whose
+  view comes from a views class or a generator — was dropped by
+  `collectFiles`, so `node cli.mjs zcl_app.clas.abap` answered `no checkable
+  app classes` with exit 0 to a file it was handed by name. It is kept now,
+  on a walk and when named, and judged by what needs no view: the
+  source-side rules, and the ABAP-side rules that read the class itself —
+  the `binding-to-*`, `obsolete-*` and `event-*` families,
+  `private-app-attribute`, the lifecycle and flow rules
+  (`VIEWLESS_APP_RULE` in `lib/index.mjs`). Nothing about the view it does
+  not have is judged. The result carries `appWithoutView`, the run summary
+  counts such classes apart (`appsWithoutView` in `stats`, "building none
+  here" on the sources row), and a one-file report says so under the
+  verdict, so a clean run on one is not read as an approved view.
+
+- **The `separate-lifecycle-ifs` fix no longer folds "seed on init, display
+  on navigated".** `IF check_on_init( ). mt_tab = … ENDIF. IF
+  check_on_navigated( ). view_display( ). ENDIF.` became `IF … ELSEIF …`,
+  after which the first roundtrip — init is true, and init implies
+  navigated — displayed nothing. Where the init block displays nothing and
+  the navigated block does, the finding stays and carries no fix; the
+  guide's shape repeats the display in the init arm, which is a decision.
+  The other pairs fold as before.
+
+- **New rule `binding-to-static`** (error): a `_bind( )` / `_bind_path( )` on
+  a `CONSTANTS` or a `CLASS-DATA`, in any section, a local `CONSTANTS`
+  included. The model carries INSTANCE attributes only — the framework's
+  `attri_search` filters on `is_class = abap_false AND is_constant =
+  abap_false` — so the bind finds nothing and raises `BINDING_ERROR` on the
+  first roundtrip, while the class compiles and the view reconstructs fine.
+  `binding-to-nonpublic` stands down for a static root, because moving a
+  constant to `PUBLIC` changes nothing.
+
+- **`unconditional-popup-display` and `display-after-nav-app-call` follow
+  helper methods.** Both matched only the written-out `client->popup_display(
+  )` / `client->view_display( )`, and the corpus idiom is a method of the
+  class that builds the view and hands it over. A call to a method of the
+  class now counts as the display that method (or one it calls, a few levels
+  deep) issues: a `popup_display( )` helper at the top level of `main( )`, and
+  a `view_display( )` helper behind `nav_app_call( )` inside a handler, are
+  reported at the call. Severities unchanged.
+
+- **New rule `chain-unbalanced-parens`** (warning): a builder chain with one
+  `)` too many (`… ) ) ).`) or one `(` never closed. A syntax error the class
+  does not activate with — and the one defect that took this gate down
+  without a word: the statement reader counts parentheses, a stray `)` left
+  it at minus one, the chain's own `.` stopped being a statement end, and
+  the class reconstructed no view and reported nothing. The scan behind the
+  rule recovers at the stray paren and names its line. With it, a one-file
+  run prints "N classes opened a builder and produced no view" whenever the
+  count is non-zero — until now that line lived only in the run summary,
+  which a single file does not print.
+- **Five rules read out of the app guide and `z2ui5_if_client`'s ABAP Doc**
+  (`lib/guide-rules.mjs`, a module of its own called from
+  `checkAbapRules( )`; every one probed silent on 0.7.0, and every one
+  measured at 0 findings on abap2UI5's own app classes before shipping).
+  `frontend-action-as-backend-event` (warning, fixable): a `cs_event-`
+  constant handed to `client->_event( )` in any spelling — a backend event
+  named `POPUP_CLOSE` that reaches `main( )` and closes nothing, and the one
+  dead wire `event-without-handler` cannot judge because the name is not a
+  literal; `--fix` renames the call to `follow_up_action( val = … )`.
+  `popup-display-xml` (error, fixable): the mirror of `popover-display-val`
+  — the popup takes `val`, and `xml =` does not compile; `--fix` renames the
+  parameter. `queue-last-without-no-busy` (hint, fixable): a `live*` wire
+  whose `s_ctrl` sets `check_queue_last` without `check_no_busy`, so every
+  keystroke landing on a roundtrip in flight raises the busy overlay over
+  the very field being typed into; `--fix` writes the flag into the existing
+  `VALUE #( )`. The per-keystroke test is `isLiveEvent( )` in
+  `lib/abap-source.mjs` now, the same prefix `live-event-roundtrip` applies.
+  `nest-view-without-destroy` (warning): a `nest_view_display( )` /
+  `nest2_view_display( )` with no `method_destroy`, where every call adds
+  one more fragment; fixable only for the three inserts the ABAP Doc names
+  (`addContent`/`addItem`/`addPage` → `removeAllContent`/`removeAllItems`/
+  `removeAllPages`), any other insert keeps the finding without a fix.
+  `omit-initial-drops-false` (warning, no fix): `_bind( val = t
+  omit_initial = abap_true )` on a table whose row declares an `abap_bool`
+  that the template binds to a property defaulting to `true` — `abap_false`
+  is itself initial, so the blanket flag drops exactly the value that had to
+  arrive and the control shows its default; read off the same
+  `boolFields` map `absent-boolean-overrides-default` uses (which stands down
+  under `omit_initial`, so this is the rule that speaks there).
+- **A directive is judged too.** `" abap2ui5lint-disable-next-line
+  binding-to-locl` used to waive nothing and say nothing, so the finding it
+  was written for stayed reported one line down and read as the linter
+  ignoring the comment. Two rules now, both emitted from `applyDirectives`
+  in `lib/findings.mjs`: `unknown-directive-rule` (warning) for an id no
+  rule has, with the one did-you-mean `lib/suggest.mjs` makes and a `--fix`
+  that rewrites the id (`render-error` gets its own sentence - a render
+  failure has no source line, waive it per file with `rules['render-error']`),
+  and `unused-directive` (hint) for a directive that suppressed nothing -
+  ESLint's `--report-unused-disable-directives`, per id for a list, as a
+  whole for a bare one, with a `--fix` that deletes a dead `-next-line` /
+  `-line` directive (the line when the comment has it to itself, else the
+  comment). Both answer to the `rules` block and to a directive like any
+  other id; a bare directive cannot excuse its own finding, one that names
+  `unused-directive` may. Two fixtures had carried a dead directive for a
+  year (`non-released-api` never fired on them) - the new hint found both.
+- **`missing-on-navigated-branch` sends the reader to a rename, not to a
+  second branch.** "add `ELSEIF client->check_on_navigated( ). view_display( ).`"
+  under an init branch that only displays produced the fork
+  `redundant-init-display` then reports. The message and the card say what
+  the app guide says: dispatch the display on `check_on_navigated( )`
+  (`check_on_init( )` implies it, so the first start is covered), keep an
+  init branch only for one-time seeding. `unknown-control`'s card shows a
+  case typo (`Objectstatus` → `ObjectStatus`) instead of `Buton` → `Button`,
+  which the linter never suggests (no edit distance), so the `--fix` badge
+  on the card is honest. `excess-shut` says `end( )`, the verb the developer
+  wrote, instead of the reconstructor's role name `shut( )`.
+- **CLI.** `--fix-dry-run` lists what it would fix, one `path:line:col
+  rule-id` per line, before the count (it used to print the count and then
+  the findings that REMAIN). A stylish run prints `config: <path>` and, when
+  the config's `ignore` dropped checkable files, `N files ignored by config`
+  under the count line (never inside `--format json`/`markdown`, quiet
+  under `--quiet`). The config error for an unknown rule id points at
+  `abap2ui5lint --explain` and the rules page instead of a README table
+  that no longer exists, and carries the did-you-mean. `--explain
+  unknown-control <path>` says that `--explain` takes rule ids only
+  (exit 2) instead of `no rule '<path>'`. The `--all-classes` summary reads
+  `106 classes (2 app classes building a view, 104 helpers)` instead of
+  calling the helpers app classes. `--help` says that `ignore` and the
+  per-rule switches are config-only (`abap2ui5lint.jsonc`, `--init`).
+- **Two one-line rule fixes.** `event-arg-single-row-table` cuts a long
+  value between tokens with an ellipsis, never inside a backtick literal
+  (it used to `slice(0, 40)` mid-literal). `lifecycle-is-initial` reads
+  `IF client->check_on_event( \`GO\` ) IS NOT INITIAL.` too - the regex
+  required empty parentheses.
+
 ## 0.7.0 - 2026-09-24
 
 - **The linter judges against OpenUI5 1.152.0.** The render runtime's

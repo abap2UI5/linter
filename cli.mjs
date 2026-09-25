@@ -84,7 +84,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      147 rules passed" green, "7 errors" red)
+ *                      156 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -184,6 +184,14 @@
  *
  * A single line can waive a rule where it stands, ui5lint-style:
  *   " abap2ui5lint-disable-next-line unknown-binding-path -- filled in a LOOP
+ * A directive naming no rule, or one that suppressed nothing, is itself
+ * reported (unknown-directive-rule, unused-directive).
+ *
+ * Two settings have no flag, because they describe the repository rather than
+ * one run, and live in abap2ui5lint.jsonc only: "ignore" (regex patterns for
+ * trees a directory walk must not read - generated ABAP, a vendored copy) and
+ * the per-rule switches under "rules" (off, another severity, excluded files).
+ * --init writes that file with every key explained.
  *
  * Exit codes: 0 clean, 1 findings at or above --fail-on, 2 bad usage/config.
  */
@@ -330,6 +338,15 @@ const args = process.argv.slice(2);
       process.exit(0);
     }
     const known = ruleIndex().flatMap((c) => c.ids);
+    /* A path behind the ids (`--explain unknown-control src/`) used to be
+     * answered as "no rule 'src/'" - true, and useless. A rule id is letters,
+     * digits and dashes; anything else on the line is a path or an option. */
+    // (an underscore is kept: `Duplicate_Property` is an id up to separators, and the did-you-mean below answers it)
+    const notAnId = ids.find((id) => !/^[a-z0-9_-]+$/i.test(id) || fs.existsSync(id));
+    if (notAnId) {
+      die(`--explain takes rule ids only, no path and no other option ('${notAnId}' is not one)`
+        + ' - it is a documentation command and runs on its own: abap2ui5lint --explain <rule-id>...');
+    }
     for (const id of ids) {
       if (known.includes(id)) continue;
       // the one did-you-mean the linter makes (lib/suggest.mjs): the id this
@@ -693,8 +710,12 @@ const dropWarm = async () => {
  * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
  * run exits with it; the watch loop reports it and waits for the next change.
  */
-async function runOnce({ opt, paths }) {
+async function runOnce({ opt, paths, configFile = null }) {
   let files;
+  // checkable files the config's `ignore` kept out of the walk - said under
+  // the count line, because "fewer findings than expected" is otherwise
+  // indistinguishable from "fewer files than expected"
+  let ignored = 0;
   if (stdinMode) {
     files = [stdinName]; // one virtual file - the source arrives below
   } else {
@@ -702,6 +723,9 @@ async function runOnce({ opt, paths }) {
       // `ignore` is repo-level and config-only on purpose: it describes the tree,
       // which is a property of the repo rather than of one invocation
       files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
+      if (opt.ignore?.length) {
+        ignored = Math.max(0, collectFiles(paths, { allClasses: opt.allClasses === true }).length - files.length);
+      }
     } catch (e) {
       // a mistyped path is bad usage, not a crash - exit 2 with one clean line
       die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
@@ -804,6 +828,10 @@ async function runOnce({ opt, paths }) {
     let deferred = 0;
     let dropped = 0;
     const droppedIn = [];
+    // what a dry run WOULD settle, one `path:line:col rule-id` per finding -
+    // the count alone left the reader with the findings that remain and no
+    // way to tell which ones the pass had picked
+    const wouldFix = [];
     for (const r of await checkFiles(files, { ...opt, render: false })) {
       const source = fs.readFileSync(r.file, 'utf8');
       const result = applyFixes(source, r.findings);
@@ -812,9 +840,16 @@ async function runOnce({ opt, paths }) {
       if (!result.applied) continue;
       files_++;
       fixed += result.applied;
+      if (dryRun) {
+        const rel = path.relative(process.cwd(), r.file);
+        for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
+          wouldFix.push(`${rel}:${f.line ?? 0}:${f.column ?? 0} ${f.type}`);
+        }
+      }
       if (!dryRun) fs.writeFileSync(r.file, result.output);
     }
     if (fixed && opt.format === 'stylish') {
+      if (wouldFix.length) console.log(wouldFix.join('\n'));
       console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
         `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
     }
@@ -956,12 +991,21 @@ async function runOnce({ opt, paths }) {
    * controls were judged or the reconstruction produced nothing at all. One
    * file needs none of that, so the default is by corpus size. */
   const showStats = (opt.stats ?? files.length > 1) && !opt.quiet;
+  // the config path as the reader knows it: relative where that is shorter
+  const configShown = configFile && (() => {
+    const rel = path.relative(process.cwd(), configFile);
+    return rel && !rel.startsWith('..') ? rel : configFile;
+  })();
   const reportOpt = {
     ...opt,
     context,
     stats: showStats ? stats : null,
     times: progress.times,
     baseline: baselineStats,
+    /* the config the verdict was reached under, and what its `ignore` dropped
+     * - stylish only (the formatter prints it under the count line), quiet
+     * like the run summary, never as prose inside a machine format */
+    config: configShown && !opt.quiet ? { file: configShown, ignored } : null,
   };
 
   if (opt.format === 'json') console.log(formatJson(results, summary, { ...reportOpt, stats }));
@@ -970,6 +1014,21 @@ async function runOnce({ opt, paths }) {
   else if (opt.format === 'junit') console.log(formatJunit(results));
   else if (opt.format === 'markdown') console.log(formatMarkdown(results, summary, reportOpt));
   else console.log(formatStylish(results, summary, reportOpt));
+
+  /* Two things the run summary says and a one-file run, which prints none,
+   * used to keep to itself - each the one line that stops a green report
+   * from reading as approval: a class that opened a builder and produced no
+   * view (the gate judged nothing of it), and an app class whose view is
+   * built elsewhere (the gate judged the class, not a view). Always, when
+   * the count is non-zero; the summary carries the same numbers when it
+   * prints. */
+  if (opt.format === 'stylish' && !showStats) {
+    if (stats.emptyViews) console.log(`abap2ui5lint: ${stats.emptyViews} class${stats.emptyViews === 1 ? '' : 'es'} opened a builder and produced no view`);
+    if (stats.appsWithoutView) {
+      console.log(`abap2ui5lint: ${stats.appsWithoutView} app class${stats.appsWithoutView === 1 ? ' builds' : 'es build'} no view here (the view comes from another class)`
+        + ' - judged by the source-side and lifecycle rules only, no view was checked');
+    }
+  }
 
   /* A machine report written BESIDE the human one, in the same run.
    *

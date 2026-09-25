@@ -203,7 +203,8 @@ export default async function ({ section, assert, checkAbapSource }) {
         + '            )->a( n = `activeIcon`  v = lv_const\n'
         + '            )->a( n = `ariaLabelledBy` v = ms_row-name\n'
         + '            )->a( n = `fieldGroupIds` v = lv_base && `x.jpg`\n'
-        + '            )->a( n = `width`       v = CONV string( mv_search )\n'
+        + '            )->a( n = `class`       v = CONV string( mv_search )\n'
+        + '            )->a( n = `width`       v = lv_title\n'
         + '            )->a( n = `type`        v = `Emphasized`\n'
         + '            )->a( n = `press`       v = client->_event( `GO` )\n'
         + '            )->a( n = `visible`     v = |\\{= ${ client->_bind( mv_search ) } !== `` \\}|\n'
@@ -212,8 +213,8 @@ export default async function ({ section, assert, checkAbapSource }) {
     });
     const found = of(src, 'unescaped-text-in-attribute');
     const members = found.map((x) => x.member).sort().join();
-    assert(members === 'activeIcon,ariaLabelledBy,fieldGroupIds,id,tooltip,width',
-      `the six values whose origin is data are reported, nothing else (${members || 'none'})`);
+    assert(members === 'ariaLabelledBy,class,fieldGroupIds,id,tooltip',
+      `the five values whose origin is data are reported, nothing else - not width (a CSSSize) and not activeIcon (a URI), where no text can be shown (${members || 'none'})`);
     assert(found.every((x) => x.fixes?.length === 1 && x.fixes[0].text === 't'), 'every one carries the v-to-t fix');
     assert(of(src, 'unconverted-abap-boolean').length === 1, 'the boolean stays the boolean rule\'s');
     const out = fixed(src);

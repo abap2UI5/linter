@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 147 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 156 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -183,6 +183,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-to-reference' — default severity: error"
         },
+        "binding-to-static": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'binding-to-static' — default severity: error"
+        },
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
@@ -210,6 +214,10 @@
         "chain-indentation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'chain-indentation' — default severity: hint"
+        },
+        "chain-unbalanced-parens": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'chain-unbalanced-parens' — default severity: warning"
         },
         "class-constructor-visibility": {
           "$ref": "#/definitions/rule",
@@ -383,6 +391,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'filter-groups-not-arrays' — default severity: error"
         },
+        "frontend-action-as-backend-event": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'frontend-action-as-backend-event' — default severity: warning"
+        },
         "frontend-action-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'frontend-action-too-new' — default severity: warning"
@@ -511,6 +523,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-view-display-on-navigated' — default severity: error"
         },
+        "nest-view-without-destroy": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'nest-view-without-destroy' — default severity: warning"
+        },
         "non-released-api": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'non-released-api' — default severity: warning"
@@ -531,6 +547,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'obsolete-model-update' — default severity: warning"
         },
+        "omit-initial-drops-false": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'omit-initial-drops-false' — default severity: warning"
+        },
         "picker-value-without-format": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'picker-value-without-format' — default severity: warning"
@@ -543,6 +563,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'popover-display-val' — default severity: error"
         },
+        "popup-display-xml": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'popup-display-xml' — default severity: error"
+        },
         "popup-without-close-wire": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'popup-without-close-wire' — default severity: hint"
@@ -550,6 +574,10 @@
         "private-app-attribute": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'private-app-attribute' — default severity: warning"
+        },
+        "queue-last-without-no-busy": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'queue-last-without-no-busy' — default severity: hint"
         },
         "raw-javascript-to-frontend": {
           "$ref": "#/definitions/rule",
@@ -667,6 +695,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-control' — default severity: error"
         },
+        "unknown-directive-rule": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-directive-rule' — default severity: warning"
+        },
         "unknown-event-parameter": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-event-parameter' — default severity: hint"
@@ -698,6 +730,10 @@
         "unresolved-attribute-value": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unresolved-attribute-value' — default severity: hint"
+        },
+        "unused-directive": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unused-directive' — default severity: hint"
         },
         "unused-namespace-declaration": {
           "$ref": "#/definitions/rule",
