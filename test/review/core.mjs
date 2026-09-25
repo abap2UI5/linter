@@ -142,7 +142,12 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     const inLiteral = src.replace('METHOD z2ui5_if_app~main.', 'METHOD z2ui5_if_app~main.\n    DATA(lv_note) = `abap2ui5lint-disable`.');
     assert(checkAbapSource(inLiteral, opts).findings.length === base, 'a literal carrying the directive text suppresses nothing');
     const inComment = src.replace('METHOD z2ui5_if_app~main.', 'METHOD z2ui5_if_app~main.\n    " abap2ui5lint-disable');
-    assert(checkAbapSource(inComment, opts).findings.length === 0, 'the same text in a comment opens a block');
+    /* good.clas.abap is clean, so the block has nothing to waive - which is
+     * itself reported now (unused-directive), and that report is the proof
+     * the comment was read as a directive: nothing else may survive it */
+    const opened = checkAbapSource(inComment, opts).findings;
+    assert(opened.every((x) => x.type === 'unused-directive') && (base > 0 || opened.length === 1),
+      `the same text in a comment opens a block (${opened.map((x) => x.type).join(', ') || 'nothing reported'})`);
   });
 
   section('elementBoundSlots: the constant may be reached through the interface or me->client', () => {
