@@ -90,6 +90,35 @@
   run prints "N classes opened a builder and produced no view" whenever the
   count is non-zero — until now that line lived only in the run summary,
   which a single file does not print.
+- **Five rules read out of the app guide and `z2ui5_if_client`'s ABAP Doc**
+  (`lib/guide-rules.mjs`, a module of its own called from
+  `checkAbapRules( )`; every one probed silent on 0.7.0, and every one
+  measured at 0 findings on abap2UI5's own app classes before shipping).
+  `frontend-action-as-backend-event` (warning, fixable): a `cs_event-`
+  constant handed to `client->_event( )` in any spelling — a backend event
+  named `POPUP_CLOSE` that reaches `main( )` and closes nothing, and the one
+  dead wire `event-without-handler` cannot judge because the name is not a
+  literal; `--fix` renames the call to `follow_up_action( val = … )`.
+  `popup-display-xml` (error, fixable): the mirror of `popover-display-val`
+  — the popup takes `val`, and `xml =` does not compile; `--fix` renames the
+  parameter. `queue-last-without-no-busy` (hint, fixable): a `live*` wire
+  whose `s_ctrl` sets `check_queue_last` without `check_no_busy`, so every
+  keystroke landing on a roundtrip in flight raises the busy overlay over
+  the very field being typed into; `--fix` writes the flag into the existing
+  `VALUE #( )`. The per-keystroke test is `isLiveEvent( )` in
+  `lib/abap-source.mjs` now, the same prefix `live-event-roundtrip` applies.
+  `nest-view-without-destroy` (warning): a `nest_view_display( )` /
+  `nest2_view_display( )` with no `method_destroy`, where every call adds
+  one more fragment; fixable only for the three inserts the ABAP Doc names
+  (`addContent`/`addItem`/`addPage` → `removeAllContent`/`removeAllItems`/
+  `removeAllPages`), any other insert keeps the finding without a fix.
+  `omit-initial-drops-false` (warning, no fix): `_bind( val = t
+  omit_initial = abap_true )` on a table whose row declares an `abap_bool`
+  that the template binds to a property defaulting to `true` — `abap_false`
+  is itself initial, so the blanket flag drops exactly the value that had to
+  arrive and the control shows its default; read off the same
+  `boolFields` map `absent-boolean-overrides-default` uses (which stands down
+  under `omit_initial`, so this is the rule that speaks there).
 
 ## 0.7.0 - 2026-09-24
 
