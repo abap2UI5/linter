@@ -1431,7 +1431,9 @@ section('directives', async () => {
     const reason = parseDirectives('" abap2ui5lint-disable-line duplicate-id -- known, tracked in #42');
     assert(reason.suppresses(1, 'duplicate-id') && !reason.suppresses(1, 'known'),
       'directives: the reason after -- is not read as a rule id');
-    assert(applyDirectives([{ type: 'duplicate-id' }], '" abap2ui5lint-disable\n').length === 1,
+    // (the bare block suppressed nothing, so it comes back as unused-directive too -
+    // test/review/ux.mjs asserts that half; here only the placed finding matters)
+    assert(applyDirectives([{ type: 'duplicate-id' }], '" abap2ui5lint-disable\n').filter((x) => x.type === 'duplicate-id').length === 1,
       'directives: a finding the gate could not place is never suppressed');
 });
 
@@ -5552,7 +5554,7 @@ section('rules page', async () => {
     const linked = (page.match(/class="try"/g) || []).length;
     assert(linked === links.size, `rules page: exactly the verified cards link the playground (${linked} vs ${links.size})`);
     const control = JSON.parse(zlib.inflateRawSync(Buffer.from(links.get('unknown-control').slice(PLAYGROUND.length + 2), 'base64url')).toString('utf8'))[0].source;
-    assert(/CLASS zcl_rule DEFINITION/.test(control) && /view->tag\( `Buton` \)\./.test(control) && /view_display/.test(control),
+    assert(/CLASS zcl_rule DEFINITION/.test(control) && /view->tag\( `Objectstatus` \)\./.test(control) && /view_display/.test(control),
       'rules page: a chain fragment is wrapped into a displayed view class');
     assert(pageRules.every((id) => page.includes(`<article class="rule" id="${id}"`)),
       'rules page: every rule has an anchor to link to');

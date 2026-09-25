@@ -1,4 +1,4 @@
-" abap2ui5lint-disable non-released-api -- the dialect is not what this fixture is about
+" the dialect is not what this fixture is about (non-released-api does not fire here - a directive for it was dead, and unused-directive said so)
 CLASS zcl_fixture_chainlayout DEFINITION PUBLIC.
 
   PUBLIC SECTION.

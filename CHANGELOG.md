@@ -1,5 +1,53 @@
 # Changelog
 
+## Unreleased
+
+- **A directive is judged too.** `" abap2ui5lint-disable-next-line
+  binding-to-locl` used to waive nothing and say nothing, so the finding it
+  was written for stayed reported one line down and read as the linter
+  ignoring the comment. Two rules now, both emitted from `applyDirectives`
+  in `lib/findings.mjs`: `unknown-directive-rule` (warning) for an id no
+  rule has, with the one did-you-mean `lib/suggest.mjs` makes and a `--fix`
+  that rewrites the id (`render-error` gets its own sentence - a render
+  failure has no source line, waive it per file with `rules['render-error']`),
+  and `unused-directive` (hint) for a directive that suppressed nothing -
+  ESLint's `--report-unused-disable-directives`, per id for a list, as a
+  whole for a bare one, with a `--fix` that deletes a dead `-next-line` /
+  `-line` directive (the line when the comment has it to itself, else the
+  comment). Both answer to the `rules` block and to a directive like any
+  other id; a bare directive cannot excuse its own finding, one that names
+  `unused-directive` may. Two fixtures had carried a dead directive for a
+  year (`non-released-api` never fired on them) - the new hint found both.
+- **`missing-on-navigated-branch` sends the reader to a rename, not to a
+  second branch.** "add `ELSEIF client->check_on_navigated( ). view_display( ).`"
+  under an init branch that only displays produced the fork
+  `redundant-init-display` then reports. The message and the card say what
+  the app guide says: dispatch the display on `check_on_navigated( )`
+  (`check_on_init( )` implies it, so the first start is covered), keep an
+  init branch only for one-time seeding. `unknown-control`'s card shows a
+  case typo (`Objectstatus` → `ObjectStatus`) instead of `Buton` → `Button`,
+  which the linter never suggests (no edit distance), so the `--fix` badge
+  on the card is honest. `excess-shut` says `end( )`, the verb the developer
+  wrote, instead of the reconstructor's role name `shut( )`.
+- **CLI.** `--fix-dry-run` lists what it would fix, one `path:line:col
+  rule-id` per line, before the count (it used to print the count and then
+  the findings that REMAIN). A stylish run prints `config: <path>` and, when
+  the config's `ignore` dropped checkable files, `N files ignored by config`
+  under the count line (never inside `--format json`/`markdown`, quiet
+  under `--quiet`). The config error for an unknown rule id points at
+  `abap2ui5lint --explain` and the rules page instead of a README table
+  that no longer exists, and carries the did-you-mean. `--explain
+  unknown-control <path>` says that `--explain` takes rule ids only
+  (exit 2) instead of `no rule '<path>'`. The `--all-classes` summary reads
+  `106 classes (2 app classes building a view, 104 helpers)` instead of
+  calling the helpers app classes. `--help` says that `ignore` and the
+  per-rule switches are config-only (`abap2ui5lint.jsonc`, `--init`).
+- **Two one-line rule fixes.** `event-arg-single-row-table` cuts a long
+  value between tokens with an ellipsis, never inside a backtick literal
+  (it used to `slice(0, 40)` mid-literal). `lifecycle-is-initial` reads
+  `IF client->check_on_event( \`GO\` ) IS NOT INITIAL.` too - the regex
+  required empty parentheses.
+
 ## 0.7.0 - 2026-09-24
 
 - **The linter judges against OpenUI5 1.152.0.** The render runtime's

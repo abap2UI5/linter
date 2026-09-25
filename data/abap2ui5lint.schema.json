@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 147 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 149 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -667,6 +667,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-control' — default severity: error"
         },
+        "unknown-directive-rule": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-directive-rule' — default severity: warning"
+        },
         "unknown-event-parameter": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-event-parameter' — default severity: hint"
@@ -698,6 +702,10 @@
         "unresolved-attribute-value": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unresolved-attribute-value' — default severity: hint"
+        },
+        "unused-directive": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unused-directive' — default severity: hint"
         },
         "unused-namespace-declaration": {
           "$ref": "#/definitions/rule",
