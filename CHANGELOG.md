@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.2 - 2026-09-27
+
 - **New rule `obsolete-custom-control` (error).** abap2UI5 marks eight of
   its companion controls `// OBSOLETE: replaced by …` in
   `app/webapp/cc/*.js`, and they must never be used: `Timer`
