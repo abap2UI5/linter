@@ -2,6 +2,59 @@
 
 ## Unreleased
 
+- **New rule `obsolete-custom-control` (error).** abap2UI5 marks eight of
+  its companion controls `// OBSOLETE: replaced by …` in
+  `app/webapp/cc/*.js`, and they must never be used: `Timer`
+  (`client->follow_up_action( val = client->cs_event-start_timer … )`),
+  `Focus` (`cs_event-set_focus`), `Scrolling` (`cs_event-scroll_to` /
+  `cs_event-scroll_into_view`), `Title` (`cs_event-set_title`), `LPTitle`
+  (`cs_event-set_title_launchpad`), `Favicon` (`cs_event-set_favicon`),
+  `Info` (`client->get( )-s_device` / `-s_ui5`) and `History`
+  (`client->hash_set( )` / `client->app_state_set_active( )`). The finding
+  names the replacement. Three spellings are read: the builder tag
+  (``tag( n = `Timer` ns = `z2ui5` )``), an XML view or fragment
+  (`<z2ui5:Timer/>`) - both judged by the namespace the prefix is bound to,
+  so any prefix bound to `z2ui5.cc` is reported and `sap.m.Title` or
+  `core:Title` never is - and the frozen builder's helpers
+  (`_z2ui5( )->timer( )`, `->focus( )`, `->scrolling( )`, `->title( )`,
+  `->lp_title( )`, `->favicon( )`, `->info_frontend( )`, `->history( )`,
+  also through a handle assigned from `_z2ui5( )`), which a class on
+  `z2ui5_cl_xml_view` now gets beside `frozen-view-builder`. The live
+  companion controls (`Storage`, `MessageManager`, `MultiInputExt`, `Dirty`,
+  `Geolocation`, `CameraPicture`, …) are not reported. No `--fix`: the
+  replacement moves the job from the view into the class. An error by
+  project decision - the view still renders. A consumer that assembles the
+  frozen-builder branch itself (the VS Code extension's gate) reaches the
+  helper half as `obsoleteCcHelperFindings( )` from `./abap-rules`.
+
+  Rollout: measured on origin/main, 0 findings on samples, samples-stack,
+  popups, sql-console, table-maintenance, config-management and app-template;
+  1 on samples-controls (`src/04/z2ui5_cl_smpc_demo_004`, the carousel Timer
+  its open branch replaces with `cs_event-start_timer` - its
+  `abap2ui5lint-apps.jsonc` gate turns red on a bump that lands before that
+  branch; the view-gates corpus job does not judge `src/04` and stays green);
+  on abap2UI5, 1 in `src/99/02/z2ui5_cl_pop_file_dl` without its config and
+  0 with it, since its `abap2ui5lint.jsonc` does not collect the frozen
+  `src/99` at all.
+- **The render gate mirrors the eight obsolete companion controls.** A view
+  naming `<z2ui5:Timer>` failed view CREATION with a module 404 - a
+  `render-error` that read like a broken view (samples-controls' demo_004
+  had it excused by file) for a control every installation still ships.
+  The harness boots a mirror of each now, so the rule above is the one
+  message. `lib/cc-controls.mjs` carries the list as an `obsolete` block per
+  entry, and `scripts/check-upstream.mjs` gates it three ways: the marked set
+  against the `// OBSOLETE:` headers of every `app/webapp/cc/*.js`, each
+  header's API names against the replacement the finding writes, and each
+  helper name against `src/99/z2ui5_cl_xml_view_cc`.
+- `data/compat.json`: `framework.mirrored` is 1.145.0, the release every
+  mirror was checked against in this change (`check-upstream --local`, all in
+  sync).
+- **No polynomial backtracking left in the ABAP scanners.** The 27 regexes
+  CodeQL still flagged (js/polynomial-redos) - the structure, field,
+  METHODS-signature and DATA-block reads and the `client->` and own-method
+  call scans among them - are linear scans now; the findings over the
+  abap2UI5 corpora are unchanged byte for byte.
+
 ## 0.8.1 - 2026-09-27
 
 - **No polynomial backtracking in the ABAP scanners.** The event-CASE

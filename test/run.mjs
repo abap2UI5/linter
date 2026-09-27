@@ -6417,13 +6417,20 @@ section('rule docs', async () => {
     /* One rule is ABOUT the builder that does not have these methods. Its example
      * has to show `page( )`/`button( )` or it is not showing the reader the code
      * they have in front of them. Named here rather than loosened for everyone,
-     * so the gate still holds for the other 85. */
-    const ABOUT_THE_OLD_BUILDER = new Set(['frozen-view-builder']);
+     * so the gate still holds for the other 85. A second one REPORTS the old
+     * builder's `_z2ui5( )->timer( )` helpers and has to name them in its
+     * prose - its example and remedy are current-builder code and stay gated,
+     * so only the two prose fields are named. */
+    const ABOUT_THE_OLD_BUILDER = new Map([
+      ['frozen-view-builder', null],
+      ['obsolete-custom-control', new Set(['summary', 'detail'])],
+    ]);
 
     const wrong = [];
     for (const [id, doc] of Object.entries(RULE_DOCS)) {
-      if (ABOUT_THE_OLD_BUILDER.has(id)) continue;
+      if (ABOUT_THE_OLD_BUILDER.has(id) && ABOUT_THE_OLD_BUILDER.get(id) === null) continue;
       for (const field of ['summary', 'detail', 'example', 'remedy', 'fixNote']) {
+        if (ABOUT_THE_OLD_BUILDER.get(id)?.has(field)) continue;
         const text = doc[field];
         if (typeof text !== 'string') continue;
         for (const [, verb] of text.matchAll(CHAIN_CALL)) {

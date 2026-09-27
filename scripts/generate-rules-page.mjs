@@ -70,8 +70,9 @@ const codeOf = (line) => {
 
 /* The root every wrapped chain hangs from — a View with the namespaces the
  * examples write (`c` is sap.ui.commons, so deprecated-library has a library
- * to deprecate; `smart` is what sapui5-only-control needs). Only added where
- * the snippet does not open a root of its own. */
+ * to deprecate; `smart` is what sapui5-only-control needs; `z2ui5` is the
+ * companion-control namespace obsolete-custom-control judges by). Only added
+ * where the snippet does not open a root of its own. */
 const ROOT_CHAIN = [
   'view->ele( n = `View` ns = `mvc`',
   '    )->a( n = `xmlns` v = `sap.m`',
@@ -85,6 +86,7 @@ const ROOT_CHAIN = [
   '    )->a( n = `xmlns:c` v = `sap.ui.commons`',
   '    )->a( n = `xmlns:u` v = `sap.ui.unified`',
   '    )->a( n = `xmlns:smart` v = `sap.ui.comp.smarttable`',
+  '    )->a( n = `xmlns:z2ui5` v = `z2ui5.cc`',
   '    )->a( n = `xmlns:html` v = `http://www.w3.org/1999/xhtml` ).',
 ];
 const FACTORY = 'DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).';
