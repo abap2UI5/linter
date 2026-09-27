@@ -528,6 +528,43 @@ section('model', async () => {
     'model: the unseeded field is in the shape the gate asks about, not in the render model');
   assert(prep.model.T_ROWS[0].AMOUNT.SIZE === 560,
     'model: a nested structure seed parses as one structure, not as an empty table');
+
+    /* A variable typed by something the class does not declare gets no
+     * invented value in the render model: '' is only right for a string, and
+     * strict validation rejects it on an object property (abap2UI5-addons/
+     * popups sample_19 binds MultiInputExt addedTokens to a table typed by
+     * z2ui5_cl_popup_context=>ty_t_token). A seed still reaches it, and a
+     * built-in or local type keeps its initial value. */
+    const foreign = prepareAbap(`CLASS zcl_foreign DEFINITION PUBLIC.
+    PUBLIC SECTION.
+      INTERFACES z2ui5_if_app.
+      DATA mt_added TYPE zcl_other=>ty_t_token.
+      DATA mv_matnr TYPE matnr.
+      DATA mv_seeded TYPE zcl_other=>ty_name.
+      DATA mv_text TYPE string.
+  ENDCLASS.
+  CLASS zcl_foreign IMPLEMENTATION.
+    METHOD z2ui5_if_app~main.
+      mv_seeded = \`Seed\`.
+      DATA(v) = z2ui5_cl_ui5_view_builder=>factory( ).
+      v->ele( n = \`View\` ns = \`mvc\`
+          )->a( n = \`xmlns\` v = \`sap.m\`
+          )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+          )->ele( \`VBox\`
+              )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( mt_added )
+              )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( mv_matnr )
+              )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( mv_seeded )
+              )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( mv_text )
+          )->end( ).
+      client->view_display( v->stringify( ) ).
+    ENDMETHOD.
+  ENDCLASS.`);
+    assert(!('MT_ADDED' in foreign.model) && !('MV_MATNR' in foreign.model),
+      `model: a variable of a type declared elsewhere is left out of the render model (${JSON.stringify(foreign.model)})`);
+    assert(foreign.modelShape.MT_ADDED?.__unknownShape === true,
+      'model: the shape still carries it, as a type whose paths are not judged');
+    assert(foreign.model.MV_SEEDED === 'Seed' && foreign.model.MV_TEXT === '',
+      'model: a seed still reaches a foreign-typed variable, and a built-in type keeps its initial value');
 });
 
 // a DATA declared with a NAMED table type is a table too — the inline
