@@ -193,7 +193,10 @@ jobs:
       # install, because that is what `npx` does and what a first-time user gets.
       - name: Smoke-test the tarball as an installed package
         run: |
-          TARBALL="$PWD/$(ls abap2ui5-linter-*.tgz)"
+          # [0-9] and not *: since the runtime is @abap2ui5/linter-render, its
+          # tarball (abap2ui5-linter-render-X.Y.Z.tgz) matches abap2ui5-linter-*
+          # too, and the two names pasted into one path fail the install
+          TARBALL="$PWD/$(ls abap2ui5-linter-[0-9]*.tgz)"
           mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
           npm init -y >/dev/null
           npm install "$TARBALL"
