@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **A variable of a type the class does not declare no longer renders as
+  `''`.** A bound variable typed by a DDIC type or by a type another class
+  owns (`zcl_x=>ty_t_token`) was mocked as the empty string of a string in
+  the render model, whatever it really is - and strict validation rejects
+  `''` on every property that is not a string. abap2UI5-addons/popups
+  `z2ui5_cl_popup_sample_19` binds `MultiInputExt` `addedTokens` to a
+  `z2ui5_cl_popup_context=>ty_t_token` table and failed view creation with
+  `"" is of type string, expected object`, excused by file in its
+  `render-error` exclude. Without a seed such a variable is now left out of
+  the render model and the control keeps its default, the rule unseeded
+  fields already follow. A seed still reaches it, built-in and local types
+  keep their initial value, and the shape the property gate asks about is
+  unchanged: the variable stays marked unknown, so no path below it is
+  judged.
+
+  Rollout: measured with this checkout substituted into every consumer
+  (render gate on where the consumer has it): no finding and no verdict
+  changes on samples, samples-stack, samples-controls (622 ports), popups,
+  se16n, layout-management, lock-manager, selection-screen, sql-console,
+  table-content-loader, table-maintenance, custom-controls, rap-ext,
+  app-template, abap2UI5 and playground. popups sample_19 renders clean, so
+  its exclude can go with the next bump.
+
 ## 0.8.2 - 2026-09-27
 
 - **New rule `obsolete-custom-control` (error).** abap2UI5 marks eight of
