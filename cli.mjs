@@ -546,9 +546,9 @@ for (let i = 0; i < args.length; i++) {
 
   // load every view in a headless browser as well - the check no static rule
   // can make. Saying so here makes it a REQUIREMENT: an unasked-for render
-  // gate steps aside when @abap2ui5/render-runtime is missing and the run
+  // gate steps aside when @abap2ui5/linter-render is missing and the run
   // stays green, which is how a gate quietly stops meaning anything.
-  // Needs: npm i -D @abap2ui5/render-runtime && npx playwright install chromium
+  // Needs: npm i -D @abap2ui5/linter-render && npx playwright install chromium
   "render": false,
 
   // lowest severity that fails the run: error | warning | hint | never

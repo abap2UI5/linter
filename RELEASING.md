@@ -5,7 +5,7 @@ Two packages go to npm from **one** version tag:
 | Package | What it is |
 | --- | --- |
 | `@abap2ui5/linter` | CLI, library and GitHub Action (~340 kB, no dependencies) |
-| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves (`@openui5/*` + playwright) |
+| `@abap2ui5/linter-render` | the UI5 runtime the render gate serves (`@openui5/*` + playwright) |
 
 Everything mechanical lives in `.github/workflows/release.yml`; its header
 comment is the reference. This file is the human checklist.
@@ -33,7 +33,7 @@ breaks, because nobody can have installed the broken one yet.
 
    ```sh
    npm login
-   npm publish -w @abap2ui5/render-runtime --access public
+   npm publish -w @abap2ui5/linter-render --access public
    npm publish --access public
    ```
 
@@ -44,6 +44,36 @@ breaks, because nobody can have installed the broken one yet.
    repository, workflow file `release.yml`. From then on the workflow publishes
    with no token at all.
 
+### The rename of the runtime package
+
+Up to 0.7.0 the runtime was published as `@abap2ui5/render-runtime`. The
+name suggested the framework's runtime (`@abap2ui5/node-runtime` sits in the
+same scope), so from the next release on it is `@abap2ui5/linter-render`. For
+npm that is a new package, so it gets the bootstrap above once more, on the
+release that introduces it:
+
+1. Bump both versions as in *Every release* and merge. **Before** pushing the
+   tag, publish the new name by hand from that commit:
+
+   ```sh
+   npm publish -w @abap2ui5/linter-render --access public
+   ```
+
+2. On npmjs.com → `@abap2ui5/linter-render` → *Settings* → *Trusted
+   Publisher*: this repository, `release.yml`.
+3. Push the tag. The workflow finds `@abap2ui5/linter-render` at that version
+   already on the registry, skips it and publishes the linter.
+4. Retire the old name - it stays installable, npm only prints the notice:
+
+   ```sh
+   npm deprecate @abap2ui5/render-runtime "renamed to @abap2ui5/linter-render - npm i -D @abap2ui5/linter-render"
+   ```
+
+Nothing is published under the old name any more. The linter still looks it
+up after the new one and keeps it as an optional peer at the range of the
+lines it has (`LEGACY` in `scripts/peer-range.mjs`), so a project that
+installed it keeps a working render gate across the linter upgrade.
+
 ## Every release
 
 ```sh
@@ -51,10 +81,10 @@ breaks, because nobody can have installed the broken one yet.
 npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag-version
 
 # 1b. `npm version` moves versions and NO dependency range, so the optional
-#     peer range on @abap2ui5/render-runtime has to follow. It is GENERATED:
+#     peer range on @abap2ui5/linter-render has to follow. It is GENERATED:
 npm run sync-peer-range
 #     which writes ">=<floor> <next breaking runtime line>", e.g.
-#       "peerDependencies": { "@abap2ui5/render-runtime": ">=0.1.0 <0.6.0" }
+#       "peerDependencies": { "@abap2ui5/linter-render": ">=0.7.0 <0.9.0" }
 #     `npm test` fails while the committed range is not the generated one.
 #     That gate exists because this step was missed for three releases running
 #     while the range was a hand-extended union (`^0.1.0 || ^0.2.0 || ...`,
@@ -69,7 +99,7 @@ npm run sync-peer-range
 #     reason: a screenshot then comes back unstyled and the gate does not care.)
 
 # 1c. Moving to a new OpenUI5 release is THREE files, not one: the @openui5
-#     pins in render-runtime/package.json, data/properties.json
+#     pins in linter-render/package.json, data/properties.json
 #     (npm run generate-metadata) and data/icons.json
 #     (npm run generate-icons, needs network). `npm test` fails while the
 #     three disagree - the two data files answer `@since` from the version

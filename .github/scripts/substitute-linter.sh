@@ -13,7 +13,7 @@
 # runtime dependencies of its own to reconcile.
 #
 # The UI5 runtime (@openui5/*, playwright) is deliberately NOT copied: it ships
-# in @abap2ui5/render-runtime, an optional peer, so it comes from the consumer's
+# in @abap2ui5/linter-render, an optional peer, so it comes from the consumer's
 # own install and stays hoisted at its top level. A consumer that has it keeps
 # rendering; one that does not gets the linter's actionable refusal naming that
 # package, rather than a silently weakened gate.

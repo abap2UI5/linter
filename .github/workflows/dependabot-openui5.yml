@@ -3,7 +3,7 @@ name: dependabot-openui5
 # Every Dependabot pull request that moves an @openui5 pin lands RED by
 # construction, and neither gate is wrong to fail it.
 #
-# The pins live in the render-runtime workspace, and two committed data files
+# The pins live in the linter-render workspace, and two committed data files
 # are generated from exactly that release:
 #
 #   data/properties.json  gated by `generate-metadata --check` inside npm test
@@ -31,7 +31,7 @@ name: dependabot-openui5
 on:
   pull_request_target:
     paths:
-      - 'render-runtime/package.json'
+      - 'linter-render/package.json'
       - 'package-lock.json'
 
 permissions:
@@ -69,7 +69,7 @@ jobs:
           # the data files describe ONE release, and that release is what the
           # workspace pins - so the question is only ever "did that change"
           PINNED=$(node -p "
-            const d = require('./render-runtime/package.json').dependencies;
+            const d = require('./linter-render/package.json').dependencies;
             [...new Set(Object.entries(d).filter(([n]) => n.startsWith('@openui5/')).map(([, v]) => String(v).replace(/^[\^~]/, '')))].join(',')
           ")
           DESCRIBED=$(node -p "require('./data/properties.json').ui5Version")

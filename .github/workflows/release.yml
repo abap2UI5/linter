@@ -2,7 +2,7 @@ name: Publish to npm
 # Publishes TWO packages to the public npm registry from one version tag:
 #
 #   @abap2ui5/linter           the CLI, the library and the GitHub Action
-#   @abap2ui5/render-runtime   the UI5 runtime the render gate serves
+#   @abap2ui5/linter-render   the UI5 runtime the render gate serves
 #
 # They are one release with one version. The runtime exists so that a default
 # `npm i @abap2ui5/linter` (and `npx`, which has no --omit=optional) stays at
@@ -39,7 +39,7 @@ name: Publish to npm
 #      configure it for a package that already exists. So the FIRST publish of
 #      EACH is manual, from a maintainer's machine, after `npm login`:
 #
-#         npm publish -w @abap2ui5/render-runtime --access public
+#         npm publish -w @abap2ui5/linter-render --access public
 #         npm publish --access public
 #
 #      No --provenance on these two: npm can only generate a provenance
@@ -51,6 +51,11 @@ name: Publish to npm
 #      Then, on npmjs.com -> each package -> Settings -> Trusted Publisher,
 #      point it at this repository and this workflow file (`release.yml`).
 #      From the second release on, this workflow publishes with no token.
+#
+#      The runtime was published as @abap2ui5/render-runtime up to 0.7.0 and
+#      is @abap2ui5/linter-render from the next release on - a new package
+#      for npm, so that release repeats step 2 for it (RELEASING.md, "The
+#      rename of the runtime package"). Nothing publishes the old name.
 #
 # Trusted publishing (OIDC) is deliberate: no NPM_TOKEN secret to leak or
 # rotate, and npm records a provenance attestation tying the tarball to this
@@ -113,9 +118,9 @@ jobs:
           # The runtime is published from this same tag and is named as the
           # linter's peer by an exact minor range, so a version that lags here
           # publishes a pair that cannot be installed together.
-          RT="v$(node -p "require('./render-runtime/package.json').version")"
+          RT="v$(node -p "require('./linter-render/package.json').version")"
           if [ "$RT" != "$GITHUB_REF_NAME" ]; then
-            echo "tag $GITHUB_REF_NAME does not match render-runtime/package.json ($RT)" >&2
+            echo "tag $GITHUB_REF_NAME does not match linter-render/package.json ($RT)" >&2
             echo "bump both: npm version <level> --workspaces --include-workspace-root" >&2
             exit 1
           fi
@@ -181,7 +186,7 @@ jobs:
       - name: Pack and show the contents
         run: |
           npm pack
-          npm pack -w @abap2ui5/render-runtime
+          npm pack -w @abap2ui5/linter-render
 
       # Prove the packed artefact works the way a consumer meets it: installed
       # from a tarball, in a directory that is not this repo - and with a PLAIN
@@ -230,7 +235,7 @@ jobs:
           # "Invalid format" - and takes `after-publish` down with it, exactly in
           # the already-published case this step exists to survive.
           VERSION="${GITHUB_REF_NAME#v}"
-          for PAIR in 'runtime:@abap2ui5/render-runtime' 'linter:@abap2ui5/linter'; do
+          for PAIR in 'runtime:@abap2ui5/linter-render' 'linter:@abap2ui5/linter'; do
             KEY="${PAIR%%:*}"
             PKG="${PAIR#*:}"
             if npm view "$PKG@$VERSION" version >/dev/null 2>&1; then
@@ -248,10 +253,10 @@ jobs:
       #
       # The runtime goes FIRST: it is what the linter names as its optional
       # peer, so publishing it second would leave a window in which `npm i
-      # @abap2ui5/linter @abap2ui5/render-runtime` cannot be satisfied.
+      # @abap2ui5/linter @abap2ui5/linter-render` cannot be satisfied.
       - name: Publish the UI5 runtime
         if: startsWith(github.ref, 'refs/tags/') && steps.published.outputs.runtime != 'true'
-        run: npm publish -w @abap2ui5/render-runtime --access public
+        run: npm publish -w @abap2ui5/linter-render --access public
       - name: Publish the linter
         if: startsWith(github.ref, 'refs/tags/') && steps.published.outputs.linter != 'true'
         run: npm publish --access public

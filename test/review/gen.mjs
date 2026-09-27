@@ -273,10 +273,10 @@ ENDINTERFACE.`;
     assert(stale.length === 0, `every server-side name is still a cs_event value (stale: ${stale.join(', ') || 'none'})`);
   });
 
-  section('generate-icons: the pin is read from the render-runtime workspace', () => {
-    const runtime = JSON.parse(fs.readFileSync(path.join(ROOT, 'render-runtime', 'package.json'), 'utf8'));
+  section('generate-icons: the pin is read from the linter-render workspace', () => {
+    const runtime = JSON.parse(fs.readFileSync(path.join(ROOT, 'linter-render', 'package.json'), 'utf8'));
     const pin = String(runtime.dependencies['@openui5/sap.ui.core']).replace(/^[\^~]/, '');
-    assert(pinnedVersion() === pin, `pinnedVersion( ) resolves against render-runtime/package.json (${pinnedVersion()} vs ${pin})`);
+    assert(pinnedVersion() === pin, `pinnedVersion( ) resolves against linter-render/package.json (${pinnedVersion()} vs ${pin})`);
     assert(pinnedVersion() === snapshot.ui5Version, 'and that is the release the metadata snapshot describes');
     const icons = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'icons.json'), 'utf8'));
     assert(pinnedVersion() === icons.ui5Version, 'and the one the icon snapshot describes');
@@ -287,6 +287,6 @@ ENDINTERFACE.`;
     const bare = tempDir('abap2ui5lint-nopin-');
     let threw = '';
     try { pinnedVersion(bare); } catch (e) { threw = e.message; }
-    assert(/render-runtime\/package\.json/.test(threw), `with neither manifest the error names both files (got ${JSON.stringify(threw)})`);
+    assert(/linter-render\/package\.json/.test(threw), `with neither manifest the error names both files (got ${JSON.stringify(threw)})`);
   });
 }

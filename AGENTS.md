@@ -1008,8 +1008,8 @@ example code in JSDoc is not a class. `node scripts/generate-metadata.mjs
 which is how `test/review/gen.mjs` pins all of that.
 
 Regenerate it **only** when bumping the `@openui5/*` pins — which live in
-**`render-runtime/package.json`**, the workspace, not in the root manifest
-(`RELEASING.md` step 1c is the authority; see the render-runtime section
+**`linter-render/package.json`**, the workspace, not in the root manifest
+(`RELEASING.md` step 1c is the authority; see the linter-render section
 below) — or when the generator itself changes shape, and commit both together. The
 drift gate (`generate-metadata --check`) runs **inside `npm test`**: the
 generation dropped from ~3 minutes to ~2 seconds when the unanchored
@@ -1031,7 +1031,7 @@ a `render` load failure, and **no consumer can excuse those**: they are the
 shape a real typo has. So a stale pin does not under-report, it *mis*-reports,
 and it blocks every consumer building on a control released after it
 (`sap.tnt.SideNavigationSearchField` @1.151 was the case that surfaced this).
-Bumping is one PR: the pins in `render-runtime/package.json`, `npm install`,
+Bumping is one PR: the pins in `linter-render/package.json`, `npm install`,
 `npm run generate-metadata`, `npm run generate-icons` (needs network — the
 icon snapshot is generated at the same release and `npm test` pairs the two),
 and the snapshot header numbers above. A Dependabot bump does this to itself:
@@ -1085,14 +1085,24 @@ and `framework.mirrored` is read off an abap2UI5 checkout with
 `-- --local <dir>` after a mirror sync and otherwise kept as committed, so an
 offline regeneration cannot forget it.
 
-## `@abap2ui5/render-runtime` — the second package, and why it exists
+## `@abap2ui5/linter-render` — the second package, and why it exists
 
 Two packages come out of this repository, from one tag:
 
 | Package | What it is |
 | --- | --- |
 | `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~340 kB |
-| `@abap2ui5/render-runtime` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`render-runtime/` — an npm **workspace** of this repo) |
+| `@abap2ui5/linter-render` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`linter-render/` — an npm **workspace** of this repo) |
+
+**It was `@abap2ui5/render-runtime` up to 0.7.0.** Renamed because the name
+read like the framework's runtime — `@abap2ui5/node-runtime`, abap2UI5
+transpiled for Node, sits in the same scope. `lib/render.mjs` still resolves
+the old name after the new one (`LEGACY_RENDER_RUNTIME`), and `package.json`
+keeps it as an optional peer at a **frozen** range (`LEGACY` in
+`scripts/peer-range.mjs`, checked by `npm test`), so a project that installed
+it upgrades the linter without an ERESOLVE and without losing the render
+gate. Nothing publishes the old name any more; RELEASING.md has the one-time
+steps of the rename.
 
 **The split is not tidiness, it is the advertised install.** The README's first
 line is `npx @abap2ui5/linter src`, and the whole promise of it is that it is
@@ -1105,7 +1115,7 @@ what the render runtime is now (`peerDependenciesMeta.optional`).
 
 What follows from that, and each of these has bitten:
 
-- **The `@openui5/*` pins live in `render-runtime/package.json`**, not in the
+- **The `@openui5/*` pins live in `linter-render/package.json`**, not in the
   root manifest — `RELEASING.md` step 1c is the authority. Bumping a UI5
   release is three files: those pins, `data/properties.json`
   (`npm run generate-metadata`) and `data/icons.json`

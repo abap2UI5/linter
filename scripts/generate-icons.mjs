@@ -77,7 +77,7 @@ const OUT = outArg !== -1 && process.argv[outArg + 1]
  *  and the one data/properties.json is generated from. Scanning past it would
  *  claim knowledge the rest of the snapshot does not have.
  *
- *  The pins live in the render-runtime WORKSPACE (`render-runtime/package.json`,
+ *  The pins live in the linter-render WORKSPACE (`linter-render/package.json`,
  *  `dependencies`) since the package split — RELEASING.md step 1c is the
  *  authority. This read the root manifest's `optionalDependencies`, where they
  *  had been before, and threw before touching the network; the
@@ -87,7 +87,7 @@ const OUT = outArg !== -1 && process.argv[outArg + 1]
  *  without the scan. */
 export function pinnedVersion(root = ROOT) {
   const manifests = [
-    [path.join(root, 'render-runtime', 'package.json'), ['dependencies', 'optionalDependencies']],
+    [path.join(root, 'linter-render', 'package.json'), ['dependencies', 'optionalDependencies']],
     [path.join(root, 'package.json'), ['optionalDependencies', 'dependencies']],
   ];
   for (const [file, sections] of manifests) {
@@ -98,7 +98,7 @@ export function pinnedVersion(root = ROOT) {
       if (v) return String(v).replace(/^[^\d]*/, '');
     }
   }
-  throw new Error(`neither render-runtime/package.json nor package.json declares ${PKG} — nothing to pin the scan to`);
+  throw new Error(`neither linter-render/package.json nor package.json declares ${PKG} — nothing to pin the scan to`);
 }
 
 const minorOf = (v) => v.split('.').slice(0, 2).join('.');

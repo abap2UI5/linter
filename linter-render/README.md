@@ -1,11 +1,14 @@
-# @abap2ui5/render-runtime
+# @abap2ui5/linter-render
+
+> Published as `@abap2ui5/render-runtime` up to 0.7.0. The linter still finds
+> an install under the old name; new installs use this one.
 
 The UI5 runtime that the [abap2UI5 linter](https://github.com/abap2UI5/linter)
 render gate serves — the `@openui5/*` source packages, `playwright` and the
 theme compiler, bundled as **one** install instead of thirteen.
 
 ```sh
-npm install -D @abap2ui5/linter @abap2ui5/render-runtime
+npm install -D @abap2ui5/linter @abap2ui5/linter-render
 npx playwright install chromium
 ```
 
@@ -35,7 +38,7 @@ default install small and the render gate an explicit, single-name opt-in.
 
 ## How the linter finds it
 
-`@abap2ui5/render-runtime` is declared as an **optional peer dependency** of
+`@abap2ui5/linter-render` is declared as an **optional peer dependency** of
 `@abap2ui5/linter`, so npm never installs it on its own — and, when it *is*
 installed, npm holds it to the linter's declared range. That range lists the
 release lines the linter has been verified against, and it is not advisory:

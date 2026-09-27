@@ -477,6 +477,10 @@ declare module "@abap2ui5/linter/render" {
    *  never installs its ~118 MB on its own. */
   export const RENDER_RUNTIME: string;
 
+  /** The name the runtime was published under up to 0.7.0 — still looked up
+   *  after RENDER_RUNTIME, so an install under it keeps the render gate. */
+  export const LEGACY_RENDER_RUNTIME: string;
+
   /** What only the PICTURE needs on top of the gate's runtime (the theme
    *  compiler). Deliberately not part of RENDER_DEPS — a missing compiler
    *  must never be a reason for the GATE to refuse to run. */

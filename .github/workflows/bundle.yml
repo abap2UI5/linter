@@ -29,16 +29,16 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-      # The UI5 runtime lives in the render-runtime WORKSPACE, so it arrives as
+      # The UI5 runtime lives in the linter-render WORKSPACE, so it arrives as
       # ordinary (non-dev) dependencies of that workspace and `--omit=dev` keeps
       # it - which is what makes this bundle a render gate at all.
       - run: npm ci --omit=dev
-      # render-runtime/ ships next to node_modules on purpose: npm links the
-      # workspace as node_modules/@abap2ui5/render-runtime -> ../../render-runtime,
+      # linter-render/ ships next to node_modules on purpose: npm links the
+      # workspace as node_modules/@abap2ui5/linter-render -> ../../linter-render,
       # and without the target that symlink dangles in the extracted bundle. The
       # linter would fall back to the hoisted @openui5 tree anyway, but shipping
       # the manifest keeps resolution on the intended path.
-      - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json render-runtime
+      - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json linter-render
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: render-gate-bundle
