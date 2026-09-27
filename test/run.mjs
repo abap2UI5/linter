@@ -3359,14 +3359,14 @@ section('render-error', async () => {
 });
 
 // ---------------------------------------------- optional render deps ----
-// playwright + @openui5/* ship in @abap2ui5/render-runtime, declared as an
+// playwright + @openui5/* ship in @abap2ui5/linter-render, declared as an
 // OPTIONAL PEER: absent, the property gate still works and a requested render
 // fails with one actionable message
 section('render deps', async () => {
     const { RENDER_DEPS, SCREENSHOT_DEPS, RENDER_RUNTIME, missingRenderDeps, renderDepsError, renderFallback } = await import('../lib/render.mjs');
     const root = path.join(FIX, '..', '..');
     const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-    const runtime = JSON.parse(fs.readFileSync(path.join(root, 'render-runtime', 'package.json'), 'utf8'));
+    const runtime = JSON.parse(fs.readFileSync(path.join(root, 'linter-render', 'package.json'), 'utf8'));
 
     // The whole point of the split: a default `npm i @abap2ui5/linter` (and so
     // `npx`, which has no --omit=optional) must not drag ~123 MB of UI5 in. npm
@@ -3377,6 +3377,8 @@ section('render deps', async () => {
     assert(pkg.peerDependencies?.[RENDER_RUNTIME]
       && pkg.peerDependenciesMeta?.[RENDER_RUNTIME]?.optional === true,
       `render deps: ${RENDER_RUNTIME} is declared as an OPTIONAL peer`);
+    assert(pkg.bin?.abap2ui5lint === 'cli.mjs' && pkg.bin?.['abap2ui5-lint'] === 'cli.mjs',
+      'render deps: the CLI answers to abap2ui5lint and to the hyphenated abap2ui5-lint');
     /* Nothing ships in the runtime unaccounted for, and nothing the GATE needs
      * is missing from it - but the two lists are no longer the same list. The
      * theme compiler is in the runtime because `--screenshot` needs it and one
@@ -4132,7 +4134,7 @@ section('icons', async () => {
 /* Two npm packages come out of one tag, and the split is only safe while they
  * describe the SAME OpenUI5 release: data/properties.json and data/icons.json
  * answer `@since` from the version they were generated at, while the render
- * gate loads whatever @openui5 the render-runtime workspace pins. Let those
+ * gate loads whatever @openui5 the linter-render workspace pins. Let those
  * drift and the two gates disagree about the same control - the property gate
  * calling a member too new for a runtime that already ships it, or worse, the
  * silent direction: staying quiet about a member the loaded runtime does not
@@ -4142,7 +4144,7 @@ section('snapshots', async () => {
     const dir = path.join(FIX, '..', '..');
     const props = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'properties.json'), 'utf8'));
     const iconData = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'icons.json'), 'utf8'));
-    const runtime = JSON.parse(fs.readFileSync(path.join(dir, 'render-runtime', 'package.json'), 'utf8'));
+    const runtime = JSON.parse(fs.readFileSync(path.join(dir, 'linter-render', 'package.json'), 'utf8'));
     const pinned = Object.entries(runtime.dependencies || {})
       .filter(([n]) => n.startsWith('@openui5/'))
       .map(([n, v]) => [n, String(v).replace(/^[\^~]/, '')]);
@@ -4152,7 +4154,7 @@ section('snapshots', async () => {
 
     const off = pinned.filter(([, v]) => v !== props.ui5Version);
     assert(pinned.length > 0 && off.length === 0,
-      `snapshots: render-runtime loads the release the data describes - ${props.ui5Version} (${
+      `snapshots: linter-render loads the release the data describes - ${props.ui5Version} (${
         off.length ? off.map(([n, v]) => `${n}@${v}`).join(', ') : `${pinned.length} @openui5 pins agree`})`);
 });
 
@@ -5065,7 +5067,7 @@ section('run summary, progress and badge', async () => {
  * The consequence is not a missing warning, it is the opposite of the
  * documented guarantee: npm rejects an optional peer that is present and out of
  * range, so `npm i @abap2ui5/linter@0.2.1 @abap2ui5/render-runtime@0.2.1` - the
- * pairing render-runtime/README.md tells everyone to install - failed with
+ * pairing the runtime's README tells everyone to install - failed with
  * ERESOLVE, while the stale 0.1 line was the only one npm accepted.
  *
  * So the range is gated against the workspace it ships with: a release that
@@ -5082,7 +5084,7 @@ section('run summary, progress and badge', async () => {
 section('peer range', async () => {
     const ROOT = path.join(FIX, '..', '..');
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    const rt = JSON.parse(fs.readFileSync(path.join(ROOT, 'render-runtime', 'package.json'), 'utf8'));
+    const rt = JSON.parse(fs.readFileSync(path.join(ROOT, 'linter-render', 'package.json'), 'utf8'));
     const range = pkg.peerDependencies[rt.name];
     const { satisfies, expectedRange, breakingAfter } = await import('../scripts/peer-range.mjs');
 
@@ -5096,6 +5098,14 @@ section('peer range', async () => {
       `peer range: and it STOPS at the next breaking runtime line (${breakingAfter(rt.version)})`);
     assert(pkg.peerDependenciesMeta[rt.name].optional === true,
       'peer range: the render runtime stays OPTIONAL - the property gate is the small install');
+    // renamed after 0.7.0: the old name stays an optional peer with the range of
+    // the lines it has, so an existing install upgrades the linter without ERESOLVE
+    const { LEGACY } = await import('../scripts/peer-range.mjs');
+    assert(LEGACY.name !== rt.name && pkg.peerDependencies[LEGACY.name] === LEGACY.range
+      && pkg.peerDependenciesMeta[LEGACY.name]?.optional === true,
+    `peer range: the pre-rename name ${LEGACY.name} stays an optional peer at its frozen range '${LEGACY.range}'`);
+    assert(satisfies(LEGACY.range, '0.7.0') === true,
+      'peer range: the frozen range admits the last line published under the old name');
 
     // the reader itself, since two gates and one CI script now trust it
     assert(satisfies('^0.2.1', '0.2.9') === true && satisfies('^0.2.1', '0.3.0') === false
@@ -5693,8 +5703,8 @@ section('AGENTS.md', async () => {
       `AGENTS: the quoted assertion floor is one this suite still clears (says over ${floorQuoted?.[1]}, has ${assertSites} call sites)`);
 
     // the second published package, absent from this file entirely until 2026-08
-    assert(/^## `@abap2ui5\/render-runtime`/m.test(agents)
-      && agents.includes('render-runtime/package.json')
+    assert(/^## `@abap2ui5\/linter-render`/m.test(agents)
+      && agents.includes('linter-render/package.json')
       && agents.includes('optional peer'),
     'AGENTS: the render runtime - the second package, the peer split, the workspace - has a section');
     assert(!/pins in `package\.json`/.test(agents),

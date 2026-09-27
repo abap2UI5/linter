@@ -42,7 +42,7 @@
  *   node scripts/generate-dependents.mjs --package-id <id>
  *                                                   this repo publishes two
  *                                                   packages (linter and
- *                                                   render-runtime); the page
+ *                                                   linter-render); the page
  *                                                   shows one at a time
  *
  * Exit codes: 0 written / in sync, 1 stale (--check) or nothing parsed,

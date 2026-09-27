@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * peer-range — the optional-peer range on @abap2ui5/render-runtime, generated
+ * peer-range — the optional-peer range on @abap2ui5/linter-render, generated
  * rather than hand-extended, plus the tiny semver reader the checks need.
  *
  * The range used to be a UNION that grew a clause per release:
@@ -35,14 +35,25 @@ import { fileURLToPath } from 'url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /*
- * The oldest render-runtime line this linter still works with.
+ * The oldest linter-render line this linter still works with. The package was
+ * renamed from @abap2ui5/render-runtime after 0.7.0, so no older line of it
+ * exists under this name; the older lines are the LEGACY range below.
  *
  * Raising it is an install failure for everyone still on that line, so it is
  * justified only by something the linter genuinely cannot work without — never
  * by the range looking untidy. (A missing `less-openui5` is NOT such a reason:
  * a screenshot then comes back unstyled and the gate does not care.)
  */
-export const FLOOR = '0.1.0';
+export const FLOOR = '0.7.0';
+
+/*
+ * The name the runtime was published under up to 0.7.0, and the range that
+ * name keeps. It is FROZEN, not generated: nothing is published under it any
+ * more, so the lines it has are the lines it will ever have - and a project
+ * that installed one of them keeps an admissible pairing when it upgrades the
+ * linter (lib/render.mjs still looks it up, after the current name).
+ */
+export const LEGACY = Object.freeze({ name: '@abap2ui5/render-runtime', range: '>=0.1.0 <0.8.0' });
 
 const parse = (v) => {
   const m = /^(\d+)\.(\d+)\.(\d+)/.exec(String(v).trim());
@@ -108,7 +119,7 @@ export function satisfies(range, version) {
 }
 
 const PKG = path.join(ROOT, 'package.json');
-const RUNTIME_PKG = path.join(ROOT, 'render-runtime', 'package.json');
+const RUNTIME_PKG = path.join(ROOT, 'linter-render', 'package.json');
 
 export function currentAndExpected() {
   const pkg = JSON.parse(fs.readFileSync(PKG, 'utf8'));
@@ -118,6 +129,7 @@ export function currentAndExpected() {
     runtimeVersion: rt.version,
     current: pkg.peerDependencies?.[rt.name],
     expected: expectedRange(rt.version),
+    legacyCurrent: pkg.peerDependencies?.[LEGACY.name],
   };
 }
 
@@ -140,11 +152,16 @@ if (invokedDirectly) {
     process.exit(verdict ? 0 : 1);
   }
 
-  const { name, runtimeVersion, current, expected } = currentAndExpected();
+  const { name, runtimeVersion, current, expected, legacyCurrent } = currentAndExpected();
   if (args.includes('--check')) {
     if (current !== expected) {
       console.error(`package.json peerDependencies["${name}"] is stale: '${current}' should be '${expected}'`
         + ` (the workspace releases ${runtimeVersion}) — run: npm run sync-peer-range`);
+      process.exit(1);
+    }
+    if (legacyCurrent !== LEGACY.range) {
+      console.error(`package.json peerDependencies["${LEGACY.name}"] is '${legacyCurrent}', the frozen range is '${LEGACY.range}'`
+        + ' — run: npm run sync-peer-range');
       process.exit(1);
     }
     console.log(`peerDependencies["${name}"] is '${expected}' — up to date`);
@@ -152,6 +169,8 @@ if (invokedDirectly) {
     const raw = fs.readFileSync(PKG, 'utf8');
     const pkg = JSON.parse(raw);
     pkg.peerDependencies[name] = expected;
+    pkg.peerDependencies[LEGACY.name] = LEGACY.range;
+    pkg.peerDependenciesMeta[LEGACY.name] = { optional: true };
     // rewritten through the same 2-space JSON npm itself writes, so a release
     // diff is one line and not a reformat of the whole manifest
     fs.writeFileSync(PKG, `${JSON.stringify(pkg, null, 2)}\n`);

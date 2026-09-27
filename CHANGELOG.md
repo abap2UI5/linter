@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **The render runtime is `@abap2ui5/linter-render` now.** It was published
+  as `@abap2ui5/render-runtime` up to 0.7.0, a name that read like the
+  framework's runtime - `@abap2ui5/node-runtime`, abap2UI5 transpiled for
+  Node, sits in the same scope. Same content, same pins, one tag with the
+  linter as before: `npm i -D @abap2ui5/linter-render`. An existing install
+  under the old name keeps working - the linter looks it up after the new
+  one, and keeps it as an optional peer at the range of the lines it has
+  (`>=0.1.0 <0.8.0`), so upgrading the linter is no ERESOLVE. Nothing is
+  published under the old name any more.
+- **`abap2ui5-lint` is the CLI's second name.** Every other command in the
+  ecosystem is hyphenated (`abap2ui5-mcp`, `abap2ui5-unit`); `abap2ui5lint`
+  stays, so no script or workflow has to change.
+
 - **`unescaped-text-in-attribute` no longer reports a constant, a
   literal-fed helper parameter, or a property that cannot show text.**
   abap2UI5's own start app carried ten warnings under the rule, nine of them

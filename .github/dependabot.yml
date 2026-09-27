@@ -3,7 +3,7 @@
 #
 # Grouped one pull request per ecosystem. The runtime dependency count of
 # @abap2ui5/linter is zero and is meant to stay zero; everything here is
-# build- and test-time, plus the @openui5/* packages the render-runtime
+# build- and test-time, plus the @openui5/* packages the linter-render
 # workspace serves - and those move the metadata snapshot, which
 # `generate-metadata --check` gates.
 #

@@ -51,7 +51,7 @@ Two more entry points, for the two other ways in:
 
 | | |
 |---|---|
-| [Adding the render gate](https://abap2ui5.github.io/docs/advanced/linter.html#the-render-gate) | `npm i -D @abap2ui5/render-runtime` + `npx playwright install chromium` — the headless `XMLView.create` that catches a view which fails to *load* |
+| [Adding the render gate](https://abap2ui5.github.io/docs/advanced/linter.html#the-render-gate) | `npm i -D @abap2ui5/linter-render` + `npx playwright install chromium` — the headless `XMLView.create` that catches a view which fails to *load* |
 | [Starting a project](https://github.com/abap2UI5/app-template) | app-template ships the CLI, the config and the workflow already wired up |
 
 ## Where it runs

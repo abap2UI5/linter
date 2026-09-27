@@ -13,7 +13,7 @@ advisory is where that conversation happens.
 ## Supported versions
 
 Only the **latest published version** of `@abap2ui5/linter` and
-`@abap2ui5/render-runtime` is supported. Both are still on the `0.x` line
+`@abap2ui5/linter-render` is supported. Both are still on the `0.x` line
 (the rule set is growing, and a new rule can change a consumer's verdict), so
 a fix ships as the next release rather than as a patch to an older line.
 
@@ -23,7 +23,7 @@ Worth knowing before assessing a report:
 
 - **It has zero runtime dependencies.** `npm i @abap2ui5/linter` installs one
   package and nothing else. The UI5 runtime the render gate needs is an
-  *optional peer* (`@abap2ui5/render-runtime`), so it is installed only when
+  *optional peer* (`@abap2ui5/linter-render`), so it is installed only when
   someone asks for it.
 - **It is published with provenance.** Releases go out from
   `.github/workflows/release.yml` through npm trusted publishing (OIDC), so
