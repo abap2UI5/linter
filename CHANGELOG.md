@@ -49,6 +49,11 @@
 - `data/compat.json`: `framework.mirrored` is 1.145.0, the release every
   mirror was checked against in this change (`check-upstream --local`, all in
   sync).
+- **No polynomial backtracking left in the ABAP scanners.** The 27 regexes
+  CodeQL still flagged (js/polynomial-redos) - the structure, field,
+  METHODS-signature and DATA-block reads and the `client->` and own-method
+  call scans among them - are linear scans now; the findings over the
+  abap2UI5 corpora are unchanged byte for byte.
 
 ## 0.8.1 - 2026-09-27
 
