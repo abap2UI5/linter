@@ -1,0 +1,21 @@
+<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc" xmlns:upload="sap.m.upload" xmlns:z2ui5="z2ui5.cc">
+  <Page title="Companion controls, written wrong">
+    <content>
+      <!-- the HTML attribute's spelling, not the property's (inputMode) -->
+      <z2ui5:InputExt value="{/SCAN}" inputmode="numeric"/>
+      <!-- an Input property newer than the 1.71 floor: InputExt inherits it, and its release with it -->
+      <z2ui5:InputExt value="{/SCAN}" showClearIcon="true"/>
+      <!-- fileData, one letter off - not a case slip, so no did-you-mean -->
+      <z2ui5:UploadSetExt uploadSetId="files" fileDate="{/FILE_DATA}"/>
+      <upload:UploadSet id="files"/>
+      <z2ui5:SmartMultiInputExt multiInputID="types"/>
+      <MultiInput id="types" value="{/TYPES}"/>
+      <!-- a z2ui5.cc control nobody mirrors (a customer's own): no metadata, no verdict -->
+      <z2ui5:ExportSpreadsheet tableId="t" anything="x"/>
+      <!-- and the neighbours written right -->
+      <z2ui5:InputExt value="{/SCAN}" inputMode="none" submit=".eB()"/>
+      <z2ui5:UploadSetExt uploadSetId="files" fileData="{/FILE_DATA}" change=".eB()"/>
+      <z2ui5:SmartMultiInputExt multiInputId="types" rangeData="{/RANGES}"/>
+    </content>
+  </Page>
+</mvc:View>
