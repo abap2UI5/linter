@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.1 - 2026-09-27
+
 - **No polynomial backtracking in the ABAP scanners.** The event-CASE
   header, the METHODS/IMPORTING read, the call scan and the inline-structure
   collapse were regexes that rescan from every keyword or word on input
