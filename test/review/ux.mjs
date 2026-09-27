@@ -231,8 +231,10 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     const listed = lines.slice(0, count);
     assert(listed.every((l) => new RegExp(`^${path.relative(process.cwd(), target).replace(/[.\\/]/g, '\\$&')}:\\d+:\\d+ [a-z-]+$`).test(l)),
       `each line is path:line:col rule-id (${listed.join(' | ')})`);
-    assert(listed.map((l) => l.split(' ')[1]).join(',') === 'unknown-directive-rule,unused-directive,unused-directive'
-      && listed.map((l) => Number(l.split(':')[1])).join(',') === '15,19,21',
+    // line and rule read from the END: a Windows path carries a drive colon
+    const parts = listed.map((l) => l.match(/:(\d+):\d+ ([a-z-]+)$/) ?? []);
+    assert(parts.map((m) => m[2]).join(',') === 'unknown-directive-rule,unused-directive,unused-directive'
+      && parts.map((m) => Number(m[1])).join(',') === '15,19,21',
       `the three fixable findings, in line order (${listed.join(' | ')})`);
     assert(fs.readFileSync(target, 'utf8') === before, 'and nothing was written');
     assert(!/^[^\n]*:\d+:\d+ [a-z-]+$/m.test(run([target, '--no-render', '--no-config', '--fix-dry-run', '--format', 'json']).out),

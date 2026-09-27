@@ -2,6 +2,81 @@
 
 ## Unreleased
 
+- **No polynomial backtracking in the ABAP scanners.** The event-CASE
+  header, the METHODS/IMPORTING read, the call scan and the inline-structure
+  collapse were regexes that rescan from every keyword or word on input
+  without a closing period or match (CodeQL js/polynomial-redos). They are
+  linear scans now; the findings over the abap2UI5 corpora are unchanged
+  byte for byte.
+
+- **`ignore` works on Windows.** A config's `ignore` patterns were matched
+  against the walked path with the platform's separator, so `/generated/` -
+  the spelling the README gives - dropped nothing on Windows and the ignored
+  tree was checked after all. The path is now tried with forward slashes as
+  well, the way a rule's `exclude` already was.
+
+- **`unbound-public-attribute` lands on its declaration after a `TYPES`
+  structure.** The PUBLIC SECTION was measured on a copy in which every
+  `BEGIN OF … END OF` block had been collapsed to its name, so each
+  attribute after such a block was reported a few lines early - in the
+  comment above it, where a next-line directive suppresses nothing - and the
+  rule's own "`TYPE REF TO` is out of scope" test read the wrong
+  declaration: `DATA mo_x TYPE REF TO zcl_y` and `DATA mt_x TYPE REF TO data`
+  after the block were reported. The collapse now blanks the block instead
+  of cutting it, so the text keeps its offsets. `unused-public-attribute`
+  reads the same walk and is corrected with it. abap2UI5's node/srv test
+  apps and rap-ext carried the false findings (rap-ext: six of its seven
+  baseline entries are `TYPE REF TO data` and are now stale).
+- **A literal `b = abap_false` reconstructs as `"false"`.** Every
+  `a( n = … b = … )` was rebuilt as `"true"`, so `enabled="false"` and
+  `editable="false"` were invisible to the rules and a disabled Input fed by
+  a literal was an `editable-control-without-binding` (samples-stack app
+  484). The builder writes `false` for anything that is not `abap_true`, so
+  `abap_false`, `space` and a blank literal now reconstruct as `"false"`;
+  `abap_true` and every expression or variable stay `"true"` as before.
+- **`handler-without-event` reads only the WHENs of a CASE over the event.**
+  Every `WHEN \`X\`` counted as a handler - an operator switch
+  (`CASE to_upper( s-operation ). WHEN \`EQ\`.`), a CASE over escape
+  characters, a status switch nested in a handler, a `SWITCH #( … WHEN
+  \`Phone\` THEN … )` arm (samples-stack apps 319 and 489, samples 004,
+  025, 488 and 504, all 116 hits on samples-controls). A WHEN is a handler
+  now only at the own level of a CASE whose subject is the event: the read
+  itself, a variable assigned from it
+  (`DATA(lv_event) = client->get( )-event.`), or a parameter of a method the
+  class hands it to (`on_event_box( event )`).
+  The CASE/ENDCASE scan behind it no longer counts the word CASE inside a
+  literal, which ran the event CASE on into the next method. And three more
+  raises are known: the `onclose` of `message_box_display( )` /
+  `message_toast_display( )`, `"onClose":"X"` in their CONTROL_GLOBAL option
+  object, and the event of a `cs_event-hash_attach_changed` listener (the
+  last one like a timer's: unhandled, it is an `event-without-handler`).
+- **`smart-variant-without-init` accepts `filter_bar_variant_init`.** The
+  classic FilterBar's action registers the bar with the
+  SmartVariantManagement and then calls its `initialise( )`, the same
+  handshake - a class wiring it was reported for a handshake it makes
+  (samples-stack app 493).
+- **`frontend-action-as-backend-event` leaves a class's own `cs_event`
+  alone.** An app declaring `CONSTANTS: BEGIN OF cs_event` for its backend
+  event names had every `_event( cs_event-search )` reported as the client's
+  frontend action, and `--fix` rewrote the wires to `follow_up_action( )`,
+  which broke them (samples apps 000 and 496, 29 warnings on rap-ext). With
+  an own declaration only a spelling through a client reference
+  (`client->cs_event-…`, `z2ui5_if_client=>cs_event-…`) is judged; the bare,
+  `me->` and own-class spellings are the app's constant.
+- **The `unused-namespace-declaration` fix also removes the last
+  declaration of a chain.** `)->a( n = \`xmlns:form\` v = \`…\` ).` carried
+  no fix, because deleting its line took the statement's end with it - 54 of
+  127 such findings in abap2UI5/samples. It is now cut out from the end of
+  the line before, which then closes the chain (`… v = \`sap.ui.core.mvc\`
+  ).`); two stale ones in a row at the end take a second `--fix` pass.
+- **`missing-on-navigated-branch` no longer fires on a sub-app.** A method
+  of the class NAMED `view_display( )` counted as the client's display call,
+  so a sub-app that only builds into its parent's view (samples apps 105 and
+  112 under 104) was told to add a navigated branch, and the fix added a
+  redundant one. Only a display called ON an object (`client->…`,
+  `mo_client->…`) counts now; an own method is followed into its body as
+  before.
+
 ## 0.8.0 - 2026-09-27
 
 - **The render runtime is `@abap2ui5/linter-render` now.** It was published
