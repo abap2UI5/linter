@@ -1644,14 +1644,19 @@ section('display-root-mismatch', async () => {
       .findings.some((x) => x.type === 'relative-binding-without-context'),
       'relative-binding-without-context: a relative binding inside a bound aggregation is not judged');
 
-    /* The same promise across a FOREIGN namespace. abap2UI5's own controls
-     * (z2ui5.cc) are in no UI5 snapshot, and the walk declines to look into a
-     * non-`sap.` namespace at all - it used to hand the children nothing, so a
-     * bound custom control's row template was judged contextless and both of
-     * its attributes reported (abap2UI5/samples app 306). Every one of these
-     * controls extends a real one: CameraSelector extends sap.m.ComboBox and
-     * inherits its `items`. */
-    {
+    /* The same promise across a FOREIGN namespace. A custom control is in no
+     * UI5 snapshot, and the walk declines to look into a non-`sap.` namespace
+     * at all - it used to hand the children nothing, so a bound custom
+     * control's row template was judged contextless and both of its
+     * attributes reported (abap2UI5/samples app 306, a z2ui5:CameraSelector,
+     * which extends sap.m.ComboBox and inherits its `items`). The companion
+     * controls lib/cc-controls.mjs mirrors are judged over their base class
+     * since 2026-09-27, so the CameraSelector takes the ComboBox's own path
+     * now, and an in-house control keeps this one: both are asked. */
+    for (const [label, ns, uri, tag] of [
+      ['a mirrored companion control', 'z2ui5', 'z2ui5.cc', 'CameraSelector'],
+      ['a control in a foreign namespace', 'app', 'zmy.controls', 'DeviceSelect'],
+    ]) {
       const foreign = `CLASS x DEFINITION PUBLIC.
     PUBLIC SECTION.
       INTERFACES z2ui5_if_app.
@@ -1664,8 +1669,8 @@ section('display-root-mismatch', async () => {
           )->a( n = \`xmlns\` v = \`sap.m\`
           )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
           )->a( n = \`xmlns:core\` v = \`sap.ui.core\`
-          )->a( n = \`xmlns:z2ui5\` v = \`z2ui5.cc\`
-          )->ele( n = \`CameraSelector\` ns = \`z2ui5\`
+          )->a( n = \`xmlns:${ns}\` v = \`${uri}\`
+          )->ele( n = \`${tag}\` ns = \`${ns}\`
               )->a( n = \`items\` v = \`{path:'/DEVICES'}\`
               )->tag( n = \`Item\` ns = \`core\`
                   )->a( n = \`key\` v = \`{KEY}\`
@@ -1676,7 +1681,7 @@ section('display-root-mismatch', async () => {
       const rows = checkAbapSource(foreign).findings
         .filter((x) => x.type === 'relative-binding-without-context');
       assert(rows.length === 0,
-        `relative-binding-without-context: a bound control in a foreign namespace still makes its children rows (got ${rows.map((x) => `${x.member}=${x.value}`).join(' ') || 'none'})`);
+        `relative-binding-without-context: ${label} that binds still makes its children rows (got ${rows.map((x) => `${x.member}=${x.value}`).join(' ') || 'none'})`);
 
       /* …and the widening is not "a foreign tag silences the rule". With no
        * binding on it there is no row context, and the children are reported
@@ -1684,7 +1689,7 @@ section('display-root-mismatch', async () => {
       const unbound = checkAbapSource(foreign.replace("v = \`{path:'/DEVICES'}\`", 'v = \`plain\`')).findings
         .filter((x) => x.type === 'relative-binding-without-context');
       assert(unbound.length === 2,
-        `relative-binding-without-context: an UNBOUND foreign control opens no context, so its children are still judged (got ${unbound.length})`);
+        `relative-binding-without-context: ${label} that binds nothing opens no context, so its children are still judged (got ${unbound.length})`);
     }
     {
       const agg = checkAbapSource(fs.readFileSync(f('orphanbind.clas.abap'), 'utf8'))

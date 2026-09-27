@@ -66,6 +66,29 @@
   The output is unchanged byte for byte over the abap2UI5 corpora and over
   1,490 raw XML views, and CodeQL 2.27.1 run locally reports no
   js/polynomial-redos and nothing new.
+- **The render gate mirrors InputExt, UploadSetExt and SmartMultiInputExt,
+  and the property walk judges every mirrored companion control.** They were
+  the three live companion controls with no mirror, so a view naming one
+  failed view CREATION with a module 404 (abap2UI5/samples apps 516, 517 and
+  530 and samples-stack app 319 excused it by file). InputExt is mirrored as
+  what upstream makes it - a `sap.m.Input` with an `inputMode` property,
+  rendered by `InputRenderer` - and the other two as the invisible Controls
+  they are, which find their UploadSet / SmartMultiInput by id. The property
+  walk used to look away from every `z2ui5.cc` tag; a companion control the
+  linter mirrors is now judged like any control, its mirror layered over its
+  real base class: `<z2ui5:InputExt inputmode="none">` is an
+  `unknown-property` with the `inputMode` did-you-mean and fix, and an Input
+  member newer than the floor on it is `member-too-new`, as on a
+  `sap.m.Input`. A `z2ui5.cc` control nobody mirrors (a customer's own) is
+  still not judged. `scripts/check-upstream.mjs` now also compares each
+  mirror's events and base class with `app/webapp/cc/*.js`, and fails on a
+  control upstream ships that is not mirrored at all - the one drift it could
+  not see, and the reason these three stayed out. Measured: the
+  property-gate output over eleven corpora is unchanged byte for byte;
+  samples 516, 517 and 530 render clean, so their `render-error` exclusion
+  now draws the stale-waiver note; samples-stack 319 still fails, now on the
+  SAPUI5-only `sap.ui.comp` SmartMultiInput it pairs its companion with,
+  which the OpenUI5 harness cannot serve, so its `/src/02/` exclusion stays.
 
 ## 0.8.1 - 2026-09-27
 

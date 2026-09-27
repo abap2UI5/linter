@@ -18,8 +18,10 @@
  *                                package src/99, and the prefix families
  *                                everything else has to fall into)
  *   lib/cc-controls.mjs       <- app/webapp/cc/*.js (the metadata-only
- *                                mirrors the render harness boots with, and
- *                                which of them carry an `// OBSOLETE:`
+ *                                mirrors the render harness boots with and
+ *                                the property walk judges - properties,
+ *                                events and the class each one extends -
+ *                                and which of them carry an `// OBSOLETE:`
  *                                header - obsolete-custom-control's list)
  *                             <- src/99/z2ui5_cl_xml_view_cc.clas.abap (the
  *                                frozen builder's helper that writes each
@@ -161,10 +163,14 @@ export function parseClientEvents(intfSrc) {
 export function parseCcProperties(src) {
   const at = src.search(/properties\s*:\s*\{/);
   if (at === -1) return [];
-  const body = braceRegion(src, src.indexOf('{', at));
+  return objectKeys(braceRegion(src, src.indexOf('{', at)));
+}
+
+/* The keys at depth 1 of an object literal's body. */
+function objectKeys(body) {
   const out = [];
   let depth = 0;
-  // a `//` comment can carry `word:` pairs that are not properties
+  // a `//` comment can carry `word:` pairs that are not keys
   const code = body.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
   const re = /([A-Za-z_$][\w$]*)\s*:|[{}]/g;
   let m;
@@ -174,6 +180,44 @@ export function parseCcProperties(src) {
     else if (depth === 0) out.push(m[1]);
   }
   return out;
+}
+
+/** The event names a companion control declares: the keys of
+ *  `metadata: { events: { … } }`, read inside the metadata literal (the word
+ *  is common enough elsewhere in a control's source). An event the mirror
+ *  lacks fails view CREATION exactly as a missing property does. */
+export function parseCcEvents(src) {
+  const at = src.search(/metadata\s*:\s*\{/);
+  if (at === -1) return [];
+  const metadata = braceRegion(src, src.indexOf('{', at));
+  const events = metadata.search(/\bevents\s*:\s*\{/);
+  return events === -1 ? [] : objectKeys(braceRegion(metadata, metadata.indexOf('{', events)));
+}
+
+/** The module a companion control extends - `sap/m/Input` for InputExt,
+ *  `sap/ui/core/Control` for most: the dependency of its `sap.ui.define`
+ *  that the `<param>.extend("z2ui5.cc.…"` call names. It is what the control
+ *  INHERITS, so it decides every attribute a view may write on it beyond its
+ *  own. null when the source does not have that shape. */
+export function parseCcBase(src) {
+  const define = src.indexOf('sap.ui.define(');
+  const open = define === -1 ? -1 : src.indexOf('[', define);
+  const close = open === -1 ? -1 : src.indexOf(']', open);
+  const paramsOpen = close === -1 ? -1 : src.indexOf('(', close);
+  const paramsClose = paramsOpen === -1 ? -1 : src.indexOf(')', paramsOpen);
+  if (paramsClose === -1) return null;
+  const deps = [...src.slice(open + 1, close).matchAll(/["']([^"']*)["']/g)].map((m) => m[1]);
+  const params = src.slice(paramsOpen + 1, paramsClose).split(',').map((p) => p.trim()).filter(Boolean);
+  for (let at = src.indexOf('.extend(', paramsClose); at !== -1; at = src.indexOf('.extend(', at + 1)) {
+    let start = at;
+    while (start > 0 && /[\w$]/.test(src[start - 1])) start--;
+    let arg = at + '.extend('.length;
+    while (arg < src.length && /\s/.test(src[arg])) arg++;
+    if (!src.startsWith('z2ui5.cc.', arg + 1) || (src[arg] !== '"' && src[arg] !== "'")) continue;
+    const i = params.indexOf(src.slice(start, at));
+    return i === -1 ? null : deps[i] ?? null;
+  }
+  return null;
 }
 
 /** A companion control's `// OBSOLETE: …` header -> the text after the
@@ -502,13 +546,18 @@ if (invokedDirectly) {
 
   report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
 
-  /* The companion-control mirrors the render harness boots with. A property
-   * upstream added and this file lacks is not a finding a downstream sidecar
-   * can declare away - the view fails to CREATE, so the whole document is
-   * dead. A property this file still has and upstream dropped is the other
-   * half: a view naming it renders green here and breaks live. Both are
-   * reported per control; a control whose source is GONE upstream is reported
-   * too, because a mirror of nothing is worse than no mirror. */
+  /* The companion-control mirrors the render harness boots with and the
+   * property walk judges. A property upstream added and this file lacks is
+   * not a finding a downstream sidecar can declare away - the view fails to
+   * CREATE, so the whole document is dead. A property this file still has
+   * and upstream dropped is the other half: a view naming it renders green
+   * here and breaks live. An EVENT is the same in both directions, and so is
+   * the class the control EXTENDS: it brings every attribute a view writes
+   * beyond the control's own (InputExt is an Input - `value`, `placeholder`,
+   * `submit`), so a mirror on the wrong base rejects correct views or passes
+   * broken ones. All three are reported per control, in one entry list; a
+   * control whose source is GONE upstream is reported too, because a mirror
+   * of nothing is worse than no mirror. */
   for (const name of Object.keys(CC_CONTROLS)) {
     if (!ccSrc[name]) {
       drift++;
@@ -516,8 +565,31 @@ if (invokedDirectly) {
       console.log(`  ! ${CC_DIR}/${name}.js is gone upstream — the mirror has no source any more`);
       continue;
     }
+    const mirror = CC_CONTROLS[name];
     report(`companion control ${name} (lib/cc-controls.mjs)`,
-      Object.keys(CC_CONTROLS[name].properties), parseCcProperties(ccSrc[name]));
+      [...Object.keys(mirror.properties), ...Object.keys(mirror.events).map((e) => `event ${e}`),
+        `extends ${mirror.base || 'sap/ui/core/Control'}`],
+      [...parseCcProperties(ccSrc[name]), ...parseCcEvents(ccSrc[name]).map((e) => `event ${e}`),
+        `extends ${parseCcBase(ccSrc[name]) ?? '(unreadable - the sap.ui.define / .extend shape changed)'}`]);
+  }
+
+  /* …and whether every companion control upstream ships is mirrored at all:
+   * the loop above walks the names in here, so a control nobody mirrored was
+   * the one drift it could not see. InputExt, UploadSetExt and
+   * SmartMultiInputExt stayed out that way until 2026-09-27, and every view
+   * naming one failed CREATION with a module 404 (abap2UI5/samples 516, 517,
+   * 530; samples-stack 319). One direction only: a mirror whose source is
+   * gone is reported by the loop. */
+  {
+    const what = 'companion controls mirrored at all (lib/cc-controls.mjs)';
+    const unmirrored = setDiff(Object.keys(ccSrc), Object.keys(CC_CONTROLS));
+    if (!unmirrored.length) {
+      console.log(`ok    ${what}: every one of the ${Object.keys(ccSrc).length} in ${CC_DIR}`);
+    } else {
+      drift++;
+      console.log(`DRIFT ${what}:`);
+      for (const n of unmirrored) console.log(`  + upstream ships ${CC_DIR}/${n}.js — not mirrored here, so a view naming <z2ui5:${n}> fails CREATION with a module 404 and the property walk looks away from it (add it to CC_CONTROLS)`);
+    }
   }
 
   /* Which companion controls are OBSOLETE - obsolete-custom-control's list.
