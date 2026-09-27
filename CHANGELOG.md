@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`ignore` works on Windows.** A config's `ignore` patterns were matched
+  against the walked path with the platform's separator, so `/generated/` -
+  the spelling the README gives - dropped nothing on Windows and the ignored
+  tree was checked after all. The path is now tried with forward slashes as
+  well, the way a rule's `exclude` already was.
+
 ## 0.8.0 - 2026-09-27
 
 - **The render runtime is `@abap2ui5/linter-render` now.** It was published
