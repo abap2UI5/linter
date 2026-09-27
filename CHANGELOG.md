@@ -54,6 +54,18 @@
   METHODS-signature and DATA-block reads and the `client->` and own-method
   call scans among them - are linear scans now; the findings over the
   abap2UI5 corpora are unchanged byte for byte.
+- **No polynomial backtracking left outside them either.** The last 11
+  js/polynomial-redos alerts on main are linear scans too: the raw XML view
+  parser (`parseXml`'s tag and attribute reads - a tag that never closes was
+  searched to the end of the view again from every `<` inside it), the
+  property walk's binding reads (a simple `{/X}` path, the `path: '/X'` and
+  `${/X}` paths of a binding info or an expression, an aggregation binding's
+  path, the `core:require` aliases, the run summary's binding count), the
+  ABAP Doc tag scan behind `abapdoc-html-tag`, the version parse of the
+  property gate and the icon rules, and where a directive's comment ends.
+  The output is unchanged byte for byte over the abap2UI5 corpora and over
+  1,490 raw XML views, and CodeQL 2.27.1 run locally reports no
+  js/polynomial-redos and nothing new.
 
 ## 0.8.1 - 2026-09-27
 
