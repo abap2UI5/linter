@@ -546,8 +546,17 @@ declare module "@abap2ui5/linter/render" {
 declare module "@abap2ui5/linter/abap-rules" {
   /** The source-side rules alone - what a class that builds no view is judged
    *  by under `allClasses`: the abapGit round-trip family, the activation and
-   *  hygiene rules, the released-API check. */
+   *  hygiene rules, the released-API check, and the frozen builder's
+   *  obsolete companion-control helpers. */
   export function checkSourceRules(source: string): PropertyFinding[];
+
+  /** The frozen-builder half of `obsolete-custom-control` on its own:
+   *  `_z2ui5( )->timer( )` and the seven other `z2ui5_cl_xml_view_cc`
+   *  helpers that write a companion control abap2UI5 marks OBSOLETE, also
+   *  through a handle assigned from `_z2ui5( )`. What a class on
+   *  `z2ui5_cl_xml_view` is judged by beside `frozen-view-builder`, since it
+   *  reconstructs no view for the property walk. */
+  export function obsoleteCcHelperFindings(source: string): PropertyFinding[];
 
   import type { PropertyFinding } from "@abap2ui5/linter/properties";
 

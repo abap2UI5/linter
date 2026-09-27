@@ -18,7 +18,12 @@
  *                                package src/99, and the prefix families
  *                                everything else has to fall into)
  *   lib/cc-controls.mjs       <- app/webapp/cc/*.js (the metadata-only
- *                                mirrors the render harness boots with)
+ *                                mirrors the render harness boots with, and
+ *                                which of them carry an `// OBSOLETE:`
+ *                                header - obsolete-custom-control's list)
+ *                             <- src/99/z2ui5_cl_xml_view_cc.clas.abap (the
+ *                                frozen builder's helper that writes each
+ *                                obsolete control: _z2ui5( )->timer( ))
  *
  * Upstream is not a dependency here, so a change there is a SILENT breaking
  * change: a new CONTROL_GLOBAL target makes the linter report correct new
@@ -49,7 +54,7 @@ import {
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES,
 } from '../lib/frontend-actions.mjs';
 import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
-import { CC_CONTROLS } from '../lib/cc-controls.mjs';
+import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
@@ -79,6 +84,12 @@ const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
  * per control, each a `Control.extend` with a `metadata: { properties: {…} }`
  * object literal - so the property NAMES parse out of the source directly. */
 const CC_DIR = 'app/webapp/cc';
+const CC_FILE_RE = /^app\/webapp\/cc\/(\w+)\.js$/;
+/* The frozen builder's companion-control helpers - one method per control,
+ * each a `_generic( name = … ns = \`z2ui5\` )`. Read for the helper NAME that
+ * writes each obsolete control, which obsolete-custom-control matches in a
+ * class that reconstructs no view. */
+const XML_VIEW_CC_PATH = 'src/99/z2ui5_cl_xml_view_cc.clas.abap';
 
 const ACTION_DIR = 'src/01/03';
 const ACTION_FILE_RE = /^z2ui5_cl_ui5f_\w+_js\.clas\.abap$/;
@@ -161,6 +172,38 @@ export function parseCcProperties(src) {
     if (m[0] === '{') depth++;
     else if (m[0] === '}') depth--;
     else if (depth === 0) out.push(m[1]);
+  }
+  return out;
+}
+
+/** A companion control's `// OBSOLETE: …` header -> the text after the
+ *  colon, or null for a control that carries none. abap2UI5 writes one line
+ *  per control (`// OBSOLETE: replaced by the frontend event
+ *  cs_event-start_timer - kept for backward compatibility.`). */
+export function parseObsoleteHeader(src) {
+  const m = String(src).match(/^[ \t]*\/\/[ \t]*OBSOLETE:[ \t]*(.+)$/m);
+  return m ? m[1].trim() : null;
+}
+
+/** The API names an OBSOLETE header points at: every snake_case identifier
+ *  in it (`cs_event-start_timer` -> cs_event, start_timer; `client->hash_set( )`
+ *  -> hash_set; `client.get().s_device / s_ui5` -> s_device, s_ui5). The
+ *  replacement lib/cc-controls.mjs writes into the finding has to name each
+ *  of them - so a header that starts pointing somewhere else is drift. */
+export function replacementNames(text) {
+  return [...new Set([...String(text).matchAll(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g)].map((m) => m[0]))];
+}
+
+/** z2ui5_cl_xml_view_cc: helper method (lower case) -> the control name its
+ *  `_generic( )` writes in the z2ui5 namespace. */
+export function parseCcHelpers(abapSrc) {
+  const out = {};
+  for (const m of String(abapSrc).matchAll(/^\s*METHOD\s+(\w+)\s*\.([\s\S]*?)^\s*ENDMETHOD\s*\./gim)) {
+    const call = m[2].match(/_generic\s*\(([\s\S]*?)\)/i);
+    if (!call) continue;
+    const name = call[1].match(/\bname\s*=\s*`(\w+)`/i);
+    const ns = call[1].match(/\bns\s*=\s*`(\w+)`/i);
+    if (name && ns && ns[1].toLowerCase() === 'z2ui5') out[m[1].toLowerCase()] = name[1];
   }
   return out;
 }
@@ -404,6 +447,9 @@ if (invokedDirectly) {
   let actionSrc;
   let actionPaths = [];
   let srcPaths;
+  let xmlViewCcSrc = null;
+  // EVERY companion control upstream ships, not only the mirrored ones: the
+  // OBSOLETE comparison has to see a newly marked control this file lacks
   const ccSrc = {};
   try {
     if (LOCAL) {
@@ -412,10 +458,11 @@ if (invokedDirectly) {
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
-      for (const name of Object.keys(CC_CONTROLS)) {
-        const at = path.join(LOCAL, CC_DIR, `${name}.js`);
-        if (fs.existsSync(at)) ccSrc[name] = fs.readFileSync(at, 'utf8');
+      for (const p of srcPaths) {
+        const cc = p.match(CC_FILE_RE);
+        if (cc) ccSrc[cc[1]] = fs.readFileSync(path.join(LOCAL, p), 'utf8');
       }
+      if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = fs.readFileSync(path.join(LOCAL, XML_VIEW_CC_PATH), 'utf8');
     } else {
       [formatterSrc, clientIntfSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
@@ -424,9 +471,10 @@ if (invokedDirectly) {
       ]);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
-      const names = Object.keys(CC_CONTROLS).filter((n) => srcPaths.includes(`${CC_DIR}/${n}.js`));
+      const names = srcPaths.map((p) => p.match(CC_FILE_RE)?.[1]).filter(Boolean);
       const sources = await Promise.all(names.map((n) => fetchText(`${RAW}/${CC_DIR}/${n}.js`)));
       names.forEach((n, i) => { ccSrc[n] = sources[i]; });
+      if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = await fetchText(`${RAW}/${XML_VIEW_CC_PATH}`);
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
@@ -470,6 +518,66 @@ if (invokedDirectly) {
     }
     report(`companion control ${name} (lib/cc-controls.mjs)`,
       Object.keys(CC_CONTROLS[name].properties), parseCcProperties(ccSrc[name]));
+  }
+
+  /* Which companion controls are OBSOLETE - obsolete-custom-control's list.
+   * Both directions, like every mirror here: a control upstream newly marked
+   * `// OBSOLETE:` and not marked here is a retired API the rule lets through,
+   * a mark here whose header is gone upstream reports a control that is fine
+   * again. Then, per control, whether the replacement the finding names still
+   * names every API the header points at (a header that starts pointing
+   * somewhere else sends every reader of the finding to the wrong call), and
+   * whether the frozen builder's helper that writes it is still the one
+   * checkObsoleteCcHelpers( ) matches. */
+  {
+    const headers = Object.fromEntries(Object.entries(ccSrc)
+      .map(([n, src]) => [n, parseObsoleteHeader(src)]).filter(([, h]) => h));
+    /* Not through report( ): its two sentences are written for an ACCEPTED
+     * set, and this one is a set of things the rule REPORTS - a name missing
+     * here lets obsolete code pass, a stale one reports correct code. */
+    const what = 'obsolete companion controls, the // OBSOLETE: headers (lib/cc-controls.mjs)';
+    const marked = Object.keys(OBSOLETE_CC_CONTROLS);
+    const newlyObsolete = setDiff(Object.keys(headers), marked);
+    const noLongerObsolete = setDiff(marked, Object.keys(headers));
+    if (!newlyObsolete.length && !noLongerObsolete.length) {
+      console.log(`ok    ${what}: in sync (${marked.length} entries)`);
+    } else {
+      drift++;
+      console.log(`DRIFT ${what}:`);
+      for (const n of newlyObsolete) console.log(`  + upstream marks '${n}' OBSOLETE — not marked here, so obsolete-custom-control lets it pass (mirror it with an obsolete block)`);
+      for (const n of noLongerObsolete) console.log(`  - '${n}' carries no OBSOLETE header upstream any more — marked here, so correct code is reported until the mark goes`);
+    }
+    for (const [name, header] of Object.entries(headers)) {
+      const ours = OBSOLETE_CC_CONTROLS[name];
+      if (!ours) continue; // already reported above
+      const missing = replacementNames(header).filter((t) => !ours.replacement.includes(t));
+      if (missing.length) {
+        drift++;
+        console.log(`DRIFT obsolete companion control ${name} (lib/cc-controls.mjs):`);
+        console.log(`  ! the header reads "${header}" — the replacement here does not name ${missing.join(', ')}`);
+      }
+    }
+    if (!xmlViewCcSrc) {
+      drift++;
+      console.log('DRIFT frozen-builder companion helpers (lib/cc-controls.mjs):');
+      console.log(`  ! ${XML_VIEW_CC_PATH} is gone upstream — the helper names obsolete-custom-control matches have no source any more`);
+    } else {
+      const helpers = parseCcHelpers(xmlViewCcSrc);
+      const obsolete = new Set(Object.keys(OBSOLETE_CC_CONTROLS));
+      const what = 'frozen-builder helpers writing an obsolete control (lib/cc-controls.mjs)';
+      const ours = Object.entries(OBSOLETE_CC_CONTROLS).map(([n, o]) => `${o.helper}>${n}`);
+      const theirs = Object.entries(helpers).filter(([, n]) => obsolete.has(n)).map(([h, n]) => `${h}>${n}`);
+      const unmatched = setDiff(theirs, ours);
+      const stale = setDiff(ours, theirs);
+      if (!unmatched.length && !stale.length) {
+        console.log(`ok    ${what}: in sync (${ours.length} entries)`);
+      } else {
+        drift++;
+        console.log(`DRIFT ${what}:`);
+        for (const n of unmatched) console.log(`  + upstream's helper '${n}' is not the one recorded here — _z2ui5( )->${n.split('>')[0]}( ) passes unreported`);
+        for (const n of stale) console.log(`  - '${n}' is not a helper upstream any more — the name matched here writes nothing`);
+      }
+    }
   }
 
   /* The object layout of `src/` — the third mirror, and the one that decides
