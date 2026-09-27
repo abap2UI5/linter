@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-09-27
+
 - **The render runtime is `@abap2ui5/linter-render` now.** It was published
   as `@abap2ui5/render-runtime` up to 0.7.0, a name that read like the
   framework's runtime - `@abap2ui5/node-runtime`, abap2UI5 transpiled for
