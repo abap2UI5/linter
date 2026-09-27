@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **No polynomial backtracking in the ABAP scanners.** The event-CASE
+  header, the METHODS/IMPORTING read, the call scan and the inline-structure
+  collapse were regexes that rescan from every keyword or word on input
+  without a closing period or match (CodeQL js/polynomial-redos). They are
+  linear scans now; the findings over the abap2UI5 corpora are unchanged
+  byte for byte.
+
 - **`ignore` works on Windows.** A config's `ignore` patterns were matched
   against the walked path with the platform's separator, so `/generated/` -
   the spelling the README gives - dropped nothing on Windows and the ignored
