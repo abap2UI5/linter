@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.3 - 2026-09-28
+
 - **A variable of a type the class does not declare no longer renders as
   `''`.** A bound variable typed by a DDIC type or by a type another class
   owns (`zcl_x=>ty_t_token`) was mocked as the empty string of a string in
