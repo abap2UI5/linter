@@ -327,16 +327,19 @@ function helpText() {
  *
  * So: the nearest node_modules/@abap2ui5/linter above the file that IS this
  * linter (a relative path, stable across upgrades), else the schema file
- * itself when it sits under that directory (a checkout of this repository),
- * else the published schema of exactly this version - an npx cache or a
- * global prefix is no path to commit. */
+ * itself when it sits under that directory (a checkout of this repository,
+ * a vendored copy) - but never through a node_modules, which at that point
+ * is an install nobody commits: `npx … --init` in the home directory, or
+ * with npm's cache inside the project as CI sets it up, found its own copy
+ * under `.npm/_npx/<hash>/node_modules/` and wrote that path - else the
+ * published schema of exactly this version. */
 function schemaRef(target) {
   const own = path.join(HERE, 'data', 'abap2ui5lint.schema.json');
   const real = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
   const ownReal = real(own);
   const posix = (p) => {
     const rel = p.split(path.sep).join('/');
-    return rel.startsWith('.') ? rel : `./${rel}`;
+    return /^\.\.?\//.test(rel) ? rel : `./${rel}`;
   };
   const from = path.dirname(target);
   for (let dir = from; ; dir = path.dirname(dir)) {
@@ -345,7 +348,7 @@ function schemaRef(target) {
     if (path.dirname(dir) === dir) break;
   }
   const rel = path.relative(from, own);
-  if (!rel.startsWith('..') && !path.isAbsolute(rel)) return posix(rel);
+  if (!rel.startsWith('..') && !path.isAbsolute(rel) && !rel.split(path.sep).includes('node_modules')) return posix(rel);
   const { name, version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
   return `https://unpkg.com/${name}@${version}/data/abap2ui5lint.schema.json`;
 }

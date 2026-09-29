@@ -283,4 +283,38 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     assert(r.code === 0 && fs.existsSync(path.join(dir, 'shot.png')),
       `--screenshot-model reads it too (${r.code}: ${r.err.slice(0, 160)})`);
   });
+
+  /* ── 9. --init never points $schema into an npx cache ────────────────── */
+
+  /* schemaRef( ) fell back to "the schema file itself, when it sits under
+   * the new file's directory" - meant for a checkout of this repository or a
+   * vendored copy. An npx cache or a global prefix under that directory
+   * passed the same test: `npx @abap2ui5/linter --init` run in the home
+   * directory (or with npm's cache inside the project, the usual CI setup)
+   * wrote "$schema": ".npm/_npx/<hash>/node_modules/@abap2ui5/linter/…" -
+   * a path into a cache nobody commits and npm prunes. A copy reached
+   * through a node_modules that is not the nearest one is an install, and
+   * gets the published schema of its version. */
+  section('round 2026-09-29b: --init writes no $schema into an npx cache below the new file', () => {
+    const home = tempDir('a2l-npxhome-');
+    const L = path.join(home, '.npm', '_npx', 'f00d', 'node_modules', '@abap2ui5', 'linter');
+    fs.mkdirSync(L, { recursive: true });
+    const ROOT = path.join(FIX, '..', '..');
+    for (const x of ['cli.mjs', 'package.json']) fs.copyFileSync(path.join(ROOT, x), path.join(L, x));
+    for (const d of ['lib', 'data']) fs.cpSync(path.join(ROOT, d), path.join(L, d), { recursive: true });
+    const r = cp.spawnSync('node', [path.join(L, 'cli.mjs'), '--init'], { encoding: 'utf8', cwd: home, env: ENV });
+    const schema = /"\$schema": "([^"]+)"/.exec(fs.readFileSync(path.join(home, 'abap2ui5lint.jsonc'), 'utf8'))?.[1];
+    const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    assert(r.status === 0 && schema === `https://unpkg.com/@abap2ui5/linter@${version}/data/abap2ui5lint.schema.json`,
+      `the published schema, not the cache path (${r.status}: ${schema})`);
+    // a vendored copy under the project is still addressed where it is
+    const vendored = tempDir('a2l-vendored-');
+    const V = path.join(vendored, 'tools', 'linter');
+    fs.mkdirSync(V, { recursive: true });
+    for (const x of ['cli.mjs', 'package.json']) fs.copyFileSync(path.join(ROOT, x), path.join(V, x));
+    for (const d of ['lib', 'data']) fs.cpSync(path.join(ROOT, d), path.join(V, d), { recursive: true });
+    cp.spawnSync('node', [path.join(V, 'cli.mjs'), '--init'], { encoding: 'utf8', cwd: vendored, env: ENV });
+    const own = /"\$schema": "([^"]+)"/.exec(fs.readFileSync(path.join(vendored, 'abap2ui5lint.jsonc'), 'utf8'))?.[1];
+    assert(own === './tools/linter/data/abap2ui5lint.schema.json', `a vendored copy keeps its relative path (${own})`);
+  });
 }

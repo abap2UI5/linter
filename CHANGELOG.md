@@ -153,7 +153,9 @@
   pointing at nothing under `npx` or a global install. It is now the relative
   path to the nearest `node_modules/@abap2ui5/linter` that is the running
   linter, and otherwise the published schema of exactly this version
-  (`https://unpkg.com/@abap2ui5/linter@<version>/…`).
+  (`https://unpkg.com/@abap2ui5/linter@<version>/…`) - also where npx's own
+  copy sits below the new file (`--init` in the home directory, or with
+  npm's cache inside the project): a path into a cache is none to commit.
 - **A missing `extends` target says so.** It was reported as "no such file -
   check the --config path", also when no `--config` was given; the message
   now names the `extends` value and where it was looked for, and a directory
