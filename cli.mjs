@@ -2,7 +2,8 @@
 /*
  * abap2ui5lint — validate abap2UI5 views without an SAP system.
  *
- *   npx abap2ui5lint [paths...] [options]
+ *   abap2ui5lint [paths...] [options]
+ *   npx @abap2ui5/linter [paths...] [options]     (without an install)
  *
  * Paths are files or directories (default: ./src). Checked are ABAP classes
  * building views with z2ui5_cl_ui5_view_builder, plus raw *.view.xml /

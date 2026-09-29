@@ -210,7 +210,7 @@ jobs:
             exit 1
           fi
 
-          npx abap2ui5lint --version
+          npx --no-install abap2ui5lint --version
           node -e "import('@abap2ui5/linter').then(m => {
             for (const fn of ['checkFiles', 'checkAbapSource', 'checkXmlSource'])
               if (typeof m[fn] !== 'function') throw new Error('missing export: ' + fn);

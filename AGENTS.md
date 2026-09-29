@@ -643,7 +643,7 @@ would need, or why it can never be one. Three of them were marked ready:
 | `ui5-check` §1.1, a user report ("not all icons are shown") that turned out to be TWO unrelated defects in one screenshot | `unknown-icon` (error), `icon-too-new` and `icon-removed` (warnings) + `data/icons.json` — see below |
 | `ui5-check` §2.1, three overview headers silently losing every icon after a separator | `toolbar-control-in-bar` — reported only below 1.76; the parent test is exact (`Toolbar` does NOT inherit from `Bar`), plus `Page headerContent`, which forwards into an implicit Bar |
 | `ui5-check` §3.1, `<footer>` on a `sap.m.Dialog` killing a 1.71 view outright | `aggregation-too-new` — a severity SPLIT of `member-too-new`: a post-floor property is dropped and the control still renders, a post-floor aggregation tag is resolved as a control class and the 404 takes the whole view down |
-| `abap-check` §1, `abap2UI5/samples#669` — over-length lines left two demo classes as EMPTY STUBS after an import that reported the error and carried on | `source-line-too-long` (error, 255 chars). Not a view rule, deliberately: for a consumer repo whose only gate is `npx abap2ui5lint`, a class that cannot be imported is the most severe thing this tool can find |
+| `abap-check` §1, `abap2UI5/samples#669` — over-length lines left two demo classes as EMPTY STUBS after an import that reported the error and carried on | `source-line-too-long` (error, 255 chars). Not a view rule, deliberately: for a consumer repo whose only gate is `npx @abap2ui5/linter`, a class that cannot be imported is the most severe thing this tool can find |
 
 `data/icons.json` is the round's new knowledge file, and the first one built by
 **scanning history** rather than one snapshot: `scripts/generate-icons.mjs`
@@ -887,7 +887,7 @@ remaining generic checks, and the frontend's last unmined closed sets:
 | samples-controls' e2e work isolated a PRIVATE instance attribute as an every-roundtrip ASSERTION_FAILED | `private-app-attribute` |
 | a `backtick` literal has no escape processing, so a `\n` in one renders as two characters | `escape-sequence-in-backtick` |
 | the metadata harvest (`defaultValue`, `setterMin`, `widensAggregation`) | `validating-setter-out-of-range`, `absent-boolean-overrides-default` |
-| the activation traps `abap-check` had filed as `Gate: open` | `value-header-default-reassigned`, `into-corresponding-inline-decl`, `class-constructor-visibility`, `redundant-conv-i` — the `source-line-too-long` precedent, for a consumer whose only gate is `npx abap2ui5lint` |
+| the activation traps `abap-check` had filed as `Gate: open` | `value-header-default-reassigned`, `into-corresponding-inline-decl`, `class-constructor-visibility`, `redundant-conv-i` — the `source-line-too-long` precedent, for a consumer whose only gate is `npx @abap2ui5/linter` |
 
 Three things in that round are worth keeping in mind, and all three came out of
 the corpus run rather than out of the design:
@@ -1291,7 +1291,7 @@ never reaches the package. Treat it as documentation that happens to execute.
   rate limits, installation lifecycle, operations). That list, not the code,
   is why this is a spike: the missing work is ongoing, not one-time.
 - **The two pinned consumers no longer pin the same way.** samples-controls
-  moved to an **npm range** (`^0.5.1` as of 2026-08; its `bump_linter.yaml` raises it) and lets `package-lock.json` decide which
+  moved to an **npm range** (`^0.8.3` as of 2026-09; its `bump_linter.yaml` raises it) and lets `package-lock.json` decide which
   published version its gates actually run, bumped weekly to `latest` by its
   own `bump_linter.yaml` (which runs the full strict view gates over the 416
   ports before the PR exists). The VS Code extension still pins
@@ -1376,8 +1376,8 @@ never reaches the package. Treat it as documentation that happens to execute.
 
 samples-controls's ancestor scripts (`property-check.mjs`, `structure-lint.mjs`,
 `render-smoke.mjs`) were **deleted** when its gates were consolidated onto
-this linter: samples-controls consumes `@abap2ui5/linter` as a git npm dependency
-and keeps only the corpus policy in its `scripts/view-gates.mjs` (which
+this linter: samples-controls consumes `@abap2ui5/linter` from npm (a caret
+range, resolved by its lockfile) and keeps only the corpus policy in its `scripts/view-gates.mjs` (which
 ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
 
 - **All generic view-checking logic lives here**; samples-controls-specific gate
@@ -1387,7 +1387,7 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
   you** on every push and PR — see below; you no longer have to remember to
   run the corpus by hand.
 - **No consumer follows main.** samples-controls takes this repo from npm
-  (`"@abap2ui5/linter": "^0.5.1"` at the time of writing, resolved by its `package-lock.json`, moved
+  (`"@abap2ui5/linter": "^0.8.3"` at the time of writing, resolved by its `package-lock.json`, moved
   to the latest published version weekly by its `bump_linter.yaml`); the VS
   Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
   lock; mcp-server pins nothing and imports whatever checkout sits beside it. So a
@@ -1476,7 +1476,7 @@ landing unseen. Two traps worth knowing before reading a result:
 
 | Repository | Relation |
 | --- | --- |
-| [samples-controls](https://github.com/abap2UI5/samples-controls) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (git npm dependency) |
+| [samples-controls](https://github.com/abap2UI5/samples-controls) | Origin of the gate logic; now consumes this package via `scripts/view-gates.mjs` (npm dependency, a caret range) |
 | [mcp-server](https://github.com/abap2UI5/mcp-server) | `validate_view` imports the linter **through the package exports map** (its `importViewCheck` resolves `.` and the subpaths) — a removed or renamed `exports` entry breaks it; the file layout under `lib/` is free to move as long as `exports` stays intact |
 | [vscode-extension](https://github.com/abap2UI5/vscode-extension) | Consumes the SHA-pinned package (property gate) and the runtime `render-gate-bundle` download |
 | [abap2UI5](https://github.com/abap2UI5/abap2UI5) | Defines `z2ui5_cl_ui5_view_builder`, the builder whose chains `lib/reconstruct.mjs` re-executes |

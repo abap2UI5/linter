@@ -123,6 +123,16 @@
   project still on them, so the version gap is named on stderr instead (see
   above).
 
+- **The docs no longer send `npx` to an unregistered name.** The issue
+  templates asked for `npx abap2ui5lint --version`; `abap2ui5lint` is the
+  command the package installs, not a package on npm, so outside a project
+  that installed it npx would download whatever someone publishes under that
+  name. Where an install is implied (the README's "stay green" block, the
+  release smoke test, the rules page, the templates) it is now
+  `npx --no-install abap2ui5lint`, and where none is, the scoped
+  `npx @abap2ui5/linter`. AGENTS.md now records samples-controls' npm
+  dependency as it is (`^0.8.3`, no longer a `^0.5.1` git dependency).
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

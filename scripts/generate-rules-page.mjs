@@ -613,7 +613,7 @@ export function buildPage() {
     </div>
     <p class="stamp">Generated from <strong>v${VERSION}</strong>, against the OpenUI5 ${UI5_VERSION} metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
-      <code>npx abap2ui5lint --version</code> says which that is.</p>
+      <code>npx --no-install abap2ui5lint --version</code> says which that is.</p>
     <!-- A placeholder is not a label: it names the field only until the first
          keystroke, and a screen reader announcing "search" and nothing else
          leaves the page's main control unnamed. The label says what it does

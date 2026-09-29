@@ -5,12 +5,15 @@
  * abaplint's config gets editor completion because a JSON schema describes
  * it; ours is generated so the rule list in the schema can never drift from
  * the rule list in lib/findings.mjs. The way a repo should point at it is the
- * INSTALLED copy, which is what `npx abap2ui5lint --init` writes:
+ * INSTALLED copy, which is what `abap2ui5lint --init` writes where the linter
+ * is installed (the path from the new file to it, e.g.):
  *
  *   { "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json" }
  *
  * A URL works too, but pick a versioned one - `main` gives the editor rules the
- * pinned CLI does not have. The `$id` below is versioned for the same reason.
+ * pinned CLI does not have. --init writes the unpkg URL of its own version
+ * where there is no install to point at (npx, a global install). The `$id`
+ * below is versioned for the same reason.
  *
  *   node scripts/generate-schema.mjs           write the file
  *   node scripts/generate-schema.mjs --check   exit 1 if the committed file

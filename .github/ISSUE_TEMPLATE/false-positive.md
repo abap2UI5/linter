@@ -24,5 +24,6 @@ labels: false-positive
      code is, and the shape you show is what the exemption gets written from. -->
 
 **Version**
-<!-- `npx abap2ui5lint --version`, and the `ui5` / `distribution` from your
-     abap2ui5lint.jsonc if you have one -->
+<!-- `npx --no-install abap2ui5lint --version` in the project that installed
+     it (or `npx @abap2ui5/linter --version` if you ran it without an install),
+     and the `ui5` / `distribution` from your abap2ui5lint.jsonc if you have one -->
