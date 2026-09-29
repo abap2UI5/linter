@@ -60,6 +60,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -105,6 +106,32 @@ const EXTRA_LIBS = [
  * chain as incomplete and never report an unknown member. */
 const BASE_DIRS = [['sap/ui/base', 'sap.ui.core']];
 
+/* Where an installed package can be RESOLVED from, besides this checkout's
+ * own node_modules: the render runtime @abap2ui5/linter-render (the @openui5
+ * pins live there, and under pnpm the packages sit only beside it), then
+ * this package's own resolution (a consumer's tree hoists @openui5 ABOVE
+ * node_modules/@abap2ui5/linter, where ROOT/node_modules never looks), then
+ * the project the script is run in. The generator ships in the package and
+ * is run out of node_modules (samples-controls does), so a lookup that knew
+ * only <linter>/node_modules/@openui5 found nothing in any real install and
+ * wrote a snapshot of the base classes alone. */
+const REQUIRES = (() => {
+  const own = createRequire(path.join(ROOT, 'package.json'));
+  let cwd = null;
+  try { cwd = createRequire(path.join(process.cwd(), 'abap2ui5lint-project.js')); } catch { /* no cwd */ }
+  const out = [];
+  for (const from of [own, cwd].filter(Boolean)) {
+    try { out.push(createRequire(from.resolve('@abap2ui5/linter-render/package.json'))); } catch { /* not there */ }
+  }
+  return [...out, own, ...(cwd ? [cwd] : [])];
+})();
+const resolvedPackage = (name) => {
+  for (const req of REQUIRES) {
+    try { return path.dirname(req.resolve(`${name}/package.json`)); } catch { /* next */ }
+  }
+  return null;
+};
+
 /** [libPath, sourceDir] per library, from OPENUI5_DIR or the npm packages. */
 function libDirs() {
   const out = [];
@@ -114,12 +141,16 @@ function libDirs() {
       candidates.push(path.join(process.env.OPENUI5_DIR, 'src', pkg, 'src', ...libPath.split('/')));
     }
     candidates.push(path.join(ROOT, 'node_modules', `@openui5/${pkg}`, 'src', ...libPath.split('/')));
+    const resolved = resolvedPackage(`@openui5/${pkg}`);
+    if (resolved) candidates.push(path.join(resolved, 'src', ...libPath.split('/')));
     /* @sapui5/<pkg> last. The package layout is identical to @openui5's
      * (<pkg>/src/<libPath>) and the class-level @since/@deprecated this
      * generator reads are present and identical in shape - verified against
      * @sapui5/* 1.151.0. Last rather than first so an OpenUI5 library keeps
      * resolving from the OpenUI5 package even where both are installed. */
     candidates.push(path.join(ROOT, 'node_modules', `@sapui5/${pkg}`, 'src', ...libPath.split('/')));
+    const sapui5 = resolvedPackage(`@sapui5/${pkg}`);
+    if (sapui5) candidates.push(path.join(sapui5, 'src', ...libPath.split('/')));
     return candidates.find((c) => fs.existsSync(c));
   };
   for (const lib of [...LIBS, ...EXTRA_LIBS]) {
@@ -858,8 +889,10 @@ function sourceVersion() {
     const p = path.join(process.env.OPENUI5_DIR, 'package.json');
     if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')).version ?? null;
   }
-  const pkg = path.join(ROOT, 'node_modules', '@openui5/sap.m', 'package.json');
-  if (fs.existsSync(pkg)) return JSON.parse(fs.readFileSync(pkg, 'utf8')).version ?? null;
+  for (const dir of [path.join(ROOT, 'node_modules', '@openui5/sap.m'), resolvedPackage('@openui5/sap.m')]) {
+    const pkg = dir && path.join(dir, 'package.json');
+    if (pkg && fs.existsSync(pkg)) return JSON.parse(fs.readFileSync(pkg, 'utf8')).version ?? null;
+  }
   return null;
 }
 

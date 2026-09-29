@@ -84,7 +84,7 @@ npm version patch|minor|major --workspaces --include-workspace-root --no-git-tag
 #     peer range on @abap2ui5/linter-render has to follow. It is GENERATED:
 npm run sync-peer-range
 #     which writes ">=<floor> <next breaking runtime line>", e.g.
-#       "peerDependencies": { "@abap2ui5/linter-render": ">=0.7.0 <0.9.0" }
+#       "peerDependencies": { "@abap2ui5/linter-render": ">=0.8.0 <0.9.0" }
 #     `npm test` fails while the committed range is not the generated one.
 #     That gate exists because this step was missed for three releases running
 #     while the range was a hand-extended union (`^0.1.0 || ^0.2.0 || ...`,

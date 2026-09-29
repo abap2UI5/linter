@@ -1,0 +1,8 @@
+<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core">
+  <!-- a comment with </Page> in it is not structure -->
+  <Page title="One" title="Two">
+    <content>
+      <core:HTML content="&lt;b&gt;bold&lt;/b&gt;"/>
+      <Text text="hello"/>
+    </contnt>
+  </Page>

@@ -1259,7 +1259,8 @@ section('config (2)', async () => {
     fs.writeFileSync(path.join(dir, 'dangling.jsonc'), '{"extends": "./nowhere.jsonc"}');
     let missing = '';
     try { loadConfig(path.join(dir, 'dangling.jsonc')); } catch (e) { missing = e.message; }
-    assert(/no such file/.test(missing), 'extends: a missing base fails with the config loader\'s own message');
+    assert(/'extends' names \.\/nowhere\.jsonc, which does not exist/.test(missing) && !/--config/.test(missing),
+      `extends: a missing base fails naming the extends value, not --config (${missing})`);
     fs.writeFileSync(path.join(dir, 'extbad.jsonc'), '{"extends": 42}');
     let bad = '';
     try { loadConfig(path.join(dir, 'extbad.jsonc')); } catch (e) { bad = e.message; }
@@ -4923,8 +4924,11 @@ section('report', async () => {
       assert(cfg.minUi5 === '1.71' && cfg.failOn === 'warning' && Array.isArray(cfg.paths),
         'init: the file the linter writes is one the linter reads back');
       const raw = fs.readFileSync(written, 'utf8');
-      assert(raw.includes('./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json'),
-        'init: $schema points at the installed version, not at main');
+      // a directory with no node_modules holding this linter: the published
+      // schema of exactly this version (test/review/round-2026-09-29.mjs has
+      // the installed layouts)
+      assert(/"\$schema": "https:\/\/unpkg\.com\/@abap2ui5\/linter@\d+\.\d+\.\d+\/data\/abap2ui5lint\.schema\.json"/.test(raw),
+        'init: $schema points at the running version, not at main');
       let refused = '';
       try { cp.execFileSync('node', [CLI, '--init'], { cwd: dir, encoding: 'utf8', stdio: 'pipe' }); }
       catch (e) { refused = e.status === 2 ? String(e.stderr) : ''; }
@@ -5565,6 +5569,7 @@ section('rules page', async () => {
       ['trailing-whitespace', 'the blanks the rule is about end a line the frame rewrites (the dot goes there)'],
       ['missing-final-newline', 'the frame always ends its class with a newline'],
       ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
+      ['malformed-xml', 'the builder serializes a tree, so no class can write a document that is not well-formed - the card is raw XML'],
       ['validating-setter-out-of-range', 'the only lower-bounded setter in the snapshot belongs to sap.ui.unified.RecurringCalendarAppointment, a control newer than the default floor - there it is too new for its values to be judged at all'],
     ]);
     const wrappedFires = (id, half) => {

@@ -144,7 +144,11 @@ declare module "@abap2ui5/linter" {
   }
 
   export function checkAbapSource(source: string, opts?: CheckOptions): CheckResult;
+  /** An abapGit metadata document (`<abapGit …>`, the `*.clas.xml` sidecar)
+   *  comes back with no document and no findings - it is XML, never a view. */
   export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
+  /** Whether `src` is abapGit's own XML serialization rather than a view. */
+  export function isAbapGitXml(src: string): boolean;
   export function checkFiles(files: string[], opts?: CheckOptions): Promise<CheckResult[]>;
   /** Render every view the given files build and return the PNGs — the render
    *  gate as a preview. Needs the render runtime. */
@@ -231,6 +235,10 @@ declare module "@abap2ui5/linter/reconstruct" {
     docKinds: Array<"view" | "fragment" | undefined>;
     notes: string[];
     helperTokens: number;
+    /** The builder calls among helperTokens that BUILD something the
+     *  reconstruction could not place (a second stringify( ) of a finished
+     *  view does not count) - > 0 means the documents are known incomplete. */
+    unplacedTokens: number;
     /** Structural defects of the builder chain itself (excess-shut,
      *  duplicate-property, …) — consumed as findings by checkAbapSource. */
     structure: PropertyFinding[];
@@ -297,7 +305,7 @@ declare module "@abap2ui5/linter/reconstruct" {
     notes: string[],
     structure: PropertyFinding[],
     dialect?: unknown
-  ): { docs: ViewNode[]; helperTokens: number };
+  ): { docs: ViewNode[]; helperTokens: number; unplacedTokens: number };
 
   /** extractDocs plus the handle-taking helper methods replayed into the
    *  chain that calls them. `helperTokens > 0` means the reconstruction is
@@ -387,7 +395,17 @@ declare module "@abap2ui5/linter/properties" {
   /** The ui5Version of the committed metadata snapshot ('' if unreadable). */
   export function snapshotVersion(file?: string): string;
 
-  export function parseXml(xml: string): ViewNode;
+  /** The lenient tree of a raw view, plus `malformed`: what an XML parser
+   *  would refuse about its tag structure, which checkNodes( ) reports as
+   *  `malformed-xml` (empty for a well-formed document). */
+  export function parseXml(xml: string): ViewNode & {
+    malformed: Array<{
+      kind: "duplicate-attribute" | "mismatched-tag" | "unclosed-tag" | "stray-close";
+      name: string;
+      other?: string;
+      offset: number;
+    }>;
+  };
 
   /** id -> resolved control name for every literal id of a view tree - the
    *  ABAP-side rules judge CONTROL_BY_ID wires against it. */
@@ -409,6 +427,10 @@ declare module "@abap2ui5/linter/properties" {
   /** The boolean counterpart: a property whose own default is `true`, where an
    *  unseeded field's real `false` silently overrides it. */
   export const DEFAULT_TRUE_BOOLEAN: (decl: unknown) => boolean;
+
+  /** The rule ids only the property walk (checkNodes) emits - the ones that
+   *  do not run when the property gate is switched off. */
+  export const WALK_ONLY_RULES: ReadonlySet<string>;
 
   /** Is `since` within the configured floor? The ABAP-side rules carry a
    *  `minUi5` STRING rather than the parsed floor the tree walk uses, and two
@@ -509,6 +531,30 @@ declare module "@abap2ui5/linter/render" {
    *  how to install them, and the --no-render / render: false way out. */
   export function renderDepsError(missing: string[]): Error & { code: "ERR_RENDER_DEPS_MISSING" };
 
+  /** The refusal openRenderer throws when the runtime is installed but
+   *  Chromium will not start (typically `npx playwright install chromium` was
+   *  skipped): one actionable sentence instead of Playwright's banner. The
+   *  CLI treats it like a missing runtime. */
+  export function browserLaunchError(cause: unknown): Error & { code: "ERR_RENDER_BROWSER_MISSING"; cause: unknown };
+
+  /** The @openui5 source roots the render gate serves - every package of
+   *  RENDER_DEPS resolved on its own (a pnpm store keeps each in a directory
+   *  of its own), plus anything hoisted beside them. `req` is injectable. */
+  export function libRoots(req?: { resolve(id: string): string }): string[];
+
+  /** The OpenUI5 release the render runtime serves, or null without one. */
+  export function renderRuntimeUi5Version(req?: { resolve(id: string): string }): string | null;
+
+  /** The warning to print when the runtime serves a different UI5 minor than
+   *  the metadata snapshot (its render errors are then the version gap, not
+   *  the view) - null when they agree or either is unknown. */
+  export function runtimeSnapshotMismatch(snapshot: string, runtime?: string | null): string | null;
+
+  /** openRenderer's default bounds (ms) on UI5 booting in a page and on one
+   *  document rendering. */
+  export const RENDER_BOOT_TIMEOUT_MS: number;
+  export const RENDER_TIMEOUT_MS: number;
+
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
     render(input: { xml: string; model?: Record<string, unknown>; kind?: "view" | "fragment" }): Promise<string[]>;
@@ -540,6 +586,12 @@ declare module "@abap2ui5/linter/render" {
      *  browser AND exits the process with 130. A caller that owns the
      *  process's signals and closes the renderer itself passes false. */
     handleSIGINT?: boolean;
+    /** Bound (ms) on UI5 booting in a page; past it openRenderer throws
+     *  ERR_RENDER_RUNTIME_BROKEN instead of waiting forever. */
+    bootTimeout?: number;
+    /** Bound (ms) on one document rendering; past it that document gets a
+     *  `HARNESS:` render error and its page is reloaded. */
+    renderTimeout?: number;
   }): Promise<Renderer>;
 }
 
@@ -625,8 +677,12 @@ declare module "@abap2ui5/linter/fix" {
   ): {
     output: string;
     applied: number;
-    /** Overlapping spans, left for the next `--fix` pass. */
+    /** Overlapping spans, left for the next `--fix` pass - not counting an
+     *  edit inside text this pass deleted, which is gone with it. */
     deferred: number;
+    /** The findings those deferred spans belong to (additive) - the count a
+     *  report gives, since one finding can carry many spans. */
+    deferredFindings: PropertyFinding[];
     /** Spans that do not address this source at all - a rule computing offsets
      *  against different text. A DEFECT in the linter, surfaced rather than
      *  swallowed; `ABAP2UI5LINT_STRICT_FIXES=true` makes it throw. */
@@ -722,7 +778,12 @@ declare module "@abap2ui5/linter/findings" {
    *  `findings()` afterwards names the ones nothing asked (`unused-directive`)
    *  and the ids no rule has (`unknown-directive-rule`). */
   export function parseDirectives(
-    source: string
+    source: string,
+    /** `ran(id)`: whether the rule ran on this source - an id that did not
+     *  is never reported as an unused directive. Default: every rule ran.
+     *  `gatesRan`: false when the run left a whole gate out (the property
+     *  walk) - a BARE directive is then unjudged too. Default: true. */
+    opts?: { ran?: (id: string) => boolean; gatesRan?: boolean }
   ): {
     suppresses(line: number, rule: string, own?: unknown): boolean;
     findings(): PropertyFinding[];
@@ -737,8 +798,24 @@ declare module "@abap2ui5/linter/findings" {
   export function applyDirectives<T extends PropertyFinding>(
     findings: T[],
     source: string,
-    opts?: { rules?: Record<string, unknown>; file?: string }
+    /** `ran(id)`: whether the caller ran the rule (a gate it switched off
+     *  did not); a rule the `rules` block turns off never counts as run. A
+     *  directive naming a rule that did not run is not `unused-directive`.
+     *  `stoodDown`: rules that ran and withdrew their verdict on this source
+     *  (unused-namespace-declaration over a view it could not fully see) - a
+     *  directive naming one is unjudged as well. */
+    opts?: { rules?: Record<string, unknown>; file?: string; ran?: (id: string) => boolean; stoodDown?: string[] }
   ): (T | PropertyFinding)[];
+
+  /** Whether the `rules` block lets `id` report on `file` at all - not off,
+   *  not excluded for the file, and asked for when it is an opt-in rule. */
+  export function ruleRuns(rules: Record<string, unknown> | undefined, id: string, file?: string): boolean;
+
+  /** Whether one of `patterns` matches `file` in any of its spellings - as
+   *  given, absolute, relative to the cwd, with `/` separators. The reading
+   *  every path pattern of a config gets: `rules[id].exclude`, `ignore` and
+   *  `rules['render-error'].exclude`. */
+  export function pathMatches(patterns: RegExp[] | null | undefined, file?: string): boolean;
 
   /** Attaches the undeclared-namespace fix for conventional prefixes - the
    *  same fixes the CLI attaches, for gates that replicate the pipeline. */
@@ -898,12 +975,30 @@ declare module "@abap2ui5/linter/baseline" {
   export function loadBaseline(file: string): Map<string, number>;
 
   /** Drops the findings the baseline covers (mutates each result's
-   *  findings). Stale entries are the caller's to fail on. */
+   *  findings). Stale entries are the caller's to fail on - only entries of a
+   *  file in `results`, of a file under a path in `scope` (the files and
+   *  directories the run walked), or of a file gone from disk can be stale:
+   *  an entry of a file the run did not look at was not looked for. */
   export function applyBaseline(
     results: Array<{ file?: string; findings: PropertyFinding[] }>,
     baseline: Map<string, number>,
-    baseDir?: string
-  ): { suppressed: number; stale: Array<{ key: string; count: number }> };
+    baseDir?: string,
+    options?: { scope?: string[] }
+  ): { suppressed: number; byRule: Record<string, number>; stale: Array<{ key: string; count: number }> };
+
+  /** The file part of a baseline key. */
+  export function keyFile(key: string): string;
+
+  /** `--update-baseline` over an existing map: the entries of the linted
+   *  files, and of every file under a path in `scope`, are replaced by
+   *  `results`; every other file's are kept (unless the file is gone from
+   *  disk). */
+  export function updateBaseline(
+    previous: Map<string, number> | null | undefined,
+    results: Array<{ file?: string; findings: PropertyFinding[] }>,
+    baseDir?: string,
+    options?: { scope?: string[] }
+  ): Map<string, number>;
 
   /** Freeze the current findings as accepted debt (key -> count). */
   export function buildBaseline(

@@ -29,12 +29,17 @@ src/zcl_my_app.clas.abap
 Then, when you want it to stay green:
 
 ```sh
-npm install -D @abap2ui5/linter          # pin it for CI and for your machine
-npx abap2ui5lint --init                  # write a commented abap2ui5lint.jsonc
-npx abap2ui5lint src --all-classes       # every class: the ones that build no view get the source-side rules
-npx abap2ui5lint src --watch             # run, then re-run on every save - the loop for Eclipse ADT + abapGit
-npx abap2ui5lint --explain unknown-control   # what a reported id means, with the before/after pair - in the terminal
+npm install -D @abap2ui5/linter                     # pin it for CI and for your machine
+npx --no-install abap2ui5lint --init                # write a commented abap2ui5lint.jsonc
+npx --no-install abap2ui5lint src --all-classes     # every class: the ones that build no view get the source-side rules
+npx --no-install abap2ui5lint src --watch           # run, then re-run on every save - the loop for Eclipse ADT + abapGit
+npx --no-install abap2ui5lint --explain unknown-control   # what a reported id means, with the before/after pair - in the terminal
 ```
+
+`--no-install` is deliberate: `abap2ui5lint` is the command the package
+installs, not a package name, and a bare `npx abap2ui5lint` run where the
+package is NOT installed would download whatever is published under that name
+on npm. Without an install, use the scoped `npx @abap2ui5/linter …`.
 
 ## Documentation
 

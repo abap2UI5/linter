@@ -16,8 +16,9 @@ labels: false-negative
 ```
 
 **What the linter said**
-<!-- `npx abap2ui5lint <file>` output. "Success! No findings detected." is a
-     complete answer here. -->
+<!-- `npx --no-install abap2ui5lint <file>` output (`npx @abap2ui5/linter <file>`
+     without an install). "Success! No findings detected." is a complete
+     answer here. -->
 
 **Would a static check have seen it?**
 <!-- Optional, but it is the question a rule is written from: what would a rule
@@ -25,4 +26,5 @@ labels: false-negative
      of the framework's closed sets, or something no static read can reach? -->
 
 **Version**
-<!-- `npx abap2ui5lint --version` -->
+<!-- `npx --no-install abap2ui5lint --version` in the project that installed
+     it, or `npx @abap2ui5/linter --version` if you ran it without an install -->

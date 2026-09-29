@@ -2,7 +2,8 @@
 /*
  * abap2ui5lint — validate abap2UI5 views without an SAP system.
  *
- *   npx abap2ui5lint [paths...] [options]
+ *   abap2ui5lint [paths...] [options]
+ *   npx @abap2ui5/linter [paths...] [options]     (without an install)
  *
  * Paths are files or directories (default: ./src). Checked are ABAP classes
  * building views with z2ui5_cl_ui5_view_builder, plus raw *.view.xml /
@@ -59,13 +60,19 @@
  *   --baseline <file>  suppress the findings recorded in this file - the way
  *                      to adopt the linter on a codebase that already exists.
  *                      A NEW finding still fails; a recorded one that no
- *                      longer occurs fails too, as a stale entry
- *   --update-baseline  write/refresh that file from this run and exit 0
+ *                      longer occurs fails too, as a stale entry - judged
+ *                      for the files under the paths this run walked (and
+ *                      for files that are gone), never for a file it did
+ *                      not look at
+ *   --update-baseline  write/refresh that file from this run and exit 0: the
+ *                      entries of the files under the paths walked are
+ *                      replaced, every other file's are kept
  *   --cache            store each file's result and replay it on the next run
  *                      while nothing relevant changed - the file's content,
- *                      the linter version, the metadata snapshot and every
- *                      setting that changes a verdict all key the entry, so a
- *                      hit skips both gates for that file. Also settable as
+ *                      the linter version, the metadata snapshot, every
+ *                      setting that changes a verdict and, when rendering,
+ *                      the UI5 release of the render runtime all key the
+ *                      entry, so a hit skips both gates for that file. Also settable as
  *                      "cache": true in the config. The cache file is
  *                      expendable: corrupt or stale means recompute, and
  *                      deleting it is always safe
@@ -84,7 +91,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      157 rules passed" green, "7 errors" red)
+ *                      158 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -199,12 +206,12 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
-import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
+import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
-import { missingRenderDeps, renderFallback, renderDepsError, openRenderer } from './lib/render.mjs';
-import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
+import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
+import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
 import { RULES_PAGE } from './lib/rule-docs.mjs';
@@ -267,6 +274,29 @@ const die = (message) => {
   process.exit(2);
 };
 
+/* The way out of a run that has written its report. `process.exit( )` ends
+ * the process NOW, and a write to a PIPE is asynchronous on POSIX: whatever
+ * did not fit into the pipe's 64 KiB buffer is still queued in the process
+ * and is dropped with it. So `abap2ui5lint src --json | jq` on a failing
+ * corpus handed jq exactly 65,536 bytes of a 175 KB document - and the one
+ * run whose report matters, the failing one, was the one that lost it (the
+ * GitHub annotations printed last went first). A terminal and a file are
+ * written synchronously, which is why nobody saw it there.
+ *
+ * Every exit after output therefore waits for stdout and stderr to drain.
+ * The end of a normal run does not call this at all: it sets
+ * `process.exitCode` and lets the event loop run dry, which flushes by
+ * construction; this is for the early exits in the middle of the module
+ * (--explain, --help), where returning is not an option. Awaited at the top
+ * level, so nothing after it runs while the pipes drain. */
+const exitFlushed = async (code) => {
+  process.exitCode = code;
+  await Promise.all([process.stdout, process.stderr].map((s) => new Promise((resolve) => {
+    try { s.write('', () => resolve()); } catch { resolve(); }
+  })));
+  process.exit(code);
+};
+
 /*
  * `--help` prints the header block of this file.
  *
@@ -285,6 +315,42 @@ function helpText() {
   const block = fs.readFileSync(self, 'utf8').match(/^#![^\n]*\n\/\*\n([\s\S]*?)\n \*\//);
   if (!block) return USAGE; // a stripped/bundled copy still answers --help
   return block[1].split('\n').map((l) => l.replace(/^ \* ?/, '').replace(/^ \*$/, '')).join('\n');
+}
+
+/* The $schema --init writes: the schema of the linter RUNNING, addressed
+ * the way the new file can reach it. It was hard-coded to
+ * `./node_modules/@abap2ui5/linter/…`, which is right for exactly one layout
+ * - a linter installed in the directory the file is written to. In a
+ * monorepo package the node_modules is further up, and under
+ * `npx --yes @abap2ui5/linter --init` or a global install there is none at
+ * all, so an editor validated against a file that does not exist.
+ *
+ * So: the nearest node_modules/@abap2ui5/linter above the file that IS this
+ * linter (a relative path, stable across upgrades), else the schema file
+ * itself when it sits under that directory (a checkout of this repository,
+ * a vendored copy) - but never through a node_modules, which at that point
+ * is an install nobody commits: `npx … --init` in the home directory, or
+ * with npm's cache inside the project as CI sets it up, found its own copy
+ * under `.npm/_npx/<hash>/node_modules/` and wrote that path - else the
+ * published schema of exactly this version. */
+function schemaRef(target) {
+  const own = path.join(HERE, 'data', 'abap2ui5lint.schema.json');
+  const real = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
+  const ownReal = real(own);
+  const posix = (p) => {
+    const rel = p.split(path.sep).join('/');
+    return /^\.\.?\//.test(rel) ? rel : `./${rel}`;
+  };
+  const from = path.dirname(target);
+  for (let dir = from; ; dir = path.dirname(dir)) {
+    const candidate = path.join(dir, 'node_modules', '@abap2ui5', 'linter', 'data', 'abap2ui5lint.schema.json');
+    if (ownReal && real(candidate) === ownReal) return posix(path.relative(from, candidate));
+    if (path.dirname(dir) === dir) break;
+  }
+  const rel = path.relative(from, own);
+  if (!rel.startsWith('..') && !path.isAbsolute(rel) && !rel.split(path.sep).includes('node_modules')) return posix(rel);
+  const { name, version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  return `https://unpkg.com/${name}@${version}/data/abap2ui5lint.schema.json`;
 }
 
 /* The two value flags whose wrong value would otherwise be SILENT. Both name
@@ -335,7 +401,7 @@ const args = process.argv.slice(2);
     }
     if (!ids.length) {
       console.log(formatRuleIndex());
-      process.exit(0);
+      await exitFlushed(0);
     }
     const known = ruleIndex().flatMap((c) => c.ids);
     /* A path behind the ids (`--explain unknown-control src/`) used to be
@@ -357,7 +423,7 @@ const args = process.argv.slice(2);
         : ` - \`abap2ui5lint --explain\` lists every id, and so does ${RULES_PAGE}`}`);
     }
     console.log(formatExplain(ids));
-    process.exit(0);
+    await exitFlushed(0);
   }
 }
 
@@ -450,7 +516,9 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--screenshot-model') {
     const file = value();
     try {
-      shot.model = JSON.parse(fs.readFileSync(file, 'utf8'));
+      // a byte-order mark is an encoding marker, not JSON (the config and
+      // the baseline strip it for the same Notepad/Out-File reason)
+      shot.model = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     } catch (e) {
       die(`--screenshot-model ${file}: ${e.message}`);
     }
@@ -510,9 +578,12 @@ for (let i = 0; i < args.length; i++) {
      * wrong - the README's $schema pointed at main, so an editor validated
      * against rules the pinned CLI does not have. This writes the file, with
      * the schema resolved against the version actually installed. */
-    const target = path.resolve('abap2ui5lint.jsonc');
-    if (fs.existsSync(target)) {
-      die(`${path.relative(process.cwd(), target)} already exists - delete it first, or edit it`);
+    const target = path.resolve(CONFIG_NAMES[0]);
+    /* Either spelling: discovery reads the .jsonc first, so a new one
+     * written beside an abap2ui5lint.json would silently take over from the
+     * config the repository already has. */
+    for (const name of CONFIG_NAMES) {
+      if (fs.existsSync(path.resolve(name))) die(`${name} already exists - delete it first, or edit it`);
     }
     fs.writeFileSync(target, `{
   // abap2UI5-linter settings for this repo. Precedence: CLI flag > this file
@@ -522,7 +593,7 @@ for (let i = 0; i < args.length; i++) {
   // The $schema line gives an editor completion and validation for every key
   // and every rule id, from the version this project installed - not from
   // whatever main happens to hold.
-  "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json",
+  "$schema": ${JSON.stringify(schemaRef(target))},
 
   // where the app classes and views are
   "paths": ["src"],
@@ -565,16 +636,16 @@ for (let i = 0; i < args.length; i++) {
 `);
     console.log(`abap2ui5lint: wrote ${path.relative(process.cwd(), target)}`);
     console.log('             read it - every default in there is a choice you may want to make differently');
-    process.exit(0);
+    await exitFlushed(0);
   }
   else if (a === '--version' || a === '-v') {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
     console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
-    process.exit(0);
+    await exitFlushed(0);
   }
   else if (a === '--help' || a === '-h') {
     console.log(helpText());
-    process.exit(0);
+    await exitFlushed(0);
   } else if (a.startsWith('-')) die(`unknown option '${a}'\n${usageBlock()}`);
   else paths.push(a);
 }
@@ -673,12 +744,31 @@ function resolveRun() {
     });
     if (fallback) {
       o.render = false;
-      console.error(process.env.GITHUB_ACTIONS === 'true'
-        ? `::warning::${fallback}` : `abap2ui5lint: ${fallback}`);
+      warn(fallback);
     }
   }
-  return { opt: o, paths: runPaths, configFile };
+  /* A runtime of another UI5 release than the snapshot renders a different
+   * API than the property gate judges - said once per run, before the render
+   * errors it explains (render-runtime 0.1-0.6 pinned 1.151, the snapshot is
+   * 1.152, and "unknown setting" on a 1.152 member read as a broken view). */
+  if (o.render) {
+    const mismatch = runtimeSnapshotMismatch(snapshotVersion());
+    if (mismatch) warn(mismatch);
+  }
+  return { opt: o, paths: runPaths, configFile, asked };
 }
+
+/** One notice on stderr - a workflow warning inside Actions, so it lands on
+ *  the run page rather than in a collapsed log; stdout stays the report. */
+function warn(message) {
+  console.error(process.env.GITHUB_ACTIONS === 'true' ? `::warning::${message}` : `abap2ui5lint: ${message}`);
+}
+
+/* The environment errors of the render gate: its runtime is missing, its
+ * browser will not start, its UI5 will not boot, or the metadata snapshot is
+ * gone. Each is one actionable sentence and the tool-error exit (2) - never a
+ * stack trace and never exit 1, which says the VIEWS have findings. */
+const ENV_ERRORS = new Set(['ERR_RENDER_DEPS_MISSING', 'ERR_RENDER_BROWSER_MISSING', 'ERR_RENDER_RUNTIME_BROKEN', 'ERR_SNAPSHOT_MISSING']);
 
 /* The watch loop's renderer: one browser and one UI5 boot for the whole
  * session instead of one per run. checkFiles takes an ALREADY-OPEN renderer
@@ -710,7 +800,7 @@ const dropWarm = async () => {
  * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
  * run exits with it; the watch loop reports it and waits for the next change.
  */
-async function runOnce({ opt, paths, configFile = null }) {
+async function runOnce({ opt, paths, configFile = null, asked = false }) {
   let files;
   // checkable files the config's `ignore` kept out of the walk - said under
   // the count line, because "fewer findings than expected" is otherwise
@@ -746,7 +836,13 @@ async function runOnce({ opt, paths, configFile = null }) {
     const missing = missingRenderDeps();
     if (missing.length) die(renderDepsError(missing).message);
     if (!files.length) die('no view to photograph in the given path(s)');
-    const shots = await screenshotFiles(files, shot);
+    let shots;
+    try {
+      shots = await screenshotFiles(files, shot);
+    } catch (e) {
+      if (ENV_ERRORS.has(e.code)) die(e.message);
+      throw e;
+    }
     const taken = shots.filter((s) => s.png);
     /* One picture keeps the name it was given; several have to be told apart,
      * and by the CLASS they came from rather than by a counter - a directory
@@ -788,15 +884,30 @@ async function runOnce({ opt, paths, configFile = null }) {
    * the one below that found NOTHING, which is the state a stale "148 apps"
    * and "clean" would hide longest - and always before the exit code is
    * decided. */
+  /* A file written BESIDE the report - a badge, --sarif-out, --json-out.
+   * One that cannot be written is the tool-error exit 2 and one line on
+   * stderr, and it is RETURNED, never exited on: all of them are written
+   * after the report, and process.exit( ) there (die( )) cut a piped report
+   * off at the pipe buffer - the defect the first round removed from the
+   * report path - while a sidecar that threw ended a clean run with a stack
+   * trace and exit 1, the findings code. */
+  let outputFailed = false;
+  const writeBeside = (what, file, text) => {
+    try {
+      fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+      fs.writeFileSync(file, text);
+      return true;
+    } catch (e) {
+      console.error(`abap2ui5lint: could not write ${what} ${file}: ${e.message}`);
+      outputFailed = true;
+      return false;
+    }
+  };
   const emitBadge = (summary, stats) => {
     if (!opt.badge) return;
     for (const badge of opt.badge) {
-      try {
-        fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
-        fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`);
-      } catch (e) {
-        die(`could not write the badge file ${badge.file}: ${e.message}`);
-      }
+      const text = `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`;
+      if (!writeBeside('the badge file', badge.file, text)) continue;
       if (opt.format === 'stylish' && !opt.quiet) {
         console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
       }
@@ -815,7 +926,7 @@ async function runOnce({ opt, paths, configFile = null }) {
         : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
     }
     emitBadge(empty, runStats([]));
-    return 0;
+    return outputFailed ? 2 : 0;
   }
 
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
@@ -835,11 +946,13 @@ async function runOnce({ opt, paths, configFile = null }) {
     for (const r of await checkFiles(files, { ...opt, render: false })) {
       const source = fs.readFileSync(r.file, 'utf8');
       const result = applyFixes(source, r.findings);
-      deferred += result.deferred;
+      // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
+      // line, and "would fix 216 problem(s)" stood over a list of six
+      deferred += result.deferredFindings.length;
       if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
       if (!result.applied) continue;
       files_++;
-      fixed += result.applied;
+      fixed += result.findings.length;
       if (dryRun) {
         const rel = path.relative(process.cwd(), r.file);
         for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
@@ -885,12 +998,14 @@ async function runOnce({ opt, paths, configFile = null }) {
   if (opt.cache) {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
     const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
-    const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
+    // the runtime's UI5 release keys a RENDERED result too (lib/cache.mjs)
+    const context = cacheContext({
+      version, snapshot: snapshotVersion(), runtime: opt.render ? renderRuntimeUi5Version() : null, options: opt,
+    });
     cache = { file, context, entries: loadCache(file, context) };
   }
 
-  let results;
-  try {
+  const compute = async () => {
     // the watch loop's warm browser, or nothing: checkFiles opens its own then
     opt.renderer = await rendererFor(opt);
     if (stdinMode) {
@@ -902,8 +1017,9 @@ async function runOnce({ opt, paths, configFile = null }) {
         ? checkXmlSource(src, { ...opt, file: stdinName })
         : checkAbapSource(src, { ...opt, file: stdinName });
       r.file = stdinName;
-      results = [r];
-    } else if (cache) {
+      return [r];
+    }
+    if (cache) {
       const slots = files.map((file) => {
         const hash = hashOf(fs.readFileSync(file, 'utf8'));
         const hit = cache.entries[path.resolve(file)];
@@ -920,25 +1036,44 @@ async function runOnce({ opt, paths, configFile = null }) {
       const fresh = missing.length ? await checkFiles(missing, opt) : [];
       const byFile = new Map(fresh.map((r) => [r.file, r]));
       for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
-      results = slots.map((s) => s.result);
       const entries = {};
       for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
       /* Written BEFORE the baseline mutates the findings, and tolerantly: a
        * cache that cannot be written costs the next run time, not correctness. */
       try { saveCache(cache.file, cache.context, entries); }
       catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
-    } else {
-      results = await checkFiles(files, opt);
+      return slots.map((s) => s.result);
+    }
+    return checkFiles(files, opt);
+  };
+
+  let results;
+  try {
+    try {
+      results = await compute();
+    } catch (e) {
+      // a run that failed through the warm browser does not keep it: the next
+      // run opens a fresh one instead of failing the same way forever
+      if (opt.renderer) await dropWarm();
+      /* Chromium missing is a missing runtime by another name, and a
+       * default-on gate steps aside for it the same way (renderFallback): the
+       * property gate runs again without it and the notice says why. An
+       * asked-for gate keeps the refusal below. The cache sits this run out -
+       * its key says the render gate ran. */
+      if (e.code !== 'ERR_RENDER_BROWSER_MISSING' || asked) throw e;
+      warn(`the render gate is OFF for this run - ${e.message.replace(/^the render gate /, 'it ')}`
+        + ' To make this an ERROR instead: --render, or "render": true in abap2ui5lint.jsonc.');
+      opt.render = false;
+      cache = null;
+      results = await compute();
     }
     progress.finish();
   } catch (e) {
     progress.finish();
-    // a run that failed through the warm browser does not keep it: the next
-    // run opens a fresh one instead of failing the same way forever
     if (opt.renderer) await dropWarm();
-    // the render gate's optional deps and the metadata snapshot are both
+    // the render gate's runtime and browser and the metadata snapshot are all
     // environment problems worth one actionable line, not a stack trace
-    if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
+    if (ENV_ERRORS.has(e.code)) die(e.message);
     throw e;
   }
 
@@ -949,10 +1084,20 @@ async function runOnce({ opt, paths, configFile = null }) {
    * too — a suppression can never quietly outlive what it suppressed. */
   if (updateBaseline) {
     const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
+    /* The files this run looked at get their entries replaced; every other
+     * file's entries stay. Rebuilding from this run alone shrank a baseline
+     * over `src` to the one file an update happened to be run on. */
+    let previous = null;
+    if (fs.existsSync(file)) {
+      try { previous = loadBaseline(file); } catch (e) { die(`${e.message} - fix or delete it before --update-baseline`); }
+    }
     // keys are relative to the baseline file's own directory, so every runner
     // (CLI from any cwd, the Action, the VS Code extension) computes the same
-    const map = buildBaseline(results, baselineBase(file));
-    writeBaseline(file, map);
+    // scope: the paths the run walked - an entry of a file under them that
+    // was not collected (it builds no view any more) is dropped, not kept
+    const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
+    // nothing is printed yet, so die( ) cuts nothing off here
+    try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
     const n = [...map.values()].reduce((s, c) => s + c, 0);
     console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
     return 0;
@@ -963,9 +1108,9 @@ async function runOnce({ opt, paths, configFile = null }) {
   if (opt.baseline && fs.existsSync(opt.baseline)) {
     let map;
     try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
+    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline), { scope: stdinMode ? [] : paths });
     baselineStale = stale;
-    baselineStats = { suppressed, byRule, stale: stale.length, file: path.relative(process.cwd(), opt.baseline) };
+    baselineStats = { suppressed, byRule, stale: stale.length, staleEntries: stale, file: path.relative(process.cwd(), opt.baseline) };
     baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
       + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
   } else if (opt.baseline && !updateBaseline) {
@@ -1037,13 +1182,11 @@ async function runOnce({ opt, paths, configFile = null }) {
    * has to run the whole thing twice, and the second run pays the render gate
    * again. The formatters are pure functions of `results`, so the sidecar costs
    * a serialization and nothing else. */
-  for (const [file, text] of [
-    [opt.sarifOut, () => formatSarif(results)],
-    [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
+  for (const [what, file, text] of [
+    ['the SARIF file', opt.sarifOut, () => formatSarif(results)],
+    ['the JSON file', opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
   ]) {
-    if (!file) continue;
-    fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-    fs.writeFileSync(file, `${text()}\n`);
+    if (file) writeBeside(what, file, `${text()}\n`);
   }
 
   emitBadge(summary, stats);
@@ -1089,7 +1232,13 @@ async function runOnce({ opt, paths, configFile = null }) {
   const footer = explainFooter(results, { quiet: opt.quiet, format: opt.format, tty: process.stderr.isTTY === true });
   if (footer) console.error(footer);
 
-  return summary.failing > 0 || baselineStale.length > 0 || overWarningCap ? 1 : 0;
+  /* A stale entry fails like a finding at the threshold - and like one, not
+   * under --advisory / --fail-on never, which promise exit 0 whatever the
+   * report says. It is still reported. */
+  const staleFails = baselineStale.length > 0 && threshold !== Infinity;
+  // an output the run was asked for and could not write is a tool error (2)
+  if (outputFailed) return 2;
+  return summary.failing > 0 || staleFails || overWarningCap ? 1 : 0;
 }
 
 /*
@@ -1208,16 +1357,29 @@ async function watchLoop() {
     walk(abs, '');
   };
 
-  // the first run is an ordinary one: bad usage still exits 2, because nothing
-  // is being watched yet and a wrong path is not something a save corrects
-  await runOnce(first);
-  watching = true;
+  /* The watchers go up BEFORE the first run, and that run counts as a
+   * running one: with the render gate it is seconds of browser launch and UI5
+   * boot, and a file saved in that window - after the run had collected, with
+   * nothing watching yet - was never seen; the loop then reported the old
+   * state until the next save. What arrives during the first run is one more
+   * run after it, exactly as during any other. A path that is not there is
+   * left to the first run, which says so and exits 2. */
+  running = true;
   for (const p of first.paths) {
-    if (fs.statSync(p).isDirectory()) watchTree(p); else watchFile(p);
+    let isDir;
+    try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
+    if (isDir) watchTree(p); else watchFile(p);
   }
   if (first.configFile) watchFile(first.configFile);
   if (first.opt.baseline && hasFile(first.opt.baseline)) watchFile(first.opt.baseline);
+
+  // the first run is an ordinary one: bad usage still exits 2, because the
+  // loop has not started yet and a wrong path is not something a save corrects
+  await runOnce(first);
+  watching = true;
   announce();
+  running = false;
+  if (changed.size) timer = setTimeout(rerun, WATCH_DEBOUNCE_MS);
 
   const stop = async () => {
     for (const w of watchers) w.close();
@@ -1231,6 +1393,10 @@ async function watchLoop() {
 if (watchMode) {
   await watchLoop();
 } else {
-  const code = await runOnce(resolveRun());
-  if (code) process.exit(code);
+  /* exitCode, never exit( ): the report may still be queued for a pipe (see
+   * exitFlushed), and a run leaves nothing behind that would keep the event
+   * loop alive - checkFiles closes the renderer it opened, the renderer
+   * closes its browser and its server - so the process ends the moment the
+   * last byte is out. */
+  process.exitCode = await runOnce(resolveRun());
 }

@@ -2,6 +2,259 @@
 
 ## Unreleased
 
+- **A failing report piped into another program arrives whole.** The CLI
+  ended a run with `process.exit( )`, and a write to a pipe is asynchronous
+  on POSIX: whatever the pipe had not taken yet was dropped with the
+  process. `abap2ui5lint src --json | jq` on a failing corpus handed jq
+  exactly 65,536 bytes of a 175 KB document, and in a workflow the GitHub
+  annotations, printed last, were the first thing lost - on exactly the runs
+  whose report matters. A run now sets `process.exitCode` and ends when its
+  output is out; the early exits (`--explain`, `--help`, `--version`,
+  `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
+
+- **abapGit's metadata XML is no longer read as a view.** A file named on
+  the command line is collected when it starts with `<`, and every bulk way
+  of naming files names abapGit's sidecars too - `abap2ui5lint src/*`, a
+  pre-commit hook handing over `git diff --cached --name-only`. Each
+  `zcl_app.clas.xml` / `package.devc.xml` was judged as a view whose root
+  control is `abapGit`: an `aggregation-in-aggregation` error and exit 1 for
+  every class a commit touched. A document whose root element is `abapGit`
+  is not collected now, and `checkXmlSource( )` (and so `--stdin`) returns
+  it with nothing to check; `isAbapGitXml( )` is exported from `.`.
+
+- **`a( v = … n = … )` reconstructs like `a( n = … v = … )`.** ABAP passes
+  named parameters in any order, but the reconstructor read the value of
+  `v`, `b` and `t` as everything after its `=` up to the closing paren - so
+  with the name written second the value came out as
+  `client->_bind_edit( mv_text ) n = \`value\``, was dropped as unresolvable
+  with a note, and the attribute (a binding, here) was missing from every
+  gate's view of the class. The arguments of an attribute call are read by
+  name now, with the paren- and literal-aware splitter the rules use. The
+  reconstructed documents of samples-controls, abap2UI5 and the fixtures (856
+  classes) are unchanged - none of them writes the other order.
+
+- **`--fix` no longer promises the next run work it will not find.** An
+  edit inside text another fix of the same pass deleted was counted as
+  "deferred to the next run (overlapping)": a CRLF class with five dead
+  `view_model_update( )` lines reported 5 deferred - the `\r` of each
+  deleted line - and the next `--fix` had nothing to do. Such an edit is moot
+  and no longer counted; one overlapping REPLACED text still is.
+- **The `--fix` summary counts problems, not edits.** "fixed N problem(s)"
+  added up fix SPANS, and one `crlf-line-ending` finding carries a span per
+  line: a CRLF class with nine fixable findings said "would fix 45
+  problem(s)" under a dry-run list of nine. Both counts are findings now;
+  `applyFixes( )` returns the deferred ones as `deferredFindings`
+  (additive).
+
+- **`--watch` no longer loses a save made during its first run.** The
+  watchers were set up after the first run, which with the render gate is
+  seconds of browser launch and UI5 boot: a file saved in that window, after
+  the run had collected its files, was never seen, and the loop kept
+  reporting the old state until the next save. The watchers now exist
+  before the first run, and a change during it is one more run after it.
+  The watch/render test in `test/review/watch.mjs` raced the same window
+  and failed on a loaded machine.
+
+- **An output file that cannot be written is exit 2, and the report still
+  arrives whole.** `--sarif-out` / `--json-out` into a path that cannot be
+  created threw out of the run - a stack trace and exit 1, the findings
+  code, on a clean run - and so did `--update-baseline`; a badge that could
+  not be written exited through `process.exit(2)` after the report had been
+  printed, which cut a piped report off at the pipe buffer again. Each is
+  one line on stderr and exit 2 now, and the files written beside the report
+  set the exit code instead of exiting.
+
+- **The render gate works under pnpm, and no longer hangs when it cannot.**
+  The resource server served "the folder `@openui5/sap.ui.core` is in", which
+  in a flat npm tree holds every library and under pnpm holds sap.ui.core
+  alone - so the bootstrap waited for `sap.m` forever and the run never
+  ended. Every `@openui5` package of the runtime is now resolved on its own,
+  and both waits are bounded (`openRenderer({ bootTimeout, renderTimeout })`,
+  90 s and 60 s): a UI5 that does not boot is `ERR_RENDER_RUNTIME_BROKEN`
+  naming what the page logged, a document that does not finish rendering is
+  its own render error and its page is reloaded.
+- **The render runtime is also found in the project the run starts in.**
+  `npx --yes @abap2ui5/linter src` in a repository with
+  `@abap2ui5/linter-render` as a devDependency said "12 of 12 packages
+  missing", and a global linter with a local runtime exited 2 under
+  `--render`: the runtime was looked for next to the linter only. It is now
+  looked for there first and in `process.cwd( )` second.
+- **A Chromium that will not start is a missing runtime, not a crash.** With
+  `@abap2ui5/linter-render` installed and `npx playwright install chromium`
+  skipped, the run ended in Playwright's `browserType.launch: Executable
+  doesn't exist` banner, a stack trace and exit 1 - the code for findings.
+  Now it is one sentence (`ERR_RENDER_BROWSER_MISSING`, the fix named) and
+  exit 2 where the gate was asked for (`--render`, `"render": true`), and the
+  property gate alone with a notice where the gate was only left on - what a
+  missing runtime package already got. `openRenderer` also closes the HTTP
+  server it had started when the launch fails; it used to keep the process
+  alive.
+- **A render runtime of another UI5 release than the snapshot is named.**
+  The property gate judges against the snapshot (1.152), the render gate
+  against the runtime; `@abap2ui5/render-runtime` 0.1-0.6 serve 1.151, and a
+  1.152 member then failed view creation as "unknown setting" - a render
+  error that read like a broken view. The CLI now says so on stderr before
+  the run (`runtimeSnapshotMismatch( )` in `./render`).
+
+- **A baseline only speaks for the files a run linted.** Every entry no
+  finding matched was STALE, whether or not its file was part of the run:
+  after `--update-baseline` over `src` (57 entries), linting one file with
+  `--baseline` reported "56 STALE entries" and exited 1 - also under
+  `--advisory`, whose help promises exit 0, and under `--stdin`. Now only an
+  entry of a file the run looked at can be stale - one it linted, or one
+  under a path it walked that it no longer collects (a class that stopped
+  building a view cannot have a finding, so its entries are stale like a
+  deleted file's) - or of a file that is gone from disk (nothing will ever
+  match it again). `--update-baseline` on one file replaced the whole
+  baseline with that file's entries; it now replaces the entries of the
+  files the run looked at and keeps the others, dropping those of deleted
+  files. `--advisory` / `--fail-on never` report stale entries and exit 0.
+  `--json` carries an additive `baseline` block (`file`, `suppressed`,
+  `byRule`, `stale: [{ key, count }]`), so a document saying `failing: 0`
+  next to exit 1 names the reason. `updateBaseline( )` and `keyFile( )` are
+  new in `./baseline`; `applyBaseline( )` and `updateBaseline( )` take
+  `{ scope }`, the paths the run walked.
+
+- **`--fix` no longer deletes a namespace a helper still uses.**
+  `unused-namespace-declaration` judged the reconstructed view as if it were
+  the whole view. abap2UI5's own `z2ui5_cl_ui5_app_start` declares
+  `xmlns:form` for the SimpleForm its `create_layout_form( )` helper adds - a
+  RETURNING helper whose result is assigned, which the reconstructor does not
+  follow - and without its waiver comments the finding came with a deleting
+  fix that broke the view. The rule now stands down for a class whose
+  reconstruction is known incomplete (a builder call it could not place,
+  `unplacedTokens` on `prepareAbap( )` - `helperTokens` without a mere second
+  `stringify( )` of a finished view), and for a prefix the class writes in
+  more builder literals (`ns = \`form\``, `\`form:X\``, `n = \`core:require\``)
+  than its documents carry. A prefix written nowhere is still reported. A
+  waiver of the rule where it stood down is unjudged, not `unused-directive`
+  (`applyDirectives( … { stoodDown })`): the rule did not judge that class,
+  and app_start's own waiver would otherwise have been reported as "remove
+  the directive" on every run over abap2UI5.
+
+- **New rule `malformed-xml` (error).** A raw `*.view.xml` /
+  `*.fragment.xml` with a duplicate attribute, a `</contnt>` for `<content>`
+  and no closing root tag passed `--no-render` with "Success!" and exit 0:
+  the XML reader behind the property gate is lenient on purpose, and nothing
+  asked whether the document was well-formed - which the browser's parser
+  decides before UI5 sees a control, refusing the whole view. `parseXml( )`
+  now records mismatched, unclosed and stray closing tags and duplicate
+  attributes as `root.malformed` (tags inside CDATA and comments are text),
+  and `checkNodes( )` reports each once, so the VS Code extension's and
+  mcp-server's self-assembled pipelines get it too. The tree the other rules
+  judge is built exactly as before.
+- **A CDATA section in a raw view is character data, to its `]]>`.** The XML
+  reader skipped comments but read a CDATA section as markup: a `<Txt>` in
+  one became an element (and an `unknown-control`), and a `<!--` in one -
+  script text testing for `"<!--"` - opened a comment that swallowed the
+  real tags behind the section up to the next `-->`, so a view xmllint
+  accepts was three `malformed-xml` errors and the elements after the
+  section were never judged. Unchanged on the 1,390 `*.view.xml` /
+  `*.fragment.xml` files of the OpenUI5 samples and the corpora.
+
+- **`unused-directive` no longer names a waiver for a rule that did not
+  run.** Under `--no-properties`, or with the rule switched off or excluded
+  in the `rules` block, a directive for it suppressed nothing because nothing
+  was judged - and the hint told the author to delete the waiver the full
+  run needs. Such an id is now unjudged rather than unused. `applyDirectives(
+  … { ran })` takes the caller's answer (the entry points pass "not a
+  property-walk rule" when the property gate is off - `WALK_ONLY_RULES` in
+  `./properties`, gated against the emit sites), and `ruleRuns( )` in
+  `./findings` is the `rules` block's.
+- **A bare directive is not called unused by a run without the property
+  gate either.** Under `--no-properties` a directive with no id (so: every
+  rule) over a line whose only finding is a property-walk one still read
+  "suppressed nothing … remove the directive". It is unjudged whenever the
+  run left a gate out (`parseDirectives( … { gatesRan })`); a rule the
+  `rules` block switched off does not make it so, since the config speaks
+  for every run of the repository.
+- **`ignore` and the render gate's `exclude` mean the same thing however
+  the run is started.** abap2UI5/linter#35 made a `rules[id].exclude` pattern
+  match every spelling of a path - the absolute one a config's `paths`
+  produce and the relative one `abap2ui5lint src` does. `ignore` and
+  `rules['render-error'].exclude` kept testing the path only as it was
+  reached, so abap2UI5's own `"ignore": ["/src/99/"]` dropped the frozen
+  package from `abap2ui5lint` and not from `abap2ui5lint src`, where its 17
+  classes came back with 86 findings and exit 1, and a render-error waiver
+  written the same way waived nothing. All three go through one matcher now
+  (`pathMatches( )` in `./findings`).
+- **`--cache` no longer replays a render verdict of another runtime.** The
+  cache key held the linter version, the snapshot and the settings, but not
+  the UI5 release `@abap2ui5/linter-render` serves - which moves on its own,
+  and is exactly what the runtime-mismatch notice above tells a reader to
+  upgrade. The run after `npm i -D @abap2ui5/linter-render@latest` replayed
+  the old runtime's render errors. A rendering run's cache is now keyed by
+  that release too; a property-only run's is not, and survives the upgrade.
+- **`--format markdown` keeps the tags its messages quote.** A table cell
+  passed a message through as raw HTML, and GitHub's sanitizer drops an
+  element it does not know: in a PR comment or a job summary
+  `<Page> carries the attribute title twice` read " carries the attribute
+  title twice", `close <content> with </content>` read "close  with ", and
+  `<mvc:View>` became a link to `mvc:View`. `&`, `<` and `>` are escaped as
+  entities now.
+- **`--format sarif` writes each location as a URI.** abapGit names a
+  namespaced object's file with `#` for its namespace slashes
+  (`#abc#cl_app.clas.abap`), and SARIF's `artifactLocation.uri` is a URI
+  reference, where `#` starts the fragment: the location named `src/`, and
+  code scanning had no file to put the alert on. A blank in a path was no
+  URI character either. Every segment is percent-encoded now.
+- **A `--no-render` run over a corpus is about a quarter faster.** Every
+  reader of DATA/TYPES/CONSTANTS declarations split the whole class into
+  statements again - three `parseData( )` and four `staticAttributes( )`
+  splits per class, over the same scrubbed source - which was 121 MB of
+  splitting for the 12 MB of samples-controls' 642 classes and a quarter of
+  the run. `splitStatements( )` is memoized like `scrub( )` (its shared
+  result frozen), and the run went from ~13 s to ~10 s with byte-identical
+  findings over samples-controls and abap2UI5.
+- **A byte-order mark no longer breaks the config or the baseline.** A file
+  saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
+  as "Unexpected token"; it is stripped before parsing - also from the
+  preview data `--screenshot-model` names and from the `<class>.mock.json`
+  the screenshot reads by convention.
+- **`--init` writes a `$schema` the new file can reach.** It was always
+  `./node_modules/@abap2ui5/linter/…`, wrong in a monorepo package and
+  pointing at nothing under `npx` or a global install. It is now the relative
+  path to the nearest `node_modules/@abap2ui5/linter` that is the running
+  linter, and otherwise the published schema of exactly this version
+  (`https://unpkg.com/@abap2ui5/linter@<version>/…`) - also where npx's own
+  copy sits below the new file (`--init` in the home directory, or with
+  npm's cache inside the project): a path into a cache is none to commit.
+- **`--init` no longer shadows an `abap2ui5lint.json`.** Discovery reads
+  `abap2ui5lint.jsonc` before `abap2ui5lint.json`, and `--init` only checked
+  for the first: beside an existing `.json` it wrote a fresh `.jsonc`, which
+  from then on silently won (a repository with `"failOn": "never"` went from
+  exit 0 to exit 1). It refuses beside either spelling now.
+- **A missing `extends` target says so.** It was reported as "no such file -
+  check the --config path", also when no `--config` was given; the message
+  now names the `extends` value and where it was looked for, and a directory
+  is named as one.
+- **`scripts/generate-metadata.mjs` finds the sources where they are
+  installed.** The shipped generator looked in
+  `<linter>/node_modules/@openui5` only, which a consumer's tree never has (npm
+  hoists above it, pnpm keeps them beside `@abap2ui5/linter-render`). It now
+  also resolves each package through `@abap2ui5/linter-render`, through its
+  own package and through the current directory.
+
+- **The `@abap2ui5/linter-render` peer range starts at its first
+  published line.** `>=0.7.0 <0.9.0` named a 0.7.0 the registry never had -
+  the name starts at 0.8.0; 0.7.0 is the last `@abap2ui5/render-runtime`.
+  `FLOOR` in `scripts/peer-range.mjs` is 0.8.0 and the range
+  `>=0.8.0 <0.9.0`. The legacy `@abap2ui5/render-runtime` range stays
+  `>=0.1.0 <0.8.0` on purpose: its 0.1-0.6 lines serve UI5 1.151 against the
+  1.152 snapshot, but narrowing an optional peer is an ERESOLVE for every
+  project still on them, so the version gap is named on stderr instead (see
+  above).
+
+- **The docs no longer send `npx` to an unregistered name.** The issue
+  templates asked for `npx abap2ui5lint --version`; `abap2ui5lint` is the
+  command the package installs, not a package on npm, so outside a project
+  that installed it npx would download whatever someone publishes under that
+  name. Where an install is implied (the README's "stay green" block, the
+  release smoke test, the rules page, the templates) it is now
+  `npx --no-install abap2ui5lint`, and where none is, the scoped
+  `npx @abap2ui5/linter`. AGENTS.md now records samples-controls' npm
+  dependency as it is (`^0.8.3`, no longer a `^0.5.1` git dependency).
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

@@ -46,13 +46,24 @@ npm **refuses** an optional peer that is present and out of range, so a pairing
 this package has not been built for fails at install time rather than at
 render time.
 
-The linter resolves the `@openui5` packages *through* this package when it is
-present, rather than trusting them to be hoisted to the top of `node_modules`.
-That is what makes the split work under pnpm and other non-hoisting layouts as
-well.
+The linter resolves each `@openui5` package *through* this package when it is
+present, one by one, rather than trusting them to be hoisted to the top of
+`node_modules` or to sit in one folder. That is what makes the split work under
+pnpm and other non-hoisting layouts as well.
+
+It looks for this package next to the linter first and then in the project the
+run starts in (the current directory), so `npx --yes @abap2ui5/linter src` or a
+globally installed linter still finds a runtime the project installed as its
+own devDependency.
 
 When it is absent, the property gate runs exactly as before and a requested
-render gate fails with one actionable message naming this package.
+render gate fails with one actionable message naming this package. The same
+holds when it is installed but Chromium is not (`npx playwright install
+chromium` skipped): one message, exit 2 where the gate was asked for, the
+property gate alone with a notice where it was only left on. A runtime whose
+`@openui5` release differs from the linter's metadata snapshot is named on
+stderr before the run, because its render errors are then the version gap
+rather than the view.
 
 ## Versioning
 

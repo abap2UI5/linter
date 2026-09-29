@@ -37,14 +37,17 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /*
  * The oldest linter-render line this linter still works with. The package was
  * renamed from @abap2ui5/render-runtime after 0.7.0, so no older line of it
- * exists under this name; the older lines are the LEGACY range below.
+ * exists under this name; the older lines are the LEGACY range below. The
+ * first line published under this name is 0.8.0 - the floor said 0.7.0, a
+ * version the registry never had, so the range admitted a release that
+ * cannot be installed and read as if one could.
  *
  * Raising it is an install failure for everyone still on that line, so it is
  * justified only by something the linter genuinely cannot work without — never
  * by the range looking untidy. (A missing `less-openui5` is NOT such a reason:
  * a screenshot then comes back unstyled and the gate does not care.)
  */
-export const FLOOR = '0.7.0';
+export const FLOOR = '0.8.0';
 
 /*
  * The name the runtime was published under up to 0.7.0, and the range that
@@ -52,6 +55,15 @@ export const FLOOR = '0.7.0';
  * more, so the lines it has are the lines it will ever have - and a project
  * that installed one of them keeps an admissible pairing when it upgrades the
  * linter (lib/render.mjs still looks it up, after the current name).
+ *
+ * Only 0.7.0 of those lines serves the UI5 release the snapshot is (1.152);
+ * 0.1.0-0.6.1 serve 1.151, and a 1.152 member then fails the render gate as
+ * "unknown setting". The range is deliberately NOT narrowed to 0.7.0 for
+ * that: an out-of-range optional peer is an ERESOLVE, so narrowing would turn
+ * a partly wrong render gate into an `npm install` that fails outright for
+ * every project still on those lines. The CLI names the version gap on
+ * stderr instead (runtimeSnapshotMismatch in lib/render.mjs), with the
+ * command that closes it.
  */
 export const LEGACY = Object.freeze({ name: '@abap2ui5/render-runtime', range: '>=0.1.0 <0.8.0' });
 
