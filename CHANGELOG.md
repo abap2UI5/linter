@@ -129,6 +129,12 @@
   title twice", `close <content> with </content>` read "close  with ", and
   `<mvc:View>` became a link to `mvc:View`. `&`, `<` and `>` are escaped as
   entities now.
+- **`--format sarif` writes each location as a URI.** abapGit names a
+  namespaced object's file with `#` for its namespace slashes
+  (`#abc#cl_app.clas.abap`), and SARIF's `artifactLocation.uri` is a URI
+  reference, where `#` starts the fragment: the location named `src/`, and
+  code scanning had no file to put the alert on. A blank in a path was no
+  URI character either. Every segment is percent-encoded now.
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
   as "Unexpected token"; it is stripped before parsing.

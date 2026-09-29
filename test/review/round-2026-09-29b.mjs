@@ -216,4 +216,25 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     assert(cell('style').includes('&lt;style&gt;') && cell('style').includes('&amp;') && cell('style').includes('\\|') && cell('style').includes('\\\\\\|'),
       `an ampersand is escaped first, the pipe and the backslash still are (${cell('style')})`);
   });
+
+  /* ── 6. a SARIF location is a URI ────────────────────────────────────── */
+
+  /* abapGit writes a namespaced object's file with `#` for the slashes of its
+   * namespace - `/ABC/CL_APP` is `#abc#cl_app.clas.abap`, the everyday name
+   * in a customer repository. SARIF's artifactLocation.uri is a URI
+   * reference, where `#` starts the FRAGMENT: `src/#abc#cl_app.clas.abap`
+   * named the directory `src/`, and code scanning had no file to put the
+   * alert on. A blank is not a URI character at all. Each segment is
+   * percent-encoded now. */
+  section('round 2026-09-29b: --format sarif percent-encodes the artifact URI', async () => {
+    const { formatSarif } = await import('../../lib/report.mjs');
+    const finding = { type: 'unknown-control', line: 1, column: 1, severity: 'error', message: 'x' };
+    const files = ['src/#abc#cl_app.clas.abap', 'src/my app/zcl_app.clas.abap', 'src/100%/zcl_pct.clas.abap', 'src/zcl_plain.clas.abap'];
+    const doc = JSON.parse(formatSarif(files.map((file) => ({ file, findings: [{ ...finding }], renderErrors: [] }))));
+    const uris = doc.runs[0].results.map((r) => r.locations[0].physicalLocation.artifactLocation.uri);
+    assert(uris.join() === 'src/%23abc%23cl_app.clas.abap,src/my%20app/zcl_app.clas.abap,src/100%25/zcl_pct.clas.abap,src/zcl_plain.clas.abap',
+      `each path segment is percent-encoded, the separators are not (${uris.join(', ')})`);
+    const back = uris.map((u) => decodeURIComponent(new URL(u, 'file:///repo/').pathname).replace(/^\/repo\//, ''));
+    assert(back.join() === files.join(), `and every URI resolves back to its file, no fragment cut off (${back.join(', ')})`);
+  });
 }
