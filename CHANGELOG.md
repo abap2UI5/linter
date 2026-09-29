@@ -87,6 +87,14 @@
   and `checkNodes( )` reports each once, so the VS Code extension's and
   mcp-server's self-assembled pipelines get it too. The tree the other rules
   judge is built exactly as before.
+- **A CDATA section in a raw view is character data, to its `]]>`.** The XML
+  reader skipped comments but read a CDATA section as markup: a `<Txt>` in
+  one became an element (and an `unknown-control`), and a `<!--` in one -
+  script text testing for `"<!--"` - opened a comment that swallowed the
+  real tags behind the section up to the next `-->`, so a view xmllint
+  accepts was three `malformed-xml` errors and the elements after the
+  section were never judged. Unchanged on the 1,390 `*.view.xml` /
+  `*.fragment.xml` files of the OpenUI5 samples and the corpora.
 
 - **`unused-directive` no longer names a waiver for a rule that did not
   run.** Under `--no-properties`, or with the rule switched off or excluded
