@@ -354,4 +354,33 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
       `a badge that cannot be written no longer cuts the piped report off (${r.stdout.length} bytes, ${doc ? 'parses' : 'does not parse'})`);
     assert(code === 2 && /could not write the badge file/.test(r.stderr), `and it is still exit 2 with the reason (${code})`);
   });
+
+  /* ── 11. --fix counts as deferred only what the next pass can still do ─ */
+
+  /* An edit that overlaps an applied one is deferred to the next run - and
+   * one that lies INSIDE text an applied edit deleted is not: that text is
+   * gone. A CRLF class with five dead `view_model_update( )` lines reported
+   * "fixed …, 10 deferred to the next run (overlapping)" (the `\r` of each
+   * deleted line, part of the one crlf-line-ending finding) and the next run
+   * had nothing left to do - a promise --fix could not keep. */
+  section('round 2026-09-29b: --fix does not defer an edit inside text it deleted', async () => {
+    const { applyFixes } = await import('../../lib/fix.mjs');
+    const moot = applyFixes('abcdef', [{ fixes: [{ start: 1, end: 5, text: '' }] }, { fixes: [{ start: 2, end: 3, text: 'Z' }] }]);
+    assert(moot.output === 'af' && moot.applied === 1 && moot.deferred === 0,
+      `an edit inside a deleted span is moot, not deferred (${JSON.stringify({ ...moot, findings: undefined })})`);
+    const partial = applyFixes('abcdef', [{ fixes: [{ start: 1, end: 4, text: '' }] }, { fixes: [{ start: 3, end: 5, text: 'Z' }] }]);
+    assert(partial.deferred === 1, 'one that reaches past the deleted text is still deferred');
+    const inReplaced = applyFixes('abcdef', [{ fixes: [{ start: 1, end: 5, text: 'X' }] }, { fixes: [{ start: 2, end: 3, text: 'Z' }] }]);
+    assert(inReplaced.deferred === 1, 'and so is one inside REPLACED text - the replacement may still carry what it fixes');
+
+    const dir = tempDir('a2l-crlffix-');
+    const file = path.join(dir, 'zcl_crlf.clas.abap');
+    fs.writeFileSync(file, fs.readFileSync(f('obsolete.clas.abap'), 'utf8').replace(/\n/g, '\r\n'));
+    const first = run([file, '--no-render', '--no-config', '--no-progress', '--fix']);
+    const second = run([file, '--no-render', '--no-config', '--no-progress', '--fix']);
+    const deferred = Number(/(\d+) deferred to the next run/.exec(first.out)?.[1] ?? 0);
+    const nextFixed = Number(/fixed (\d+) problem/.exec(second.out)?.[1] ?? 0);
+    assert(deferred === nextFixed, `what one pass calls deferred is what the next pass fixes (${deferred} deferred, ${nextFixed} fixed next)`);
+    assert(!fs.readFileSync(file, 'utf8').includes('\r'), 'and the file is LF throughout after the first pass');
+  });
 }

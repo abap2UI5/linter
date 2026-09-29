@@ -673,7 +673,8 @@ declare module "@abap2ui5/linter/fix" {
   ): {
     output: string;
     applied: number;
-    /** Overlapping spans, left for the next `--fix` pass. */
+    /** Overlapping spans, left for the next `--fix` pass - not counting an
+     *  edit inside text this pass deleted, which is gone with it. */
     deferred: number;
     /** Spans that do not address this source at all - a rule computing offsets
      *  against different text. A DEFECT in the linter, surfaced rather than

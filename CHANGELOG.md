@@ -12,6 +12,13 @@
   output is out; the early exits (`--explain`, `--help`, `--version`,
   `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
 
+- **`--fix` no longer promises the next run work it will not find.** An
+  edit inside text another fix of the same pass deleted was counted as
+  "deferred to the next run (overlapping)": a CRLF class with five dead
+  `view_model_update( )` lines reported 5 deferred - the `\r` of each
+  deleted line - and the next `--fix` had nothing to do. Such an edit is moot
+  and no longer counted; one overlapping REPLACED text still is.
+
 - **An output file that cannot be written is exit 2, and the report still
   arrives whole.** `--sarif-out` / `--json-out` into a path that cannot be
   created threw out of the run - a stack trace and exit 1, the findings
