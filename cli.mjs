@@ -59,8 +59,12 @@
  *   --baseline <file>  suppress the findings recorded in this file - the way
  *                      to adopt the linter on a codebase that already exists.
  *                      A NEW finding still fails; a recorded one that no
- *                      longer occurs fails too, as a stale entry
- *   --update-baseline  write/refresh that file from this run and exit 0
+ *                      longer occurs fails too, as a stale entry - judged
+ *                      for the files this run linted (and for files that
+ *                      are gone), never for a file it did not look at
+ *   --update-baseline  write/refresh that file from this run and exit 0: the
+ *                      entries of the files linted are replaced, every other
+ *                      file's are kept
  *   --cache            store each file's result and replay it on the next run
  *                      while nothing relevant changed - the file's content,
  *                      the linter version, the metadata snapshot and every
@@ -204,7 +208,7 @@ import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch } from './lib/render.mjs';
-import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
+import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
 import { RULES_PAGE } from './lib/rule-docs.mjs';
@@ -1016,9 +1020,16 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * too — a suppression can never quietly outlive what it suppressed. */
   if (updateBaseline) {
     const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
+    /* The files this run linted get their entries replaced; every other
+     * file's entries stay. Rebuilding from this run alone shrank a baseline
+     * over `src` to the one file an update happened to be run on. */
+    let previous = null;
+    if (fs.existsSync(file)) {
+      try { previous = loadBaseline(file); } catch (e) { die(`${e.message} - fix or delete it before --update-baseline`); }
+    }
     // keys are relative to the baseline file's own directory, so every runner
     // (CLI from any cwd, the Action, the VS Code extension) computes the same
-    const map = buildBaseline(results, baselineBase(file));
+    const map = mergeBaseline(previous, results, baselineBase(file));
     writeBaseline(file, map);
     const n = [...map.values()].reduce((s, c) => s + c, 0);
     console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
@@ -1032,7 +1043,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
     const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
     baselineStale = stale;
-    baselineStats = { suppressed, byRule, stale: stale.length, file: path.relative(process.cwd(), opt.baseline) };
+    baselineStats = { suppressed, byRule, stale: stale.length, staleEntries: stale, file: path.relative(process.cwd(), opt.baseline) };
     baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
       + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
   } else if (opt.baseline && !updateBaseline) {
@@ -1156,7 +1167,11 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   const footer = explainFooter(results, { quiet: opt.quiet, format: opt.format, tty: process.stderr.isTTY === true });
   if (footer) console.error(footer);
 
-  return summary.failing > 0 || baselineStale.length > 0 || overWarningCap ? 1 : 0;
+  /* A stale entry fails like a finding at the threshold - and like one, not
+   * under --advisory / --fail-on never, which promise exit 0 whatever the
+   * report says. It is still reported. */
+  const staleFails = baselineStale.length > 0 && threshold !== Infinity;
+  return summary.failing > 0 || staleFails || overWarningCap ? 1 : 0;
 }
 
 /*

@@ -184,4 +184,73 @@ export default async function ({ section, assert, f, FIX, tempDir }) {
     assert(render.signal === null && /HARNESS: the document did not finish rendering within/.test(render.out),
       `a render that does not finish is that document's error, and the renderer still closes (${render.signal ?? ''} ${render.out.slice(0, 200)} ${render.err.slice(0, 200)})`);
   });
+
+  /* ── 4. a baseline speaks for the files the run linted ───────────────── */
+
+  section('round 2026-09-29: only an entry of a linted (or deleted) file can be stale', () => {
+    const dir = tempDir('a2l-base-');
+    for (const n of ['abaprules.clas.abap', 'structure.clas.abap', 'wires.clas.abap']) fs.copyFileSync(f(n), path.join(dir, n));
+    const bl = path.join(dir, 'abap2ui5lint-baseline.json');
+    const base = ['--no-render', '--no-config', '--no-progress', '--baseline', bl];
+    const entries = () => JSON.parse(fs.readFileSync(bl, 'utf8')).findings;
+    const filesOf = (m) => [...new Set(Object.keys(m).map((k) => k.split('|')[0]))].sort();
+    assert(run([dir, ...base, '--update-baseline']).code === 0, 'the whole directory is baselined');
+    const all = entries();
+    assert(filesOf(all).length === 3, `with entries for all three files (${filesOf(all).join(', ')})`);
+
+    const one = run([path.join(dir, 'wires.clas.abap'), ...base]);
+    assert(one.code === 0 && !/STALE/.test(one.out),
+      `linting ONE file calls none of the other files' entries stale (${one.code}: ${one.out.split('\n').filter((l) => /STALE|stale/.test(l)).join(' | ')})`);
+    const src = fs.readFileSync(path.join(dir, 'structure.clas.abap'), 'utf8');
+    const piped = run(['--stdin', '--stdin-filename', path.join(dir, 'structure.clas.abap'), ...base], { input: src });
+    assert(piped.code === 0 && !/STALE/.test(piped.out), `nor does --stdin (${piped.code}: ${piped.out.slice(-200)})`);
+
+    // the one linted file lost its findings: ITS entries are stale, only its
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'wires.clas.abap'));
+    const stale = run([path.join(dir, 'wires.clas.abap'), ...base]);
+    const staleLines = stale.out.split('\n').filter((l) => /! stale:/.test(l));
+    assert(stale.code === 1 && staleLines.length > 0 && staleLines.every((l) => l.includes('wires.clas.abap|')),
+      `the linted file's gone findings are stale and fail, no other file's (${stale.code}: ${staleLines.length} lines)`);
+    const advisory = run([path.join(dir, 'wires.clas.abap'), ...base, '--advisory']);
+    assert(advisory.code === 0 && /STALE/.test(advisory.out), `--advisory reports them and exits 0, as its help promises (${advisory.code})`);
+    const never = run([path.join(dir, 'wires.clas.abap'), ...base, '--fail-on', 'never']);
+    assert(never.code === 0, `so does --fail-on never (${never.code})`);
+    const json = run([path.join(dir, 'wires.clas.abap'), ...base, '--json']);
+    let doc = null;
+    try { doc = JSON.parse(json.out); } catch { /* not json */ }
+    assert(json.code === 1 && doc?.failing === 0 && doc?.baseline?.stale?.length === staleLines.length
+      && doc.baseline.stale.every((e) => e.key.startsWith('wires.clas.abap|') && e.count > 0),
+    `--json names why a run with failing: 0 exits 1 - the stale entries (${JSON.stringify(doc?.baseline)?.slice(0, 200)})`);
+    assert(typeof doc?.baseline?.suppressed === 'number' && /abap2ui5lint-baseline\.json$/.test(doc?.baseline?.file ?? ''),
+      'with the file and what it suppressed');
+
+    // a file that is gone can never match again - stale in any run
+    fs.rmSync(path.join(dir, 'abaprules.clas.abap'));
+    fs.copyFileSync(f('wires.clas.abap'), path.join(dir, 'wires.clas.abap'));
+    const gone = run([path.join(dir, 'wires.clas.abap'), ...base]);
+    const goneLines = gone.out.split('\n').filter((l) => /! stale:/.test(l));
+    assert(gone.code === 1 && goneLines.length > 0 && goneLines.every((l) => l.includes('abaprules.clas.abap|')),
+      `an entry of a deleted file is stale even when another file was linted (${goneLines.length})`);
+  });
+
+  section('round 2026-09-29: --update-baseline on one file keeps every other file\'s entries', () => {
+    const dir = tempDir('a2l-base-');
+    for (const n of ['abaprules.clas.abap', 'structure.clas.abap', 'wires.clas.abap']) fs.copyFileSync(f(n), path.join(dir, n));
+    const bl = path.join(dir, 'abap2ui5lint-baseline.json');
+    const base = ['--no-render', '--no-config', '--no-progress', '--baseline', bl];
+    const entries = () => JSON.parse(fs.readFileSync(bl, 'utf8')).findings;
+    run([dir, ...base, '--update-baseline']);
+    const before = entries();
+    const others = Object.entries(before).filter(([k]) => !k.startsWith('wires.clas.abap|'));
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'wires.clas.abap'));
+    assert(run([path.join(dir, 'wires.clas.abap'), ...base, '--update-baseline']).code === 0, 'the one file is re-baselined');
+    const after = entries();
+    assert(others.every(([k, n]) => after[k] === n), `every other file's entries are kept, counts included (${others.length})`);
+    assert(!Object.keys(after).some((k) => k.startsWith('wires.clas.abap|')), 'and the updated file\'s entries are what it now has - none');
+    assert(run([dir, ...base]).code === 0, 'the whole directory is green against the updated file');
+    // an update over the directory drops the entries of a deleted file
+    fs.rmSync(path.join(dir, 'abaprules.clas.abap'));
+    run([dir, ...base, '--update-baseline']);
+    assert(!Object.keys(entries()).some((k) => k.startsWith('abaprules.clas.abap|')), 'an update drops the entries of a file that is gone');
+  });
 }

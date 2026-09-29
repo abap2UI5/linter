@@ -44,6 +44,21 @@
   error that read like a broken view. The CLI now says so on stderr before
   the run (`runtimeSnapshotMismatch( )` in `./render`).
 
+- **A baseline only speaks for the files a run linted.** Every entry no
+  finding matched was STALE, whether or not its file was part of the run:
+  after `--update-baseline` over `src` (57 entries), linting one file with
+  `--baseline` reported "56 STALE entries" and exited 1 - also under
+  `--advisory`, whose help promises exit 0, and under `--stdin`. Now only an
+  entry of a linted file can be stale, or of a file that is gone from disk
+  (nothing will ever match it again). `--update-baseline` on one file
+  replaced the whole baseline with that file's entries; it now replaces the
+  linted files' entries and keeps the others, dropping only those of deleted
+  files. `--advisory` / `--fail-on never` report stale entries and exit 0.
+  `--json` carries an additive `baseline` block (`file`, `suppressed`,
+  `byRule`, `stale: [{ key, count }]`), so a document saying `failing: 0`
+  next to exit 1 names the reason. `updateBaseline( )` and `keyFile( )` are
+  new in `./baseline`.
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

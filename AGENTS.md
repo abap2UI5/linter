@@ -475,7 +475,7 @@ registered `srv>`) alone.
 
 Also in that round: `undeclared-namespace` gained a `--fix` for the
 conventional prefixes, `--format sarif`, the adoption **baseline**
-(`--update-baseline`, stale entries FAIL), a page POOL in the render gate
+(`--update-baseline`, stale entries FAIL — since 2026-09-29 only an entry of a file the run linted, or of a file gone from disk, can be stale, and an update replaces the linted files' entries and keeps the rest; `--advisory` still exits 0), a page POOL in the render gate
 (`openRenderer({ pages })`, `checkFiles` uses 4 — the corpus render wall
 clock divides accordingly), and `scripts/check-upstream.mjs` +
 `upstream-sync.yml`, the weekly drift gate for the two hand-maintained

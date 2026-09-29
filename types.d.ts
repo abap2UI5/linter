@@ -928,12 +928,26 @@ declare module "@abap2ui5/linter/baseline" {
   export function loadBaseline(file: string): Map<string, number>;
 
   /** Drops the findings the baseline covers (mutates each result's
-   *  findings). Stale entries are the caller's to fail on. */
+   *  findings). Stale entries are the caller's to fail on - only entries of a
+   *  file in `results` (or of a file gone from disk) can be stale: an entry
+   *  of a file the run did not lint was not looked for. */
   export function applyBaseline(
     results: Array<{ file?: string; findings: PropertyFinding[] }>,
     baseline: Map<string, number>,
     baseDir?: string
-  ): { suppressed: number; stale: Array<{ key: string; count: number }> };
+  ): { suppressed: number; byRule: Record<string, number>; stale: Array<{ key: string; count: number }> };
+
+  /** The file part of a baseline key. */
+  export function keyFile(key: string): string;
+
+  /** `--update-baseline` over an existing map: the linted files' entries are
+   *  replaced by `results`, every other file's are kept (unless the file is
+   *  gone from disk). */
+  export function updateBaseline(
+    previous: Map<string, number> | null | undefined,
+    results: Array<{ file?: string; findings: PropertyFinding[] }>,
+    baseDir?: string
+  ): Map<string, number>;
 
   /** Freeze the current findings as accepted debt (key -> count). */
   export function buildBaseline(
