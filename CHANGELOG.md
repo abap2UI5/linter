@@ -183,6 +183,11 @@
   (`https://unpkg.com/@abap2ui5/linter@<version>/…`) - also where npx's own
   copy sits below the new file (`--init` in the home directory, or with
   npm's cache inside the project): a path into a cache is none to commit.
+- **`--init` no longer shadows an `abap2ui5lint.json`.** Discovery reads
+  `abap2ui5lint.jsonc` before `abap2ui5lint.json`, and `--init` only checked
+  for the first: beside an existing `.json` it wrote a fresh `.jsonc`, which
+  from then on silently won (a repository with `"failOn": "never"` went from
+  exit 0 to exit 1). It refuses beside either spelling now.
 - **A missing `extends` target says so.** It was reported as "no such file -
   check the --config path", also when no `--config` was given; the message
   now names the `extends` value and where it was looked for, and a directory

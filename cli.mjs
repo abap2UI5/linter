@@ -206,7 +206,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
-import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
+import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
@@ -578,9 +578,12 @@ for (let i = 0; i < args.length; i++) {
      * wrong - the README's $schema pointed at main, so an editor validated
      * against rules the pinned CLI does not have. This writes the file, with
      * the schema resolved against the version actually installed. */
-    const target = path.resolve('abap2ui5lint.jsonc');
-    if (fs.existsSync(target)) {
-      die(`${path.relative(process.cwd(), target)} already exists - delete it first, or edit it`);
+    const target = path.resolve(CONFIG_NAMES[0]);
+    /* Either spelling: discovery reads the .jsonc first, so a new one
+     * written beside an abap2ui5lint.json would silently take over from the
+     * config the repository already has. */
+    for (const name of CONFIG_NAMES) {
+      if (fs.existsSync(path.resolve(name))) die(`${name} already exists - delete it first, or edit it`);
     }
     fs.writeFileSync(target, `{
   // abap2UI5-linter settings for this repo. Precedence: CLI flag > this file

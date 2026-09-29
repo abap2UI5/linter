@@ -424,4 +424,19 @@ ENDCLASS.
       'the binding and the literal are both in it');
     assert(!vFirst.notes.some((n) => /unresolved value expression dropped/.test(n)), `nothing was dropped (${vFirst.notes.join(' | ')})`);
   });
+
+  /* ── 13. --init never shadows the config a directory already has ─────── */
+
+  /* Discovery reads abap2ui5lint.jsonc BEFORE abap2ui5lint.json, and --init
+   * only looked for the first. Beside an existing abap2ui5lint.json it wrote
+   * a fresh .jsonc - which from then on silently won: a repository with
+   * `"failOn": "never"` in its .json went from exit 0 to exit 1 with nothing
+   * saying why. */
+  section('round 2026-09-29b: --init refuses beside an abap2ui5lint.json as well', () => {
+    const dir = tempDir('a2l-initjson-');
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.json'), '{ "failOn": "never" }\n');
+    const r = run(['--init'], { cwd: dir });
+    assert(r.code === 2 && /abap2ui5lint\.json already exists/.test(r.err), `--init refuses (${r.code}: ${r.err.trim()})`);
+    assert(!fs.existsSync(path.join(dir, 'abap2ui5lint.jsonc')), 'and writes nothing that would shadow it');
+  });
 }
