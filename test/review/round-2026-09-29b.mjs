@@ -9,7 +9,7 @@ import cp from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-export default async function ({ section, assert, f, FIX, tempDir, checkXmlSource }) {
+export default async function ({ section, assert, f, FIX, tempDir, checkXmlSource, prepareAbap }) {
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
   const run = (args, { cwd, input, env = {} } = {}) => {
@@ -382,5 +382,46 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     const nextFixed = Number(/fixed (\d+) problem/.exec(second.out)?.[1] ?? 0);
     assert(deferred === nextFixed, `what one pass calls deferred is what the next pass fixes (${deferred} deferred, ${nextFixed} fixed next)`);
     assert(!fs.readFileSync(file, 'utf8').includes('\r'), 'and the file is LF throughout after the first pass');
+  });
+
+  /* ── 12. an attribute call's arguments in any order ──────────────────── */
+
+  /* ABAP passes named parameters in any order, and `a( v = … n = … )` is the
+   * same call as `a( n = … v = … )`. The reconstructor read `v`, `b` and `t`
+   * as "everything after `v =` to the closing paren", so with the name
+   * written second the value came out as `client->_bind_edit( mv_text ) n =
+   * \`value\`` - unresolvable, dropped with a note, and the Input lost its
+   * binding in every gate's view of the class. The arguments are read with
+   * the same paren- and literal-aware splitter the rules use now. */
+  section('round 2026-09-29b: a( v = … n = … ) reconstructs like a( n = … v = … )', () => {
+    const wrap = (attrs) => `CLASS zcl_t DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_text TYPE string.
+    DATA mv_flag TYPE abap_bool.
+ENDCLASS.
+CLASS zcl_t IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( \`Page\`
+          )->tag( \`Input\`
+${attrs}
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+    const nFirst = prepareAbap(wrap(`            )->a( n = \`value\` v = client->_bind_edit( mv_text )
+            )->a( n = \`enabled\` b = mv_flag
+            )->a( n = \`placeholder\` v = \`Name n = x\` ).`));
+    const vFirst = prepareAbap(wrap(`            )->a( v = client->_bind_edit( mv_text ) n = \`value\`
+            )->a( b = mv_flag n = \`enabled\`
+            )->a( v = \`Name n = x\` n = \`placeholder\` ).`));
+    assert(nFirst.docs[0] === vFirst.docs[0], `the same document either way (${vFirst.docs[0]})`);
+    assert(/value="\{\/MV_TEXT\}"/.test(vFirst.docs[0]) && /placeholder="Name n = x"/.test(vFirst.docs[0]),
+      'the binding and the literal are both in it');
+    assert(!vFirst.notes.some((n) => /unresolved value expression dropped/.test(n)), `nothing was dropped (${vFirst.notes.join(' | ')})`);
   });
 }

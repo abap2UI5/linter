@@ -12,6 +12,17 @@
   output is out; the early exits (`--explain`, `--help`, `--version`,
   `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
 
+- **`a( v = … n = … )` reconstructs like `a( n = … v = … )`.** ABAP passes
+  named parameters in any order, but the reconstructor read the value of
+  `v`, `b` and `t` as everything after its `=` up to the closing paren - so
+  with the name written second the value came out as
+  `client->_bind_edit( mv_text ) n = \`value\``, was dropped as unresolvable
+  with a note, and the attribute (a binding, here) was missing from every
+  gate's view of the class. The arguments of an attribute call are read by
+  name now, with the paren- and literal-aware splitter the rules use. The
+  reconstructed documents of samples-controls, abap2UI5 and the fixtures (856
+  classes) are unchanged - none of them writes the other order.
+
 - **`--fix` no longer promises the next run work it will not find.** An
   edit inside text another fix of the same pass deleted was counted as
   "deferred to the next run (overlapping)": a CRLF class with five dead
