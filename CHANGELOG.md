@@ -84,6 +84,35 @@
   mcp-server's self-assembled pipelines get it too. The tree the other rules
   judge is built exactly as before.
 
+- **`unused-directive` no longer names a waiver for a rule that did not
+  run.** Under `--no-properties`, or with the rule switched off or excluded
+  in the `rules` block, a directive for it suppressed nothing because nothing
+  was judged - and the hint told the author to delete the waiver the full
+  run needs. Such an id is now unjudged rather than unused. `applyDirectives(
+  … { ran })` takes the caller's answer (the entry points pass "not a
+  property-walk rule" when the property gate is off - `WALK_ONLY_RULES` in
+  `./properties`, gated against the emit sites), and `ruleRuns( )` in
+  `./findings` is the `rules` block's.
+- **A byte-order mark no longer breaks the config or the baseline.** A file
+  saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
+  as "Unexpected token"; it is stripped before parsing.
+- **`--init` writes a `$schema` the new file can reach.** It was always
+  `./node_modules/@abap2ui5/linter/…`, wrong in a monorepo package and
+  pointing at nothing under `npx` or a global install. It is now the relative
+  path to the nearest `node_modules/@abap2ui5/linter` that is the running
+  linter, and otherwise the published schema of exactly this version
+  (`https://unpkg.com/@abap2ui5/linter@<version>/…`).
+- **A missing `extends` target says so.** It was reported as "no such file -
+  check the --config path", also when no `--config` was given; the message
+  now names the `extends` value and where it was looked for, and a directory
+  is named as one.
+- **`scripts/generate-metadata.mjs` finds the sources where they are
+  installed.** The shipped generator looked in
+  `<linter>/node_modules/@openui5` only, which a consumer's tree never has (npm
+  hoists above it, pnpm keeps them beside `@abap2ui5/linter-render`). It now
+  also resolves each package through `@abap2ui5/linter-render`, through its
+  own package and through the current directory.
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

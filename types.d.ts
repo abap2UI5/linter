@@ -424,6 +424,10 @@ declare module "@abap2ui5/linter/properties" {
    *  unseeded field's real `false` silently overrides it. */
   export const DEFAULT_TRUE_BOOLEAN: (decl: unknown) => boolean;
 
+  /** The rule ids only the property walk (checkNodes) emits - the ones that
+   *  do not run when the property gate is switched off. */
+  export const WALK_ONLY_RULES: ReadonlySet<string>;
+
   /** Is `since` within the configured floor? The ABAP-side rules carry a
    *  `minUi5` STRING rather than the parsed floor the tree walk uses, and two
    *  implementations of this question are how two gates come to disagree. */
@@ -766,7 +770,10 @@ declare module "@abap2ui5/linter/findings" {
    *  `findings()` afterwards names the ones nothing asked (`unused-directive`)
    *  and the ids no rule has (`unknown-directive-rule`). */
   export function parseDirectives(
-    source: string
+    source: string,
+    /** `ran(id)`: whether the rule ran on this source - an id that did not
+     *  is never reported as an unused directive. Default: every rule ran. */
+    opts?: { ran?: (id: string) => boolean }
   ): {
     suppresses(line: number, rule: string, own?: unknown): boolean;
     findings(): PropertyFinding[];
@@ -781,8 +788,15 @@ declare module "@abap2ui5/linter/findings" {
   export function applyDirectives<T extends PropertyFinding>(
     findings: T[],
     source: string,
-    opts?: { rules?: Record<string, unknown>; file?: string }
+    /** `ran(id)`: whether the caller ran the rule (a gate it switched off
+     *  did not); a rule the `rules` block turns off never counts as run. A
+     *  directive naming a rule that did not run is not `unused-directive`. */
+    opts?: { rules?: Record<string, unknown>; file?: string; ran?: (id: string) => boolean }
   ): (T | PropertyFinding)[];
+
+  /** Whether the `rules` block lets `id` report on `file` at all - not off,
+   *  not excluded for the file, and asked for when it is an opt-in rule. */
+  export function ruleRuns(rules: Record<string, unknown> | undefined, id: string, file?: string): boolean;
 
   /** Attaches the undeclared-namespace fix for conventional prefixes - the
    *  same fixes the CLI attaches, for gates that replicate the pipeline. */

@@ -314,6 +314,39 @@ function helpText() {
   return block[1].split('\n').map((l) => l.replace(/^ \* ?/, '').replace(/^ \*$/, '')).join('\n');
 }
 
+/* The $schema --init writes: the schema of the linter RUNNING, addressed
+ * the way the new file can reach it. It was hard-coded to
+ * `./node_modules/@abap2ui5/linter/…`, which is right for exactly one layout
+ * - a linter installed in the directory the file is written to. In a
+ * monorepo package the node_modules is further up, and under
+ * `npx --yes @abap2ui5/linter --init` or a global install there is none at
+ * all, so an editor validated against a file that does not exist.
+ *
+ * So: the nearest node_modules/@abap2ui5/linter above the file that IS this
+ * linter (a relative path, stable across upgrades), else the schema file
+ * itself when it sits under that directory (a checkout of this repository),
+ * else the published schema of exactly this version - an npx cache or a
+ * global prefix is no path to commit. */
+function schemaRef(target) {
+  const own = path.join(HERE, 'data', 'abap2ui5lint.schema.json');
+  const real = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
+  const ownReal = real(own);
+  const posix = (p) => {
+    const rel = p.split(path.sep).join('/');
+    return rel.startsWith('.') ? rel : `./${rel}`;
+  };
+  const from = path.dirname(target);
+  for (let dir = from; ; dir = path.dirname(dir)) {
+    const candidate = path.join(dir, 'node_modules', '@abap2ui5', 'linter', 'data', 'abap2ui5lint.schema.json');
+    if (ownReal && real(candidate) === ownReal) return posix(path.relative(from, candidate));
+    if (path.dirname(dir) === dir) break;
+  }
+  const rel = path.relative(from, own);
+  if (!rel.startsWith('..') && !path.isAbsolute(rel)) return posix(rel);
+  const { name, version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  return `https://unpkg.com/${name}@${version}/data/abap2ui5lint.schema.json`;
+}
+
 /* The two value flags whose wrong value would otherwise be SILENT. Both name
  * a closed set the run is judged against, and a value outside it does not
  * fail anywhere downstream - it just falls back to the default, so
@@ -549,7 +582,7 @@ for (let i = 0; i < args.length; i++) {
   // The $schema line gives an editor completion and validation for every key
   // and every rule id, from the version this project installed - not from
   // whatever main happens to hold.
-  "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json",
+  "$schema": ${JSON.stringify(schemaRef(target))},
 
   // where the app classes and views are
   "paths": ["src"],

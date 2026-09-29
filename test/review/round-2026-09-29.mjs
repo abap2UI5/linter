@@ -305,4 +305,124 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(skipped.length === 1 && skipped[0].member === 'unclosed-tag' && skipped[0].control === 'VBox' && skipped[0].value === 'Page',
       `an element a close further out skips is unclosed, named with the close that skipped it (${skipped.map((y) => `${y.member}:${y.control}/${y.value}`)})`);
   });
+
+  /* ── 7. the small ones ───────────────────────────────────────────────── */
+
+  const DIRECTED = `CLASS zcl_review_directed DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_text TYPE string.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+CLASS zcl_review_directed IMPLEMENTATION.
+
+  METHOD z2ui5_if_app~main.
+
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( \`Page\`
+          )->tag( \`Button\`
+            )->a( n = \`text\` v = client->_bind( mv_text )
+            " abap2ui5lint-disable-next-line unknown-property -- a custom property a later release adds
+            )->a( n = \`colour\` v = \`red\`
+        )->end( ).
+    client->view_display( view->stringify( ) ).
+
+  ENDMETHOD.
+
+ENDCLASS.
+`;
+
+  section('round 2026-09-29: a directive for a rule that did not run is unjudged, not unused', () => {
+    const unused = (o) => checkAbapSource(DIRECTED, { render: false, ...o }).findings.filter((x) => x.type === 'unused-directive');
+    assert(unused({}).length === 0, 'with every gate on, the directive waives its finding and is used');
+    assert(unused({ properties: false }).length === 0,
+      `--no-properties: the property walk never ran, so its waiver is not "unused" (${unused({ properties: false }).map((x) => x.value)})`);
+    assert(unused({ rules: { 'unknown-property': false } }).length === 0, 'nor with the rule switched off in the config');
+    assert(unused({ rules: { 'unknown-property': { exclude: ['zcl_'] } }, file: 'src/zcl_review_directed.clas.abap' }).length === 0,
+      'nor with the rule excluded for this file');
+    const fixed = DIRECTED.replace('`colour`', '`type`').replace('`red`', '`Emphasized`');
+    const dead = checkAbapSource(fixed, { render: false }).findings.filter((x) => x.type === 'unused-directive');
+    assert(dead.length === 1 && dead[0].value === 'unknown-property', `where the rule ran and found nothing, the directive IS unused (${dead.map((x) => x.value)})`);
+    const dir = tempDir('a2l-dir-');
+    fs.writeFileSync(path.join(dir, 'zcl_review_directed.clas.abap'), DIRECTED);
+    const cli = run([path.join(dir, 'zcl_review_directed.clas.abap'), '--no-properties', '--no-config', '--no-render']);
+    assert(cli.code === 0 && !/unused-directive/.test(cli.out), `and the CLI agrees (${cli.code}: ${cli.out.slice(0, 160)})`);
+  });
+
+  section('round 2026-09-29: WALK_ONLY_RULES is every id the property walk alone emits', async () => {
+    const { WALK_ONLY_RULES } = await import('../../lib/properties.mjs');
+    const lib = path.join(FIX, '..', '..', 'lib');
+    const emitted = (file) => new Set([...fs.readFileSync(path.join(lib, file), 'utf8').matchAll(/type: '([a-z0-9-]+)'/g)].map((m) => m[1]));
+    const walk = emitted('properties.mjs');
+    const elsewhere = new Set(fs.readdirSync(lib).filter((n) => n.endsWith('.mjs') && !['properties.mjs', 'findings.mjs', 'rule-docs.mjs'].includes(n))
+      .flatMap((n) => [...emitted(n)]));
+    const expected = [...walk].filter((id) => !elsewhere.has(id)).sort();
+    assert(JSON.stringify([...WALK_ONLY_RULES].sort()) === JSON.stringify(expected),
+      `the list matches the emit sites (missing: ${expected.filter((id) => !WALK_ONLY_RULES.has(id)).join(', ') || 'none'}; extra: ${[...WALK_ONLY_RULES].filter((id) => !expected.includes(id)).join(', ') || 'none'})`);
+  });
+
+  section('round 2026-09-29: a byte-order mark in the config or the baseline is not an error', async () => {
+    const { loadConfig } = await import('../../lib/config.mjs');
+    const { loadBaseline } = await import('../../lib/baseline.mjs');
+    const dir = tempDir('a2l-bom-');
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '﻿{\n  // a comment\n  "ui5": "1.96"\n}\n');
+    let cfg = null;
+    try { cfg = loadConfig(path.join(dir, 'abap2ui5lint.jsonc')); } catch (e) { cfg = e.message; }
+    assert(cfg?.minUi5 === '1.96', `a config saved with a BOM loads (${typeof cfg === 'string' ? cfg : cfg?.minUi5})`);
+    fs.writeFileSync(path.join(dir, 'b.json'), '﻿{ "findings": { "x.clas.abap|unknown-control|||": 1 } }\n');
+    let map = null;
+    try { map = loadBaseline(path.join(dir, 'b.json')); } catch (e) { map = e.message; }
+    assert(map instanceof Map && map.size === 1, `and so does a baseline (${map instanceof Map ? map.size : map})`);
+  });
+
+  section('round 2026-09-29: a missing extends target names extends, not --config', () => {
+    const dir = tempDir('a2l-ext-');
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '{ "extends": "./shared/base.jsonc" }\n');
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
+    const r = run(['good.clas.abap', '--no-render'], { cwd: dir });
+    assert(r.code === 2 && /'extends' names \.\/shared\/base\.jsonc, which does not exist/.test(r.err) && !/--config/.test(r.err),
+      `the message points at the extends line (${r.err.trim()})`);
+    fs.mkdirSync(path.join(dir, 'shared', 'base.jsonc'), { recursive: true });
+    const d = run(['good.clas.abap', '--no-render'], { cwd: dir });
+    assert(d.code === 2 && /which is a directory/.test(d.err) && !/--config/.test(d.err), `and a directory is named as one (${d.err.trim()})`);
+    // a --config path that is missing keeps its own message
+    const c = run(['good.clas.abap', '--no-render', '--config', 'nope.jsonc'], { cwd: dir });
+    assert(c.code === 2 && /check the --config path/.test(c.err), 'a missing --config file is still about --config');
+  });
+
+  section('round 2026-09-29: --init writes the $schema the new file can actually reach', () => {
+    const root = tempDir('a2l-init-');
+    const proj = path.join(root, 'proj');
+    fs.mkdirSync(path.join(proj, 'node_modules', '@abap2ui5'), { recursive: true });
+    fs.mkdirSync(path.join(proj, 'packages', 'app'), { recursive: true });
+    fs.symlinkSync(path.join(FIX, '..', '..'), path.join(proj, 'node_modules', '@abap2ui5', 'linter'));
+    const schemaOf = (cwd) => {
+      run(['--init'], { cwd });
+      return /"\$schema": "([^"]+)"/.exec(fs.readFileSync(path.join(cwd, 'abap2ui5lint.jsonc'), 'utf8'))?.[1];
+    };
+    assert(schemaOf(proj) === './node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json', 'installed beside the file: the relative path');
+    assert(schemaOf(path.join(proj, 'packages', 'app')) === '../../node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json',
+      'in a monorepo package: the path up to the node_modules that holds it');
+    const bare = path.join(root, 'bare');
+    fs.mkdirSync(bare);
+    const { version } = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+    assert(schemaOf(bare) === `https://unpkg.com/@abap2ui5/linter@${version}/data/abap2ui5lint.schema.json`,
+      'nowhere near an install (npx, global): the published schema of this version');
+  });
+
+  section('round 2026-09-29: generate-metadata finds the @openui5 sources through linter-render', () => {
+    const t = pnpmTree();
+    fs.mkdirSync(path.join(t.L, 'scripts'));
+    fs.copyFileSync(path.join(ROOT, 'scripts', 'generate-metadata.mjs'), path.join(t.L, 'scripts', 'generate-metadata.mjs'));
+    const out = path.join(t.T, 'properties.json');
+    const r = cp.spawnSync('node', [path.join(t.L, 'scripts', 'generate-metadata.mjs'), '--out', out], { encoding: 'utf8', cwd: t.P, env: ENV });
+    assert(r.status === 0 && !/no sources/.test(r.stderr), `every library resolves from the project's pnpm runtime (${r.status}: ${r.stderr.slice(0, 200)})`);
+    const same = fs.existsSync(out) && fs.readFileSync(out, 'utf8') === fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8');
+    assert(same, 'and writes the committed snapshot byte for byte');
+  });
 }
