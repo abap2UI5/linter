@@ -115,6 +115,13 @@
   classes came back with 86 findings and exit 1, and a render-error waiver
   written the same way waived nothing. All three go through one matcher now
   (`pathMatches( )` in `./findings`).
+- **`--cache` no longer replays a render verdict of another runtime.** The
+  cache key held the linter version, the snapshot and the settings, but not
+  the UI5 release `@abap2ui5/linter-render` serves - which moves on its own,
+  and is exactly what the runtime-mismatch notice above tells a reader to
+  upgrade. The run after `npm i -D @abap2ui5/linter-render@latest` replayed
+  the old runtime's render errors. A rendering run's cache is now keyed by
+  that release too; a property-only run's is not, and survives the upgrade.
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
   as "Unexpected token"; it is stripped before parsing.

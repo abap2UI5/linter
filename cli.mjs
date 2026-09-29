@@ -69,9 +69,10 @@
  *                      replaced, every other file's are kept
  *   --cache            store each file's result and replay it on the next run
  *                      while nothing relevant changed - the file's content,
- *                      the linter version, the metadata snapshot and every
- *                      setting that changes a verdict all key the entry, so a
- *                      hit skips both gates for that file. Also settable as
+ *                      the linter version, the metadata snapshot, every
+ *                      setting that changes a verdict and, when rendering,
+ *                      the UI5 release of the render runtime all key the
+ *                      entry, so a hit skips both gates for that file. Also settable as
  *                      "cache": true in the config. The cache file is
  *                      expendable: corrupt or stale means recompute, and
  *                      deleting it is always safe
@@ -209,7 +210,7 @@ import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
-import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch } from './lib/render.mjs';
+import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
@@ -972,7 +973,10 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   if (opt.cache) {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
     const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
-    const context = cacheContext({ version, snapshot: snapshotVersion(), options: opt });
+    // the runtime's UI5 release keys a RENDERED result too (lib/cache.mjs)
+    const context = cacheContext({
+      version, snapshot: snapshotVersion(), runtime: opt.render ? renderRuntimeUi5Version() : null, options: opt,
+    });
     cache = { file, context, entries: loadCache(file, context) };
   }
 

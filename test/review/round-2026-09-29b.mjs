@@ -130,4 +130,58 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
         `abap2ui5lint ${args[0]}: the same waived render errors and exit code (${r.renderErrors} / ${r.waived} / ${r.code} vs ${absolute.code})`);
     }
   });
+
+  /* ── 4. the cache belongs to one render runtime ──────────────────────── */
+
+  /* `--cache` replays a stored result while the linter version, the snapshot
+   * and the settings hold - and the render gate's verdicts depend on a
+   * fourth thing, the UI5 release @abap2ui5/linter-render serves, which moves
+   * on its own (`npm i -D @abap2ui5/linter-render@latest`, exactly what the
+   * first round's runtime-mismatch warning tells a reader to run). The
+   * upgraded runtime then replayed the old runtime's render errors. The
+   * runtime's UI5 version is part of the context now - for a run that
+   * renders; a property-only run does not care which runtime is installed. */
+  section('round 2026-09-29b: a render-runtime upgrade misses the cache, a property-only run keeps it', async () => {
+    const { cacheContext } = await import('../../lib/cache.mjs');
+    const at = (runtime, render) => cacheContext({ version: '1', snapshot: '1.152.0', runtime, options: { render } });
+    assert(at('1.151.0', true) !== at('1.152.0', true), 'the render runtime\'s UI5 release is part of the context of a rendering run');
+    assert(at('1.151.0', false) === at('1.152.0', false), 'and no part of a property-only run\'s');
+
+    // the real CLI, with a runtime in the project whose version can move
+    const ROOT = path.join(FIX, '..', '..');
+    const T = tempDir('a2l-cachert-');
+    const L = path.join(T, 'linter');
+    fs.mkdirSync(L);
+    for (const x of ['cli.mjs', 'package.json']) fs.copyFileSync(path.join(ROOT, x), path.join(L, x));
+    for (const d of ['lib', 'data']) fs.cpSync(path.join(ROOT, d), path.join(L, d), { recursive: true });
+    const P = path.join(T, 'project');
+    const nm = path.join(P, 'node_modules');
+    fs.mkdirSync(path.join(nm, '@abap2ui5', 'linter-render'), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, 'linter-render', 'package.json'), path.join(nm, '@abap2ui5', 'linter-render', 'package.json'));
+    fs.mkdirSync(path.join(nm, '@openui5'));
+    const real = path.join(ROOT, 'node_modules', '@openui5');
+    for (const lib of fs.readdirSync(real)) {
+      fs.mkdirSync(path.join(nm, '@openui5', lib));
+      fs.copyFileSync(path.join(real, lib, 'package.json'), path.join(nm, '@openui5', lib, 'package.json'));
+      fs.symlinkSync(path.join(real, lib, 'src'), path.join(nm, '@openui5', lib, 'src'));
+    }
+    fs.symlinkSync(path.join(ROOT, 'node_modules', 'playwright'), path.join(nm, 'playwright'));
+    fs.symlinkSync(path.join(ROOT, 'node_modules', 'playwright-core'), path.join(nm, 'playwright-core'));
+    fs.copyFileSync(f('good.clas.abap'), path.join(P, 'good.clas.abap'));
+    const cacheFile = path.join(P, '.abap2ui5lintcache');
+    const cli = (args) => cp.spawnSync('node', [path.join(L, 'cli.mjs'), ...args], { encoding: 'utf8', cwd: P, env: ENV, timeout: 180_000 });
+    const context = () => JSON.parse(fs.readFileSync(cacheFile, 'utf8')).context;
+    const first = cli(['good.clas.abap', '--render', '--cache', '--no-config', '--no-progress']);
+    assert(first.status === 0 && fs.existsSync(cacheFile), `a rendering run with --cache writes the cache (${first.status}: ${(first.stderr ?? '').slice(0, 200)})`);
+    const before = fs.existsSync(cacheFile) ? context() : null;
+    const corePkg = path.join(nm, '@openui5', 'sap.ui.core', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(corePkg, 'utf8'));
+    fs.writeFileSync(corePkg, JSON.stringify({ ...pkg, version: '1.151.9' }));
+    cli(['good.clas.abap', '--render', '--cache', '--no-config', '--no-progress']);
+    assert(before !== null && context() !== before, 'the same run after the runtime moved to another release stores a new context - nothing was replayed');
+    const propsBefore = (cli(['good.clas.abap', '--no-render', '--cache', '--no-config', '--no-progress']), context());
+    fs.writeFileSync(corePkg, JSON.stringify(pkg));
+    cli(['good.clas.abap', '--no-render', '--cache', '--no-config', '--no-progress']);
+    assert(context() === propsBefore, 'a property-only run keeps its cache across the same move');
+  });
 }
