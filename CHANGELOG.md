@@ -12,6 +12,38 @@
   output is out; the early exits (`--explain`, `--help`, `--version`,
   `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
 
+- **The render gate works under pnpm, and no longer hangs when it cannot.**
+  The resource server served "the folder `@openui5/sap.ui.core` is in", which
+  in a flat npm tree holds every library and under pnpm holds sap.ui.core
+  alone - so the bootstrap waited for `sap.m` forever and the run never
+  ended. Every `@openui5` package of the runtime is now resolved on its own,
+  and both waits are bounded (`openRenderer({ bootTimeout, renderTimeout })`,
+  90 s and 60 s): a UI5 that does not boot is `ERR_RENDER_RUNTIME_BROKEN`
+  naming what the page logged, a document that does not finish rendering is
+  its own render error and its page is reloaded.
+- **The render runtime is also found in the project the run starts in.**
+  `npx --yes @abap2ui5/linter src` in a repository with
+  `@abap2ui5/linter-render` as a devDependency said "12 of 12 packages
+  missing", and a global linter with a local runtime exited 2 under
+  `--render`: the runtime was looked for next to the linter only. It is now
+  looked for there first and in `process.cwd( )` second.
+- **A Chromium that will not start is a missing runtime, not a crash.** With
+  `@abap2ui5/linter-render` installed and `npx playwright install chromium`
+  skipped, the run ended in Playwright's `browserType.launch: Executable
+  doesn't exist` banner, a stack trace and exit 1 - the code for findings.
+  Now it is one sentence (`ERR_RENDER_BROWSER_MISSING`, the fix named) and
+  exit 2 where the gate was asked for (`--render`, `"render": true`), and the
+  property gate alone with a notice where the gate was only left on - what a
+  missing runtime package already got. `openRenderer` also closes the HTTP
+  server it had started when the launch fails; it used to keep the process
+  alive.
+- **A render runtime of another UI5 release than the snapshot is named.**
+  The property gate judges against the snapshot (1.152), the render gate
+  against the runtime; `@abap2ui5/render-runtime` 0.1-0.6 serve 1.151, and a
+  1.152 member then failed view creation as "unknown setting" - a render
+  error that read like a broken view. The CLI now says so on stderr before
+  the run (`runtimeSnapshotMismatch( )` in `./render`).
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

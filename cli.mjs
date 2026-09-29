@@ -203,7 +203,7 @@ import { findConfig, loadConfig, applyConfig } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes } from './lib/fix.mjs';
-import { missingRenderDeps, renderFallback, renderDepsError, openRenderer } from './lib/render.mjs';
+import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, buildBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
@@ -696,12 +696,31 @@ function resolveRun() {
     });
     if (fallback) {
       o.render = false;
-      console.error(process.env.GITHUB_ACTIONS === 'true'
-        ? `::warning::${fallback}` : `abap2ui5lint: ${fallback}`);
+      warn(fallback);
     }
   }
-  return { opt: o, paths: runPaths, configFile };
+  /* A runtime of another UI5 release than the snapshot renders a different
+   * API than the property gate judges - said once per run, before the render
+   * errors it explains (render-runtime 0.1-0.6 pinned 1.151, the snapshot is
+   * 1.152, and "unknown setting" on a 1.152 member read as a broken view). */
+  if (o.render) {
+    const mismatch = runtimeSnapshotMismatch(snapshotVersion());
+    if (mismatch) warn(mismatch);
+  }
+  return { opt: o, paths: runPaths, configFile, asked };
 }
+
+/** One notice on stderr - a workflow warning inside Actions, so it lands on
+ *  the run page rather than in a collapsed log; stdout stays the report. */
+function warn(message) {
+  console.error(process.env.GITHUB_ACTIONS === 'true' ? `::warning::${message}` : `abap2ui5lint: ${message}`);
+}
+
+/* The environment errors of the render gate: its runtime is missing, its
+ * browser will not start, its UI5 will not boot, or the metadata snapshot is
+ * gone. Each is one actionable sentence and the tool-error exit (2) - never a
+ * stack trace and never exit 1, which says the VIEWS have findings. */
+const ENV_ERRORS = new Set(['ERR_RENDER_DEPS_MISSING', 'ERR_RENDER_BROWSER_MISSING', 'ERR_RENDER_RUNTIME_BROKEN', 'ERR_SNAPSHOT_MISSING']);
 
 /* The watch loop's renderer: one browser and one UI5 boot for the whole
  * session instead of one per run. checkFiles takes an ALREADY-OPEN renderer
@@ -733,7 +752,7 @@ const dropWarm = async () => {
  * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
  * run exits with it; the watch loop reports it and waits for the next change.
  */
-async function runOnce({ opt, paths, configFile = null }) {
+async function runOnce({ opt, paths, configFile = null, asked = false }) {
   let files;
   // checkable files the config's `ignore` kept out of the walk - said under
   // the count line, because "fewer findings than expected" is otherwise
@@ -769,7 +788,13 @@ async function runOnce({ opt, paths, configFile = null }) {
     const missing = missingRenderDeps();
     if (missing.length) die(renderDepsError(missing).message);
     if (!files.length) die('no view to photograph in the given path(s)');
-    const shots = await screenshotFiles(files, shot);
+    let shots;
+    try {
+      shots = await screenshotFiles(files, shot);
+    } catch (e) {
+      if (ENV_ERRORS.has(e.code)) die(e.message);
+      throw e;
+    }
     const taken = shots.filter((s) => s.png);
     /* One picture keeps the name it was given; several have to be told apart,
      * and by the CLASS they came from rather than by a counter - a directory
@@ -912,8 +937,7 @@ async function runOnce({ opt, paths, configFile = null }) {
     cache = { file, context, entries: loadCache(file, context) };
   }
 
-  let results;
-  try {
+  const compute = async () => {
     // the watch loop's warm browser, or nothing: checkFiles opens its own then
     opt.renderer = await rendererFor(opt);
     if (stdinMode) {
@@ -925,8 +949,9 @@ async function runOnce({ opt, paths, configFile = null }) {
         ? checkXmlSource(src, { ...opt, file: stdinName })
         : checkAbapSource(src, { ...opt, file: stdinName });
       r.file = stdinName;
-      results = [r];
-    } else if (cache) {
+      return [r];
+    }
+    if (cache) {
       const slots = files.map((file) => {
         const hash = hashOf(fs.readFileSync(file, 'utf8'));
         const hit = cache.entries[path.resolve(file)];
@@ -943,25 +968,44 @@ async function runOnce({ opt, paths, configFile = null }) {
       const fresh = missing.length ? await checkFiles(missing, opt) : [];
       const byFile = new Map(fresh.map((r) => [r.file, r]));
       for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
-      results = slots.map((s) => s.result);
       const entries = {};
       for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
       /* Written BEFORE the baseline mutates the findings, and tolerantly: a
        * cache that cannot be written costs the next run time, not correctness. */
       try { saveCache(cache.file, cache.context, entries); }
       catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
-    } else {
-      results = await checkFiles(files, opt);
+      return slots.map((s) => s.result);
+    }
+    return checkFiles(files, opt);
+  };
+
+  let results;
+  try {
+    try {
+      results = await compute();
+    } catch (e) {
+      // a run that failed through the warm browser does not keep it: the next
+      // run opens a fresh one instead of failing the same way forever
+      if (opt.renderer) await dropWarm();
+      /* Chromium missing is a missing runtime by another name, and a
+       * default-on gate steps aside for it the same way (renderFallback): the
+       * property gate runs again without it and the notice says why. An
+       * asked-for gate keeps the refusal below. The cache sits this run out -
+       * its key says the render gate ran. */
+      if (e.code !== 'ERR_RENDER_BROWSER_MISSING' || asked) throw e;
+      warn(`the render gate is OFF for this run - ${e.message.replace(/^the render gate /, 'it ')}`
+        + ' To make this an ERROR instead: --render, or "render": true in abap2ui5lint.jsonc.');
+      opt.render = false;
+      cache = null;
+      results = await compute();
     }
     progress.finish();
   } catch (e) {
     progress.finish();
-    // a run that failed through the warm browser does not keep it: the next
-    // run opens a fresh one instead of failing the same way forever
     if (opt.renderer) await dropWarm();
-    // the render gate's optional deps and the metadata snapshot are both
+    // the render gate's runtime and browser and the metadata snapshot are all
     // environment problems worth one actionable line, not a stack trace
-    if (e.code === 'ERR_RENDER_DEPS_MISSING' || e.code === 'ERR_SNAPSHOT_MISSING') die(e.message);
+    if (ENV_ERRORS.has(e.code)) die(e.message);
     throw e;
   }
 

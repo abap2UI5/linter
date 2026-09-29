@@ -1205,7 +1205,20 @@ What follows from that, and each of these has bitten:
   runtime is absent steps aside for the property gate and says so on stderr
   (`renderFallback`); an **asked-for** gate (`--render`, or `"render": true` in
   the config) keeps the hard refusal. Naming the gate in the config is how a
-  job promises it ran.
+  job promises it ran. A Chromium that will not start is the same case by
+  another name (`ERR_RENDER_BROWSER_MISSING`): fallback where the gate was only
+  left on, one sentence and exit 2 where it was asked for — never Playwright's
+  banner, a stack trace and exit 1, which reads as "your views have findings".
+- **Where the runtime is looked for** (`runtimeRequire` in `lib/render.mjs`):
+  next to the linter, then in the project the run starts in
+  (`process.cwd( )`) — `npx --yes @abap2ui5/linter` and a global install live
+  nowhere near the project's `node_modules`. Every `@openui5` package is then
+  resolved **on its own** (`libRoots`): under pnpm each sits in a store
+  directory of its own, and serving "the folder sap.ui.core is in" served
+  sap.ui.core alone and hung the gate. Both waits are bounded
+  (`bootTimeout`/`renderTimeout` on `openRenderer`), so a runtime that cannot
+  boot is an error, not a hang. A runtime of another UI5 minor than the
+  snapshot is named on stderr (`runtimeSnapshotMismatch`).
 - The composite Action installs the workspace or not, by input:
   `npm ci --prefix "$ACTION_PATH"` with `render: true`,
   `--workspaces=false` with `render: false`. That is what makes a

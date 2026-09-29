@@ -509,6 +509,30 @@ declare module "@abap2ui5/linter/render" {
    *  how to install them, and the --no-render / render: false way out. */
   export function renderDepsError(missing: string[]): Error & { code: "ERR_RENDER_DEPS_MISSING" };
 
+  /** The refusal openRenderer throws when the runtime is installed but
+   *  Chromium will not start (typically `npx playwright install chromium` was
+   *  skipped): one actionable sentence instead of Playwright's banner. The
+   *  CLI treats it like a missing runtime. */
+  export function browserLaunchError(cause: unknown): Error & { code: "ERR_RENDER_BROWSER_MISSING"; cause: unknown };
+
+  /** The @openui5 source roots the render gate serves - every package of
+   *  RENDER_DEPS resolved on its own (a pnpm store keeps each in a directory
+   *  of its own), plus anything hoisted beside them. `req` is injectable. */
+  export function libRoots(req?: { resolve(id: string): string }): string[];
+
+  /** The OpenUI5 release the render runtime serves, or null without one. */
+  export function renderRuntimeUi5Version(req?: { resolve(id: string): string }): string | null;
+
+  /** The warning to print when the runtime serves a different UI5 minor than
+   *  the metadata snapshot (its render errors are then the version gap, not
+   *  the view) - null when they agree or either is unknown. */
+  export function runtimeSnapshotMismatch(snapshot: string, runtime?: string | null): string | null;
+
+  /** openRenderer's default bounds (ms) on UI5 booting in a page and on one
+   *  document rendering. */
+  export const RENDER_BOOT_TIMEOUT_MS: number;
+  export const RENDER_TIMEOUT_MS: number;
+
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
     render(input: { xml: string; model?: Record<string, unknown>; kind?: "view" | "fragment" }): Promise<string[]>;
@@ -540,6 +564,12 @@ declare module "@abap2ui5/linter/render" {
      *  browser AND exits the process with 130. A caller that owns the
      *  process's signals and closes the renderer itself passes false. */
     handleSIGINT?: boolean;
+    /** Bound (ms) on UI5 booting in a page; past it openRenderer throws
+     *  ERR_RENDER_RUNTIME_BROKEN instead of waiting forever. */
+    bootTimeout?: number;
+    /** Bound (ms) on one document rendering; past it that document gets a
+     *  `HARNESS:` render error and its page is reloaded. */
+    renderTimeout?: number;
   }): Promise<Renderer>;
 }
 
