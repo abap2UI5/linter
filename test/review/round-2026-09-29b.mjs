@@ -439,4 +439,40 @@ ENDCLASS.
     assert(r.code === 2 && /abap2ui5lint\.json already exists/.test(r.err), `--init refuses (${r.code}: ${r.err.trim()})`);
     assert(!fs.existsSync(path.join(dir, 'abap2ui5lint.jsonc')), 'and writes nothing that would shadow it');
   });
+
+  /* ── 14. abapGit's metadata XML is not a view ────────────────────────── */
+
+  /* A file named on the command line is collected when it starts with `<`,
+   * so that a view kept under another name is still checked. abapGit writes
+   * an XML sidecar beside every object (`zcl_app.clas.xml`,
+   * `package.devc.xml`), and every way of naming files in bulk names those
+   * too: `abap2ui5lint src/*`, and the pre-commit hook
+   * `abap2ui5lint $(git diff --cached --name-only)`. Each was read as a view
+   * whose root control is `abapGit` - "abapGit is an aggregation sitting at
+   * the view root", an error, exit 1, for every class the commit touched.
+   * An abapGit document is recognised by its root element and not collected;
+   * piped through --stdin it is nothing to check. */
+  section('round 2026-09-29b: abapGit metadata XML named on the command line is not read as a view', () => {
+    const dir = tempDir('a2l-abapgit-');
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'zcl_good.clas.abap'));
+    const meta = '﻿<?xml version="1.0" encoding="utf-8"?>\n<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">\n'
+      + ' <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">\n  <asx:values>\n   <VSEOCLASS>\n    <CLSNAME>ZCL_GOOD</CLSNAME>\n'
+      + '   </VSEOCLASS>\n  </asx:values>\n </asx:abap>\n</abapGit>\n';
+    fs.writeFileSync(path.join(dir, 'zcl_good.clas.xml'), meta);
+    fs.writeFileSync(path.join(dir, 'package.devc.xml'), meta.replace('LCL_OBJECT_CLAS', 'LCL_OBJECT_DEVC'));
+    const named = ['zcl_good.clas.abap', 'zcl_good.clas.xml', 'package.devc.xml'];
+    const r = run([...named, '--no-render', '--no-config', '--no-progress', '--json'], { cwd: dir });
+    let doc = null;
+    try { doc = JSON.parse(r.out); } catch { /* not json */ }
+    assert(r.code === 0 && doc?.results?.length === 1 && doc.results[0].file === 'zcl_good.clas.abap',
+      `only the class is checked - the sidecars are not views (${r.code}: ${doc?.results?.map((x) => `${x.file}:${x.findings.map((y) => y.type).join('+')}`).join(', ')})`);
+    const piped = run(['--stdin', '--stdin-filename', 'zcl_good.clas.xml', '--no-config', '--json'], { cwd: dir, input: meta });
+    let pdoc = null;
+    try { pdoc = JSON.parse(piped.out); } catch { /* not json */ }
+    assert(piped.code === 0 && pdoc?.problems === 0, `nor is one piped through --stdin (${piped.code}: ${pdoc?.problems})`);
+    // a real view under a name of its own is still collected when named
+    fs.copyFileSync(f('sample.view.xml'), path.join(dir, 'custom.xml'));
+    const view = run(['custom.xml', '--no-render', '--no-config', '--no-progress', '--json'], { cwd: dir });
+    assert(JSON.parse(view.out).results?.length === 1, 'while a view under another name is still read when it is named');
+  });
 }

@@ -144,7 +144,11 @@ declare module "@abap2ui5/linter" {
   }
 
   export function checkAbapSource(source: string, opts?: CheckOptions): CheckResult;
+  /** An abapGit metadata document (`<abapGit …>`, the `*.clas.xml` sidecar)
+   *  comes back with no document and no findings - it is XML, never a view. */
   export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
+  /** Whether `src` is abapGit's own XML serialization rather than a view. */
+  export function isAbapGitXml(src: string): boolean;
   export function checkFiles(files: string[], opts?: CheckOptions): Promise<CheckResult[]>;
   /** Render every view the given files build and return the PNGs — the render
    *  gate as a preview. Needs the render runtime. */

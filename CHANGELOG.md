@@ -12,6 +12,16 @@
   output is out; the early exits (`--explain`, `--help`, `--version`,
   `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
 
+- **abapGit's metadata XML is no longer read as a view.** A file named on
+  the command line is collected when it starts with `<`, and every bulk way
+  of naming files names abapGit's sidecars too - `abap2ui5lint src/*`, a
+  pre-commit hook handing over `git diff --cached --name-only`. Each
+  `zcl_app.clas.xml` / `package.devc.xml` was judged as a view whose root
+  control is `abapGit`: an `aggregation-in-aggregation` error and exit 1 for
+  every class a commit touched. A document whose root element is `abapGit`
+  is not collected now, and `checkXmlSource( )` (and so `--stdin`) returns
+  it with nothing to check; `isAbapGitXml( )` is exported from `.`.
+
 - **`a( v = … n = … )` reconstructs like `a( n = … v = … )`.** ABAP passes
   named parameters in any order, but the reconstructor read the value of
   `v`, `b` and `t` as everything after its `=` up to the closing paren - so

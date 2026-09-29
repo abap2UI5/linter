@@ -68,7 +68,10 @@ every PR, and the same thing runs locally against sibling checkouts:
   source-side rules and the ABAP-side rules that read the class rather than
   the view (`VIEWLESS_APP_RULE` in `lib/index.mjs`), and counted in the run
   summary as building no view here — plus raw `*.view.xml` /
-  `*.fragment.xml`.
+  `*.fragment.xml`, and any file NAMED on the command line that starts with
+  `<` — except abapGit's own `<abapGit …>` metadata (`*.clas.xml`,
+  `*.devc.xml`), which bulk naming (`src/*`, a pre-commit hook's changed
+  files) hands over too and which is never a view (`isAbapGitXml( )`).
   **`lib/builders.mjs` owns the vocabulary and nothing else may hard-code a
   verb**: the reconstructor
   works on a verb's ROLE (`open`/`leaf`/`att`/`shut`), and every rule that
