@@ -475,4 +475,21 @@ ENDCLASS.
     const view = run(['custom.xml', '--no-render', '--no-config', '--no-progress', '--json'], { cwd: dir });
     assert(JSON.parse(view.out).results?.length === 1, 'while a view under another name is still read when it is named');
   });
+
+  /* ── 15. --fix counts problems, not edits ─────────────────────────────── */
+
+  /* "fixed N problem(s)" added up applied EDITS. One crlf-line-ending finding
+   * carries an edit per line, so a CRLF class with six fixable findings
+   * reported "would fix 216 problem(s)" under a dry-run list of six lines.
+   * The summary counts the findings a pass settled, and the deferred count
+   * the findings with an edit left for the next pass. */
+  section('round 2026-09-29b: the --fix summary counts the problems it lists', () => {
+    const dir = tempDir('a2l-fixcount-');
+    const file = path.join(dir, 'zcl_crlf.clas.abap');
+    fs.writeFileSync(file, fs.readFileSync(f('obsolete.clas.abap'), 'utf8').replace(/\n/g, '\r\n'));
+    const r = run([file, '--no-render', '--no-config', '--no-progress', '--fix-dry-run']);
+    const listed = r.out.split('\n').filter((l) => /:\d+:\d+ [a-z-]+$/.test(l));
+    const count = Number(/would fix (\d+) problem/.exec(r.out)?.[1]);
+    assert(listed.length > 1 && count === listed.length, `the count is the number of listed problems (${count} vs ${listed.length} listed)`);
+  });
 }

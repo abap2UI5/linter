@@ -946,11 +946,13 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     for (const r of await checkFiles(files, { ...opt, render: false })) {
       const source = fs.readFileSync(r.file, 'utf8');
       const result = applyFixes(source, r.findings);
-      deferred += result.deferred;
+      // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
+      // line, and "would fix 216 problem(s)" stood over a list of six
+      deferred += result.deferredFindings.length;
       if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
       if (!result.applied) continue;
       files_++;
-      fixed += result.applied;
+      fixed += result.findings.length;
       if (dryRun) {
         const rel = path.relative(process.cwd(), r.file);
         for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {

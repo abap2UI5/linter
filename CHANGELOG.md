@@ -39,6 +39,12 @@
   `view_model_update( )` lines reported 5 deferred - the `\r` of each
   deleted line - and the next `--fix` had nothing to do. Such an edit is moot
   and no longer counted; one overlapping REPLACED text still is.
+- **The `--fix` summary counts problems, not edits.** "fixed N problem(s)"
+  added up fix SPANS, and one `crlf-line-ending` finding carries a span per
+  line: a CRLF class with nine fixable findings said "would fix 45
+  problem(s)" under a dry-run list of nine. Both counts are findings now;
+  `applyFixes( )` returns the deferred ones as `deferredFindings`
+  (additive).
 
 - **An output file that cannot be written is exit 2, and the report still
   arrives whole.** `--sarif-out` / `--json-out` into a path that cannot be

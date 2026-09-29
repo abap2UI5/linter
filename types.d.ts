@@ -680,6 +680,9 @@ declare module "@abap2ui5/linter/fix" {
     /** Overlapping spans, left for the next `--fix` pass - not counting an
      *  edit inside text this pass deleted, which is gone with it. */
     deferred: number;
+    /** The findings those deferred spans belong to (additive) - the count a
+     *  report gives, since one finding can carry many spans. */
+    deferredFindings: PropertyFinding[];
     /** Spans that do not address this source at all - a rule computing offsets
      *  against different text. A DEFECT in the linter, surfaced rather than
      *  swallowed; `ABAP2UI5LINT_STRICT_FIXES=true` makes it throw. */
