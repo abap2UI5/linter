@@ -85,4 +85,49 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     assert(broken.findings.filter((x) => x.type === 'malformed-xml').length === 1,
       `a misspelt close next to a CDATA section is still reported, once (${broken.findings.filter((x) => x.type === 'malformed-xml').length})`);
   });
+
+  /* ── 3. `ignore` and the render-error `exclude` mean one thing ───────── */
+
+  /* abap2UI5/linter#35 made a `rules[id].exclude` pattern match however the
+   * run was started - absolute (a config's `paths`, joined onto its
+   * directory) or relative (`abap2ui5lint src`, `--config x`). Two other
+   * path patterns of the same config kept the old reading: `ignore`, tested
+   * against the path as the walk reached it, and `rules['render-error']
+   * .exclude`, tested against `result.file`. abap2UI5's own config
+   * (`"ignore": ["/src/99/"]`) therefore dropped the frozen package from
+   * `abap2ui5lint` and not from `abap2ui5lint src`, where its 17 classes
+   * came back with 86 findings and exit 1. */
+  section('round 2026-09-29b: ignore and the render-error exclude match a relative run as they match an absolute one', () => {
+    const dir = tempDir('a2l-forms-');
+    fs.mkdirSync(path.join(dir, 'src', '99'), { recursive: true });
+    fs.copyFileSync(f('broken.clas.abap'), path.join(dir, 'src', 'zcl_broken.clas.abap'));
+    fs.copyFileSync(f('wires.clas.abap'), path.join(dir, 'src', '99', 'zcl_frozen.clas.abap'));
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), JSON.stringify({
+      paths: ['src'],
+      ignore: ['/src/99/'],
+      rules: { 'render-error': { exclude: ['/src/zcl_broken\\.'] } },
+      failOn: 'error',
+    }));
+    const report = (args) => {
+      const r = run([...args, '--render', '--no-progress', '--json'], { cwd: dir });
+      let doc = null;
+      try { doc = JSON.parse(r.out); } catch { /* not json */ }
+      return {
+        code: r.code,
+        files: (doc?.results ?? []).map((x) => path.relative(dir, path.resolve(dir, x.file)).split(path.sep).join('/')).sort(),
+        renderErrors: (doc?.results ?? []).reduce((n, x) => n + (x.renderErrors?.length ?? 0), 0),
+        waived: (doc?.results ?? []).some((x) => (x.notes ?? []).some((n) => /waived by rules\['render-error'\]/.test(n))),
+        err: r.err,
+      };
+    };
+    const absolute = report([]);
+    assert(absolute.files.join() === 'src/zcl_broken.clas.abap' && absolute.renderErrors === 0 && absolute.waived,
+      `the config's own paths: src/99 ignored, the render errors waived (${absolute.files.join()} / ${absolute.renderErrors} / ${absolute.waived} ${absolute.err.slice(0, 200)})`);
+    for (const args of [['src'], ['./src'], [path.join(dir, 'src')]]) {
+      const r = report(args);
+      assert(r.files.join() === absolute.files.join(), `abap2ui5lint ${args[0]}: the same files (${r.files.join()})`);
+      assert(r.renderErrors === 0 && r.waived && r.code === absolute.code,
+        `abap2ui5lint ${args[0]}: the same waived render errors and exit code (${r.renderErrors} / ${r.waived} / ${r.code} vs ${absolute.code})`);
+    }
+  });
 }

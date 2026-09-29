@@ -105,6 +105,16 @@
   property-walk rule" when the property gate is off - `WALK_ONLY_RULES` in
   `./properties`, gated against the emit sites), and `ruleRuns( )` in
   `./findings` is the `rules` block's.
+- **`ignore` and the render gate's `exclude` mean the same thing however
+  the run is started.** abap2UI5/linter#35 made a `rules[id].exclude` pattern
+  match every spelling of a path - the absolute one a config's `paths`
+  produce and the relative one `abap2ui5lint src` does. `ignore` and
+  `rules['render-error'].exclude` kept testing the path only as it was
+  reached, so abap2UI5's own `"ignore": ["/src/99/"]` dropped the frozen
+  package from `abap2ui5lint` and not from `abap2ui5lint src`, where its 17
+  classes came back with 86 findings and exit 1, and a render-error waiver
+  written the same way waived nothing. All three go through one matcher now
+  (`pathMatches( )` in `./findings`).
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
   as "Unexpected token"; it is stripped before parsing.

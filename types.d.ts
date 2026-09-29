@@ -798,6 +798,12 @@ declare module "@abap2ui5/linter/findings" {
    *  not excluded for the file, and asked for when it is an opt-in rule. */
   export function ruleRuns(rules: Record<string, unknown> | undefined, id: string, file?: string): boolean;
 
+  /** Whether one of `patterns` matches `file` in any of its spellings - as
+   *  given, absolute, relative to the cwd, with `/` separators. The reading
+   *  every path pattern of a config gets: `rules[id].exclude`, `ignore` and
+   *  `rules['render-error'].exclude`. */
+  export function pathMatches(patterns: RegExp[] | null | undefined, file?: string): boolean;
+
   /** Attaches the undeclared-namespace fix for conventional prefixes - the
    *  same fixes the CLI attaches, for gates that replicate the pipeline. */
   export function attachNamespaceFixes<T extends PropertyFinding>(
