@@ -259,4 +259,28 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     assert(threw && a[0].text !== 'x', 'a caller writing into it throws instead of corrupting the next caller\'s statements');
     assert(a.map((st) => src.slice(st.offset, st.offset + st.text.length) === st.text).every(Boolean), 'and every statement still addresses the source');
   });
+
+  /* ── 8. a byte-order mark is not JSON anywhere a user writes JSON ─────── */
+
+  /* The first round stripped the BOM Notepad and PowerShell's Out-File write
+   * from the config and the baseline. The two other JSON files a user writes
+   * by hand kept failing on it: the preview data `--screenshot-model` names
+   * (exit 2, "Unexpected token '﻿'") and the `<class>.mock.json` the
+   * screenshot picks up by convention (the picture silently came back with
+   * empty tables and the parse error beside it). */
+  section('round 2026-09-29b: a byte-order mark in a screenshot model or a mock file is not an error', async () => {
+    const { mockModelFor } = await import('../../lib/index.mjs');
+    const dir = tempDir('a2l-bommodel-');
+    const app = path.join(dir, 'zcl_app.clas.abap');
+    fs.copyFileSync(f('good.clas.abap'), app);
+    fs.writeFileSync(path.join(dir, 'zcl_app.mock.json'), '﻿{"NAME": "from the mock"}');
+    let mock = null;
+    try { mock = mockModelFor(app); } catch (e) { mock = e.message; }
+    assert(mock?.NAME === 'from the mock', `the mock file next to the class is read (${JSON.stringify(mock)?.slice(0, 120)})`);
+    const model = path.join(dir, 'model.json');
+    fs.writeFileSync(model, '﻿{"NAME": "from the flag"}');
+    const r = run([app, '--no-config', '--screenshot', path.join(dir, 'shot.png'), '--screenshot-model', model]);
+    assert(r.code === 0 && fs.existsSync(path.join(dir, 'shot.png')),
+      `--screenshot-model reads it too (${r.code}: ${r.err.slice(0, 160)})`);
+  });
 }

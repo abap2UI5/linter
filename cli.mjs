@@ -513,7 +513,9 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--screenshot-model') {
     const file = value();
     try {
-      shot.model = JSON.parse(fs.readFileSync(file, 'utf8'));
+      // a byte-order mark is an encoding marker, not JSON (the config and
+      // the baseline strip it for the same Notepad/Out-File reason)
+      shot.model = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     } catch (e) {
       die(`--screenshot-model ${file}: ${e.message}`);
     }

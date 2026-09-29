@@ -145,7 +145,9 @@
   findings over samples-controls and abap2UI5.
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
-  as "Unexpected token"; it is stripped before parsing.
+  as "Unexpected token"; it is stripped before parsing - also from the
+  preview data `--screenshot-model` names and from the `<class>.mock.json`
+  the screenshot reads by convention.
 - **`--init` writes a `$schema` the new file can reach.** It was always
   `./node_modules/@abap2ui5/linter/…`, wrong in a monorepo package and
   pointing at nothing under `npx` or a global install. It is now the relative
