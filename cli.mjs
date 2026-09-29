@@ -1357,16 +1357,29 @@ async function watchLoop() {
     walk(abs, '');
   };
 
-  // the first run is an ordinary one: bad usage still exits 2, because nothing
-  // is being watched yet and a wrong path is not something a save corrects
-  await runOnce(first);
-  watching = true;
+  /* The watchers go up BEFORE the first run, and that run counts as a
+   * running one: with the render gate it is seconds of browser launch and UI5
+   * boot, and a file saved in that window - after the run had collected, with
+   * nothing watching yet - was never seen; the loop then reported the old
+   * state until the next save. What arrives during the first run is one more
+   * run after it, exactly as during any other. A path that is not there is
+   * left to the first run, which says so and exits 2. */
+  running = true;
   for (const p of first.paths) {
-    if (fs.statSync(p).isDirectory()) watchTree(p); else watchFile(p);
+    let isDir;
+    try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
+    if (isDir) watchTree(p); else watchFile(p);
   }
   if (first.configFile) watchFile(first.configFile);
   if (first.opt.baseline && hasFile(first.opt.baseline)) watchFile(first.opt.baseline);
+
+  // the first run is an ordinary one: bad usage still exits 2, because the
+  // loop has not started yet and a wrong path is not something a save corrects
+  await runOnce(first);
+  watching = true;
   announce();
+  running = false;
+  if (changed.size) timer = setTimeout(rerun, WATCH_DEBOUNCE_MS);
 
   const stop = async () => {
     for (const w of watchers) w.close();

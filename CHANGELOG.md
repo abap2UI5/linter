@@ -46,6 +46,15 @@
   `applyFixes( )` returns the deferred ones as `deferredFindings`
   (additive).
 
+- **`--watch` no longer loses a save made during its first run.** The
+  watchers were set up after the first run, which with the render gate is
+  seconds of browser launch and UI5 boot: a file saved in that window, after
+  the run had collected its files, was never seen, and the loop kept
+  reporting the old state until the next save. The watchers now exist
+  before the first run, and a change during it is one more run after it.
+  The watch/render test in `test/review/watch.mjs` raced the same window
+  and failed on a loaded machine.
+
 - **An output file that cannot be written is exit 2, and the report still
   arrives whole.** `--sarif-out` / `--json-out` into a path that cannot be
   created threw out of the run - a stack trace and exit 1, the findings

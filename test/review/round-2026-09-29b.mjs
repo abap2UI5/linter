@@ -492,4 +492,44 @@ ENDCLASS.
     const count = Number(/would fix (\d+) problem/.exec(r.out)?.[1]);
     assert(listed.length > 1 && count === listed.length, `the count is the number of listed problems (${count} vs ${listed.length} listed)`);
   });
+
+  /* ── 16. a save during the first watch run is not lost ───────────────── */
+
+  /* --watch set its watchers up AFTER the first run. With the render gate
+   * that run is seconds of browser launch and UI5 boot, and a file saved in
+   * that window was never seen: the first run had collected before the save,
+   * nothing was watching yet, and the loop then sat there reporting the old
+   * state until the NEXT save. (The watch/render section of watch.mjs raced
+   * the same window from the other side and failed on a loaded machine.)
+   * The watchers now exist before the first run, and what they see while it
+   * runs is one more run after it. */
+  section('round 2026-09-29b: --watch sees a file saved while its first run is still rendering', async () => {
+    const dir = tempDir('a2l-watchfirst-');
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
+    fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'viewbuilder.clas.abap'));
+    const child = cp.spawn('node', [CLI, dir, '--watch', '--render', '--progress', '--no-config'], { env: ENV, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
+    const until = async (pred, ms = 60000) => {
+      const t0 = Date.now();
+      while (!pred() && child.exitCode === null && Date.now() - t0 < ms) await new Promise((r) => setTimeout(r, 25));
+      return pred();
+    };
+    try {
+      // the property gate is through (the closing line of its phase is written
+      // when the render phase opens) - the first run has collected its files
+      const rendering = await until(() => /properties gate/.test(err));
+      assert(rendering, `the first run reaches the render phase (${err.slice(0, 200)})`);
+      fs.copyFileSync(f('broken.clas.abap'), path.join(dir, 'broken.clas.abap'));
+      const seen = await until(() => /broken\.clas\.abap/.test(out));
+      assert(seen, `the file saved during the first run is reported by a run after it (stderr: ${err.replace(/\s+/g, ' ').slice(0, 300)})`);
+    } finally {
+      child.kill('SIGINT');
+    }
+    const end = await Promise.race([exited, new Promise((r) => setTimeout(() => r({ code: 'timeout' }), 15000))]);
+    assert(end.code === 0 || process.platform === 'win32', `and Ctrl+C still ends it with exit 0 (${end.code ?? end.signal})`);
+  });
 }
