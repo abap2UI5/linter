@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **A failing report piped into another program arrives whole.** The CLI
+  ended a run with `process.exit( )`, and a write to a pipe is asynchronous
+  on POSIX: whatever the pipe had not taken yet was dropped with the
+  process. `abap2ui5lint src --json | jq` on a failing corpus handed jq
+  exactly 65,536 bytes of a 175 KB document, and in a workflow the GitHub
+  annotations, printed last, were the first thing lost - on exactly the runs
+  whose report matters. A run now sets `process.exitCode` and ends when its
+  output is out; the early exits (`--explain`, `--help`, `--version`,
+  `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

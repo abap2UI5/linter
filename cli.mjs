@@ -267,6 +267,29 @@ const die = (message) => {
   process.exit(2);
 };
 
+/* The way out of a run that has written its report. `process.exit( )` ends
+ * the process NOW, and a write to a PIPE is asynchronous on POSIX: whatever
+ * did not fit into the pipe's 64 KiB buffer is still queued in the process
+ * and is dropped with it. So `abap2ui5lint src --json | jq` on a failing
+ * corpus handed jq exactly 65,536 bytes of a 175 KB document - and the one
+ * run whose report matters, the failing one, was the one that lost it (the
+ * GitHub annotations printed last went first). A terminal and a file are
+ * written synchronously, which is why nobody saw it there.
+ *
+ * Every exit after output therefore waits for stdout and stderr to drain.
+ * The end of a normal run does not call this at all: it sets
+ * `process.exitCode` and lets the event loop run dry, which flushes by
+ * construction; this is for the early exits in the middle of the module
+ * (--explain, --help), where returning is not an option. Awaited at the top
+ * level, so nothing after it runs while the pipes drain. */
+const exitFlushed = async (code) => {
+  process.exitCode = code;
+  await Promise.all([process.stdout, process.stderr].map((s) => new Promise((resolve) => {
+    try { s.write('', () => resolve()); } catch { resolve(); }
+  })));
+  process.exit(code);
+};
+
 /*
  * `--help` prints the header block of this file.
  *
@@ -335,7 +358,7 @@ const args = process.argv.slice(2);
     }
     if (!ids.length) {
       console.log(formatRuleIndex());
-      process.exit(0);
+      await exitFlushed(0);
     }
     const known = ruleIndex().flatMap((c) => c.ids);
     /* A path behind the ids (`--explain unknown-control src/`) used to be
@@ -357,7 +380,7 @@ const args = process.argv.slice(2);
         : ` - \`abap2ui5lint --explain\` lists every id, and so does ${RULES_PAGE}`}`);
     }
     console.log(formatExplain(ids));
-    process.exit(0);
+    await exitFlushed(0);
   }
 }
 
@@ -565,16 +588,16 @@ for (let i = 0; i < args.length; i++) {
 `);
     console.log(`abap2ui5lint: wrote ${path.relative(process.cwd(), target)}`);
     console.log('             read it - every default in there is a choice you may want to make differently');
-    process.exit(0);
+    await exitFlushed(0);
   }
   else if (a === '--version' || a === '-v') {
     const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
     console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
-    process.exit(0);
+    await exitFlushed(0);
   }
   else if (a === '--help' || a === '-h') {
     console.log(helpText());
-    process.exit(0);
+    await exitFlushed(0);
   } else if (a.startsWith('-')) die(`unknown option '${a}'\n${usageBlock()}`);
   else paths.push(a);
 }
@@ -1231,6 +1254,10 @@ async function watchLoop() {
 if (watchMode) {
   await watchLoop();
 } else {
-  const code = await runOnce(resolveRun());
-  if (code) process.exit(code);
+  /* exitCode, never exit( ): the report may still be queued for a pipe (see
+   * exitFlushed), and a run leaves nothing behind that would keep the event
+   * loop alive - checkFiles closes the renderer it opened, the renderer
+   * closes its browser and its server - so the process ends the moment the
+   * last byte is out. */
+  process.exitCode = await runOnce(resolveRun());
 }
