@@ -391,7 +391,17 @@ declare module "@abap2ui5/linter/properties" {
   /** The ui5Version of the committed metadata snapshot ('' if unreadable). */
   export function snapshotVersion(file?: string): string;
 
-  export function parseXml(xml: string): ViewNode;
+  /** The lenient tree of a raw view, plus `malformed`: what an XML parser
+   *  would refuse about its tag structure, which checkNodes( ) reports as
+   *  `malformed-xml` (empty for a well-formed document). */
+  export function parseXml(xml: string): ViewNode & {
+    malformed: Array<{
+      kind: "duplicate-attribute" | "mismatched-tag" | "unclosed-tag" | "stray-close";
+      name: string;
+      other?: string;
+      offset: number;
+    }>;
+  };
 
   /** id -> resolved control name for every literal id of a view tree - the
    *  ABAP-side rules judge CONTROL_BY_ID wires against it. */

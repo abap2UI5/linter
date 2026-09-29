@@ -5565,6 +5565,7 @@ section('rules page', async () => {
       ['trailing-whitespace', 'the blanks the rule is about end a line the frame rewrites (the dot goes there)'],
       ['missing-final-newline', 'the frame always ends its class with a newline'],
       ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
+      ['malformed-xml', 'the builder serializes a tree, so no class can write a document that is not well-formed - the card is raw XML'],
       ['validating-setter-out-of-range', 'the only lower-bounded setter in the snapshot belongs to sap.ui.unified.RecurringCalendarAppointment, a control newer than the default floor - there it is too new for its values to be judged at all'],
     ]);
     const wrappedFires = (id, half) => {

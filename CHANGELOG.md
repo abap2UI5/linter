@@ -72,6 +72,18 @@
   more builder literals (`ns = \`form\``, `\`form:X\``, `n = \`core:require\``)
   than its documents carry. A prefix written nowhere is still reported.
 
+- **New rule `malformed-xml` (error).** A raw `*.view.xml` /
+  `*.fragment.xml` with a duplicate attribute, a `</contnt>` for `<content>`
+  and no closing root tag passed `--no-render` with "Success!" and exit 0:
+  the XML reader behind the property gate is lenient on purpose, and nothing
+  asked whether the document was well-formed - which the browser's parser
+  decides before UI5 sees a control, refusing the whole view. `parseXml( )`
+  now records mismatched, unclosed and stray closing tags and duplicate
+  attributes as `root.malformed` (tags inside CDATA and comments are text),
+  and `checkNodes( )` reports each once, so the VS Code extension's and
+  mcp-server's self-assembled pipelines get it too. The tree the other rules
+  judge is built exactly as before.
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

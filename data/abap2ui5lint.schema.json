@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 157 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 158 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -486,6 +486,10 @@
         "loop-work-area-bound": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'loop-work-area-bound' — default severity: warning"
+        },
+        "malformed-xml": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'malformed-xml' — default severity: error"
         },
         "manual-init-flag": {
           "$ref": "#/definitions/rule",

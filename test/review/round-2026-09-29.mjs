@@ -281,4 +281,28 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     const docrules = fs.readFileSync(f('docrules.clas.abap'), 'utf8');
     assert(ns(docrules).length === 3, `a re-display in ELSEIF keeps the verdict (${ns(docrules).length})`);
   });
+
+  /* ── 6. a view that is not well-formed is not a clean view ───────────── */
+
+  section('round 2026-09-29: malformed-xml - a mismatched close, an unclosed root and a duplicate attribute', () => {
+    const xml = fs.readFileSync(f('malformed.view.xml'), 'utf8');
+    const hits = checkXmlSource(xml, { render: false }).findings.filter((x) => x.type === 'malformed-xml');
+    const kinds = hits.map((x) => `${x.member}:${x.control}${x.value ? `/${x.value}` : ''}@${x.line}`);
+    assert(kinds.join() === 'unclosed-tag:mvc:View@1,duplicate-attribute:Page/title@3,mismatched-tag:contnt/content@7',
+      `the three defects, each once, in document order (${kinds.join(', ')})`);
+    assert(hits.every((x) => x.severity === 'error'), 'an error - the browser refuses the document');
+    const cli = run([f('malformed.view.xml'), '--no-render', '--no-config', '--no-progress']);
+    assert(cli.code === 1 && !/Success!/.test(cli.out), `the property-gate-only run fails instead of "Success!" (${cli.code})`);
+    const clean = (x) => checkXmlSource(x, { render: false }).findings.filter((y) => y.type === 'malformed-xml').length;
+    assert(clean(fs.readFileSync(f('sample.view.xml'), 'utf8')) === 0, 'a well-formed view carries none');
+    assert(clean('<mvc:View xmlns:mvc="sap.ui.core.mvc"><core:HTML xmlns:core="sap.ui.core"><![CDATA[<br><b>x]]></core:HTML></mvc:View>') === 0,
+      'tags inside CDATA are text');
+    assert(clean('<mvc:View xmlns:mvc="sap.ui.core.mvc"><!-- </Page> --></mvc:View>') === 0, 'and so are tags inside a comment');
+    const stray = checkXmlSource('<mvc:View xmlns:mvc="sap.ui.core.mvc"/></Page>', { render: false }).findings.filter((y) => y.type === 'malformed-xml');
+    assert(stray.length === 1 && stray[0].member === 'stray-close', `a close with nothing open is its own kind (${stray.map((y) => y.member)})`);
+    const skipped = checkXmlSource('<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"><Page><VBox></Page></mvc:View>', { render: false })
+      .findings.filter((y) => y.type === 'malformed-xml');
+    assert(skipped.length === 1 && skipped[0].member === 'unclosed-tag' && skipped[0].control === 'VBox' && skipped[0].value === 'Page',
+      `an element a close further out skips is unclosed, named with the close that skipped it (${skipped.map((y) => `${y.member}:${y.control}/${y.value}`)})`);
+  });
 }
