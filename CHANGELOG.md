@@ -49,15 +49,19 @@
   after `--update-baseline` over `src` (57 entries), linting one file with
   `--baseline` reported "56 STALE entries" and exited 1 - also under
   `--advisory`, whose help promises exit 0, and under `--stdin`. Now only an
-  entry of a linted file can be stale, or of a file that is gone from disk
-  (nothing will ever match it again). `--update-baseline` on one file
-  replaced the whole baseline with that file's entries; it now replaces the
-  linted files' entries and keeps the others, dropping only those of deleted
+  entry of a file the run looked at can be stale - one it linted, or one
+  under a path it walked that it no longer collects (a class that stopped
+  building a view cannot have a finding, so its entries are stale like a
+  deleted file's) - or of a file that is gone from disk (nothing will ever
+  match it again). `--update-baseline` on one file replaced the whole
+  baseline with that file's entries; it now replaces the entries of the
+  files the run looked at and keeps the others, dropping those of deleted
   files. `--advisory` / `--fail-on never` report stale entries and exit 0.
   `--json` carries an additive `baseline` block (`file`, `suppressed`,
   `byRule`, `stale: [{ key, count }]`), so a document saying `failing: 0`
   next to exit 1 names the reason. `updateBaseline( )` and `keyFile( )` are
-  new in `./baseline`.
+  new in `./baseline`; `applyBaseline( )` and `updateBaseline( )` take
+  `{ scope }`, the paths the run walked.
 
 - **`--fix` no longer deletes a namespace a helper still uses.**
   `unused-namespace-declaration` judged the reconstructed view as if it were

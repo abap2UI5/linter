@@ -61,11 +61,12 @@
  *                      to adopt the linter on a codebase that already exists.
  *                      A NEW finding still fails; a recorded one that no
  *                      longer occurs fails too, as a stale entry - judged
- *                      for the files this run linted (and for files that
- *                      are gone), never for a file it did not look at
+ *                      for the files under the paths this run walked (and
+ *                      for files that are gone), never for a file it did
+ *                      not look at
  *   --update-baseline  write/refresh that file from this run and exit 0: the
- *                      entries of the files linted are replaced, every other
- *                      file's are kept
+ *                      entries of the files under the paths walked are
+ *                      replaced, every other file's are kept
  *   --cache            store each file's result and replay it on the next run
  *                      while nothing relevant changed - the file's content,
  *                      the linter version, the metadata snapshot and every
@@ -1054,7 +1055,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * too — a suppression can never quietly outlive what it suppressed. */
   if (updateBaseline) {
     const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
-    /* The files this run linted get their entries replaced; every other
+    /* The files this run looked at get their entries replaced; every other
      * file's entries stay. Rebuilding from this run alone shrank a baseline
      * over `src` to the one file an update happened to be run on. */
     let previous = null;
@@ -1063,7 +1064,9 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     }
     // keys are relative to the baseline file's own directory, so every runner
     // (CLI from any cwd, the Action, the VS Code extension) computes the same
-    const map = mergeBaseline(previous, results, baselineBase(file));
+    // scope: the paths the run walked - an entry of a file under them that
+    // was not collected (it builds no view any more) is dropped, not kept
+    const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
     writeBaseline(file, map);
     const n = [...map.values()].reduce((s, c) => s + c, 0);
     console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
@@ -1075,7 +1078,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   if (opt.baseline && fs.existsSync(opt.baseline)) {
     let map;
     try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline));
+    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline), { scope: stdinMode ? [] : paths });
     baselineStale = stale;
     baselineStats = { suppressed, byRule, stale: stale.length, staleEntries: stale, file: path.relative(process.cwd(), opt.baseline) };
     baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
