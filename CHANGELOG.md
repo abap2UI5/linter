@@ -59,6 +59,19 @@
   next to exit 1 names the reason. `updateBaseline( )` and `keyFile( )` are
   new in `./baseline`.
 
+- **`--fix` no longer deletes a namespace a helper still uses.**
+  `unused-namespace-declaration` judged the reconstructed view as if it were
+  the whole view. abap2UI5's own `z2ui5_cl_ui5_app_start` declares
+  `xmlns:form` for the SimpleForm its `create_layout_form( )` helper adds - a
+  RETURNING helper whose result is assigned, which the reconstructor does not
+  follow - and without its waiver comments the finding came with a deleting
+  fix that broke the view. The rule now stands down for a class whose
+  reconstruction is known incomplete (a builder call it could not place,
+  `unplacedTokens` on `prepareAbap( )` - `helperTokens` without a mere second
+  `stringify( )` of a finished view), and for a prefix the class writes in
+  more builder literals (`ns = \`form\``, `\`form:X\``, `n = \`core:require\``)
+  than its documents carry. A prefix written nowhere is still reported.
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as

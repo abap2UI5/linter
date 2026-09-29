@@ -231,6 +231,10 @@ declare module "@abap2ui5/linter/reconstruct" {
     docKinds: Array<"view" | "fragment" | undefined>;
     notes: string[];
     helperTokens: number;
+    /** The builder calls among helperTokens that BUILD something the
+     *  reconstruction could not place (a second stringify( ) of a finished
+     *  view does not count) - > 0 means the documents are known incomplete. */
+    unplacedTokens: number;
     /** Structural defects of the builder chain itself (excess-shut,
      *  duplicate-property, …) — consumed as findings by checkAbapSource. */
     structure: PropertyFinding[];
@@ -297,7 +301,7 @@ declare module "@abap2ui5/linter/reconstruct" {
     notes: string[],
     structure: PropertyFinding[],
     dialect?: unknown
-  ): { docs: ViewNode[]; helperTokens: number };
+  ): { docs: ViewNode[]; helperTokens: number; unplacedTokens: number };
 
   /** extractDocs plus the handle-taking helper methods replayed into the
    *  chain that calls them. `helperTokens > 0` means the reconstruction is

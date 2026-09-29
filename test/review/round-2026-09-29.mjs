@@ -14,7 +14,7 @@ import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 import { libRoots, missingRenderDeps, runtimeSnapshotMismatch, browserLaunchError } from '../../lib/render.mjs';
 
-export default async function ({ section, assert, f, FIX, tempDir }) {
+export default async function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource }) {
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
   const run = (args, { cwd, input, env = {} } = {}) => {
@@ -252,5 +252,33 @@ export default async function ({ section, assert, f, FIX, tempDir }) {
     fs.rmSync(path.join(dir, 'abaprules.clas.abap'));
     run([dir, ...base, '--update-baseline']);
     assert(!Object.keys(entries()).some((k) => k.startsWith('abaprules.clas.abap|')), 'an update drops the entries of a file that is gone');
+  });
+
+  /* ── 5. a namespace the reconstruction did not see used is not unused ── */
+
+  /* helperns.clas.abap is the shape of abap2UI5's z2ui5_cl_ui5_app_start:
+   * the root declares xmlns:form for a SimpleForm a RETURNING helper adds,
+   * and the caller assigns the helper's result - a call the reconstructor
+   * does not follow. The finding came with a deleting --fix, which broke the
+   * view. unplacedns.clas.abap builds on a handle the reconstruction cannot
+   * place, with the prefix in a variable: nothing in the text shows the use. */
+  section('round 2026-09-29: unused-namespace-declaration stands down where the view is not fully seen', () => {
+    const opts = { render: false, properties: true };
+    const ns = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'unused-namespace-declaration');
+    const helper = fs.readFileSync(f('helperns.clas.abap'), 'utf8');
+    const unplaced = fs.readFileSync(f('unplacedns.clas.abap'), 'utf8');
+    assert(ns(helper).length === 0,
+      `a prefix a helper the reconstructor does not follow writes is not reported, so no fix deletes it (${ns(helper).map((x) => x.member).join(',')})`);
+    assert(ns(unplaced).length === 0,
+      `a class with a builder call the reconstruction could not place is not judged (${ns(unplaced).map((x) => x.member).join(',')})`);
+    const fixed = run([f('helperns.clas.abap'), '--no-render', '--no-config', '--fix-dry-run']);
+    assert(!/unused-namespace-declaration/.test(fixed.out), `--fix would not touch the declaration (${fixed.out.slice(0, 200)})`);
+    // the rule still works where it can see: a prefix used nowhere at all
+    const stale = helper.replace('`xmlns:form` v = `sap.ui.layout.form`', '`xmlns:form` v = `sap.ui.layout.form`\n          )->a( n = `xmlns:f`    v = `sap.f`');
+    assert(ns(stale).map((x) => x.member).join() === 'f',
+      `beside it, a prefix the class writes nowhere is still reported (${ns(stale).map((x) => x.member).join(',')})`);
+    // and a second stringify( ) of a finished view is not an incomplete one
+    const docrules = fs.readFileSync(f('docrules.clas.abap'), 'utf8');
+    assert(ns(docrules).length === 3, `a re-display in ELSEIF keeps the verdict (${ns(docrules).length})`);
   });
 }
