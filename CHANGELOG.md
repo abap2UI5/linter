@@ -122,6 +122,13 @@
   upgrade. The run after `npm i -D @abap2ui5/linter-render@latest` replayed
   the old runtime's render errors. A rendering run's cache is now keyed by
   that release too; a property-only run's is not, and survives the upgrade.
+- **`--format markdown` keeps the tags its messages quote.** A table cell
+  passed a message through as raw HTML, and GitHub's sanitizer drops an
+  element it does not know: in a PR comment or a job summary
+  `<Page> carries the attribute title twice` read " carries the attribute
+  title twice", `close <content> with </content>` read "close  with ", and
+  `<mvc:View>` became a link to `mvc:View`. `&`, `<` and `>` are escaped as
+  entities now.
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
   as "Unexpected token"; it is stripped before parsing.

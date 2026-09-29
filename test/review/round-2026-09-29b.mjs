@@ -184,4 +184,36 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     cli(['good.clas.abap', '--no-render', '--cache', '--no-config', '--no-progress']);
     assert(context() === propsBefore, 'a property-only run keeps its cache across the same move');
   });
+
+  /* ── 5. the markdown report keeps the tag names it quotes ────────────── */
+
+  /* The markdown format is written for a PR comment and $GITHUB_STEP_SUMMARY,
+   * and its messages quote markup: `<Page> carries the attribute title
+   * twice`, `close <content> with </content>`, `a <style> block`. A table
+   * cell passed them through as RAW HTML - GitHub's sanitizer drops an
+   * unknown element, so the rendered comment read " carries the attribute
+   * title twice" and "close  with ", and `<mvc:View>` became an autolink to
+   * `mvc:View`. A cell escapes `&`, `<` and `>` now, which every markdown
+   * renderer turns back into the characters. */
+  section('round 2026-09-29b: --format markdown escapes the markup its messages quote', async () => {
+    const { formatMarkdown, summarize } = await import('../../lib/report.mjs');
+    const results = [{
+      file: 'v.view.xml', renderErrors: [], notes: [],
+      findings: [
+        { type: 'malformed-xml', line: 3, column: 5, severity: 'error', message: '</contnt> closes nothing that is open — <content> is; close <content> with </content>' },
+        { type: 'malformed-xml', line: 1, column: 1, severity: 'error', message: '<mvc:View> is never closed' },
+        { type: 'undefined-css-class', line: 2, column: 1, severity: 'hint', message: 'a <style> block & a pipe | and a \\| backslash' },
+      ],
+    }];
+    const md = formatMarkdown(results, summarize(results), {});
+    const rows = md.split('\n').filter((l) => /^\| \d+:\d+ \|/.test(l));
+    assert(rows.length === 3, `three rows (${rows.length})`);
+    const cells = rows.map((r) => r.split(' | ')[2] ?? '');
+    const cell = (word) => cells.find((c) => c.includes(word)) ?? '';
+    assert(cells.every((c) => !/[<>]/.test(c)), `no raw < or > in a message cell (${cells.join(' // ')})`);
+    assert(cell('contnt').includes('&lt;/contnt&gt;') && cell('contnt').includes('&lt;content&gt;') && cell('never closed').includes('&lt;mvc:View&gt;'),
+      'the tags arrive as entities a renderer shows as <content>');
+    assert(cell('style').includes('&lt;style&gt;') && cell('style').includes('&amp;') && cell('style').includes('\\|') && cell('style').includes('\\\\\\|'),
+      `an ampersand is escaped first, the pipe and the backslash still are (${cell('style')})`);
+  });
 }
