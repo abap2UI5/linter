@@ -135,6 +135,14 @@
   reference, where `#` starts the fragment: the location named `src/`, and
   code scanning had no file to put the alert on. A blank in a path was no
   URI character either. Every segment is percent-encoded now.
+- **A `--no-render` run over a corpus is about a quarter faster.** Every
+  reader of DATA/TYPES/CONSTANTS declarations split the whole class into
+  statements again - three `parseData( )` and four `staticAttributes( )`
+  splits per class, over the same scrubbed source - which was 121 MB of
+  splitting for the 12 MB of samples-controls' 642 classes and a quarter of
+  the run. `splitStatements( )` is memoized like `scrub( )` (its shared
+  result frozen), and the run went from ~13 s to ~10 s with byte-identical
+  findings over samples-controls and abap2UI5.
 - **A byte-order mark no longer breaks the config or the baseline.** A file
   saved by Notepad or PowerShell's `Out-File` started with U+FEFF and failed
   as "Unexpected token"; it is stripped before parsing.

@@ -237,4 +237,26 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     const back = uris.map((u) => decodeURIComponent(new URL(u, 'file:///repo/').pathname).replace(/^\/repo\//, ''));
     assert(back.join() === files.join(), `and every URI resolves back to its file, no fragment cut off (${back.join(', ')})`);
   });
+
+  /* ── 7. a class is split into statements once ────────────────────────── */
+
+  /* Profiling a --no-render run over samples-controls (642 classes, ~13 s)
+   * found splitStatements( ) called 8,106 times from declarationElements
+   * alone - three parseData calls and two staticAttributes calls of two
+   * keywords each per class, all over the same scrubbed source: 121 MB split
+   * for 12 MB of classes, a quarter of the run. It is memoized now (the
+   * findings over both corpora are byte-identical, the run takes ~10 s), and
+   * the shared result is frozen so no caller can change it for the next. */
+  section('round 2026-09-29b: splitStatements is memoized and hands out a frozen result', async () => {
+    const { splitStatements } = await import('../../lib/abap.mjs');
+    const src = fs.readFileSync(f('good.clas.abap'), 'utf8');
+    const a = splitStatements(src);
+    const b = splitStatements(`${src}`);
+    assert(a === b, 'the same source is split once - the second call is the first result');
+    assert(Object.isFrozen(a) && a.every((st) => Object.isFrozen(st)), 'the shared result and its statements are frozen');
+    let threw = false;
+    try { a[0].text = 'x'; } catch { threw = true; }
+    assert(threw && a[0].text !== 'x', 'a caller writing into it throws instead of corrupting the next caller\'s statements');
+    assert(a.map((st) => src.slice(st.offset, st.offset + st.text.length) === st.text).every(Boolean), 'and every statement still addresses the source');
+  });
 }
