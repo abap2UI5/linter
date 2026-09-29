@@ -317,4 +317,41 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     const own = /"\$schema": "([^"]+)"/.exec(fs.readFileSync(path.join(vendored, 'abap2ui5lint.jsonc'), 'utf8'))?.[1];
     assert(own === './tools/linter/data/abap2ui5lint.schema.json', `a vendored copy keeps its relative path (${own})`);
   });
+
+  /* ── 10. an output file that cannot be written ───────────────────────── */
+
+  /* The report goes to stdout; --sarif-out / --json-out and the badges are
+   * files written beside it, AFTER it. A sidecar that could not be written
+   * threw out of the run - a stack trace and exit 1, the findings code, on a
+   * clean run - and a badge that could not be written went through die( ),
+   * i.e. process.exit(2), which is exactly the exit the first round took out
+   * of the report path: a piped report larger than the pipe buffer was cut
+   * off at 64 KiB. Both are now one line on stderr and exit 2, set as the
+   * exit code, after the report has drained. */
+  section('round 2026-09-29b: a sidecar or badge that cannot be written is exit 2, and the report arrives whole', () => {
+    const dir = tempDir('a2l-outfail-');
+    const blocker = path.join(dir, 'a-file');
+    fs.writeFileSync(blocker, 'not a directory');
+    const clean = run([f('good.clas.abap'), '--no-render', '--no-config', '--no-progress', '--sarif-out', path.join(blocker, 'x.sarif')]);
+    assert(clean.code === 2 && /could not write/.test(clean.err) && !/\n\s+at /.test(clean.err),
+      `--sarif-out into a path that cannot exist: one line and exit 2, no stack trace (${clean.code}: ${clean.err.slice(0, 200)})`);
+    assert(/Success!/.test(clean.out), 'the report itself was printed');
+    const json = run([f('good.clas.abap'), '--no-render', '--no-config', '--no-progress', '--json-out', path.join(blocker, 'x.json')]);
+    assert(json.code === 2 && /could not write/.test(json.err), `--json-out the same (${json.code})`);
+    const bl = run([f('good.clas.abap'), '--no-render', '--no-config', '--no-progress', '--update-baseline', '--baseline', path.join(blocker, 'bl.json')]);
+    assert(bl.code === 2 && /could not write the baseline file/.test(bl.err) && !/\n\s+at /.test(bl.err),
+      `--update-baseline the same (${bl.code}: ${bl.err.slice(0, 120)})`);
+
+    const corpus = tempDir('a2l-outfail-corpus-');
+    const src = fs.readFileSync(f('structure.clas.abap'), 'utf8');
+    for (let i = 0; i < 30; i++) fs.writeFileSync(path.join(corpus, `zcl_out${i}.clas.abap`), src.replace(/zcl_structure/gi, `zcl_out${i}`));
+    const cmd = `{ node ${JSON.stringify(CLI)} ${JSON.stringify(corpus)} --no-render --no-config --no-progress --json --badge ${JSON.stringify(path.join(blocker, 'b.json'))}; echo "exit=$?" >&2; } | { sleep 1; cat; }`;
+    const r = cp.spawnSync('sh', ['-c', cmd], { encoding: 'utf8', env: ENV, maxBuffer: 64 * 1024 * 1024 });
+    let doc = null;
+    try { doc = JSON.parse(r.stdout); } catch { /* cut off */ }
+    const code = Number(/exit=(\d+)/.exec(r.stderr ?? '')?.[1]);
+    assert(r.stdout.length > 64 * 1024 && doc?.results?.length === 30,
+      `a badge that cannot be written no longer cuts the piped report off (${r.stdout.length} bytes, ${doc ? 'parses' : 'does not parse'})`);
+    assert(code === 2 && /could not write the badge file/.test(r.stderr), `and it is still exit 2 with the reason (${code})`);
+  });
 }

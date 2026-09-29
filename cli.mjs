@@ -881,15 +881,30 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * the one below that found NOTHING, which is the state a stale "148 apps"
    * and "clean" would hide longest - and always before the exit code is
    * decided. */
+  /* A file written BESIDE the report - a badge, --sarif-out, --json-out.
+   * One that cannot be written is the tool-error exit 2 and one line on
+   * stderr, and it is RETURNED, never exited on: all of them are written
+   * after the report, and process.exit( ) there (die( )) cut a piped report
+   * off at the pipe buffer - the defect the first round removed from the
+   * report path - while a sidecar that threw ended a clean run with a stack
+   * trace and exit 1, the findings code. */
+  let outputFailed = false;
+  const writeBeside = (what, file, text) => {
+    try {
+      fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+      fs.writeFileSync(file, text);
+      return true;
+    } catch (e) {
+      console.error(`abap2ui5lint: could not write ${what} ${file}: ${e.message}`);
+      outputFailed = true;
+      return false;
+    }
+  };
   const emitBadge = (summary, stats) => {
     if (!opt.badge) return;
     for (const badge of opt.badge) {
-      try {
-        fs.mkdirSync(path.dirname(path.resolve(badge.file)), { recursive: true });
-        fs.writeFileSync(badge.file, `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`);
-      } catch (e) {
-        die(`could not write the badge file ${badge.file}: ${e.message}`);
-      }
+      const text = `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`;
+      if (!writeBeside('the badge file', badge.file, text)) continue;
       if (opt.format === 'stylish' && !opt.quiet) {
         console.log(`badge: wrote ${path.relative(process.cwd(), path.resolve(badge.file))}`);
       }
@@ -908,7 +923,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
         : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
     }
     emitBadge(empty, runStats([]));
-    return 0;
+    return outputFailed ? 2 : 0;
   }
 
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
@@ -1076,7 +1091,8 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     // scope: the paths the run walked - an entry of a file under them that
     // was not collected (it builds no view any more) is dropped, not kept
     const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
-    writeBaseline(file, map);
+    // nothing is printed yet, so die( ) cuts nothing off here
+    try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
     const n = [...map.values()].reduce((s, c) => s + c, 0);
     console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
     return 0;
@@ -1161,13 +1177,11 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * has to run the whole thing twice, and the second run pays the render gate
    * again. The formatters are pure functions of `results`, so the sidecar costs
    * a serialization and nothing else. */
-  for (const [file, text] of [
-    [opt.sarifOut, () => formatSarif(results)],
-    [opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
+  for (const [what, file, text] of [
+    ['the SARIF file', opt.sarifOut, () => formatSarif(results)],
+    ['the JSON file', opt.jsonOut, () => formatJson(results, summary, { ...reportOpt, stats })],
   ]) {
-    if (!file) continue;
-    fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-    fs.writeFileSync(file, `${text()}\n`);
+    if (file) writeBeside(what, file, `${text()}\n`);
   }
 
   emitBadge(summary, stats);
@@ -1217,6 +1231,8 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * under --advisory / --fail-on never, which promise exit 0 whatever the
    * report says. It is still reported. */
   const staleFails = baselineStale.length > 0 && threshold !== Infinity;
+  // an output the run was asked for and could not write is a tool error (2)
+  if (outputFailed) return 2;
   return summary.failing > 0 || staleFails || overWarningCap ? 1 : 0;
 }
 

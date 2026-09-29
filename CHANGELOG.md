@@ -12,6 +12,15 @@
   output is out; the early exits (`--explain`, `--help`, `--version`,
   `--init`) wait for stdout and stderr to drain first. Exit codes unchanged.
 
+- **An output file that cannot be written is exit 2, and the report still
+  arrives whole.** `--sarif-out` / `--json-out` into a path that cannot be
+  created threw out of the run - a stack trace and exit 1, the findings
+  code, on a clean run - and so did `--update-baseline`; a badge that could
+  not be written exited through `process.exit(2)` after the report had been
+  printed, which cut a piped report off at the pipe buffer again. Each is
+  one line on stderr and exit 2 now, and the files written beside the report
+  set the exit code instead of exiting.
+
 - **The render gate works under pnpm, and no longer hangs when it cannot.**
   The resource server served "the folder `@openui5/sap.ui.core` is in", which
   in a flat npm tree holds every library and under pnpm holds sap.ui.core
