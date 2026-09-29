@@ -157,6 +157,13 @@
   property-walk rule" when the property gate is off - `WALK_ONLY_RULES` in
   `./properties`, gated against the emit sites), and `ruleRuns( )` in
   `./findings` is the `rules` block's.
+- **A bare directive is not called unused by a run without the property
+  gate either.** Under `--no-properties` a directive with no id (so: every
+  rule) over a line whose only finding is a property-walk one still read
+  "suppressed nothing … remove the directive". It is unjudged whenever the
+  run left a gate out (`parseDirectives( … { gatesRan })`); a rule the
+  `rules` block switched off does not make it so, since the config speaks
+  for every run of the repository.
 - **`ignore` and the render gate's `exclude` mean the same thing however
   the run is started.** abap2UI5/linter#35 made a `rules[id].exclude` pattern
   match every spelling of a path - the absolute one a config's `paths`

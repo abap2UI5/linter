@@ -9,7 +9,7 @@ import cp from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-export default async function ({ section, assert, f, FIX, tempDir, checkXmlSource, prepareAbap }) {
+export default async function ({ section, assert, f, FIX, tempDir, checkXmlSource, checkAbapSource, prepareAbap }) {
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
   const run = (args, { cwd, input, env = {} } = {}) => {
@@ -531,5 +531,46 @@ ENDCLASS.
     }
     const end = await Promise.race([exited, new Promise((r) => setTimeout(() => r({ code: 'timeout' }), 15000))]);
     assert(end.code === 0 || process.platform === 'win32', `and Ctrl+C still ends it with exit 0 (${end.code ?? end.signal})`);
+  });
+
+  /* ── 17. a bare directive under --no-properties is unjudged too ────────── */
+
+  /* The first round made a directive NAMING a rule that did not run
+   * unjudged instead of unused - `--no-properties` had told authors to delete
+   * the waivers the full run needs. A BARE directive (no id: every rule) kept
+   * the old verdict: over a line whose only finding is a property-walk one,
+   * `--no-properties` still said "suppressed nothing … remove the
+   * directive". It is unjudged now whenever the run left a gate out; with
+   * every gate on it is judged as before. */
+  section('round 2026-09-29b: a bare directive is not called unused by a run that left the property gate out', () => {
+    const src = (attr) => `CLASS zcl_bare DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+
+CLASS zcl_bare IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF client->check_on_navigated( ).
+      DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+      view->ele( n = \`View\` ns = \`mvc\`
+          )->a( n = \`xmlns\`     v = \`sap.m\`
+          )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+          )->ele( \`Page\`
+              )->tag( \`Button\`
+                  " abap2ui5lint-disable-next-line
+                  )->a( n = \`${attr}\` v = \`x\`
+          )->end( ).
+      client->view_display( view->stringify( ) ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+`;
+    const unused = (r) => r.findings.filter((x) => x.type === 'unused-directive').length;
+    assert(unused(checkAbapSource(src('textt'), { file: 'zcl_bare.clas.abap', render: false })) === 0,
+      'the full run: the bare directive waives the unknown-property it stands over');
+    assert(unused(checkAbapSource(src('textt'), { file: 'zcl_bare.clas.abap', render: false, properties: false })) === 0,
+      'without the property gate it is unjudged - not "remove the directive"');
+    assert(unused(checkAbapSource(src('text'), { file: 'zcl_bare.clas.abap', render: false })) === 1,
+      'and with every gate on, one over a clean line is still unused');
   });
 }

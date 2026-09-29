@@ -780,8 +780,10 @@ declare module "@abap2ui5/linter/findings" {
   export function parseDirectives(
     source: string,
     /** `ran(id)`: whether the rule ran on this source - an id that did not
-     *  is never reported as an unused directive. Default: every rule ran. */
-    opts?: { ran?: (id: string) => boolean }
+     *  is never reported as an unused directive. Default: every rule ran.
+     *  `gatesRan`: false when the run left a whole gate out (the property
+     *  walk) - a BARE directive is then unjudged too. Default: true. */
+    opts?: { ran?: (id: string) => boolean; gatesRan?: boolean }
   ): {
     suppresses(line: number, rule: string, own?: unknown): boolean;
     findings(): PropertyFinding[];
