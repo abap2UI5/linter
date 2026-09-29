@@ -425,4 +425,21 @@ ENDCLASS.
     const same = fs.existsSync(out) && fs.readFileSync(out, 'utf8') === fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8');
     assert(same, 'and writes the committed snapshot byte for byte');
   });
+
+  /* ── 8a. the peer ranges say what can be installed ───────────────────── */
+
+  section('round 2026-09-29: the linter-render floor is its first published line', async () => {
+    const { FLOOR, LEGACY, satisfies } = await import('../../scripts/peer-range.mjs');
+    const pkg = JSON.parse(fs.readFileSync(path.join(FIX, '..', '..', 'package.json'), 'utf8'));
+    const range = pkg.peerDependencies['@abap2ui5/linter-render'];
+    // @abap2ui5/linter-render was first published as 0.8.0; 0.7.0 is the last
+    // line of the pre-rename name and was never published under this one
+    assert(FLOOR === '0.8.0' && satisfies(range, '0.7.0') === false && satisfies(range, '0.8.0') === true,
+      `the range starts at 0.8.0, the script and package.json agreeing (${FLOOR}, '${range}')`);
+    // the legacy range stays frozen on purpose (see LEGACY in the script):
+    // narrowing it would be an ERESOLVE for every 0.1-0.6 install, and the
+    // version gap those lines have is named by runtimeSnapshotMismatch instead
+    assert(satisfies(LEGACY.range, '0.6.1') === true && satisfies(LEGACY.range, '0.7.0') === true,
+      `the legacy range still admits the installed lines (${LEGACY.range})`);
+  });
 }

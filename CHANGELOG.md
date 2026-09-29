@@ -113,6 +113,16 @@
   also resolves each package through `@abap2ui5/linter-render`, through its
   own package and through the current directory.
 
+- **The `@abap2ui5/linter-render` peer range starts at its first
+  published line.** `>=0.7.0 <0.9.0` named a 0.7.0 the registry never had -
+  the name starts at 0.8.0; 0.7.0 is the last `@abap2ui5/render-runtime`.
+  `FLOOR` in `scripts/peer-range.mjs` is 0.8.0 and the range
+  `>=0.8.0 <0.9.0`. The legacy `@abap2ui5/render-runtime` range stays
+  `>=0.1.0 <0.8.0` on purpose: its 0.1-0.6 lines serve UI5 1.151 against the
+  1.152 snapshot, but narrowing an optional peer is an ERESOLVE for every
+  project still on them, so the version gap is named on stderr instead (see
+  above).
+
 ## 0.8.3 - 2026-09-28
 
 - **A variable of a type the class does not declare no longer renders as
