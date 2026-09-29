@@ -126,7 +126,11 @@
   `unplacedTokens` on `prepareAbap( )` - `helperTokens` without a mere second
   `stringify( )` of a finished view), and for a prefix the class writes in
   more builder literals (`ns = \`form\``, `\`form:X\``, `n = \`core:require\``)
-  than its documents carry. A prefix written nowhere is still reported.
+  than its documents carry. A prefix written nowhere is still reported. A
+  waiver of the rule where it stood down is unjudged, not `unused-directive`
+  (`applyDirectives( … { stoodDown })`): the rule did not judge that class,
+  and app_start's own waiver would otherwise have been reported as "remove
+  the directive" on every run over abap2UI5.
 
 - **New rule `malformed-xml` (error).** A raw `*.view.xml` /
   `*.fragment.xml` with a duplicate attribute, a `</contnt>` for `<content>`

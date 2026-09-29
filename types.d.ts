@@ -800,8 +800,11 @@ declare module "@abap2ui5/linter/findings" {
     source: string,
     /** `ran(id)`: whether the caller ran the rule (a gate it switched off
      *  did not); a rule the `rules` block turns off never counts as run. A
-     *  directive naming a rule that did not run is not `unused-directive`. */
-    opts?: { rules?: Record<string, unknown>; file?: string; ran?: (id: string) => boolean }
+     *  directive naming a rule that did not run is not `unused-directive`.
+     *  `stoodDown`: rules that ran and withdrew their verdict on this source
+     *  (unused-namespace-declaration over a view it could not fully see) - a
+     *  directive naming one is unjudged as well. */
+    opts?: { rules?: Record<string, unknown>; file?: string; ran?: (id: string) => boolean; stoodDown?: string[] }
   ): (T | PropertyFinding)[];
 
   /** Whether the `rules` block lets `id` report on `file` at all - not off,

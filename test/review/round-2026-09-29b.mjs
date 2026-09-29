@@ -573,4 +573,35 @@ ENDCLASS.
     assert(unused(checkAbapSource(src('text'), { file: 'zcl_bare.clas.abap', render: false })) === 1,
       'and with every gate on, one over a clean line is still unused');
   });
+
+  /* ── 18. a waiver of a rule that stood down is unjudged ──────────────── */
+
+  /* The first round made unused-namespace-declaration stand down for a class
+   * whose view it cannot fully see (helperns.clas.abap is the shape of
+   * abap2UI5's z2ui5_cl_ui5_app_start: `xmlns:form` for a SimpleForm a
+   * RETURNING helper adds). app_start carries a waiver for exactly that
+   * false positive, and after the round every run over abap2UI5 reported it
+   * as `unused-directive` - "remove the directive" - the only change the
+   * round made across abap2UI5 and samples-controls. A rule that stood down
+   * did not judge the class; by the round's own rule for rules that did not
+   * run, its waiver is unjudged, not unused. */
+  section('round 2026-09-29b: a waiver of unused-namespace-declaration where the rule stood down is not unused', () => {
+    const src = fs.readFileSync(f('helperns.clas.abap'), 'utf8').replace(
+      /(\n\s*)(\)->a\( n = `xmlns:form`)/,
+      '$1" abap2ui5lint-disable-next-line unused-namespace-declaration -- used by the form create_layout_form( ) adds$1$2',
+    );
+    assert(/abap2ui5lint-disable-next-line unused-namespace-declaration/.test(src), 'the waiver sits over the xmlns:form line');
+    const r = checkAbapSource(src, { file: 'helperns.clas.abap', render: false });
+    assert(!r.findings.some((x) => x.type === 'unused-namespace-declaration'), 'the rule stands down for the class, as the first round made it');
+    assert(!r.findings.some((x) => x.type === 'unused-directive'),
+      `and the waiver is not "unused" (${r.findings.filter((x) => x.type === 'unused-directive').map((x) => x.message).join(' | ')})`);
+    // where the rule DID judge, a waiver that suppresses nothing is still unused
+    const good = fs.readFileSync(f('good.clas.abap'), 'utf8').replace(
+      /(\n\s*)(\)->a\( n = `xmlns:mvc`)/,
+      '$1" abap2ui5lint-disable-next-line unused-namespace-declaration$1$2',
+    );
+    assert(/disable-next-line unused-namespace-declaration/.test(good), 'a waiver over a used prefix in a fully seen class');
+    assert(checkAbapSource(good, { file: 'good.clas.abap', render: false }).findings.some((x) => x.type === 'unused-directive'),
+      'is still reported as unused');
+  });
 }
