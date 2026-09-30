@@ -3510,9 +3510,21 @@ section('shared renderer', async () => {
 section('formatters', async () => {
     const { CURATED_FORMATTERS } = await import('../lib/formatters.mjs');
     const renderSrc = fs.readFileSync(path.join(FIX, '..', '..', 'lib', 'render.mjs'), 'utf8');
-    const mirrored = [...renderSrc.matchAll(/^ {6}(\w+): function/gm)].map((m) => m[1]);
+    // each mirror is its own object literal; the method list is read per block
+    const block = (name) => {
+      const from = renderSrc.indexOf(`window.z2ui5.${name} = {`);
+      return from === -1 ? '' : renderSrc.slice(from, renderSrc.indexOf('\n    };', from));
+    };
+    const methods = (src) => [...src.matchAll(/^ {6}(\w+): function/gm)].map((m) => m[1]);
+    const mirrored = methods(block('Formatter'));
     assert(mirrored.sort().join() === [...CURATED_FORMATTERS].sort().join(),
       `formatters: the render harness mirrors exactly the curated set (harness: ${mirrored.join(', ') || 'none'})`);
+    const { CLIPBOARD_CALLBACKS, CLIPBOARD_MODULE } = await import('../lib/formatters.mjs');
+    const clipboard = methods(block('Clipboard'));
+    assert(clipboard.sort().join() === [...CLIPBOARD_CALLBACKS].sort().join(),
+      `formatters: the render harness mirrors exactly the clipboard callbacks (harness: ${clipboard.join(', ') || 'none'})`);
+    assert(renderSrc.includes(`sap.ui.define('${CLIPBOARD_MODULE}'`),
+      'formatters: the render harness registers the clipboard module for core:require');
 });
 
 // ------------------------------------------------ round 2: new rules ----
