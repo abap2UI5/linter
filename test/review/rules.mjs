@@ -244,6 +244,73 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(unassigned, 'unescaped-text-in-attribute').length === 1, 'a name nothing in the class writes is data by definition');
   });
 
+  /* oblomov-dev/cloudy-sapgui, src/zcl_se80_ui.clas.abap before 218da45: the
+   * binding info assembled with CONCATENATE around a `_bind( path = … )`
+   * result. The name had no `=` write, so it read as data, and 0.8.5's
+   * `--fix` moved it onto `t` - which escaped the Tree's `items` binding. */
+  section('review rules: a binding assembled with CONCATENATE … INTO stays on v, and no fix is offered', () => {
+    const src = 'CLASS zcl_review_concat DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + '    TYPES: BEGIN OF ty_node, text TYPE string, END OF ty_node.\n'
+      + '    DATA mt_tree TYPE STANDARD TABLE OF ty_node WITH EMPTY KEY.\n'
+      + '  PROTECTED SECTION.\n  PRIVATE SECTION.\nENDCLASS.\n\n'
+      + 'CLASS zcl_review_concat IMPLEMENTATION.\n\n  METHOD z2ui5_if_app~main.\n\n'
+      + '    DATA(lv_path) = client->_bind( val = mt_tree path = `X` ).\n'
+      + '    DATA lv_bind TYPE string.\n'
+      + '    CONCATENATE `{path:\'` lv_path `\', parameters:{arrayNames:[\'NODES\']}}` INTO lv_bind.\n\n'
+      + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    DATA(scroll) = view->ele( n = `View` ns = `mvc`\n'
+      + '        )->a( n = `xmlns`     v = `sap.m`\n'
+      + '        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+      + '        )->ele( `Page`\n'
+      + '        )->ele( `ScrollContainer` ).\n'
+      + '    scroll->ele( `Tree`\n'
+      + '        )->a( n = `items` v = lv_bind\n'
+      + '        )->ele( `items`\n'
+      + '            )->tag( `StandardTreeItem`\n'
+      + '                )->a( n = `title` v = `{TEXT}` ).\n\n'
+      + '    client->view_display( view->stringify( ) ).\n\n  ENDMETHOD.\n\nENDCLASS.\n';
+    const found = of(src, 'unescaped-text-in-attribute');
+    assert(found.length === 0, `the CONCATENATE around a _bind( ) result is a binding assignment (${found.map((x) => x.value).join() || 'none'})`);
+    assert(/n = `items` v = lv_bind/.test(fixed(src)), '--fix leaves the binding on v');
+  });
+
+  section('review rules: every in-place string build carries its operands\' binding vocabulary to the name', () => {
+    const shapes = {
+      'CONCATENATE of brace literals alone': ['    CONCATENATE `{/` `ROWS}` INTO lv_bind.\n'],
+      'CONCATENATE into an inline DATA( )': ['    CONCATENATE `{path:\'` lv_path `\'}` INTO DATA(lv_inline).\n', 'lv_inline'],
+      'CONCATENATE through a copy of the path': ['    DATA(lv_copy) = lv_path.\n    CONCATENATE `{path:\'` lv_copy `\'}` INTO lv_bind SEPARATED BY space.\n'],
+      'x = x && …': ['    lv_bind = `{path:\'`.\n    lv_bind = lv_bind && lv_path && `\'}`.\n'],
+      'x = `{` && …': ['    lv_bind = `{path:\'` && lv_path && `\'}`.\n'],
+      'x &&= a path': ['    lv_bind = `x`.\n    lv_bind &&= lv_path.\n'],
+      'me->x &&= a brace literal': ['    me->mv_bind = `{path:\'X\'`.\n    me->mv_bind &&= `}`.\n', 'me->mv_bind'],
+      'REPLACE … IN x WITH a path': ['    lv_bind = `{path:\'@\'}`.\n    REPLACE `@` IN lv_bind WITH lv_path.\n'],
+      'REPLACE ALL OCCURRENCES … IN x WITH a path': ['    lv_bind = `@`.\n    REPLACE ALL OCCURRENCES OF `@` IN lv_bind WITH lv_path.\n'],
+    };
+    for (const [shape, [main, target = 'lv_bind']] of Object.entries(shapes)) {
+      const src = frame({
+        defs: '    DATA mv_bind TYPE string.\n    DATA mt_rows TYPE string_table.\n',
+        main: '    DATA lv_bind TYPE string.\n    DATA(lv_path) = client->_bind( val = mt_rows path = abap_true ).\n' + main,
+        attrs: `            )->a( n = \`tooltip\` v = ${target}\n`,
+      });
+      assert(of(src, 'unescaped-text-in-attribute').length === 0, `${shape}: the name stays on v`);
+    }
+    // the same statements over plain data stay findings
+    const plain = {
+      'CONCATENATE over data': '    CONCATENATE `Hits: ` mv_search INTO lv_bind.\n',
+      'x &&= data': '    lv_bind = `Hits: `.\n    lv_bind &&= mv_search.\n',
+      'REPLACE with data': '    lv_bind = `Hits: @`.\n    REPLACE `@` IN lv_bind WITH mv_search.\n',
+      'a lone brace literal assigned whole': '    lv_bind = `{/X}`.\n    lv_bind = |{ lv_bind }{ mv_search }|.\n',
+    };
+    for (const [shape, main] of Object.entries(plain)) {
+      const src = frame({
+        defs: '    DATA mv_search TYPE string.\n',
+        main: '    DATA lv_bind TYPE string.\n' + main,
+        attrs: '            )->a( n = `tooltip` v = lv_bind\n',
+      });
+      assert(of(src, 'unescaped-text-in-attribute').length === 1, `${shape}: still data`);
+    }
+  });
+
   section('review rules: a t attribute reconstructs escaped, as the running view carries it', async () => {
     const { prepareAbap } = await import('../../lib/reconstruct.mjs');
     const src = frame({
