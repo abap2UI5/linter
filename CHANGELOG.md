@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.4 - 2026-09-30
+
 - **A failing report piped into another program arrives whole.** The CLI
   ended a run with `process.exit( )`, and a write to a pipe is asynchronous
   on POSIX: whatever the pipe had not taken yet was dropped with the
