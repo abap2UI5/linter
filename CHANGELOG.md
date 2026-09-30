@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.5 - 2026-09-30
+
 - **A view that uses the framework's clipboard module renders.** abap2UI5
   ships a second curated module, `z2ui5/model/clipboard`, whose
   `extractData` is the mandatory callback of `sap.m.plugins.CopyProvider`
