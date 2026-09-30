@@ -16,6 +16,10 @@ declare module "@abap2ui5/linter" {
   import type { PropertyFinding } from "@abap2ui5/linter/properties";
   import type { Severity } from "@abap2ui5/linter/findings";
 
+  /** Class name (lower case) -> what one class declares: the superclass it
+   *  names in `INHERITING FROM`, and whether it declares a `cs_event`. */
+  export type ClassIndex = Map<string, { superclass: string | null; csEvent: boolean }>;
+
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */
     minUi5?: string;
@@ -41,6 +45,11 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** The other classes of the run, from classIndexOf( )
+     *  (`@abap2ui5/linter/abap-rules`): what tells a `cs_event` a class
+     *  inherits from its superclass apart from the client's. checkFiles
+     *  builds it over the files it is handed when none is given. */
+    classIndex?: ClassIndex | null;
     /** An ALREADY-OPEN renderer from openRenderer() (`@abap2ui5/linter/render`).
      *  When given, checkFiles uses it and does NOT close it — the caller owns
      *  its lifecycle and can keep one warm browser across many calls. Its pool
@@ -634,9 +643,16 @@ declare module "@abap2ui5/linter/abap-rules" {
     all: boolean;
   };
 
+  /** The class index checkAbapRules/checkAbapSource take as `classIndex`,
+   *  read from raw ABAP sources - checkFiles builds the same over its files. */
+  export function classIndexOf(sources: Iterable<string>): import("@abap2ui5/linter").ClassIndex;
+
   export function checkAbapRules(
     source: string,
     opts?: {
+      /** The other linted classes (classIndexOf) - a superclass's
+       *  `cs_event` is resolved in it. */
+      classIndex?: import("@abap2ui5/linter").ClassIndex | null;
       /** The metadata snapshot - without it the rules that need UI5
        *  knowledge stay silent. */
       data?: unknown;

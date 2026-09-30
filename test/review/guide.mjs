@@ -7,6 +7,7 @@
  */
 import fs from 'node:fs';
 import { applyFixes } from '../../lib/fix.mjs';
+import { classIndexOf } from '../../lib/abap-rules.mjs';
 
 /* A complete app class around one main( ): `defs` lands in the PUBLIC
  * SECTION, `main` before the view is built, `attrs` on the view's Button,
@@ -123,6 +124,43 @@ export default async function ({ section, assert, f, checkAbapSource, checkFiles
     ]) {
       assert(of(wire('press', call), 'frontend-action-as-backend-event').length === 0, `silent: ${call}`);
     }
+  });
+
+  section('frontend-action-as-backend-event: a cs_event inherited from a linted superclass is not the client\'s', async () => {
+    const dir = (n) => f(`inherited-cs-event/${n}.clas.abap`);
+    const [report, worklist, popup] = await checkFiles(['zcl_fx_list_report', 'zcl_fx_worklist', 'zcl_fx_close_popup'].map(dir), { render: false });
+    const hits = (r) => r.findings.filter((x) => x.type === 'frontend-action-as-backend-event');
+    assert(hits(report).length === 0, 'the superclass\'s own cs_event is silent (bare and me->)');
+    assert(hits(worklist).length === 0,
+      `the subclass's inherited cs_event is silent, bare, named and class-qualified (${hits(worklist).map((x) => x.line).join(', ') || 'none'})`);
+    const src = fs.readFileSync(dir('zcl_fx_close_popup'), 'utf8');
+    assert(hits(popup).length === 1 && hits(popup)[0].line === lineOf(src, 'client->_event( cs_event-popup_close )') && hits(popup)[0].fixes?.length === 2,
+      'a class that declares and inherits no cs_event is still reported on the bare spelling, with its fix');
+    // the superclass not among the files: a false wire is worse than a missed one
+    const [alone] = await checkFiles([dir('zcl_fx_worklist')], { render: false });
+    assert(hits(alone).length === 0, 'a superclass the run does not know is read as declaring one');
+  });
+
+  section('frontend-action-as-backend-event: the superclass chain through classIndex, and a class-qualified constant', () => {
+    const sub = (call, superclass = 'zcl_base') => wire('press', call)
+      .replace('CLASS zcl_review_guide DEFINITION PUBLIC.', `CLASS zcl_review_guide DEFINITION PUBLIC INHERITING FROM ${superclass}.`);
+    const hitsWith = (src, sources) => checkAbapSource(src, { ...opts, classIndex: sources && classIndexOf(sources) }).findings
+      .filter((x) => x.type === 'frontend-action-as-backend-event').length;
+    const declares = 'CLASS zcl_top DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    CONSTANTS: BEGIN OF cs_event, back TYPE string VALUE `BACK`, END OF cs_event.\nENDCLASS.\n';
+    const plain = (name, superclass) => `CLASS ${name} DEFINITION PUBLIC${superclass ? ` INHERITING FROM ${superclass}` : ''}.\n  PUBLIC SECTION.\nENDCLASS.\n`;
+    const bare = 'client->_event( cs_event-back )';
+    assert(hitsWith(sub(bare), [declares.replaceAll('zcl_top', 'zcl_base')]) === 0, 'the direct superclass declares it: silent');
+    assert(hitsWith(sub(bare), [plain('zcl_base', 'zcl_top'), declares]) === 0, 'an ancestor two levels up declares it: silent');
+    assert(hitsWith(sub(bare), [plain('zcl_base', 'zcl_elsewhere')]) === 0, 'the chain leaves the index: silent');
+    assert(hitsWith(sub(bare), null) === 0, 'no index at all and a superclass: silent');
+    assert(hitsWith(sub(bare), [plain('zcl_base')]) === 1, 'the whole chain is known and declares none: reported');
+    assert(hitsWith(sub(bare, 'object'), null) === 1, 'INHERITING FROM object inherits nothing: reported');
+    for (const call of ['client->_event( client->cs_event-popup_close )', 'client->_event( z2ui5_if_client=>cs_event-popup_close )']) {
+      assert(hitsWith(sub(call), [declares.replaceAll('zcl_top', 'zcl_base')]) === 1, `the client's constant is still reported beside an inherited one: ${call}`);
+    }
+    // qualified by another class: that class's constant, whatever this one declares
+    assert(hitsWith(wire('press', 'client->_event( zcl_list_report=>cs_event-back )'), null) === 0, 'another class\'s cs_event is not the client\'s');
+    assert(hitsWith(wire('press', 'client->_event( val = zcl_list_report=>cs_event-back )'), null) === 0, '... named as val too');
   });
 
   section('popup-display-xml: the mirror of popover-display-val, with the same fix', () => {

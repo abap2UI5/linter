@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **`frontend-action-as-backend-event` reads an inherited `cs_event` as the
+  class's own.** A class declaring its backend events as `CONSTANTS: BEGIN
+  OF cs_event` was already exempt, but a SUBCLASS reaching the same
+  constant was not: abap2UI5-addons/rap-ext's worklist, `INHERITING FROM
+  z2ui5_cl_rap_list_report`, was warned on `client->_event( cs_event-back )`
+  and even on `client->_event( z2ui5_cl_rap_list_report=>cs_event-back )`,
+  failed the gate, and had to copy the constants into a local variable. A
+  class-qualified `<class>=>cs_event-…` is now that class's constant, the
+  client's only for `z2ui5_if_client`; and the superclass chain is resolved
+  through the other files of the run (`checkFiles` builds the index,
+  `classIndexOf( )` from `./abap-rules` for a caller judging one source at a
+  time, passed as `classIndex`). A superclass the run does not have might
+  declare one, so the bare spelling in such a class is not reported; a
+  chain known to the end, or `INHERITING FROM object`, is judged as before.
+
 - **A binding assembled in place is no longer "fixed" into text.**
   `unescaped-text-in-attribute` read a name's origin from its `=`
   assignments only, so a binding info built with
