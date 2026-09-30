@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **A binding assembled in place is no longer "fixed" into text.**
+  `unescaped-text-in-attribute` read a name's origin from its `=`
+  assignments only, so a binding info built with
+  ``CONCATENATE `{path:'` lv_path `'}` INTO lv_bind`` (around a
+  `client->_bind( … path = … )` result) looked like a name nothing writes -
+  data by definition - and `--fix` moved `a( v = lv_bind )` onto `t`, whose
+  `escape_literal( )` turned the Tree's `items` binding into text: a silent
+  runtime break made by the fixer (oblomov-dev/cloudy-sapgui). The rule now
+  also reads `CONCATENATE … INTO x`, `x &&= …`, `REPLACE … IN x WITH …` and
+  `me->x = …` / `ls_row-f = …` as writes; in a statement that assembles a
+  string (those, or an operand of `&&`) a literal holding a brace counts as
+  binding vocabulary, and a name the write reads carries its own writes'
+  vocabulary along (`lv_bind = lv_path && …`). A brace literal assigned
+  whole (``label = `{/X}` ``) is still data.
+
 ## 0.8.5 - 2026-09-30
 
 - **A view that uses the framework's clipboard module renders.** abap2UI5
