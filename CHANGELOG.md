@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **`missing-on-navigated-branch --fix` no longer swallows a popup's
+  result.** A called app that leaves with an event (`nav_app_leave( event =
+  … )`, how the confirm and select popups hand back their answer) raises
+  `check_on_navigated( )` AND that event on the same roundtrip. The fix wrote
+  its `ELSEIF client->check_on_navigated( ).` right behind the init branch,
+  ahead of the event arms, so the fixed class took the navigated arm and
+  never saw `POPUP_TRUE` (found migrating abap2UI5-addons/popups onto 0.8.5).
+  In a class that calls other apps the arm is now written LAST in the chain,
+  where it only catches roundtrips the chain ignored before; a chain ending
+  in `ELSE` there is reported without a fix. A class that calls no app keeps
+  the arm right behind init, as before.
+- **Neither navigated fix copies a display of a branch-local variable.**
+  `client->view_display( view->stringify( ) )` next to `DATA(view) = …` in the
+  init branch was copied into the new arm, where it compiles (an inline
+  declaration is method-wide) and dereferences an initial reference on the
+  first hop back. Such a statement is now reported without a fix, in
+  `missing-on-navigated-branch` and `missing-view-display-on-navigated` alike.
+- **`missing-view-display-on-navigated` reads a negated guard as a guard.**
+  `IF client->check_on_navigated( ) = abap_false. RETURN. ENDIF.` was judged
+  as a navigated branch that never re-displays - its branch is the roundtrip
+  that did NOT navigate, and the re-display stood right below it. A negated
+  condition whose branch leaves the method is now judged on the rest of the
+  method (reported without a fix when nothing there displays); one that does
+  not leave is not a navigated branch.
+
 ## 0.8.5 - 2026-09-30
 
 - **A view that uses the framework's clipboard module renders.** abap2UI5
