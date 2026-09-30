@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **A view that uses the framework's clipboard module renders.** abap2UI5
+  ships a second curated module, `z2ui5/model/clipboard`, whose
+  `extractData` is the mandatory callback of `sap.m.plugins.CopyProvider`
+  (`core:require="{Clipboard: 'z2ui5/model/clipboard'}"`,
+  `extractData="Clipboard.extractData"`). The render harness only knew
+  `z2ui5/model/formatter`, so the core:require 404ed and the whole view
+  failed to create. The harness now registers a mirror of the module, and
+  `CLIPBOARD_MODULE` / `CLIPBOARD_CALLBACKS` join the formatter contract in
+  `@abap2ui5/linter/formatters`; `check-upstream` compares them against
+  `app/webapp/model/clipboard.js` (an upstream without the file reads as an
+  empty export set, i.e. as drift).
+
 ## 0.8.4 - 2026-09-30
 
 - **A failing report piped into another program arrives whole.** The CLI

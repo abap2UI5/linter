@@ -1179,6 +1179,13 @@ declare module "@abap2ui5/linter/formatters" {
   /** The curated formatter export surface — mirrored by the render harness,
    *  judged by the uncurated-formatter rule. */
   export const CURATED_FORMATTERS: readonly string[];
+
+  /** The named module the synchronous control callbacks live in
+   *  (z2ui5/model/clipboard - CopyProvider.extractData). */
+  export const CLIPBOARD_MODULE: string;
+
+  /** The clipboard module's export surface — mirrored by the render harness. */
+  export const CLIPBOARD_CALLBACKS: readonly string[];
 }
 
 declare module "@abap2ui5/linter/icons" {

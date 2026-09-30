@@ -5,6 +5,9 @@
  * Four files in lib/ mirror closed sets that live in the abap2UI5 repo:
  *
  *   lib/formatters.mjs        <- app/webapp/model/formatter.js
+ *                             <- app/webapp/model/clipboard.js (the
+ *                                synchronous control callbacks the render
+ *                                harness registers for core:require)
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
@@ -46,7 +49,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { CURATED_FORMATTERS } from '../lib/formatters.mjs';
+import { CURATED_FORMATTERS, CLIPBOARD_CALLBACKS } from '../lib/formatters.mjs';
 import {
   GLOBAL_TARGETS, CSS_PROPERTIES, BINDING_METHODS,
   CONTROL_METHOD_DENY_EXACT, CONTROL_METHOD_DENY_PREFIXES,
@@ -61,6 +64,11 @@ import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
+/* The clipboard module arrived after the formatter one; an upstream that does
+ * not ship it yet reads as an empty export set, so the mirror reports as
+ * drift (correctly - the harness then knows a module upstream does not have)
+ * rather than as unreachable sources. */
+const CLIPBOARD_PATH = 'app/webapp/model/clipboard.js';
 /* The released client interface. Its `cs_event` constant names EVERY event an
  * app may hand to _event_client( ) / follow_up_action( ) — the dispatch-table
  * names, the ones the server remaps (FRONTEND_EVENT_ALIASES) and the ones the
@@ -487,6 +495,7 @@ if (invokedDirectly) {
   }
 
   let formatterSrc;
+  let clipboardSrc = '';
   let clientIntfSrc;
   let actionSrc;
   let actionPaths = [];
@@ -498,6 +507,7 @@ if (invokedDirectly) {
   try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
+      if (fs.existsSync(path.join(LOCAL, CLIPBOARD_PATH))) clipboardSrc = fs.readFileSync(path.join(LOCAL, CLIPBOARD_PATH), 'utf8');
       clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
@@ -519,6 +529,7 @@ if (invokedDirectly) {
       const sources = await Promise.all(names.map((n) => fetchText(`${RAW}/${CC_DIR}/${n}.js`)));
       names.forEach((n, i) => { ccSrc[n] = sources[i]; });
       if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = await fetchText(`${RAW}/${XML_VIEW_CC_PATH}`);
+      if (srcPaths.includes(CLIPBOARD_PATH)) clipboardSrc = await fetchText(`${RAW}/${CLIPBOARD_PATH}`);
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
@@ -545,6 +556,7 @@ if (invokedDirectly) {
   };
 
   report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
+  report('clipboard callbacks (lib/formatters.mjs)', [...CLIPBOARD_CALLBACKS], parseFormatterExports(clipboardSrc));
 
   /* The companion-control mirrors the render harness boots with and the
    * property walk judges. A property upstream added and this file lacks is
