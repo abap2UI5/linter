@@ -34,6 +34,11 @@ declare module "@abap2ui5/linter" {
     /** Page-pool size for the render gate (default 4). Config form:
      *  `"render": { "pages": N }`; CLI form: `--render-pages`. */
     renderPages?: number;
+    /** Worker threads for checkFiles' property gate (default 1 = this
+     *  thread). One thread is started per 64 files, at most `jobs`; the
+     *  results come back in file order, identical to a sequential run.
+     *  CLI form: `--jobs` (whose default is the cores, at most 4). */
+    jobs?: number;
     /** Run the property gate (default true). */
     properties?: boolean;
     /** Collect every .clas.abap and judge a class that builds no view by the
