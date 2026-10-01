@@ -57,6 +57,15 @@
   method (reported without a fix when nothing there displays); one that does
   not leave is not a navigated branch.
 
+- **`@abap2ui5/linter-render` asks for `playwright ^1.63.0`.** The workspace
+  manifest still said `^1.61.1` while `@abap2ui5/mcp-server`, samples-controls
+  and the playground had moved to `^1.63.0`, so a project installing the
+  render runtime next to one of them resolved TWO Playwright versions - two
+  packages in the tree and two Chromium downloads for one browser. The lock
+  already resolved 1.63.0; the range now says so, and one install shares the
+  one Playwright. The `@openui5` pins are untouched: they are the metadata
+  snapshot (RELEASING.md step 1c), not a dependency.
+
 ## 0.8.5 - 2026-09-30
 
 - **A view that uses the framework's clipboard module renders.** abap2UI5
