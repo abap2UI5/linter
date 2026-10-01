@@ -34,6 +34,11 @@ declare module "@abap2ui5/linter" {
     /** Page-pool size for the render gate (default 4). Config form:
      *  `"render": { "pages": N }`; CLI form: `--render-pages`. */
     renderPages?: number;
+    /** Worker threads for checkFiles' property gate (default 1 = this
+     *  thread). One thread is started per 64 files, at most `jobs`; the
+     *  results come back in file order, identical to a sequential run.
+     *  CLI form: `--jobs` (whose default is the cores, at most 4). */
+    jobs?: number;
     /** Run the property gate (default true). */
     properties?: boolean;
     /** Collect every .clas.abap and judge a class that builds no view by the
@@ -419,6 +424,9 @@ declare module "@abap2ui5/linter/properties" {
   /** id -> resolved control name for every literal id of a view tree - the
    *  ABAP-side rules judge CONTROL_BY_ID wires against it. */
   export function collectControlIds(root: ViewNode): Record<string, string>;
+  /** control id -> the literal ids of the controls directly inside it (its
+   *  pages), from one view tree - what navigation-lost-on-rebuild reads. */
+  export function collectContainerPages(root: ViewNode): Record<string, string[]>;
 
   /** Per bound TABLE path, the fields a view binds to an enum-typed property.
    *  What `enum-field-unset-on-insert` needs: a row appended without setting
@@ -658,6 +666,10 @@ declare module "@abap2ui5/linter/abap-rules" {
       data?: unknown;
       /** id -> control name from the class's own views (collectControlIds). */
       controlIds?: Record<string, string> | null;
+      /** container id -> its page ids from the class's own views
+       *  (collectContainerPages); without it navigation-lost-on-rebuild
+       *  judges only the field the call itself names. */
+      containerPages?: Record<string, string[]> | null;
       /** The config's `rules` block. Only opt-in rules read it here (they are
        *  not emitted at all unless it asks); every other rule is filtered
        *  later by applyRules. */
@@ -857,6 +869,14 @@ declare module "@abap2ui5/linter/findings" {
 
   /** Attach the external-link-without-target fix: a `target` call written behind the href's own `a( )` call. */
   export function attachTargetFixes<T extends PropertyFinding>(
+    findings: T[],
+    source: string
+  ): T[];
+
+  /** Attach the duplicate-property fix where the second attribute write
+   *  repeats the first (same call text, blanks aside): the second call is
+   *  deleted. Reads the `firstOffset` the reconstructor records. */
+  export function attachDuplicatePropertyFixes<T extends PropertyFinding>(
     findings: T[],
     source: string
   ): T[];

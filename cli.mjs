@@ -91,7 +91,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      158 rules passed" green, "7 errors" red)
+ *                      162 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -162,6 +162,12 @@
  *                      page carries its own UI5 boot; on a corpus the render
  *                      wall clock divides by roughly the pool size. Also
  *                      settable as "render": { "pages": n } in the config
+ *   --jobs <n>         threads for the property gate (default: the machine's
+ *                      cores, at most 4). The files are spread over worker
+ *                      threads and the results put back in file order, so
+ *                      the report is the same with any n; a thread pays off
+ *                      only on a corpus, so one is started per 64 files and a
+ *                      smaller run stays on one. --jobs 1 switches it off
  *   --no-properties    skip the property gate
  *   --all-classes      collect every .clas.abap; a class that builds no view is
  *                      judged by the source-side rules alone (config: allClasses)
@@ -203,6 +209,7 @@
  * Exit codes: 0 clean, 1 findings at or above --fail-on, 2 bad usage/config.
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
@@ -225,7 +232,7 @@ const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
   + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
-  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
+  + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--jobs <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] [--watch] '
   + '[--config abap2ui5lint.jsonc] [--no-config] [--init] [--explain rule-id...] [--version] [--help]';
@@ -440,6 +447,10 @@ const opt = {
   // terminal) or where the log IS the record (a workflow). Piped into a file
   // it would only be noise, so there it stays off unless asked for
   progress: process.stderr.isTTY === true || process.env.GITHUB_ACTIONS === 'true',
+  // the property gate's thread pool: the cores, at most 4 - measured on the
+  // samples-controls corpus, three threads already halve the wall clock and
+  // a fifth adds nothing (checkFiles sizes the pool down for a small run)
+  jobs: Math.min(4, os.availableParallelism()),
 };
 const seen = new Set(); // options the CLI set explicitly - they beat the config
 // whether the render gate was ASKED for (--render, or "render": true in the
@@ -494,6 +505,11 @@ for (let i = 0; i < args.length; i++) {
     if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
     opt.renderPages = n;
     seen.add('renderPages');
+  }
+  else if (a === '--jobs') {
+    const n = Number(value());
+    if (!Number.isInteger(n) || n < 1) die(`--jobs takes a positive integer (got '${args[i]}')`);
+    opt.jobs = n;
   }
   else if (a === '--screenshot') shot.out = value();
   else if (a === '--screenshot-theme') {

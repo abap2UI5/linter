@@ -31,12 +31,13 @@ export default function ({ section, assert, f, FIX, checkFiles }) {
   const flat = (s) => String(s).replace(/\s+/g, ' ').trim();
 
   section('explain: a known id prints its summary, detail, example pair and card URL', () => {
-    const id = 'duplicate-property';
+    // a rule with no --fix, so its first line carries the severity alone
+    const id = 'attribute-without-element';
     const doc = RULE_DOCS[id];
     const r = run(['--explain', id]);
     assert(r.code === 0 && r.err === '', `explain: exit 0 and nothing on stderr (exit ${r.code}: ${r.err.trim()})`);
     const text = flat(r.out);
-    assert(/^duplicate-property\s+\(error\)/.test(r.out), `explain: the first line is the id with its default severity (${r.out.split('\n')[0]})`);
+    assert(/^attribute-without-element\s+\(error\)/.test(r.out), `explain: the first line is the id with its default severity (${r.out.split('\n')[0]})`);
     assert(text.includes(flat(doc.summary)), 'explain: the summary line is printed');
     assert(text.includes(flat(doc.detail)), 'explain: the detail paragraph is printed, wrapped between words');
     assert(r.out.includes(`reported:\n    ${doc.example.split('\n')[0]}`) && r.out.includes(`fixed:\n    ${doc.remedy.split('\n')[0]}`),

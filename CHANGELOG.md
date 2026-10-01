@@ -2,6 +2,55 @@
 
 ## Unreleased
 
+- **The property gate is more than twice as fast on a corpus.** The
+  samples-controls corpus (642 classes, `--no-render`) took 15.2 s and takes
+  6.6 s, with byte-identical results on it, on abap2UI5/samples and on
+  abap2UI5. The source readers no longer rebuild strings one character at a
+  time, a call's argument list is parsed once instead of a dozen times, two
+  whole-class scans per attribute or per match are gone, and
+  `checkFiles( { jobs } )` spreads the files over worker threads (one per 64
+  files) and returns the results in file order. The CLI's new `--jobs <n>`
+  defaults to the machine's cores, at most 4; `--jobs 1` keeps one thread.
+  The library default is 1.
+
+- **New rule `unknown-message-box-type`** (warning, fixable).
+  `message_box_display( type = … )` takes the sap.m.MessageBox display
+  methods - `information`, `warning`, `error`, `success`, `confirm`, `alert`,
+  `show` - and the server silently falls back to a plain `show( )` box for
+  anything else: an error written `type = \`E\`` opens with no icon and no
+  title. The four message-type letters with a box of their own (E, W, S, I)
+  are rewritten by `--fix`. The list is mirrored from `ct_box_type` and
+  gated by `check-upstream`.
+
+- **New rule `bind-path-as-value`** (error, fixable). `_bind_path( x )` and
+  `_bind( val = x path = abap_true )` return the bare path for a binding the
+  app assembles itself; as the whole `v =` of an attribute they make the
+  attribute the TEXT `/X`. `--fix` turns the call into `_bind( x )`.
+
+- **New rule `html-content-not-markup`** (error, fixable). A
+  `sap.ui.core.HTML` `content` that does not open with a tag is read by
+  jQuery as a selector: nothing renders, or rendering throws. `--fix` wraps
+  plain text in a `<span>`.
+
+- **New rule `navigation-lost-on-rebuild`** (hint), the navigation twin of
+  `control-state-lost-on-rebuild`: a NavContainer, SplitApp or
+  FlexibleColumnLayout moved with `to`/`backToPage`/`toDetail`/`toMaster`
+  only from a handler, while a bound field keeps the page - after the next
+  `view_display( )` the container is back on its initial page and the field
+  names another. Silent when a display-path method navigates the same
+  container (abap2UI5 backlog item `navcontainer-position-not-reissued`).
+
+- **`raw-javascript-to-frontend` sees two more shapes**: an inline `on…=`
+  handler in markup (`core:HTML` content) and a `javascript:` URL in a
+  URI-typed property. The default CSP refuses both, so neither ever ran.
+
+- **Three rules gained a `--fix`.** `abapdoc-html-tag` escapes the tag's
+  brackets as `&lt;`/`&gt;`; `control-call-arg-kind` rewrites a `bool`
+  argument spelled `abap_true`, `x`, `TRUE`, `abap_false` or `FALSE` to the
+  spelling the frontend reads; `duplicate-property` deletes a second
+  attribute write that repeats the first word for word (two different values
+  keep the finding).
+
 - **`frontend-action-as-backend-event` reads an inherited `cs_event` as the
   class's own.** A class declaring its backend events as `CONSTANTS: BEGIN
   OF cs_event` was already exempt, but a SUBCLASS reaching the same
