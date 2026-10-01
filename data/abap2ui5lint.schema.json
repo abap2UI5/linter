@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 158 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 162 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -158,6 +158,10 @@
         "attribute-without-element": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'attribute-without-element' — default severity: error"
+        },
+        "bind-path-as-value": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'bind-path-as-value' — default severity: error"
         },
         "binding-for-event": {
           "$ref": "#/definitions/rule",
@@ -419,6 +423,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'hardcoded-binding-path' — default severity: warning"
         },
+        "html-content-not-markup": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'html-content-not-markup' — default severity: error"
+        },
         "icon-removed": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'icon-removed' — default severity: warning"
@@ -526,6 +534,10 @@
         "missing-view-display-on-navigated": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-view-display-on-navigated' — default severity: error"
+        },
+        "navigation-lost-on-rebuild": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'navigation-lost-on-rebuild' — default severity: hint"
         },
         "nest-view-without-destroy": {
           "$ref": "#/definitions/rule",
@@ -718,6 +730,10 @@
         "unknown-icon": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-icon' — default severity: error"
+        },
+        "unknown-message-box-type": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-message-box-type' — default severity: warning"
         },
         "unknown-model": {
           "$ref": "#/definitions/rule",
