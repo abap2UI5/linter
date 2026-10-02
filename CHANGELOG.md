@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`NativeBridgeScan` is mirrored.** abap2UI5 ships a new companion
+  control, `z2ui5.cc.NativeBridgeScan` (the scan button of the native mobile
+  shell, abap2UI5/mobile-shell). Unmirrored, a view naming it failed view
+  CREATION in the render gate with a module 404 and the property walk looked
+  away from it; `check-upstream` reported the drift.
+
 - **The property gate is more than twice as fast on a corpus.** The
   samples-controls corpus (642 classes, `--no-render`) took 15.2 s and takes
   6.6 s, with byte-identical results on it, on abap2UI5/samples and on
