@@ -4633,7 +4633,7 @@
       {
         "wire": ".eF('ACTION', arg...)",
         "from": "client->_event_client( ) / a wired follow_up_action( )",
-        "note": "only the frontend actions of frontendActions.allowed"
+        "note": "only the frontend actions of actions.wire.custom and actions.wire.customGlobals"
       },
       {
         "wire": ".eBP($event, true, ['EVENT'], arg...)",
@@ -4864,6 +4864,112 @@
       "CONTROL_GLOBAL POPUP",
       "CONTROL_GLOBAL FORMATTING"
     ]
+  },
+  "actions": {
+    "note": "api: the follow_up_action( ) names (cs_event values) a portable app may call - frontendActions.allowed is the same list, kept for consumers of revision 0.2. wire: what a portable renderer actually receives - T_SYSTEM actions with their ROUTER options, and the T_CUSTOM / .eF names. The navigation family of api is folded by the backend into the one ROUTER system action (foldedIntoRouter) and never arrives under its own name.",
+    "api": [
+      "SET_FOCUS",
+      "START_TIMER",
+      "DOWNLOAD_B64_FILE",
+      "CLIPBOARD_COPY",
+      "URLHELPER",
+      "OPEN_NEW_TAB",
+      "SCROLL_TO",
+      "SCROLL_INTO_VIEW",
+      "SET_TITLE",
+      "SET_FAVICON",
+      "LOCATION_RELOAD",
+      "SYSTEM_LOGOUT",
+      "STORE_DATA",
+      "KEYBOARD_SHORTCUT",
+      "PLAY_AUDIO",
+      "SET_PUSH_STATE",
+      "HASH_REPLACE",
+      "HASH_BACK",
+      "HASH_ATTACH_CHANGED",
+      "SET_NAV_ROUTING",
+      "SET_APP_STATE_ACTIVE",
+      "SET_SIZE_LIMIT"
+    ],
+    "wire": {
+      "system": {
+        "VIEW_SLOTS": [
+          "display",
+          "destroy"
+        ],
+        "ROUTER": [
+          "sync"
+        ]
+      },
+      "routerOptions": [
+        "setNavRouting",
+        "checkNavAppCall",
+        "navAppCallPrevApp",
+        "navAppCallPrevId",
+        "setPushState",
+        "setHashReplace",
+        "setHashEvent",
+        "setAppStateActive"
+      ],
+      "foldedIntoRouter": {
+        "SET_NAV_ROUTING": "setNavRouting",
+        "SET_PUSH_STATE": "setPushState",
+        "HASH_REPLACE": "setHashReplace",
+        "HASH_ATTACH_CHANGED": "setHashEvent",
+        "SET_APP_STATE_ACTIVE": "setAppStateActive"
+      },
+      "custom": [
+        "SET_FOCUS",
+        "START_TIMER",
+        "DOWNLOAD_B64_FILE",
+        "CLIPBOARD_COPY",
+        "URLHELPER",
+        "OPEN_NEW_TAB",
+        "SCROLL_TO",
+        "SCROLL_INTO_VIEW",
+        "SET_TITLE",
+        "SET_FAVICON",
+        "LOCATION_RELOAD",
+        "SYSTEM_LOGOUT",
+        "STORE_DATA",
+        "KEYBOARD_SHORTCUT",
+        "PLAY_AUDIO",
+        "HASH_BACK",
+        "SET_SIZE_LIMIT"
+      ],
+      "customGlobals": {
+        "MESSAGE_TOAST": [
+          "show"
+        ],
+        "MESSAGE_BOX": [
+          "show",
+          "alert",
+          "confirm",
+          "information",
+          "warning",
+          "error",
+          "success"
+        ],
+        "BUSY_INDICATOR": [
+          "show",
+          "hide"
+        ],
+        "INVISIBLE_MESSAGE": [
+          "announce"
+        ],
+        "THEMING": [
+          "setTheme"
+        ],
+        "VIEW_SLOTS": [
+          "destroy"
+        ]
+      },
+      "noOpAllowed": [
+        "ROUTER",
+        "HASH_BACK",
+        "SET_SIZE_LIMIT"
+      ]
+    }
   },
   "clientApi": {
     "allowed": [

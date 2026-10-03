@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `portable-app`: the vendored profile follows protocol revision 0.3
+  (604d267) - the client-API names are read from `actions.api`, the names a
+  raw view's `.eF( )` may use from `actions.wire.custom`.
 - **New opt-in rule `portable-app`** (warning once asked for). Reports
   everything in an app outside the abap2UI5 protocol's portable profile v1
   (abap2UI5/protocol `profiles/portable.md`) - what keeps the app from
