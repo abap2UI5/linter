@@ -46,7 +46,7 @@ export function recase(source, mode) {
 
 export default async function ({ section, assert, f, FIX, tempDir, checkAbapSource, prepareAbap }) {
   const fixtures = fs.readdirSync(FIX).filter((n) => n.endsWith('.clas.abap')).sort();
-  const opts = { render: false, rules: { 'chain-house-layout': 'hint' } };
+  const opts = { render: false, rules: { 'chain-house-layout': 'hint', 'portable-app': 'hint' } };
   const shape = (r) => r.findings.map((x) => `${x.type}@${x.line}:${x.column}`).sort();
 
   section('case policy: every fixture recased to upper and lower case is judged identically', () => {

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **New opt-in rule `portable-app`** (warning once asked for). Reports
+  everything in an app outside the abap2UI5 protocol's portable profile v1
+  (abap2UI5/protocol `profiles/portable.md`) - what keeps the app from
+  running unchanged on a non-UI5 frontend such as the UI5 Web Components
+  frontend: controls and members the profile does not list, `z2ui5.cc`
+  custom controls, named models and other binding forms, expression
+  constructs outside its grammar, event wires and arguments (`$event`,
+  `prevent_default_expr`), frontend actions (`CONTROL_BY_ID`, …), the nested
+  view slots (decision Q1) and `view_display( switch_default_model_path )`.
+  One id, a `reason` per finding. Off until `"rules": { "portable-app":
+  "error" }`. The profile is vendored verbatim as `data/portable-v1.json`
+  (source commit in `data/portable-v1.source.json`, refreshed with
+  `npm run sync-portable-profile`, drift reported by upstream-sync), and
+  the rule reads both the current and the Q10 shape of its frontend actions.
+  New export `./portable` (`checkPortable`), new option `portableProfile`.
+
 - **`z2ui5_if_ui5_monitor` is released API.** abap2UI5 adds a roundtrip
   monitor seam to its released package `src/02` (an addon such as
   abap2UI5-addons/admin-cockpit implements it to log usage, timing and

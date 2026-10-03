@@ -74,6 +74,10 @@
       "types": "./types.d.ts",
       "default": "./lib/icons.mjs"
     },
+    "./portable": {
+      "types": "./types.d.ts",
+      "default": "./lib/portable.mjs"
+    },
     "./schema": "./data/abap2ui5lint.schema.json",
     "./compat": "./data/compat.json"
   },
@@ -96,6 +100,7 @@
     "generate-compat": "node scripts/generate-compat.mjs",
     "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs",
+    "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
     "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {
