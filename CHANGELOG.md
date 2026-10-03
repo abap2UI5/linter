@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`z2ui5_if_ui5_monitor` is released API.** abap2UI5 adds a roundtrip
+  monitor seam to its released package `src/02` (an addon such as
+  abap2UI5-addons/admin-cockpit implements it to log usage, timing and
+  errors). Unlisted, `non-released-api` would have reported every
+  implementing class, since the name falls under the internal
+  `z2ui5_if_ui5_*` prefix. Merge together with the abap2UI5 change, or
+  `check-upstream` reports the extra name as drift until it lands.
+
 - **`NativeBridgeScan` is mirrored.** abap2UI5 ships a new companion
   control, `z2ui5.cc.NativeBridgeScan` (the scan button of the native mobile
   shell, abap2UI5/mobile-shell). Unmirrored, a view naming it failed view
