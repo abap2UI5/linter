@@ -55,6 +55,11 @@ declare module "@abap2ui5/linter" {
      *  inherits from its superclass apart from the client's. checkFiles
      *  builds it over the files it is handed when none is given. */
     classIndex?: ClassIndex | null;
+    /** The portable profile the opt-in `portable-app` rule judges against,
+     *  as an object of data/portable-v1.json's shape - for a host that cannot
+     *  hand the linter a path. Absent, the vendored copy is read, and only
+     *  when the `rules` block switches the rule on. */
+    portableProfile?: import("@abap2ui5/linter/portable").PortableProfile;
     /** An ALREADY-OPEN renderer from openRenderer() (`@abap2ui5/linter/render`).
      *  When given, checkFiles uses it and does NOT close it — the caller owns
      *  its lifecycle and can keep one warm browser across many calls. Its pool
@@ -1275,6 +1280,116 @@ declare module "@abap2ui5/linter/icons" {
     text: string,
     opts?: { minUi5?: string; iconData?: IconData; xml?: boolean }
   ): PropertyFinding[];
+}
+
+declare module "@abap2ui5/linter/portable" {
+  import type { PropertyFinding } from "@abap2ui5/linter/properties";
+  import type { ViewNode } from "@abap2ui5/linter/reconstruct";
+
+  /**
+   * The abap2UI5 protocol's portable view profile as JSON
+   * (abap2UI5/protocol profiles/portable-v1.json, vendored verbatim as
+   * data/portable-v1.json). Only the keys the rule reads are typed; the
+   * file carries more (usage counts, the Web Components mapping).
+   */
+  export interface PortableProfile {
+    version?: number;
+    documentRoots?: string[];
+    namespaces?: string[];
+    excludedNamespaces?: string[];
+    universalAttributes?: string[];
+    controls?: Record<string, {
+      properties?: Array<string | { name: string }>;
+      aggregations?: Array<string | { name: string }>;
+      events?: Array<string | { name: string }>;
+      defaultAggregation?: string;
+      tolerated?: boolean;
+      [key: string]: unknown;
+    }>;
+    bindingForms?: Record<string, unknown>;
+    eventParameters?: Record<string, Record<string, string[]>>;
+    /** Before the protocol's decision Q10 `allowed` is one list; after it
+     *  the client-API names and the wire actions are separate - both shapes
+     *  are read (clientApiActionsOf, wireActionsOf). */
+    frontendActions?: Record<string, unknown>;
+    clientApi?: { allowed?: string[]; excluded?: string[]; [key: string]: unknown };
+    [key: string]: unknown;
+  }
+
+  /** The profile turned into the sets the rule asks - internal shape. */
+  export interface NormalizedPortableProfile {
+    version: number | null;
+    documentRoots: Set<string>;
+    namespaces: Set<string>;
+    excludedNamespaces: string[];
+    universal: Set<string>;
+    controls: Map<string, { properties: Set<string>; aggregations: Set<string>; events: Set<string>; tolerated: boolean }>;
+    objectKeys: Set<string>;
+    types: Set<string>;
+    formatters: Set<string>;
+    devicePaths: Set<string>;
+    formatOptions: Set<string>;
+    constraints: Set<string>;
+    grammar: { operators: Set<string>; members: Set<string>; functions: Set<string>; literals: Set<string> };
+    eventParameters: Record<string, Record<string, string[]>>;
+    clientActions: Set<string>;
+    wireActions: Set<string>;
+    globals: Record<string, Set<string>>;
+    excludedCalls: Array<{ method: string; param: string | null; entry: string }>;
+  }
+
+  export type PortableReason =
+    | "control" | "custom-control" | "member" | "binding" | "expression"
+    | "event-wire" | "event-argument" | "frontend-action" | "nested-view" | "client-api";
+
+  export interface PortableFinding extends PropertyFinding {
+    type: "portable-app";
+    /** Which part of the profile the finding misses. */
+    reason: PortableReason;
+    /** member: property | aggregation | event | association | attribute
+     *  (from the snapshot, when one was handed in). */
+    kind?: string | null;
+    /** control: the namespace outside the profile, when that is why. */
+    namespace?: string | null;
+  }
+
+  export const PORTABLE_RULE: "portable-app";
+  export const PORTABLE_REASONS: readonly PortableReason[];
+  /** file: URL of the vendored profile (data/portable-v1.json). */
+  export const PORTABLE_PROFILE_URL: URL;
+
+  /** The client-API action names a profile allows (what an app hands to
+   *  follow_up_action( ) / _event_client( )), from either shape of
+   *  `frontendActions`. */
+  export function clientApiActionsOf(profile: PortableProfile): string[];
+  /** The action names a frontend receives on the wire (a raw view's
+   *  `.eF('…')`). */
+  export function wireActionsOf(profile: PortableProfile): string[];
+  export function normalizeProfile(profile: PortableProfile): NormalizedPortableProfile;
+  /** The top-level `{…}` segments of an attribute value (`\{` is text). */
+  export function bindingSegments(value: string): string[];
+  /** The constructs of an expression binding's body outside the grammar. */
+  export function expressionViolations(body: string, profile: NormalizedPortableProfile): string[];
+  /** Every construct of one attribute value outside the binding forms. */
+  export function bindingViolations(value: string, profile: NormalizedPortableProfile): Array<{ reason: "binding" | "expression"; value: string }>;
+  /** What is outside the profile in one event-argument descriptor. */
+  export function argumentViolations(arg: string, profile: NormalizedPortableProfile, control?: string | null, event?: string | null): string[];
+
+  /**
+   * Judge one source against the portable profile: the documents (`nodes` -
+   * prepareAbap( ).nodes, or [parseXml( xml )]) and, for an ABAP class
+   * (`abap: true`), its client calls. `data` (the metadata snapshot) only
+   * names the kind of an unlisted member. Raw findings - annotate( ) them.
+   * `checkAbapSource`/`checkXmlSource` call it when the `rules` block switches
+   * `portable-app` on.
+   */
+  export function checkPortable(opts: {
+    nodes?: ViewNode[];
+    source?: string;
+    abap?: boolean;
+    data?: unknown;
+    profile: PortableProfile;
+  }): PortableFinding[];
 }
 
 declare module "@abap2ui5/linter/compat" {

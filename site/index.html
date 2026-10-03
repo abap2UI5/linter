@@ -142,7 +142,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">72 error</span>
-      <span class="badge warning">60 warning</span>
+      <span class="badge warning">61 warning</span>
       <span class="badge hint">31 hint</span>
       <span class="badge fix">67 autofixable</span>
     </div>
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 162 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 163 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -1059,6 +1059,27 @@ view-&gt;tag( `Button` )-&gt;a( n = `text` v = `Go` ).</code></pre></figure>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L151"><code>lib/icons.mjs</code></a></p>
       </article>
     </section>
+    <section class="cat" id="cat-portable">
+      <h2>Portability beyond UI5 (opt-in)</h2>
+      <p class="blurb">The abap2UI5 protocol's portable profile: the subset of the view vocabulary a non-UI5 frontend — UI5 Web Components, Adaptive Cards, an agent — renders. Off until a config asks for it; an app outside the profile still runs on UI5 exactly as written.</p>
+      <article class="rule" id="portable-app" data-search="portable-app outside the abap2ui5 protocol's portable profile v1 (opt-in) off until a config asks for it — "rules": { "portable-app": "error" } — because it reports no defect: an app outside the profile runs on the ui5 frontend exactly as written. what it reports is everything that keeps the app from running unchanged on a non-ui5 frontend too (the ui5 web components frontend abap2ui5/frontend-webcomponent, an adaptive cards renderer, an agent): the abap2ui5 protocol's portable profile v1 (abap2ui5/protocol profiles/portable.md) is the subset of the view vocabulary every portable renderer must render — 61 controls with their listed members, the binding forms, a restricted expression grammar, the event wires and argument descriptors, the frontend actions and the client api. the linter judges against a verbatim copy of profiles/portable-v1.json (data/portable-v1.json, source commit in data/portable-v1.source.json, refreshed by npm run sync-portable-profile). one rule id, and every finding says which part of the profile it misses: control (a control the profile does not list — sap.f, sap.ui.table, sap.uxap, menubutton, … — or xml templating), custom-control (a z2ui5.cc. control: bound to the ui5 runtime), member (a property, aggregation, event or association the profile does not list for that control, a core:require or a custom-data attribute), binding (a named model other than device&gt;, an odata type, an app formatter, a binding-info key it does not list), expression (a {= … } construct outside the grammar: regexp, odata., a call or member it does not list), event-wire (prevent_default_expr), event-argument ($event, $controller, a method call on a ui5 object, an event parameter or $source property outside the closed lists), frontend-action (a follow_up_action( ) / _event_client( ) action outside the client-api list — control_by_id, binding_call, the launchpad actions, custom javascript), nested-view (nest_view_display( ) &amp; co.: the protocol's decision q1 keeps nest/nest2 tolerated-not-rendered in portable renderers, so a portable app must not use them) and client-api (view_display( switch_default_model_path = … )). a portable renderer shows a placeholder for an unknown control, ignores an unknown member and skips an unknown action — nothing fails, the app just looks incomplete there. waive one class with " abap2ui5lint-disable portable-app at its top, or a path with the rule's exclude list. warning">
+        <h3><a href="#portable-app">portable-app</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">outside the abap2UI5 protocol's portable profile v1 (opt-in)</p>
+        <p class="detail">Off until a config asks for it — <code>"rules": { "portable-app": "error" }</code> — because it reports no defect: an app outside the profile runs on the UI5 frontend exactly as written. What it reports is everything that keeps the app from running unchanged on a <strong>non-UI5 frontend</strong> too (the UI5 Web Components frontend abap2UI5/frontend-webcomponent, an Adaptive Cards renderer, an agent): the abap2UI5 protocol's portable profile v1 (abap2UI5/protocol <code>profiles/portable.md</code>) is the subset of the view vocabulary every portable renderer MUST render — 61 controls with their listed members, the binding forms, a restricted expression grammar, the event wires and argument descriptors, the frontend actions and the client API. The linter judges against a verbatim copy of <code>profiles/portable-v1.json</code> (<code>data/portable-v1.json</code>, source commit in <code>data/portable-v1.source.json</code>, refreshed by <code>npm run sync-portable-profile</code>). One rule id, and every finding says which part of the profile it misses: <strong>control</strong> (a control the profile does not list — <code>sap.f</code>, <code>sap.ui.table</code>, <code>sap.uxap</code>, MenuButton, … — or XML templating), <strong>custom-control</strong> (a <code>z2ui5.cc.*</code> control: bound to the UI5 runtime), <strong>member</strong> (a property, aggregation, event or association the profile does not list for that control, a <code>core:require</code> or a custom-data attribute), <strong>binding</strong> (a named model other than <code>device&gt;</code>, an <code>odata</code> type, an app formatter, a binding-info key it does not list), <strong>expression</strong> (a <code>{= … }</code> construct outside the grammar: <code>RegExp</code>, <code>odata.*</code>, a call or member it does not list), <strong>event-wire</strong> (<code>prevent_default_expr</code>), <strong>event-argument</strong> (<code>$event</code>, <code>$controller</code>, a method call on a UI5 object, an event parameter or <code>$source</code> property outside the closed lists), <strong>frontend-action</strong> (a <code>follow_up_action( )</code> / <code>_event_client( )</code> action outside the client-API list — <code>CONTROL_BY_ID</code>, <code>BINDING_CALL</code>, the launchpad actions, custom JavaScript), <strong>nested-view</strong> (<code>nest_view_display( )</code> &amp; co.: the protocol's decision Q1 keeps NEST/NEST2 tolerated-not-rendered in portable renderers, so a portable app must not use them) and <strong>client-api</strong> (<code>view_display( switch_default_model_path = … )</code>). A portable renderer shows a placeholder for an unknown control, ignores an unknown member and skips an unknown action — nothing fails, the app just looks incomplete there. Waive one class with <code>" abap2ui5lint-disable portable-app</code> at its top, or a path with the rule's <code>exclude</code> list.</p>
+        <div class="ba" id="portable-app-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>view-&gt;tag( `Slider` ).
+view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= RegExp('^A').test(${/NAME}) }` ).
+client-&gt;nest_view_display( val = view-&gt;stringify( ) id = `box` method_insert = `addItem` ).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>view-&gt;tag( `StepInput` ).
+view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/NAME}.startsWith('A') }` ).</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L297"><code>lib/findings.mjs</code></a></p>
+      </article>
+    </section>
     <section class="cat" id="cat-lifecycle">
       <h2>abap2UI5 — the app class</h2>
       <p class="blurb">The lifecycle and the API surface of the class itself: whether the view is ever displayed, whether the roundtrip finds it again, and whether the objects it names are ones abap2UI5 released.</p>
@@ -1158,7 +1179,7 @@ view-&gt;page( )-&gt;button( text = `hi` ).</code></pre></figure>
 view-&gt;ele( `Page` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `hi` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2XZDfToMwFMZf5YQrSIQLE29MRoJQIgljy6gXRgwrpRuNpRAobtNofAif0CcxjG5m3n5_zvfLeXo3JKmZcWu8UZF3g2AOFaR3SEFa48rom6Gjo-vHXprCKQMBCqMkwtEigeXDXRz5EEaJF4O_Qh5GWnMyCSc7Rf6YPkoAUYLRKvR8lMLb9cBvcr7JSdtqN_CwB1RwJhXgxyWCFQoBL_6ik-dkEiXBEczJZCb_IUbzZYzmKMHeeXiO8P0iuJj8rAmXerdmtqtnZ3DeOBGZr5ztLJjpOhX5vhb5KM7cDaGq6Q4mWA4AZAaoikEjSigGLkrWwc_XN8hGVVxuoWCi2YGqeA-CSwa8B1ox-sLKaWw8abst2TITLNstBqUaaYJi-5FrXfE1WJprgrTdsZKXvG8FOZj6QK86Lrd8M1LpAkqC6QWXrzM-nn8B" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/index.mjs#L156"><code>lib/index.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/index.mjs#L173"><code>lib/index.mjs</code></a></p>
       </article>
       <article class="rule" id="get-viewname-removed" data-search="get-viewname-removed client-&gt;get( )-viewname — removed from ty_s_get the viewname component was removed from z2ui5_if_types=&gt;ty_s_get (it always carried an empty string), so the read no longer compiles — but nothing in a systemless pipeline says so before activation: abaplint has no signature knowledge of the framework interfaces, and the render gate never sees the class fail. the same blindness popover-display-val covers. error">
         <h3><a href="#get-viewname-removed">get-viewname-removed</a>
@@ -3225,7 +3246,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figu
 view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZRvr5owFMa_ygmvNBk127IXmmjC1ZqRKJord8kyF6lQsFlpSSmiLttnXwr4B2_CeEM5fX7nOcA5_fHbEiSl1si6hHynCk5RyEmOyJ5k1gcrl4UKze504Ww2cNXADM9dz_XdlQfrt5eFO4W56zkLmL5ix8dNDG0FXLc3eGrUVQjA9Xz8OnemeAOXTwX7smPxjmRZsztzfAdCzqjQ4H9fY3jFc_BXd2m9h7YCe7OqMLQVW_FUortcL_ASe75zM15i_-tq1rL8mxImGt-U2pPGdgw3j2tFPSWl7sO4wUO-M7cjo-VuXzAeUTWexCTUUp170H8EjcaAJoE9oZz2QMAYgm-MlgGI3KzTYxjUiLn69oQ0olPKRR7A0axzkqG0QzYyWe7SgqFQKoq6c4-M5j3VRfC2nJOzLHQXED8AcZewOJHsMbl57JBrsudPtdehrtclKmojTGiaKKKZFKhkUUJ13png-WOlqRSdRNEmCsFiRqMuIk-J0u98MlTF__uKVYc2dLVGYWcHHHR6_aUHrbPRYFCWJSo_I6mSwcfhcDg4VZJWiqqPgzVJaHBr960F5uAwlpwJbUcsN7Xagp60zZmg8CZ-CVkKe61kRpU-15yZEHuiSdKD4KXQWorgsUp9vjYFTrMDydmFRnfTelLtSTWKEcszTs69JmWuFRMJi81INgD2ZvU50D4_rD8__wE" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L356"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L361"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="unused-directive" data-search="unused-directive a abap2ui5lint-disable… directive that suppressed nothing the directive is in place, the rule it names never fired where it points - the code moved, the rule was tightened, or the id was never the one that reported. eslint's --report-unused-disable-directives, on by default here for the reason the baseline refuses a stale entry: a suppression that outlives its finding hides the next real one on that line. a directive naming several ids is judged per id, a bare directive (no id, every rule) by whether it waived anything at all - and a bare directive cannot excuse its own finding, or every dead catch-all would be self-satisfied; " abap2ui5lint-disable unused-directive, which names the rule on purpose, may. a hint: nothing is wrong with the code, only with what the file says about it. switch it off per repo with "unused-directive": false if a corpus keeps directives ahead of a rule it plans to enable. hint">
         <h3><a href="#unused-directive">unused-directive</a>
@@ -3243,7 +3264,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtr5owFP4rJ3zSZNRsyz5ooglXa0aiaK5syTIXqVCwWSlNKaLebL99KeAL3oTxhXLO83JKz-nPN0uQlFoj6xLynSo4RSEnOSJ7Iq0PVp4VKjTZ6cLZbOCKgRmeu57ruysP1t9eFu4U5q7nLGD6ih0fNzG0FXBNb_DUoKsQgOv5-HXuTPEGLp8K9mXH4h2RssnOHN-BkDMqNPg_1hhe8Rz81R1a59BWYG9WFYa2YiueSnSX6wVeYs93bsZL7H9dzVqWf1PCROObUnvS2I7h5nGtqKeyTPdh3NBDvjOvI6Plbl8wHlE1nsQk1Jk696D_SDQYQzQC9oRy2gMBYwi-M1oGIHKzTo9hUFPM07cnpAGdUi7yAI5mnROJ0g7YyKjcoQVDYaYo6tYeGcx7VheDt-GcnLNCdxHiB0LcBSxORD6Km88OuCZ7_lR7HeraLlFRm8KEpokimmUClSxKqM47BZ5_VppmopNRtBmFYDGjURcjT4nS73wkquL_3WLVoQ27WqOwswMOOr0e6UFrORoMyrJE5WeUqWTwcTgcDk4VpCVR9XGwJgkNbu2-tcBcHMaSM6HtiOWmVlvQk7Y5ExQK8VtkpbClyiRV-lzzzITYE02SHgQvhdaZCB6r1Gd5PWWcygPJ2YVGd9d6VO1JNYsRyyUn516jmWvFRMJiM5MNAXuz-iJoXyDWn1__AA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L361"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L366"><code>lib/findings.mjs</code></a></p>
       </article>
     </section>
   </main>
@@ -3254,9 +3275,9 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    162 configurable rules, plus <code>render-error</code> — the render gate's
+    163 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “162 rules passed” while this page has 163 cards.
+    <code>--badge</code> says “163 rules passed” while this page has 164 cards.
   </footer>
 </div>
 <script>

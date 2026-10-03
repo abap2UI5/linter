@@ -1,6 +1,7 @@
 name: upstream-sync
 
-# Drift gate for the four HAND-MAINTAINED knowledge files:
+# Drift gate for the four HAND-MAINTAINED knowledge files (and, as a second
+# step, the portable profile vendored from abap2UI5/protocol):
 #
 #   lib/formatters.mjs      abap2UI5's curated formatter module
 #   lib/frontend-actions.mjs  GLOBAL_TARGETS, BINDING_METHODS and the
@@ -52,13 +53,53 @@ jobs:
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit "$STATUS"
 
+      # The fifth mirror lives in another repository: data/portable-v1.json,
+      # the verbatim copy of abap2UI5/protocol's portable profile that the
+      # opt-in portable-app rule judges against. Same exit codes (1 drift,
+      # 2 unreachable), its own issue - it is refreshed with a different
+      # command, and from a different upstream.
+      - name: Compare the portable profile against abap2UI5/protocol main
+        id: portable
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          node scripts/sync-portable-profile.mjs --check 2>&1 | tee portable.txt
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          exit "$STATUS"
+
+      - name: Open or update the portable-profile drift issue
+        if: ${{ always() && steps.portable.outputs.status == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          title="vendored portable profile drifted from abap2UI5/protocol"
+          body="scripts/sync-portable-profile.mjs --check found that data/portable-v1.json is no longer the copy of abap2UI5/protocol profiles/portable-v1.json on main: ${RUN_URL}
+
+          \`\`\`
+          $(cat portable.txt 2>/dev/null || echo 'see the run log')
+          \`\`\`
+
+          Run npm run sync-portable-profile, review what portable-app now reports on the fixtures (test/review/portable.mjs) and commit data/portable-v1.json with its source record. This issue is updated by each drifted weekly run; close it when the run is green again."
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still drifted: ${RUN_URL}"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
       # The script separates the two failures on purpose - exit 1 is real drift
       # in a mirror, exit 2 is "cannot read the upstream sources" - and this
       # step used to collapse them back together, filing "drifted from
       # abap2UI5" on any network blip. They are different reports now, and the
       # unreachable one is not a mirror problem at all.
       - name: Open or update the drift issue
-        if: ${{ failure() && steps.check.outputs.status == '1' }}
+        if: ${{ always() && steps.check.outputs.status == '1' }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -85,7 +126,7 @@ jobs:
       # need a human, neither is drift - and calling it drift is how a weekly
       # false alarm teaches everyone to close this issue unread.
       - name: Open or update the unreachable-upstream issue
-        if: ${{ failure() && steps.check.outputs.status == '2' }}
+        if: ${{ always() && steps.check.outputs.status == '2' }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
