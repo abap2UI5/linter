@@ -132,27 +132,30 @@ const resolvedPackage = (name) => {
   return null;
 };
 
+/** The source directory of `libPath` inside package `pkg`, from OPENUI5_DIR
+ *  or the npm packages, or undefined. */
+const resolveDir = (pkg, libPath) => {
+  const candidates = [];
+  if (process.env.OPENUI5_DIR) {
+    candidates.push(path.join(process.env.OPENUI5_DIR, 'src', pkg, 'src', ...libPath.split('/')));
+  }
+  candidates.push(path.join(ROOT, 'node_modules', `@openui5/${pkg}`, 'src', ...libPath.split('/')));
+  const resolved = resolvedPackage(`@openui5/${pkg}`);
+  if (resolved) candidates.push(path.join(resolved, 'src', ...libPath.split('/')));
+  /* @sapui5/<pkg> last. The package layout is identical to @openui5's
+   * (<pkg>/src/<libPath>) and the class-level @since/@deprecated this
+   * generator reads are present and identical in shape - verified against
+   * @sapui5/* 1.151.0. Last rather than first so an OpenUI5 library keeps
+   * resolving from the OpenUI5 package even where both are installed. */
+  candidates.push(path.join(ROOT, 'node_modules', `@sapui5/${pkg}`, 'src', ...libPath.split('/')));
+  const sapui5 = resolvedPackage(`@sapui5/${pkg}`);
+  if (sapui5) candidates.push(path.join(sapui5, 'src', ...libPath.split('/')));
+  return candidates.find((c) => fs.existsSync(c));
+};
+
 /** [libPath, sourceDir] per library, from OPENUI5_DIR or the npm packages. */
 function libDirs() {
   const out = [];
-  const resolveDir = (pkg, libPath) => {
-    const candidates = [];
-    if (process.env.OPENUI5_DIR) {
-      candidates.push(path.join(process.env.OPENUI5_DIR, 'src', pkg, 'src', ...libPath.split('/')));
-    }
-    candidates.push(path.join(ROOT, 'node_modules', `@openui5/${pkg}`, 'src', ...libPath.split('/')));
-    const resolved = resolvedPackage(`@openui5/${pkg}`);
-    if (resolved) candidates.push(path.join(resolved, 'src', ...libPath.split('/')));
-    /* @sapui5/<pkg> last. The package layout is identical to @openui5's
-     * (<pkg>/src/<libPath>) and the class-level @since/@deprecated this
-     * generator reads are present and identical in shape - verified against
-     * @sapui5/* 1.151.0. Last rather than first so an OpenUI5 library keeps
-     * resolving from the OpenUI5 package even where both are installed. */
-    candidates.push(path.join(ROOT, 'node_modules', `@sapui5/${pkg}`, 'src', ...libPath.split('/')));
-    const sapui5 = resolvedPackage(`@sapui5/${pkg}`);
-    if (sapui5) candidates.push(path.join(sapui5, 'src', ...libPath.split('/')));
-    return candidates.find((c) => fs.existsSync(c));
-  };
   for (const lib of [...LIBS, ...EXTRA_LIBS]) {
     const libPath = lib.replace(/\./g, '/');
     const dir = resolveDir(lib, libPath);
@@ -792,6 +795,64 @@ function parseModuleEnums(file, base) {
   return { values: out, sinces, keys };
 }
 
+/** The string-based DataTypes whose `isValid( )` is ONE regular expression -
+ *  `DataType.createType("sap.ui.core.CSSSize", { isValid: function(vValue) {
+ *  return /^(auto|inherit|…)$/.test(vValue); } }, DataType.getType("string"))`
+ *  - as `{ "<type>": "<regex source>" }`.
+ *
+ *  That regex is the whole of what UI5 checks when a property of the type is
+ *  set: `ManagedObject.validateProperty( )` throws for a value it refuses, and
+ *  in an XML view that throw takes the view down (`invalid-css-value`). Only
+ *  the single-test shape is taken: a body that does more than one test
+ *  (`sap.m.ValueCSSColor` tries an enum first, the cssgrid types parse) is
+ *  something this table cannot express, and a type it does not carry is a
+ *  type no rule judges - the tolerable direction. A regex that does not
+ *  compile here is dropped for the same reason. */
+function typePatternsOf(src) {
+  const out = {};
+  if (!src.includes('createType(')) return out;
+  for (const m of src.matchAll(/DataType\.createType\(\s*["']([\w.]+)["']\s*,\s*\{/g)) {
+    const body = braceBody(src, src.indexOf('{', m.index + m[0].length - 1));
+    const fn = body.match(/\bisValid\s*:\s*function\s*\(\s*(\w+)\s*\)\s*\{/);
+    if (!fn) continue;
+    /* whole-line comments only: CSSSize explains above its return why the
+     * regex is one literal, and a `//` INSIDE a regex is not a comment */
+    const fnBody = braceBody(body, body.indexOf('{', fn.index + fn[0].length - 1))
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').trim();
+    const rx = fnBody.match(/^return\s+\/(.+)\/([a-z]*)\.test\(\s*(\w+)\s*\)\s*;?$/s);
+    if (!rx || rx[3] !== fn[1] || rx[2]) continue;
+    try { new RegExp(rx[1]); } catch { continue; }
+    out[m[1]] = rx[1];
+  }
+  return out;
+}
+
+/* The model TYPES a binding info can name - `type: 'sap.ui.model.type.Date'`,
+ * or a core:require of `sap/ui/model/type/Date`. They are classes like the
+ * controls, but no control derives from them and no library path holds them
+ * (`sap/ui/model` sits beside `sap/ui/core` in the sap.ui.core package), so
+ * the walk above never reaches them; these two directories are read for them
+ * alone. What is recorded is the class name and, where its JSDoc carries one,
+ * the release it arrived in - every name a binding may write, and nothing a
+ * binding cannot (`unknown-binding-type`, `binding-type-too-new`). */
+const MODEL_TYPE_DIRS = ['sap/ui/model/type', 'sap/ui/model/odata/type'];
+
+function parseModelTypes(file, base) {
+  const src = fs.readFileSync(file, 'utf8');
+  const own = `${base}/${path.basename(file, '.js')}`.replace(/\//g, '.');
+  const out = {};
+  for (const hit of extendHits(src)) {
+    // the class the module IS, not an example or a helper it defines
+    if (hit.name !== own) continue;
+    const { since, deprecated } = classMeta(src, hit.name);
+    const entry = {};
+    if (since) entry.since = since;
+    if (deprecated) entry.deprecated = deprecated;
+    out[hit.name] = entry;
+  }
+  return out;
+}
+
 /** The body of `var|const|let <ident> = { … }` in a source, or null. */
 function enumBody(src, ident) {
   if (!ident) return null;
@@ -829,6 +890,8 @@ const controls = {};
 const enums = {};
 const enumSince = {};
 const enumKeys = {};
+const typePatterns = {};
+const modelTypes = {};
 let files = 0;
 const takeEnums = ({ values, sinces, keys }) => {
   Object.assign(enums, values);
@@ -855,9 +918,11 @@ if (parseArg !== -1) {
   }
   for (const file of given) {
     takeEnums(parseModuleEnums(file, base));
+    Object.assign(typePatterns, typePatternsOf(fs.readFileSync(file, 'utf8')));
+    if (MODEL_TYPE_DIRS.includes(base)) Object.assign(modelTypes, parseModelTypes(file, base));
     for (const c of parseControls(file, base)) controls[c.name] = controlEntry(c);
   }
-  process.stdout.write(`${JSON.stringify({ enums, enumSince, enumKeys, controls })}\n`);
+  process.stdout.write(`${JSON.stringify({ enums, enumSince, enumKeys, typePatterns, modelTypes, controls })}\n`);
   process.exit(0);
 }
 
@@ -875,10 +940,19 @@ for (const [base, dir] of dirs) {
   collect(dir, base, acc);
   for (const [file, fileBase] of acc) {
     takeEnums(parseModuleEnums(file, fileBase));
+    Object.assign(typePatterns, typePatternsOf(fs.readFileSync(file, 'utf8')));
     for (const c of parseControls(file, fileBase)) {
       controls[c.name] = controlEntry(c);
       files++;
     }
+  }
+}
+
+for (const libPath of MODEL_TYPE_DIRS) {
+  const dir = resolveDir('sap.ui.core', libPath);
+  if (!dir) continue;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort(byName)) {
+    if (e.isFile() && e.name.endsWith('.js')) Object.assign(modelTypes, parseModelTypes(path.join(dir, e.name), libPath));
   }
 }
 
@@ -899,11 +973,13 @@ function sourceVersion() {
 const ui5Version = sourceVersion();
 
 const text = JSON.stringify({
-  note: 'UI5 metadata snapshot: per control parent, @since/@deprecated, interfaces, defaultAggregation and all declared members with types; plus enum values (with per-value @since where the JSDoc carries one, and the XML-view key spelling where it differs from the value). Generated by scripts/generate-metadata.mjs from the OpenUI5 sources.',
+  note: 'UI5 metadata snapshot: per control parent, @since/@deprecated, interfaces, defaultAggregation and all declared members with types; plus enum values (with per-value @since where the JSDoc carries one, and the XML-view key spelling where it differs from the value); the regex of every DataType whose isValid( ) is one regex test; and the model types a binding can name, with their @since. Generated by scripts/generate-metadata.mjs from the OpenUI5 sources.',
   ui5Version,
   enums,
   enumSince,
   enumKeys,
+  typePatterns,
+  modelTypes,
   controls,
 }) + '\n';
 
@@ -925,7 +1001,7 @@ function drift(current, next) {
     out.push(`ui5Version: committed ${a.ui5Version}, generated ${b.ui5Version} — the @openui5 pins moved`);
   }
 
-  const SECTIONS = ['controls', 'enums', 'enumSince', 'enumKeys'];
+  const SECTIONS = ['controls', 'enums', 'enumSince', 'enumKeys', 'typePatterns', 'modelTypes'];
   const show = (label, list) => {
     if (!list.length) return;
     out.push(`${label} (${list.length}): ${list.slice(0, 8).join(', ')}${list.length > 8 ? ', …' : ''}`);

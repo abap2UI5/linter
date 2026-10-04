@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+- **New rule `invalid-css-value`** (error, fixable). A size, colour or
+  percentage literal its UI5 type refuses - `width="100"`, `100 px`,
+  `calc(100%-2rem)`, `fit-content`, a capitalised colour name. UI5 checks
+  `sap.ui.core.CSSSize`, `AbsoluteCSSSize`, `CSSSizeShortHand`, `CSSColor`
+  and `Percentage` with one regex each; the XML parser only logs a refused
+  value, then the control's setter throws and the whole view fails to load.
+  The regexes are harvested into the snapshot (`typePatterns`, every
+  string-based DataType whose `isValid( )` is one regex test) and are the
+  same from 1.71 to the pinned release. `--fix` repairs only the mechanical
+  cases: surrounding blanks, a blank between number and unit, a colour name's
+  case. A bare number keeps the finding without a suggestion.
+
+- **New rule `unknown-binding-type`** (error, fixable). A binding info's
+  `type:` (by global name) or a core:require module path in
+  `sap.ui.model.type` / `sap.ui.model.odata.type` that names no model type.
+  By global name the binding runs without its type (the raw value is shown,
+  input is never parsed back); through core:require the module 404s and the
+  view is never created. `sap.ui.model.type.Decimal` and `.Number` are the
+  plausible names that do not exist. The snapshot lists both namespaces
+  (`modelTypes`); a type of the app's own, a relative `.MyType` and an alias
+  are not judged (the alias at its core:require). A name that matches a type
+  up to letter case is rewritten by `--fix`.
+
+- **New rule `binding-type-too-new`** (warning), the version half of the
+  same check: a model type newer than the floor
+  (`sap.ui.model.odata.type.DateTimeWithTimezone`, @since 1.99), read from the
+  class's own JSDoc into `modelTypes`.
+
+- **The metadata snapshot gains two sections**, both additive:
+  `typePatterns` and `modelTypes` (`loadSnapshot( )` attaches them as
+  `__typePatterns` / `__modelTypes`). A snapshot without them - one a
+  consumer generated with an older generator - leaves the three rules above
+  silent. A consumer that builds the snapshot object itself rather than
+  through `loadSnapshot( )` (the VS Code extension's web host) has to attach
+  the two the same way to get them.
+
 - `portable-app`: the vendored profile follows protocol revision 0.3
   (604d267) - the client-API names are read from `actions.api`, the names a
   raw view's `.eF( )` may use from `actions.wire.custom`.

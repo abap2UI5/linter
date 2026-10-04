@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 163 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 166 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -194,6 +194,10 @@
         "binding-type-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'binding-type-mismatch' — default severity: warning"
+        },
+        "binding-type-too-new": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'binding-type-too-new' — default severity: warning"
         },
         "boolc-instead-of-xsdbool": {
           "$ref": "#/definitions/rule",
@@ -455,6 +459,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'invalid-aggregation-item' — default severity: error"
         },
+        "invalid-css-value": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'invalid-css-value' — default severity: error"
+        },
         "invalid-expression-binding": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'invalid-expression-binding' — default severity: error"
@@ -714,6 +722,10 @@
         "unknown-binding-path": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-binding-path' — default severity: warning"
+        },
+        "unknown-binding-type": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-binding-type' — default severity: error"
         },
         "unknown-control": {
           "$ref": "#/definitions/rule",
