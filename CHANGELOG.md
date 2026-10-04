@@ -65,6 +65,12 @@
   `z2ui5_if_ui5_*` prefix. Merge together with the abap2UI5 change, or
   `check-upstream` reports the extra name as drift until it lands.
 
+- **`ExcelBridge` is mirrored.** abap2UI5 ships a new companion control,
+  `z2ui5.cc.ExcelBridge` (the workbook bridge of an Excel add-in,
+  abap2UI5/office-addin). Unmirrored, a view naming it would fail view
+  CREATION in the render gate with a module 404 and the property walk would
+  look away from it; `check-upstream` reports the drift until both land.
+
 - **`NativeBridgeScan` is mirrored.** abap2UI5 ships a new companion
   control, `z2ui5.cc.NativeBridgeScan` (the scan button of the native mobile
   shell, abap2UI5/mobile-shell). Unmirrored, a view naming it failed view
