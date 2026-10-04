@@ -91,7 +91,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      165 rules passed" green, "7 errors" red)
+ *                      166 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -646,7 +646,14 @@ for (let i = 0; i < args.length; i++) {
     // column of the element it closes - the layout abap2UI5, samples and
     // samples-controls are written in. Opt-in because it encodes ONE style;
     // \`--fix\` applies it. Drop the line if your project settles on another.
-    // "chain-house-layout": "warning"
+    // "chain-house-layout": "warning",
+
+    // keep the views inside the abap2UI5 protocol's portable profile, so a
+    // non-UI5 frontend (UI5 Web Components, Adaptive Cards, an agent)
+    // renders the app too - reports the controls, bindings, frontend actions
+    // and nested view slots outside it. Opt-in: an app outside it still runs
+    // on UI5 exactly as written.
+    // "portable-app": "error"
   }
 }
 `);

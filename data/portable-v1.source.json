@@ -1,0 +1,7 @@
+{
+  "note": "Verbatim copy of abap2UI5/protocol profiles/portable-v1.json, read at the commit below - the profile the portable-app rule judges against. Refresh with npm run sync-portable-profile (scripts/sync-portable-profile.mjs); never hand-edit data/portable-v1.json, npm test recomputes the hash.",
+  "repository": "abap2UI5/protocol",
+  "path": "profiles/portable-v1.json",
+  "commit": "604d26769a9b7dcaa1f985f1297ff9c0a59b012e",
+  "sha256": "abaa67bb19ee798efeee118a34b723e664afbab4985592bd8e7942206a9c1f39"
+}

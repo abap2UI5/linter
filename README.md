@@ -59,6 +59,33 @@ Two more entry points, for the two other ways in:
 | [Adding the render gate](https://abap2ui5.github.io/docs/advanced/linter.html#the-render-gate) | `npm i -D @abap2ui5/linter-render` + `npx playwright install chromium` — the headless `XMLView.create` that catches a view which fails to *load* |
 | [Starting a project](https://github.com/abap2UI5/app-template) | app-template ships the CLI, the config and the workflow already wired up |
 
+## Portable apps (opt-in)
+
+An abap2UI5 app runs on the UI5 frontend whatever it writes. To keep it
+renderable by **non-UI5 frontends** as well — the UI5 Web Components frontend
+([frontend-webcomponent](https://github.com/abap2UI5/frontend-webcomponent)),
+an Adaptive Cards renderer, an agent — ask for the `portable-app` rule:
+
+```jsonc
+// abap2ui5lint.jsonc
+{
+  "rules": { "portable-app": "error" }   // or "warning" / "hint"; off by default
+}
+```
+
+It reports everything outside the abap2UI5 protocol's
+[portable profile v1](https://github.com/abap2UI5/protocol/blob/main/profiles/portable.md):
+controls and members it does not list, `z2ui5.cc` custom controls, named
+models and other binding forms, expression constructs outside its grammar
+(`RegExp`, `odata.*`, …), event arguments such as `$event`, frontend actions
+such as `CONTROL_BY_ID`, and the nested view slots (`nest_view_display( )`).
+Each finding names the reason; the [rule card](https://abap2ui5.github.io/linter/#portable-app)
+lists them all. The profile is a verbatim copy of the protocol's
+`profiles/portable-v1.json` in `data/` (its source commit beside it),
+refreshed with `npm run sync-portable-profile`. One class opts out with
+`" abap2ui5lint-disable portable-app` at its top, a path with the rule's
+`exclude` list.
+
 ## Where it runs
 
 The CLI, a GitHub Action (`abap2UI5/linter@v0`), and a library — plus two
@@ -123,6 +150,14 @@ one and opens a PR with the diff:
 ```sh
 npm run generate-icons       # data/icons.json — the SAP icon-font snapshot
 npm run generate-dependents  # the "Used by" list above, from GitHub's dependents page
+```
+
+One file is vendored from another repository rather than generated, and is
+refreshed by hand when the protocol moves (`npm test` pins its hash, the
+weekly upstream-sync workflow reports drift):
+
+```sh
+npm run sync-portable-profile   # data/portable-v1.json — abap2UI5/protocol's portable profile (-- --local <checkout> to read a clone)
 ```
 
 `site/` holds that generated rule reference (published to
