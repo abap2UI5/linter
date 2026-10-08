@@ -18,6 +18,32 @@
   sapgui and abap-cloud-gui (with their configs and with `chain-house-layout`
   on): byte-identical to running the old `--fix` until it settled.
 
+- `chain-house-layout` reads literals with the shared `literalEnd( )`. Its
+  own scanner closed a string template at the first `|`, so in
+  `|{ concat_lines_of( table = mt sep = `|` ) }|` the backtick behind that
+  `|` opened a literal that ran to the line end and took the `)` closing the
+  `a( )` with it: a crammed `)->tag( ... )` behind it was reported and its
+  fix never re-laid it.
+
+- **Linear on long sources.** `default-key-table` sliced the rest of the
+  class and matched against everything before each declaration - a class of
+  10,000 `TYPE TABLE OF` lines took a minute, now under half a second. And
+  ten regexes anchored on `^\s*` under the multiline flag (the int targets
+  of `redundant-conv-i`, the literal seeds of the model, the section DATA
+  blocks, the event dispatch, `declaresApp( )`, the handle-reuse count) let
+  every blank line start a scan over all the blank lines behind it: 20,000
+  empty lines took seconds, 100,000 minutes. They read the line's own
+  indentation now; the matches are the same.
+
+- The config's `ignore` count ("N files ignored by config") is taken in the
+  same directory walk: the CLI walked the tree a second time without the
+  patterns and read every class of the run twice. `collectFiles( )` takes an
+  `onIgnored` callback for it.
+
+- `--update-baseline` beside a machine format (`--format json`, …) writes
+  its "baseline: wrote" line to stderr; stdout is the document a caller
+  parses. A stylish run keeps it on stdout, where it is the report.
+
 - **A quote in a comment no longer silences the class.** The comment and
   literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
   lost their place in three shapes - a string template whose embedded

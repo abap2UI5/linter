@@ -201,10 +201,12 @@ declare module "@abap2ui5/linter" {
    *  `opts.ignore` are regex patterns matched against each walked path; a path
    *  named explicitly still gets checked, because ignoring an argument is the
    *  same silence. Symlink cycles terminate (the walk keys directories by
-   *  realpath). */
+   *  realpath). `opts.onIgnored` is called once for every checkable file
+   *  `ignore` kept out of the walk (the same walk: the ignored trees are
+   *  read for it, nothing in them is returned). */
   export function collectFiles(
     paths: string[],
-    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean }
+    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean; onIgnored?: (file: string) => void }
   ): string[];
 
   /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and

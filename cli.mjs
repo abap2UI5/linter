@@ -840,10 +840,10 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     try {
       // `ignore` is repo-level and config-only on purpose: it describes the tree,
       // which is a property of the repo rather than of one invocation
-      files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
-      if (opt.ignore?.length) {
-        ignored = Math.max(0, collectFiles(paths, { allClasses: opt.allClasses === true }).length - files.length);
-      }
+      // one walk: the ignored trees are walked for the count, never read twice
+      files = collectFiles(paths, {
+        ignore: opt.ignore ?? [], allClasses: opt.allClasses === true, onIgnored: () => { ignored++; },
+      });
     } catch (e) {
       // a mistyped path is bad usage, not a crash - exit 2 with one clean line
       die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
@@ -1187,7 +1187,10 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     // nothing is printed yet, so die( ) cuts nothing off here
     try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
     const n = [...map.values()].reduce((s, c) => s + c, 0);
-    console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
+    /* The one line is the report of a stylish run. Beside a machine format it
+     * is prose, and stdout is the document a caller parses - so it goes to
+     * stderr there, like every other note. */
+    (opt.format === 'stylish' ? console.log : console.error)(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
     return 0;
   }
   let baselineNote = null;
