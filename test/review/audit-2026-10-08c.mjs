@@ -24,6 +24,8 @@
  *      `if:` expressions, and the Chromium cache is where the browser is
  *  12. popup-display-xml / popover-display-val / popover-anchor-unknown-id
  *      read the client's call, with the argument wherever it stands
+ *  13. uncurated-formatter reads every alias core:require points at the
+ *      curated module, and no name that merely ends in `Formatter`
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -428,5 +430,27 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const c = run1('client->popover_display( xml = `x` by_id = `Btn` ).');
     assert(c.types === 'popover-anchor-unknown-id' && c.fixed.includes('by_id = `btn`'), `the anchor id, as before (${c.types})`);
     assert(run1('DATA(lv) = `client->popover_display( val = 1 )`.').types === '', 'a call written inside a literal is text');
+  });
+
+  /* ── 13. formatter aliases ───────────────────────────────────────────── */
+
+  /* Only the alias spelled `Formatter` was judged: `core:require="{ Fmt:
+   * 'z2ui5/model/formatter' }"` and `formatter: 'Fmt.round2DP'` names the
+   * same removed function and went unseen. And the expression form matched
+   * `myFormatter.round2DP(` - a name that only ends in Formatter. */
+  section('audit 2026-10-08c: uncurated-formatter reads every alias of the curated module', () => {
+    const view = (req, text) => `<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"${req ? ` core:require="${req}"` : ''}>\n`
+      + `  <Page title="x"><content><Text text="${text}"/></content></Page>\n</mvc:View>\n`;
+    const hits = (req, text) => checkXmlSource(view(req, text), { ...opts, file: 'f.view.xml' }).findings
+      .filter((x) => x.type === 'uncurated-formatter').map((x) => `${x.value}${x.suggestion ? `>${x.suggestion}` : ''}`).join();
+    const REQ = "{ Fmt: 'z2ui5/model/formatter' }";
+    assert(hits(REQ, "{ path: '/D', formatter: 'Fmt.round2DP' }") === 'round2DP', 'an alias of another name: judged');
+    assert(hits(REQ, "{ path: '/D', formatter: 'Fmt.dateCreateObject' }") === 'dateCreateObject>Fmt.DateCreateObject', 'with the did-you-mean in its own spelling');
+    assert(hits(REQ, "{ path: '/D', formatter: 'Fmt.DateCreateObject' }") === '', 'a curated name: silent');
+    assert(hits(REQ, '{= Fmt.round2DP(${/D}) }') === 'round2DP', 'the expression form too');
+    assert(hits("{ Fmt: 'my/own/module' }", "{ path: '/D', formatter: 'Fmt.anything' }") === '', 'an alias of another module: not ours to know');
+    assert(hits('', '{= myFormatter.round2DP(${/D}) }') === '', 'a name that only ends in Formatter is not the alias');
+    assert(hits('', "{ path: '/D', formatter: 'z2ui5.Formatter.round2DP' }") === 'round2DP', 'the global, as before');
+    assert(hits('', "{ path: '/D', formatter: 'Formatter.round2DP' }") === 'round2DP', 'the conventional alias, as before');
   });
 }

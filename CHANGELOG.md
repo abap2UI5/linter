@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `uncurated-formatter` reads every alias a `core:require` points at
+  `z2ui5/model/formatter`: `{ Fmt: 'z2ui5/model/formatter' }` with
+  `formatter: 'Fmt.round2DP'` names the same removed function as
+  `Formatter.round2DP` and went unseen, because only the alias spelled
+  `Formatter` was judged. The did-you-mean keeps the written alias. And the
+  expression form no longer matches a name that merely ends in `Formatter`
+  (`myFormatter.round2DP(`).
+
 - `popup-display-xml`, `popover-display-val` and
   `popover-anchor-unknown-id` read the CLIENT's `popup_display( )` /
   `popover_display( )` call, the way the other client-call rules do, and
