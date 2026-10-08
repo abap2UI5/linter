@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- **The first display is modelled.** The model a view is judged and rendered
+  against took its scalar seeds from the whole class, so a value only an
+  event handler assigns was rendered as if it were there from the start.
+  samples-stack app 013 bound a MessageStrip `type` to an attribute seeded
+  `Error` in a `CATCH` block: both gates rendered `Error`, every real start
+  shipped `""` and terminated the app. A document built on the start path -
+  `main( )` ahead of its dispatch, the `check_on_init( )` arm (or the
+  `check_on_navigated( )` arm of a chain without one), the constructor and
+  what they call - is now judged and rendered against a model seeded from
+  that path only (`initModel`, `initialFields`, `docOnInit` on
+  `prepareAbap( )`, `docModels` on the result). A popup built in a handler,
+  and every class with no such dispatch, keeps the class-wide model.
+  Measured on six corpora (samples-controls, samples-stack, abap2UI5, popups,
+  sapgui, abap-cloud-gui): no new finding, no new render error.
+
+- **New rule `enum-bound-to-initial-field`** (error), the root-field twin of
+  `enum-field-unset-on-insert`: an enum-typed property bound to an attribute
+  the start path gives no value - no literal seed, no declared `VALUE`, no
+  other write. The first display ships `""`, `validateProperty` throws and the
+  app terminates, hidden control or not. A field the start path writes
+  non-literally, one bound under `omit_initial`, and a document the first
+  display does not show are not judged.
+
+- **New rule `rows-hidden-by-visible`** (warning). A bound aggregation whose
+  row template carries a binding-valued `visible`, in a class that raises no
+  size limit: a JSONModel hands a bound aggregation at most 100 entries and
+  the hidden rows are among them, so the list stops short of its data without
+  a word. samples-controls' overview app listed a few dozen of its 622 ports
+  that way. The narrow successor of the `bound-aggregation-over-size-limit`
+  rule dropped in 0.3: one hit on the same six corpora, the real one. A raw
+  view has no class to ask and is not judged.
+
 - **New rule `invalid-css-value`** (error, fixable). A size, colour or
   percentage literal its UI5 type refuses - `width="100"`, `100 px`,
   `calc(100%-2rem)`, `fit-content`, a capitalised colour name. UI5 checks
