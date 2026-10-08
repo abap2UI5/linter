@@ -20,6 +20,8 @@
  *   8. `sap-icon://prefix-` && name is a prefix, not an unknown icon
  *   9. unescaped-text-in-attribute leaves `id` and `class` alone
  *  10. a raw fragment file is rendered as a fragment whatever its prolog
+ *  11. action.yml: a boolean input means the same to the shell as to the
+ *      `if:` expressions, and the Chromium cache is where the browser is
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -345,5 +347,54 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     fs.writeFileSync(wrong, body);
     const [w] = await checkFiles([wrong], { render: true });
     assert(w.renderErrors.some((e) => /root node must be 'View'/.test(e)), `wrong.view.xml: loaded as the view it claims to be (${w.renderErrors.join(' | ')})`);
+  });
+
+  /* ── 11. action.yml ──────────────────────────────────────────────────── */
+
+  /* GitHub compares strings in an `if:` case-insensitively, the shell does
+   * not: `render: False` skipped the runtime install (the expression saw
+   * 'false') and then ran the gate anyway (the shell did not), and
+   * `annotations: False` annotated. The lint step's own script, run under
+   * bash against a stand-in cli.mjs that records its argv. */
+  section('audit 2026-10-08c: action.yml reads a boolean input the way its if: expressions do', () => {
+    const ROOT = path.join(FIX, '..', '..');
+    const action = fs.readFileSync(path.join(ROOT, 'action.yml'), 'utf8');
+    const lines = action.split('\n');
+    const at = lines.findIndex((l) => /^\s*id: lint\s*$/.test(l));
+    const runAt = lines.findIndex((l, i) => i > at && /^\s*run: \|\s*$/.test(l));
+    const indent = lines[runAt].match(/^\s*/)[0].length;
+    const body = [];
+    for (let j = runAt + 1; j < lines.length && !(lines[j].trim() && lines[j].match(/^\s*/)[0].length <= indent); j++) body.push(lines[j]);
+    const script = body.map((l) => l.slice(indent + 2)).join('\n');
+    const dir = tempDir('a2l-action-');
+    fs.writeFileSync(path.join(dir, 'cli.mjs'), "import fs from 'node:fs';\nfs.writeFileSync(process.env.ARGV_OUT, JSON.stringify(process.argv.slice(2)));\n");
+    const argv = (env) => {
+      const out = path.join(dir, 'argv.json');
+      const r = cp.spawnSync('bash', ['-c', script], {
+        encoding: 'utf8',
+        env: { ...process.env, ACTION_PATH: dir, RUNNER_TEMP: dir, GITHUB_OUTPUT: path.join(dir, 'out.txt'), ARGV_OUT: out,
+          LINT_PATHS: 'src', LINT_RENDER: 'true', LINT_ANNOTATIONS: 'true', ...env },
+      });
+      assert(r.status === 0, `the step runs (${r.stderr})`);
+      return JSON.parse(fs.readFileSync(out, 'utf8'));
+    };
+    assert(!argv({}).includes('--no-render') && !argv({}).includes('--no-annotate'), 'the defaults pass neither');
+    for (const v of ['false', 'False', 'FALSE']) {
+      const a = argv({ LINT_RENDER: v, LINT_ANNOTATIONS: v });
+      assert(a.includes('--no-render') && a.includes('--no-annotate'), `${v}: --no-render and --no-annotate (${a.join(' ')})`);
+    }
+
+    /* The browser cache: Playwright's default directory is ~/.cache only on
+     * Linux, so on Windows and macOS the cache step saved nothing. One
+     * PLAYWRIGHT_BROWSERS_PATH now, the same on every step that installs or
+     * launches Chromium and on the cache. */
+    const cachePath = action.match(/name: Cache the Chromium build[\s\S]*?path: (\S+)/)[1];
+    const steps = action.split(/\n {4}- /).filter((st) => /playwright install|cli\.mjs/.test(st) && /shell: bash/.test(st));
+    assert(steps.length === 3, `three steps run Chromium or may (${steps.length})`);
+    for (const st of steps) {
+      const name = st.match(/name: (.*)/)?.[1];
+      assert(st.match(/PLAYWRIGHT_BROWSERS_PATH: (\S+)/)?.[1] === cachePath, `${name}: PLAYWRIGHT_BROWSERS_PATH is the cached ${cachePath}`);
+    }
+    assert(!cachePath.startsWith('~'), `the cache path is the runner's, not Linux's default (${cachePath})`);
   });
 }

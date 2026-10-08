@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Action: `render: False` means false.** GitHub compares strings in an
+  `if:` case-insensitively and the shell does not, so `render: False`
+  skipped the runtime install and then ran the gate anyway (falling back,
+  or failing where the config asks for the render gate), and
+  `annotations: False` annotated. Both inputs are lower-cased in the shell
+  now, in the lint and the screenshot step.
+
+- **Action: the Chromium cache works on Windows and macOS runners.** The
+  cache step saved `~/.cache/ms-playwright`, which is Playwright's browser
+  directory on Linux only, so elsewhere it cached nothing and every job
+  downloaded Chromium again. The install, lint and screenshot steps set
+  `PLAYWRIGHT_BROWSERS_PATH` to one directory under `runner.temp`, and that
+  is what is cached (a Linux runner misses the cache once).
+
 - **A raw `.fragment.xml` renders as a fragment.** The render gate decided
   view or fragment by `^<core:FragmentDefinition` on the text, so a fragment
   file that opened with an XML declaration or a comment, wrote
