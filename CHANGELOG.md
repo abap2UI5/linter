@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **A `COND #( )` or `SWITCH #( )` of literals is judged branch by branch.**
+  `COND #( WHEN n = 1 THEN \`Emphasized\` ELSE \`Default\` )` on a Button
+  `type` has a closed set of values, and it was reported as
+  `unresolved-attribute-value` - "a value this gate cannot follow" - while
+  a wrong one in a branch went unjudged. The reconstructor now records the
+  values of a conditional with an `ELSE` whose every result resolves (a
+  literal, a `&&` chain, a nested conditional of the same shape; a `THROW`
+  branch yields none) as the node's `branchValues`, and the property gate
+  judges each like a literal: `invalid-property-value` (with its case-only
+  `--fix` landing on the branch) and the other value rules, silent when all
+  of them pass. No `ELSE`, a `LET`, or a result that does not resolve keeps
+  the hint. abap-cloud-gui: its two `unresolved-attribute-value` hints
+  (`z2ui5_cl_cgui_popup`, `z2ui5_cl_cgui_report`) are gone, nothing new.
+
 - **The stylish report no longer prints control characters out of the
   source.** A message quotes the checked file (an attribute value, a name, a
   render error), and an ESC in a literal reached the reviewer's terminal raw -
