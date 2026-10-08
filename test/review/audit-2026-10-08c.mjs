@@ -14,6 +14,9 @@
  *      TypeError; --stdin refuses a path it would not read
  *   6. default-key-table (and the PUBLIC attribute reader) stay linear when
  *      no `.` or `,` follows the declarations
+ *
+ * Part B - modules no round had read yet:
+ *   7. an xmlns declared on an inner element is scoped to that element
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -256,5 +259,25 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
       + 'ENDCLASS.\nCLASS zcl_x IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n', opts)
       .findings.filter((x) => x.type === 'default-key-table').map((x) => x.member);
     assert(mixed.join() === 'd', `an element up to its terminator carries a key if any part of it does, as before (${mixed.join()})`);
+  });
+
+  /* ── 7. namespace scope ──────────────────────────────────────────────── */
+
+  /* Every xmlns of the document went into one map, the last declaration
+   * winning: `<VBox xmlns="sap.ui.layout.form">` inside a sap.m Page made the
+   * Page above it and the Panel beside it sap.ui.layout.form controls, both
+   * "does not exist - typo?". And a prefix declared in one subtree counted
+   * as declared in another, where the browser refuses the document. */
+  section('audit 2026-10-08c: an xmlns on an inner element binds that element and its subtree only', () => {
+    const view = '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m">\n  <Page title="x">\n    <content>\n'
+      + '      <f:SimpleForm xmlns:f="sap.ui.layout.form" xmlns="sap.ui.core"><f:content><Title text="t"/></f:content></f:SimpleForm>\n'
+      + '      <Panel xmlns:l="sap.ui.layout"><l:Grid defaultSpan="XL1"/></Panel>\n'
+      + '      <Text text="after"/>\n'
+      + '    </content>\n  </Page>\n</mvc:View>\n';
+    const got = checkXmlSource(view, { ...opts, file: 'ns.view.xml' }).findings.map((x) => `${x.type}:${x.control ?? ''}`);
+    assert(!got.some((t) => /^unknown-control/.test(t)), `Page, Panel and Text stay sap.m, Title is sap.ui.core (${got.join() || 'silent'})`);
+    const outside = view.replace('<Text text="after"/>', '<l:Grid/>');
+    const got2 = checkXmlSource(outside, { ...opts, file: 'ns.view.xml' }).findings.map((x) => `${x.type}:${x.member ?? ''}`);
+    assert(got2.includes('undeclared-namespace:l'), `l: used outside the Panel that declares it (${got2.join()})`);
   });
 }

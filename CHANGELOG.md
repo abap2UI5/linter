@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **An `xmlns` on an inner element is scoped to it.** Every declaration of
+  a document went into one map, the last one winning, so `<VBox
+  xmlns="sap.ui.layout.form">` inside a sap.m Page turned the Page above it
+  and the Panel beside it into `unknown-control`s (`sap.ui.layout.form.Page
+  does not exist - typo?`), and a prefix declared in one subtree passed as
+  declared in another, which the browser's parser refuses. The property
+  gate, the control-id map, the enum-bound-field reader and the run
+  summary's profile now resolve each element against the declarations in
+  scope at it (`namespaceScopes( )` in `lib/properties.mjs`), and
+  `undeclared-namespace` reports a prefix used outside the element that
+  declares it. No change on the four corpora, which declare their
+  namespaces on the root.
+
 - `default-key-table` and the PUBLIC attribute reader behind
   `unbound-public-attribute` are linear when no `.` or `,` follows the
   declarations: each one searched (and sliced) to the end of the file for
