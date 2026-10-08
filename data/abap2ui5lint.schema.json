@@ -124,7 +124,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 166 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 168 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -330,6 +330,10 @@
         "empty-catch-block": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'empty-catch-block' — default severity: hint"
+        },
+        "enum-bound-to-initial-field": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-bound-to-initial-field' — default severity: error"
         },
         "enum-field-unset-on-insert": {
           "$ref": "#/definitions/rule",
@@ -638,6 +642,10 @@
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'relative-binding-without-context' — default severity: error"
+        },
+        "rows-hidden-by-visible": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'rows-hidden-by-visible' — default severity: warning"
         },
         "sapui5-only-control": {
           "$ref": "#/definitions/rule",

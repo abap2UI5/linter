@@ -106,6 +106,10 @@ declare module "@abap2ui5/linter" {
     docs: string[];
     /** The mock model derived from the class's literal seeds. */
     model: Record<string, unknown>;
+    /** ABAP results only, index-aligned with `docs`: the model each document
+     *  is rendered with - the start-path model for a document the first
+     *  display shows, `model` for every other one. */
+    docModels?: Array<Record<string, unknown>>;
     notes: string[];
     helperTokens: number;
     findings: PropertyFinding[];
@@ -239,6 +243,20 @@ declare module "@abap2ui5/linter/reconstruct" {
     /** Every declared field of every declared structure - what the property
      *  gate judges binding paths against. */
     modelShape: Record<string, unknown>;
+    /** The model of the FIRST display: scalars seeded only from the start
+     *  path (main( )'s check_on_init( ) branch, the constructor and what they
+     *  call), so an attribute only an event handler fills is initial. `null`
+     *  when main( ) has no check_on_init( ) branch. */
+    initModel: Record<string, unknown> | null;
+    /** The same restriction over `modelShape`. */
+    initModelShape: Record<string, unknown> | null;
+    /** Root fields (uppercased) nothing on the start path gives a value -
+     *  no literal seed, no declared VALUE, no other write. */
+    initialFields: Set<string>;
+    /** Index-aligned with `nodes` / `docs`: whether the document is built on
+     *  the start path, and so judged against `initModel`. */
+    nodeOnInit: boolean[];
+    docOnInit: boolean[];
     /** Every attribute name the class declares (uppercased) - what the
      *  relative-binding-without-context rule judges against. */
     rootFields: Set<string>;
@@ -500,6 +518,14 @@ declare module "@abap2ui5/linter/properties" {
       /** The paths bound as JSON (prepareAbap) — without it
        *  json-bind-on-scalar-property never fires. */
       jsonPaths?: Set<string> | null;
+      /** Root fields still initial on the first display (prepareAbap's
+       *  initialFields), for a document the first display shows — without it
+       *  enum-bound-to-initial-field never fires. */
+      initialFields?: Set<string> | null;
+      /** Whether the class raises a model's size limit (cs_event-set_size_limit)
+       *  — `false` lets rows-hidden-by-visible judge, `null` (a raw view, no
+       *  class to ask) leaves it silent. */
+      sizeLimitRaised?: boolean | null;
       /** The source was ABAP, not raw XML. Both halves of
        *  raw-javascript-to-frontend judge a value as authored only when this
        *  says so. */
