@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `unknown-icon` reads `` `sap-icon://status-` && lv_code `` as the prefix it
+  is - the backtick spelling of `|sap-icon://status-{ lv_code }|`, which
+  was already not judged - instead of reporting a glyph named `status-`.
+
 - **An `xmlns` on an inner element is scoped to it.** Every declaration of
   a document went into one map, the last one winning, so `<VBox
   xmlns="sap.ui.layout.form">` inside a sap.m Page turned the Page above it

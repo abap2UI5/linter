@@ -17,11 +17,13 @@
  *
  * Part B - modules no round had read yet:
  *   7. an xmlns declared on an inner element is scoped to that element
+ *   8. `sap-icon://prefix-` && name is a prefix, not an unknown icon
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { applyFixes } from '../../lib/fix.mjs';
+import { checkIcons } from '../../lib/icons.mjs';
 import { formatStylish, githubAnnotations, summarize, terminalSafe } from '../../lib/report.mjs';
 
 export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap }) {
@@ -279,5 +281,19 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const outside = view.replace('<Text text="after"/>', '<l:Grid/>');
     const got2 = checkXmlSource(outside, { ...opts, file: 'ns.view.xml' }).findings.map((x) => `${x.type}:${x.member ?? ''}`);
     assert(got2.includes('undeclared-namespace:l'), `l: used outside the Panel that declares it (${got2.join()})`);
+  });
+
+  /* ── 8. an icon prefix joined with && ────────────────────────────────── */
+
+  /* `|sap-icon://status-{ code }|` already names its glyph at runtime and is
+   * not judged; the backtick spelling of the same prefix was reported as the
+   * glyph `status-`. */
+  section('audit 2026-10-08c: a sap-icon:// literal joined with && is a prefix, not a glyph', () => {
+    const t = (src) => checkIcons(src).map((x) => `${x.type}:${x.value}`).join();
+    assert(t('v = `sap-icon://status-` && lv_code') === '', 'a backtick prefix: silent');
+    assert(t("v = 'sap-icon://status-' && lv_code") === '', 'a quoted one too');
+    assert(t('v = `sap-icon://statusx` ).') === 'unknown-icon:statusx', 'a whole literal is still judged');
+    assert(t('v = lv_base && `sap-icon://statusx`') === 'unknown-icon:statusx', 'and so is one that ENDS a concatenation');
+    assert(checkIcons('<Icon src="sap-icon://statusx" />` && x', { xml: true }).length === 1, 'raw XML has no && to read');
   });
 }
