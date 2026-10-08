@@ -18,6 +18,7 @@
  * Part B - modules no round had read yet:
  *   7. an xmlns declared on an inner element is scoped to that element
  *   8. `sap-icon://prefix-` && name is a prefix, not an unknown icon
+ *   9. unescaped-text-in-attribute leaves `id` and `class` alone
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -295,5 +296,23 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     assert(t('v = `sap-icon://statusx` ).') === 'unknown-icon:statusx', 'a whole literal is still judged');
     assert(t('v = lv_base && `sap-icon://statusx`') === 'unknown-icon:statusx', 'and so is one that ENDS a concatenation');
     assert(checkIcons('<Icon src="sap-icon://statusx" />` && x', { xml: true }).length === 1, 'raw XML has no && to read');
+  });
+
+  /* ── 9. id and class are taken verbatim ──────────────────────────────── */
+
+  /* The XMLTemplateProcessor hands `id` to getId( ) and `class` to
+   * addStyleClass( ) and parses neither for a binding, so a brace in them
+   * is no binding mistaken for text - and the fix (`t =`) wrote a
+   * backslash into the id or the class token. */
+  section('audit 2026-10-08c: unescaped-text-in-attribute leaves id and class alone', () => {
+    const app = (n) => 'CLASS zcl_v DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_text TYPE string.\nENDCLASS.\n\n'
+      + 'CLASS zcl_v IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(lv_css) = to_lower( mv_text ).\n'
+      + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+      + `        )->ele( \`Page\` )->tag( \`Text\` )->a( n = \`${n}\` v = lv_css ).\n`
+      + '    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const hit = (n) => checkAbapSource(app(n), opts).findings.filter((x) => x.type === 'unescaped-text-in-attribute').length;
+    assert(hit('text') === 1, 'text: reported, as before');
+    assert(hit('class') === 0 && hit('id') === 0, `class and id: silent (${hit('class')} / ${hit('id')})`);
   });
 }

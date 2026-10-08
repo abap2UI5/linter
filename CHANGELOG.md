@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `unescaped-text-in-attribute` leaves `id` and `class` alone. Neither is a
+  property: the XMLTemplateProcessor hands them to `getId( )` and
+  `addStyleClass( )` verbatim and never parses a brace in them as a
+  binding - and the fix, `t =`, wrote a backslash into the id or the class
+  token.
+
 - `unknown-icon` reads `` `sap-icon://status-` && lv_code `` as the prefix it
   is - the backtick spelling of `|sap-icon://status-{ lv_code }|`, which
   was already not judged - instead of reporting a glyph named `status-`.
