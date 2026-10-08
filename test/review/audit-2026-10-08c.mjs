@@ -8,6 +8,8 @@
  *      as a value the gate cannot follow
  *   3. a PUBLIC attribute another class of the run reads from outside is not
  *      unbound (nor unused) - and the cache knows the cross-file fact
+ *   4. a builder handle stored in an attribute and stringified in another
+ *      method is skipped as not reconstructable, not "no view reconstructed"
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -15,7 +17,7 @@ import path from 'node:path';
 import { applyFixes } from '../../lib/fix.mjs';
 import { formatStylish, githubAnnotations, summarize, terminalSafe } from '../../lib/report.mjs';
 
-export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles }) {
+export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap }) {
   const opts = { render: false };
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
@@ -164,5 +166,39 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     assert(cached() === 'ms_result', 'the caller stops reading it: the CACHED popup is judged again');
     fs.writeFileSync(C, caller('ms_result'));
     assert(cached() === '', 'and back');
+  });
+
+  /* ── 4. a handle kept in an attribute ────────────────────────────────── */
+
+  /* abap2UI5's node/srv/zcl_tst_host (sample 338 as a fixture): the page is
+   * built in view_display( ), kept in mo_main_page, a sub-app created by
+   * name builds into it, and render_sub_app( ) stringifies it. The replay
+   * enters only the method that opens the factory, so nothing came out and
+   * the render gate failed the class with "no view reconstructed" - which
+   * abap2UI5 had to waive in its config. It is skipped like the other
+   * shapes a replay cannot follow now. */
+  const host = 'CLASS zcl_host DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mo_app TYPE REF TO object.\n'
+    + '  PROTECTED SECTION.\n    DATA client TYPE REF TO z2ui5_if_client.\n    DATA mo_main_page TYPE REF TO z2ui5_cl_ui5_view_builder.\n    METHODS view_display.\n    METHODS render_sub_app.\nENDCLASS.\n\n'
+    + 'CLASS zcl_host IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    me->client = client.\n    view_display( ).\n    render_sub_app( ).\n  ENDMETHOD.\n\n'
+    + '  METHOD view_display.\n    DATA view TYPE REF TO z2ui5_cl_ui5_view_builder.\n    DATA page TYPE REF TO z2ui5_cl_ui5_view_builder.\n'
+    + '    view = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+    + '    page = view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+    + '        )->ele( `Page` )->a( n = `title` v = `HOST` ).\n    mo_main_page = page.\n  ENDMETHOD.\n\n'
+    + '  METHOD render_sub_app.\n    CALL METHOD mo_app->(`Z2UI5_IF_APP~MAIN`) EXPORTING client = client.\n'
+    + '    client->view_display( mo_main_page->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+
+  section('audit 2026-10-08c: a builder handle stringified from an attribute in another method is skipped, not failed', async () => {
+    const prep = prepareAbap(host);
+    assert(prep.docs.length === 0 && prep.helperTokens > 0, `no document, and the calls outside the replay are counted (${prep.helperTokens})`);
+    const dir = tempDir('a2l-host-');
+    const file = path.join(dir, 'zcl_host.clas.abap');
+    fs.writeFileSync(file, host);
+    const [r] = await checkFiles([file], { render: true });
+    assert(r.skippedRender && !r.renderErrors.length, `skipped quietly (${JSON.stringify(r.renderErrors)})`);
+    // a class whose replay DOES yield its document keeps its render: the
+    // count stays 0 even with a builder call in a method the replay skips
+    const both = host.replace('    mo_main_page = page.\n', '    mo_main_page = page.\n    client->view_display( view->stringify( ) ).\n');
+    const p2 = prepareAbap(both);
+    assert(p2.docs.length === 1 && p2.helperTokens === 0, `a reconstructed document is rendered as before (${p2.docs.length} / ${p2.helperTokens})`);
   });
 }

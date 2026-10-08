@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **A builder handle kept in an attribute and stringified in another method
+  is skipped, not failed.** abap2UI5's `node/srv/zcl_tst_host` (sample 338
+  as a fixture) builds its page in `view_display( )`, keeps the handle in
+  `mo_main_page`, lets a sub-app created by name build into it and
+  stringifies it in `render_sub_app( )`. The handle-aware replay enters only
+  the methods that open a factory, so nothing came out and the render gate
+  failed the class with `no view reconstructed from builder calls` -
+  abap2UI5 waived that in its config and said the gap was the linter's.
+  When the replay yields no document, the builder calls in the methods it
+  never entered are now counted as `helperTokens` (calls outside any chain
+  it can follow), so the class is skipped with the usual "built in helper
+  methods" note. A class whose replay does yield a document is unchanged.
+  abap2UI5's `rules['render-error'].exclude` entry for
+  `/node/srv/zcl_tst_host.` now waives nothing and can go.
+
 - **`unbound-public-attribute` and `unused-public-attribute` see a reader in
   the same run.** A popup hands its result back through a PUBLIC attribute
   its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and a
