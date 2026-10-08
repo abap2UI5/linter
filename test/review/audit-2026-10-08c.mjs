@@ -12,6 +12,8 @@
  *      method is skipped as not reconstructable, not "no view reconstructed"
  *   5. a baseline that is JSON but no object gets a message, not a
  *      TypeError; --stdin refuses a path it would not read
+ *   6. default-key-table (and the PUBLIC attribute reader) stay linear when
+ *      no `.` or `,` follows the declarations
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -226,5 +228,33 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
       `exit 2 and the way out, instead of a green report on a file never read (${r.code}: ${r.err.trim()})`);
     const ok = run(['--stdin', '--stdin-filename', 'bad.view.xml', '--no-config'], dir, src);
     assert(ok.code === 0, `--stdin-filename is the spelling (${ok.code})`);
+  });
+
+  /* ── 6. linear without a terminator ──────────────────────────────────── */
+
+  /* The 08b round made default-key-table linear for declarations that end;
+   * with no `.` or `,` behind them each one still searched - and the PUBLIC
+   * attribute reader still sliced - to the end of the file: 20,000 took 3.5
+   * seconds through checkAbapSource, 80,000 most of a minute. */
+  section('audit 2026-10-08c: declarations with no terminator behind them are read in linear time', () => {
+    const body = (n) => Array.from({ length: n }, (_, i) => `    DATA t${i} TYPE TABLE OF string`).join('\n');
+    const src = (n) => `CLASS zcl_x DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n${body(n)}\nENDCLASS.\nCLASS zcl_x IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n`;
+    const time = (n) => {
+      const t = Date.now();
+      const found = checkAbapSource(src(n), opts).findings.filter((x) => x.type === 'default-key-table');
+      return { ms: Date.now() - t, found };
+    };
+    time(2000); // warm
+    const small = time(10000);
+    const big = time(40000);
+    assert(big.found.length === 40000 && big.found[0].member === 't0' && big.found.at(-1).member === 't39999',
+      `every declaration under its own name (${big.found.length})`);
+    assert(big.ms < 8000 && big.ms < small.ms * 4 * 2.5 + 200, `four times the input, about four times the time (${small.ms} ms -> ${big.ms} ms)`);
+    // a key clause still counts for its own element only
+    const mixed = checkAbapSource('CLASS zcl_x DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + '    DATA a TYPE TABLE OF i WITH EMPTY KEY\n    DATA b TYPE TABLE OF i\n    DATA c TYPE TABLE OF i WITH DEFAULT KEY.\n    DATA d TYPE TABLE OF i.\n'
+      + 'ENDCLASS.\nCLASS zcl_x IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n', opts)
+      .findings.filter((x) => x.type === 'default-key-table').map((x) => x.member);
+    assert(mixed.join() === 'd', `an element up to its terminator carries a key if any part of it does, as before (${mixed.join()})`);
   });
 }

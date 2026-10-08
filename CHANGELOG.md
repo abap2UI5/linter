@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `default-key-table` and the PUBLIC attribute reader behind
+  `unbound-public-attribute` are linear when no `.` or `,` follows the
+  declarations: each one searched (and sliced) to the end of the file for
+  its terminator, so 40,000 such lines took a minute through
+  `checkAbapSource`. Now about a second. The findings are unchanged.
+
 - A baseline file that is valid JSON but no object (`null`, a number, an
   array, a string) is refused with the file's name and the shape it should
   have; `null` failed as `Cannot read properties of null (reading
