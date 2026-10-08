@@ -22,6 +22,8 @@
  *  10. a raw fragment file is rendered as a fragment whatever its prolog
  *  11. action.yml: a boolean input means the same to the shell as to the
  *      `if:` expressions, and the Chromium cache is where the browser is
+ *  12. popup-display-xml / popover-display-val / popover-anchor-unknown-id
+ *      read the client's call, with the argument wherever it stands
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -396,5 +398,35 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
       assert(st.match(/PLAYWRIGHT_BROWSERS_PATH: (\S+)/)?.[1] === cachePath, `${name}: PLAYWRIGHT_BROWSERS_PATH is the cached ${cachePath}`);
     }
     assert(!cachePath.startsWith('~'), `the cache path is the runner's, not Linux's default (${cachePath})`);
+  });
+
+  /* ── 12. the display calls, read as client calls ─────────────────────── */
+
+  /* Three rules matched `popup_display\s*\(\s*xml =` / `popover_display\s*\(`
+   * on the text: an app's own `my_popup_display( xml = … )` was reported and
+   * "fixed" into a call its signature refuses, and the wrong argument went
+   * unseen as soon as it was not the first one. */
+  section('audit 2026-10-08c: the display-call rules read the client call, the argument wherever it stands', () => {
+    const mk = (stmt) => 'CLASS zcl_p DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + '    METHODS my_popup_display IMPORTING xml TYPE string.\n    METHODS my_popover_display IMPORTING val TYPE string by_id TYPE string.\nENDCLASS.\n'
+      + 'CLASS zcl_p IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+      + '        )->ele( `Page` )->tag( `Button` )->a( n = `id` v = `btn` )->a( n = `text` v = `t` ).\n'
+      + `    client->view_display( view->stringify( ) ).\n    ${stmt}\n  ENDMETHOD.\n`
+      + '  METHOD my_popup_display.\n  ENDMETHOD.\n  METHOD my_popover_display.\n  ENDMETHOD.\nENDCLASS.\n';
+    const run1 = (stmt) => {
+      const src = mk(stmt);
+      const found = checkAbapSource(src, opts).findings.filter((x) => /^(popup-display-xml|popover-display-val|popover-anchor-unknown-id)$/.test(x.type));
+      return { types: found.map((x) => x.type).sort().join(), fixed: applyFixes(src, found).output };
+    };
+    assert(run1('my_popup_display( xml = `x` ).').types === '', 'an own method named *popup_display: silent');
+    assert(run1('my_popover_display( val = `x` by_id = `nope` ).').types === '', 'an own method named *popover_display: silent');
+    const a = run1('client->popup_display( xml = `x` ).');
+    assert(a.types === 'popup-display-xml' && a.fixed.includes('client->popup_display( val = `x` )'), `the client's call: reported and fixed (${a.types})`);
+    const b = run1('client->popover_display( by_id = `btn` val = `x` ).');
+    assert(b.types === 'popover-display-val' && b.fixed.includes('popover_display( by_id = `btn` xml = `x` )'), `val behind by_id: reported and fixed (${b.types})`);
+    const c = run1('client->popover_display( xml = `x` by_id = `Btn` ).');
+    assert(c.types === 'popover-anchor-unknown-id' && c.fixed.includes('by_id = `btn`'), `the anchor id, as before (${c.types})`);
+    assert(run1('DATA(lv) = `client->popover_display( val = 1 )`.').types === '', 'a call written inside a literal is text');
   });
 }

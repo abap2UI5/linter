@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- `popup-display-xml`, `popover-display-val` and
+  `popover-anchor-unknown-id` read the CLIENT's `popup_display( )` /
+  `popover_display( )` call, the way the other client-call rules do, and
+  find the argument among the named ones wherever it stands. They matched
+  the text: an app's own `my_popup_display( xml = … )` was reported and its
+  "fix" wrote a parameter the method does not have, and `popover_display(
+  by_id = … val = … )` went unseen because `val` was not first.
+
 - **Action: `render: False` means false.** GitHub compares strings in an
   `if:` case-insensitively and the shell does not, so `render: False`
   skipped the runtime install and then ran the gate anyway (falling back,
