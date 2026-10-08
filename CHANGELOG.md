@@ -71,7 +71,9 @@
   summary's profile now resolve each element against the declarations in
   scope at it (`namespaceScopes( )` in `lib/properties.mjs`), and
   `undeclared-namespace` reports a prefix used outside the element that
-  declares it. No change on the four corpora, which declare their
+  declares it. The top level stays one scope: a second root (a split chain
+  re-rooted, `second-root`) is judged with what the first root declares,
+  as before. No change on the four corpora, which declare their
   namespaces on the root.
 
 - `default-key-table` and the PUBLIC attribute reader behind

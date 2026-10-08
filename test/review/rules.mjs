@@ -213,13 +213,15 @@ export default async function ({ section, assert, checkAbapSource }) {
     });
     const found = of(src, 'unescaped-text-in-attribute');
     const members = found.map((x) => x.member).sort().join();
-    assert(members === 'ariaLabelledBy,class,fieldGroupIds,id,tooltip',
-      `the five values whose origin is data are reported, nothing else - not width (a CSSSize) and not activeIcon (a URI), where no text can be shown (${members || 'none'})`);
+    // id and class are taken verbatim by the XML view and never read as a
+    // binding (audit 2026-10-08c), so they are not reported either
+    assert(members === 'ariaLabelledBy,fieldGroupIds,tooltip',
+      `the three values whose origin is data are reported, nothing else - not width (a CSSSize), not activeIcon (a URI), where no text can be shown, and not id or class (${members || 'none'})`);
     assert(found.every((x) => x.fixes?.length === 1 && x.fixes[0].text === 't'), 'every one carries the v-to-t fix');
     assert(of(src, 'unconverted-abap-boolean').length === 1, 'the boolean stays the boolean rule\'s');
     const out = fixed(src);
-    assert(/n = `tooltip`     t = \|Hits for \{ mv_search \}\|/.test(out) && /n = `id`          t = lv_title/.test(out),
-      'the fix renames the parameter and leaves the value as written');
+    assert(/n = `tooltip`     t = \|Hits for \{ mv_search \}\|/.test(out) && /n = `id`          v = lv_title/.test(out),
+      'the fix renames the parameter and leaves the value as written (and leaves the id alone)');
     assert(/n = `icon`        v = lv_expr/.test(out) && /n = `type`        v = `Emphasized`/.test(out),
       'a binding held in a variable and a constant stay on v');
     assert(of(out, 'unescaped-text-in-attribute').length === 0, 'the fixed class is clean');
