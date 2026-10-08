@@ -27,6 +27,7 @@
  *  13. uncurated-formatter reads every alias core:require points at the
  *      curated module, and no name that merely ends in `Formatter`
  *  14. an int/float/boolean value is judged the way DataType parses it
+ *  15. undefined-css-class leaves a class value the reconstruction guessed
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -480,5 +481,22 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
       + '    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
     const guessed = checkAbapSource(src, opts).findings.filter((x) => x.type === 'invalid-property-value');
     assert(!guessed.length, `a guessed value: silent (${guessed.map((x) => `${x.member}=${x.value}`).join()})`);
+  });
+
+  /* ── 15. a guessed class ─────────────────────────────────────────────── */
+
+  /* `|state-{ ls-row-state }|` in a LOOP reconstructs to the guess
+   * `state-`; its tokens are the literal part of a class completed at
+   * runtime, and `state-` was reported as a class nothing defines. */
+  section('audit 2026-10-08c: undefined-css-class leaves a class value the reconstruction guessed', () => {
+    const app = (cls) => 'CLASS zcl_k DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + '    TYPES: BEGIN OF ty_s, state TYPE string, text TYPE string, END OF ty_s.\n    DATA mt TYPE STANDARD TABLE OF ty_s WITH EMPTY KEY.\nENDCLASS.\n'
+      + 'CLASS zcl_k IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    DATA(page) = view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n        )->ele( `Page` ).\n'
+      + `    LOOP AT mt INTO DATA(ls).\n      page->tag( \`Text\` )->a( n = \`text\` v = \`x\` )->a( n = \`class\` v = ${cls} ).\n    ENDLOOP.\n`
+      + '    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const hits = (cls) => checkAbapSource(app(cls), opts).findings.filter((x) => x.type === 'undefined-css-class').map((x) => x.value).join();
+    assert(hits('|state-{ ls-state }|') === '', 'a guessed class: silent');
+    assert(hits('`myOwnClass`') === 'myOwnClass', 'a literal one: reported, as before');
   });
 }

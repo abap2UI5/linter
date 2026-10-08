@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `undefined-css-class` leaves a `class` value the reconstruction guessed:
+  `|state-{ ls-row-state }|` in a LOOP came out as the guess `state-`, the
+  literal part of a class completed at runtime, and was reported as a class
+  nothing defines.
+
 - **`int`, `float` and `boolean` values are judged the way DataType parses
   them.** The numeric check was `^[+-]?\d+(\.\d+)?$`: `.5`, `5.` and `1e3`
   - numbers to DataType's `Number( )` - were reported as invalid, while
@@ -107,7 +112,11 @@
   it can follow), so the class is skipped with the usual "built in helper
   methods" note. A class whose replay does yield a document is unchanged.
   abap2UI5's `rules['render-error'].exclude` entry for
-  `/node/srv/zcl_tst_host.` now waives nothing and can go.
+  `/node/srv/zcl_tst_host.` now waives nothing and can go. sapgui's
+  `zcl_sapgui_frame` and `zcl_sapgui_se91` (a popup opened in one method,
+  its handles returned in a structure and built on elsewhere) are the same
+  shape: skipped with `--render` now instead of failing - sapgui's config
+  runs no render gate, so its report does not change.
 
 - **`unbound-public-attribute` and `unused-public-attribute` see a reader in
   the same run.** A popup hands its result back through a PUBLIC attribute
