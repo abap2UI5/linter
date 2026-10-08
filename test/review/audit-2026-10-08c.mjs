@@ -19,6 +19,7 @@
  *   7. an xmlns declared on an inner element is scoped to that element
  *   8. `sap-icon://prefix-` && name is a prefix, not an unknown icon
  *   9. unescaped-text-in-attribute leaves `id` and `class` alone
+ *  10. a raw fragment file is rendered as a fragment whatever its prolog
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -314,5 +315,35 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const hit = (n) => checkAbapSource(app(n), opts).findings.filter((x) => x.type === 'unescaped-text-in-attribute').length;
     assert(hit('text') === 1, 'text: reported, as before');
     assert(hit('class') === 0 && hit('id') === 0, `class and id: silent (${hit('class')} / ${hit('id')})`);
+  });
+
+  /* ── 10. a fragment file is loaded as a fragment ─────────────────────── */
+
+  /* The renderer sniffed `^<core:FragmentDefinition`: a .fragment.xml that
+   * opened with an XML declaration or a comment, wrote FragmentDefinition in
+   * the default namespace, or had a bare control as root (which the rule
+   * text itself calls legitimate) went through XMLView.create and failed
+   * with "XMLView's root node must be 'View'". The file name decides now,
+   * and the sniff reads past the prolog and any prefix. */
+  section('audit 2026-10-08c: a raw fragment file renders as a fragment, whatever its prolog or root', async () => {
+    const dir = tempDir('a2l-frag-');
+    const body = '<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">\n  <Dialog title="x"><Text text="y"/></Dialog>\n</core:FragmentDefinition>\n';
+    const files = {
+      'prolog.fragment.xml': `<?xml version="1.0" encoding="UTF-8"?>\n<!-- a dialog -->\n${body}`,
+      'default.fragment.xml': '<FragmentDefinition xmlns="sap.ui.core" xmlns:m="sap.m">\n  <m:Dialog title="x"><m:Text text="y"/></m:Dialog>\n</FragmentDefinition>\n',
+      'bare.fragment.xml': '<m:Dialog xmlns:m="sap.m" title="x"><m:Text text="y"/></m:Dialog>\n',
+      'sniffed.xml': `﻿<?xml version="1.0"?>\n${body}`,
+      'prolog.view.xml': '<?xml version="1.0"?>\n<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"><Text text="v"/></mvc:View>\n',
+    };
+    const paths = Object.entries(files).map(([name, text]) => { const p = path.join(dir, name); fs.writeFileSync(p, text); return p; });
+    const results = await checkFiles(paths, { render: true });
+    for (const r of results) {
+      assert(!r.renderErrors.length, `${path.basename(r.file)}: renders clean (${r.renderErrors.join(' | ')})`);
+    }
+    // and a view file is still a view: a fragment body under that name fails
+    const wrong = path.join(dir, 'wrong.view.xml');
+    fs.writeFileSync(wrong, body);
+    const [w] = await checkFiles([wrong], { render: true });
+    assert(w.renderErrors.some((e) => /root node must be 'View'/.test(e)), `wrong.view.xml: loaded as the view it claims to be (${w.renderErrors.join(' | ')})`);
   });
 }

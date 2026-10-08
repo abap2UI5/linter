@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **A raw `.fragment.xml` renders as a fragment.** The render gate decided
+  view or fragment by `^<core:FragmentDefinition` on the text, so a fragment
+  file that opened with an XML declaration or a comment, wrote
+  `FragmentDefinition` in the default namespace, or had a bare control as
+  its root went through `XMLView.create` and failed with "XMLView's root
+  node must be 'View'". The file name decides now (`.fragment.xml` /
+  `.view.xml`, on the result's `docKinds` and for `--screenshot`), and the
+  renderer's own fallback reads past a BOM, the XML declaration, comments
+  and a doctype and accepts any prefix.
+
 - `unescaped-text-in-attribute` leaves `id` and `class` alone. Neither is a
   property: the XMLTemplateProcessor hands them to `getId( )` and
   `addStyleClass( )` verbatim and never parses a brace in them as a
