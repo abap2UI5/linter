@@ -44,6 +44,22 @@
   its "baseline: wrote" line to stderr; stdout is the document a caller
   parses. A stylish run keeps it on stdout, where it is the report.
 
+- A run with nothing to check prints the EMPTY document of a machine format
+  (`checkstyle`, `junit`, `sarif`, as `json` already did) with the sentence
+  on stderr - it printed the sentence on stdout, which no parser reads as
+  XML or SARIF - and still writes `--sarif-out` and `--json-out`: a
+  workflow's upload-sarif step behind the Action's `sarif` input failed on a
+  file that was never written.
+
+- `--format checkstyle` and `--format junit` stay well-formed whatever a
+  message quotes: a control character (no XML 1.0 character, raw or as a
+  reference) becomes U+FFFD, and a line break or tab is written as a
+  character reference, which an attribute keeps.
+
+- `--max-warnings`, `--jobs` and `--render-pages` take digits only. `''`
+  and `' '` were read as 0 and `0x2` as 2, so `--max-warnings "$MAX"` with
+  the variable unset failed the build on the first warning.
+
 - **A quote in a comment no longer silences the class.** The comment and
   literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
   lost their place in three shapes - a string template whose embedded

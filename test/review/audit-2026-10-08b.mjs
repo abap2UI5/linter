@@ -8,12 +8,17 @@
  *   3. default-key-table and a long run of blank lines are linear
  *   4. the config's `ignore` count is the same walk, no file read twice
  *   5. --update-baseline beside a machine format says its line on stderr
+ *   6. a run with nothing to check prints the empty machine document, and
+ *      still writes --sarif-out / --json-out
+ *   7. checkstyle and junit stay well-formed XML whatever a message quotes
+ *   8. a count flag takes digits only (`--max-warnings ''` is not 0)
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { applyFixes, MAX_FIX_PASSES } from '../../lib/fix.mjs';
 import { collectFiles } from '../../lib/index.mjs';
+import { formatCheckstyle, formatJunit } from '../../lib/report.mjs';
 
 export default function ({ section, assert, f, FIX, tempDir, checkAbapSource }) {
   const opts = { render: false };
@@ -185,5 +190,75 @@ ENDCLASS.
     assert(json.code === 0 && json.out === '' && /baseline: wrote \d+ finding/.test(json.err), `the line is on stderr (stdout ${JSON.stringify(json.out.slice(0, 60))})`);
     const plain = run(['abaprules.clas.abap', '--no-render', '--no-config', '--no-progress', '--update-baseline'], dir);
     assert(/baseline: wrote \d+ finding/.test(plain.out), 'stylish: it IS the report, on stdout');
+  });
+
+  /* ── 6. nothing to check, machine formats and sidecars ───────────────── */
+
+  section('audit 2026-10-08b: an empty run prints the empty document and writes its sidecars', () => {
+    const dir = tempDir('a2l-emptyrun-');
+    fs.mkdirSync(path.join(dir, 'src'));
+    for (const format of ['checkstyle', 'junit', 'sarif', 'json']) {
+      const r = run(['src', '--no-render', '--no-config', '--format', format], dir);
+      const doc = r.out.trim();
+      const ok = format === 'sarif' || format === 'json'
+        ? (() => { try { JSON.parse(doc); return true; } catch { return false; } })()
+        : doc.startsWith('<?xml') && doc.endsWith(format === 'junit' ? '</testsuites>' : '</checkstyle>');
+      assert(r.code === 0 && ok && (format === 'json' || /no checkable app classes/.test(r.err)),
+        `${format}: a parseable document on stdout, the sentence on stderr (${JSON.stringify(doc.slice(0, 50))})`);
+    }
+    const r = run(['src', '--no-render', '--no-config', '--sarif-out', 'out/x.sarif', '--json-out', 'out/x.json'], dir);
+    const sarif = JSON.parse(fs.readFileSync(path.join(dir, 'out', 'x.sarif'), 'utf8'));
+    const json = JSON.parse(fs.readFileSync(path.join(dir, 'out', 'x.json'), 'utf8'));
+    assert(r.code === 0 && sarif.runs[0].results.length === 0 && json.problems === 0,
+      'the SARIF and JSON files an Action step uploads exist for an empty run too');
+    assert(/no checkable app classes/.test(r.out), 'stylish: the sentence stays the report');
+  });
+
+  /* ── 7. XML formats and control characters ───────────────────────────── */
+
+  /* A message quotes the source, and a control character is no XML 1.0
+   * character, raw or as a reference: one in an attribute value made the
+   * whole checkstyle/junit report a parse error. */
+  section('audit 2026-10-08b: checkstyle and junit replace what XML cannot carry', () => {
+    const dir = tempDir('a2l-xmlctl-');
+    const file = path.join(dir, 'zcl_ctl.clas.abap');
+    const ctl = `CLASS zcl_ctl DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+ENDCLASS.
+CLASS zcl_ctl IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\` v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->tag( \`Button\`
+            )->a( n = \`type\` v = \`Acc\u0001ept\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+    fs.writeFileSync(file, ctl);
+    for (const format of ['checkstyle', 'junit']) {
+      const r = run([file, '--no-render', '--no-config', '--format', format], dir);
+      assert(/invalid-property-value/.test(r.out) && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(r.out) && r.out.includes('Acc�ept'),
+        `${format}: the control character is U+FFFD (${JSON.stringify(/Acc.ept/.exec(r.out)?.[0])})`);
+    }
+    const result = { file: 'x.clas.abap', kind: 'abap', renderErrors: [], findings: [{ type: 'unknown-control', severity: 'error', message: 'a\nb\t"c"', line: 1, column: 1 }] };
+    assert(formatCheckstyle([result]).includes('message="a&#10;b&#9;&quot;c&quot;"') && formatJunit([result]).includes('a&#10;b'),
+      'a line break and a tab survive attribute normalization as references');
+  });
+
+  /* ── 8. count flags take digits ──────────────────────────────────────── */
+
+  section('audit 2026-10-08b: --max-warnings, --jobs and --render-pages take digits only', () => {
+    const dir = tempDir('a2l-countflags-');
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
+    for (const [flag, value] of [['--max-warnings', ''], ['--max-warnings', ' '], ['--jobs', '0x2'], ['--render-pages', '1e1']]) {
+      const r = run(['good.clas.abap', '--no-render', '--no-config', flag, value], dir);
+      assert(r.code === 2 && /takes a (non-negative|positive) integer/.test(r.err), `${flag} '${value}' is refused (exit ${r.code})`);
+    }
+    const ok = run(['good.clas.abap', '--no-render', '--no-config', '--max-warnings', '0', '--jobs', '2'], dir);
+    assert(ok.code === 0, `plain digits still work (exit ${ok.code}: ${ok.err.trim()})`);
   });
 }

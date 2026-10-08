@@ -472,6 +472,11 @@ let stdinName = '<stdin>';
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 // --watch: the same run, again on every change (see watchLoop below)
 let watchMode = false;
+/* A count as it is typed: digits and nothing else. `Number( )` reads '' and
+ * '  ' as 0 and '0x10' as 16, so `--max-warnings "$MAX"` with the variable
+ * unset was --max-warnings 0 - every warning failed the build, and the
+ * message named a limit nobody had set. NaN for anything else. */
+const wholeNumber = (text) => (/^\d+$/.test(String(text)) ? Number(text) : NaN);
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   // a flag that takes a value must actually have one - `--allow` as the last
@@ -506,14 +511,14 @@ for (let i = 0; i < args.length; i++) {
     opt.render = true;
     seen.add('render');
     renderAsked = true;
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 1)) die(`--render-pages takes a positive integer (got '${args[i]}')`);
     opt.renderPages = n;
     seen.add('renderPages');
   }
   else if (a === '--jobs') {
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 1) die(`--jobs takes a positive integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 1)) die(`--jobs takes a positive integer (got '${args[i]}')`);
     opt.jobs = n;
   }
   else if (a === '--screenshot') shot.out = value();
@@ -585,8 +590,8 @@ for (let i = 0; i < args.length; i++) {
     seen.add('failOn');
   }
   else if (a === '--max-warnings') {
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 0) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 0)) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
     opt.maxWarnings = n;
     seen.add('maxWarnings');
   }
@@ -944,15 +949,29 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
 
   if (!files.length) {
     const empty = { ...summarize([]), failing: 0 };
-    if (opt.format === 'json') {
-      // the same shape a real run prints - built by the one formatter, so the
-      // frozen --json contract cannot drift between the two paths
-      console.log(formatJson([], empty, opt));
+    const nothing = opt.allClasses
+      ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
+      : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`;
+    /* Every machine format prints its EMPTY document - built by the one
+     * formatter, so a contract cannot drift between the two paths - and the
+     * sentence goes to stderr. The XML formats and SARIF printed the sentence
+     * on stdout, which no parser reads as checkstyle or SARIF. */
+    const machine = {
+      json: () => formatJson([], empty, opt), sarif: () => formatSarif([]),
+      checkstyle: () => formatCheckstyle([]), junit: () => formatJunit([]),
+    }[opt.format];
+    if (machine) {
+      console.log(machine());
+      if (!opt.quiet) console.error(nothing);
     } else {
-      console.log(opt.allClasses
-        ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
-        : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
+      console.log(nothing);
     }
+    /* The files written beside the report are written for an empty run too:
+     * a workflow's upload-sarif step after the Action's `sarif` input failed
+     * on a file that was never there, for a repository that has nothing to
+     * check (yet). */
+    if (opt.sarifOut) writeBeside('the SARIF file', opt.sarifOut, `${formatSarif([])}\n`);
+    if (opt.jsonOut) writeBeside('the JSON file', opt.jsonOut, `${formatJson([], empty, opt)}\n`);
     emitBadge(empty, runStats([]));
     return outputFailed ? 2 : 0;
   }
