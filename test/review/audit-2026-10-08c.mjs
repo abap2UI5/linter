@@ -10,6 +10,8 @@
  *      unbound (nor unused) - and the cache knows the cross-file fact
  *   4. a builder handle stored in an attribute and stringified in another
  *      method is skipped as not reconstructable, not "no view reconstructed"
+ *   5. a baseline that is JSON but no object gets a message, not a
+ *      TypeError; --stdin refuses a path it would not read
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -200,5 +202,29 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const both = host.replace('    mo_main_page = page.\n', '    mo_main_page = page.\n    client->view_display( view->stringify( ) ).\n');
     const p2 = prepareAbap(both);
     assert(p2.docs.length === 1 && p2.helperTokens === 0, `a reconstructed document is rendered as before (${p2.docs.length} / ${p2.helperTokens})`);
+  });
+
+  /* ── 5. baseline shape, --stdin with a path ──────────────────────────── */
+
+  section('audit 2026-10-08c: a baseline that is null, a number or an array is refused by name', () => {
+    const dir = tempDir('a2l-blnull-');
+    fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
+    for (const [text, got] of [['null', 'null'], ['5', 'number'], ['[]', 'an array'], ['"x"', 'string']]) {
+      fs.writeFileSync(path.join(dir, 'bl.json'), text);
+      const r = run(['good.clas.abap', '--no-render', '--no-config', '--baseline', 'bl.json'], dir);
+      assert(r.code === 2 && /bl\.json: not a valid baseline file - expected a JSON object/.test(r.err) && r.err.includes(`got ${got}`)
+        && !/Cannot read properties/.test(r.err), `${text}: exit 2, the file and what it should hold (${r.err.trim()})`);
+    }
+  });
+
+  section('audit 2026-10-08c: --stdin refuses a path it would not read', () => {
+    const dir = tempDir('a2l-stdinpath-');
+    const src = fs.readFileSync(f('good.clas.abap'), 'utf8');
+    fs.writeFileSync(path.join(dir, 'bad.view.xml'), '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"><Buttonn/></mvc:View>');
+    const r = run(['--stdin', 'bad.view.xml', '--no-config'], dir, src);
+    assert(r.code === 2 && /--stdin lints the source piped to it, not 'bad\.view\.xml'/.test(r.err) && /--stdin-filename/.test(r.err),
+      `exit 2 and the way out, instead of a green report on a file never read (${r.code}: ${r.err.trim()})`);
+    const ok = run(['--stdin', '--stdin-filename', 'bad.view.xml', '--no-config'], dir, src);
+    assert(ok.code === 0, `--stdin-filename is the spelling (${ok.code})`);
   });
 }

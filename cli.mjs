@@ -131,8 +131,10 @@
  *   --stdin            lint source read from standard input instead of files.
  *                      Property gate only - the render gate needs a file
  *                      corpus and stays off for piped source. Incompatible
- *                      with --fix (there is no file to rewrite) and
- *                      --screenshot. Exit codes as usual
+ *                      with --fix (there is no file to rewrite),
+ *                      --screenshot and a path (which would not be read -
+ *                      name the source with --stdin-filename). Exit codes
+ *                      as usual
  *   --stdin-filename <name>
  *                      the name the piped source is reported under (default
  *                      <stdin>). It also decides the handling: a name ending
@@ -759,6 +761,12 @@ function resolveRun() {
    * value. Asked-for render, --fix and --screenshot are refused rather than
    * silently ignored. */
   if (stdinMode) {
+    /* A path beside --stdin was neither read nor linted - only (as a last
+     * resort) searched for a config - and the run reported on the piped
+     * source as if the path had been checked. */
+    if (parsed.paths.length) {
+      die(`--stdin lints the source piped to it, not ${parsed.paths.length === 1 ? `'${parsed.paths[0]}'` : 'the paths given'} - name the piped source with --stdin-filename <name>, the config with --config <file>, or drop --stdin to lint files`);
+    }
     if (o.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
     if (shot.out) die('--stdin cannot be combined with --screenshot');
     if (asked) die('--stdin runs the property gate only - write the source to a file to render it');

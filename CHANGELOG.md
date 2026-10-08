@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- A baseline file that is valid JSON but no object (`null`, a number, an
+  array, a string) is refused with the file's name and the shape it should
+  have; `null` failed as `Cannot read properties of null (reading
+  'findings')`.
+
+- **`--stdin` refuses a path beside it** (exit 2). The path was neither read
+  nor linted - only searched for a config when the working directory had
+  none - and the run reported on the piped source as if the file had been
+  checked: `cat a.clas.abap | abap2ui5lint --stdin b.view.xml` was green
+  whatever `b.view.xml` held. The message names `--stdin-filename` (the
+  name the piped source is reported and handled under) and `--config`.
+
 - **A builder handle kept in an attribute and stringified in another method
   is skipped, not failed.** abap2UI5's `node/srv/zcl_tst_host` (sample 338
   as a fixture) builds its page in `view_display( )`, keeps the handle in
