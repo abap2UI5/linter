@@ -47,8 +47,11 @@
  *                      DevOps) ingest natively.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
- *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
- *                      reports what it would change without touching a file.
+ *                      $), then report what is left. Repeats the pass until
+ *                      nothing changes (at most 10), so one run settles fixes
+ *                      that overlap or that leave a shape another rule fixes.
+ *                      ABAP2UI5LINT_FIX_DRY_RUN=true reports what it would
+ *                      change without touching a file.
  *   --sarif-out <file>  ALSO write the SARIF document to this file, whatever
  *                      --format prints on stdout. The way to keep the
  *                      annotated human report in the log and still hand a
@@ -218,7 +221,7 @@ import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
-import { applyFixes } from './lib/fix.mjs';
+import { applyFixes, MAX_FIX_PASSES } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
@@ -956,45 +959,93 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
 
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
    * the render result), rewrite, then the normal run reports what is left -
-   * which is what makes `--fix` safe to put in front of any other flag. */
+   * which is what makes `--fix` safe to put in front of any other flag.
+   *
+   * It runs to a FIXED POINT, as ESLint's does: two fixes whose spans overlap
+   * cannot both be applied to one text, and a fix can leave a shape another
+   * rule fixes (chain-house-layout re-lays a chain an attribute fix sat in),
+   * so one pass left "N deferred to the next run" and the reader ran --fix
+   * two or three times. The passes after the first are in memory: a file is
+   * re-checked when the previous pass changed it, or when the superclass
+   * facts its check reads (classIndexDeps) moved - every other file would
+   * produce the same findings, and with them the same no-op. The output is
+   * the one repeated runs reached, written once. Bounded: a pair of rules
+   * that undo each other cannot loop forever, and a run that stops at the
+   * bound says so. */
   if (opt.fix) {
     const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
-    let files_ = 0;
+    const checkOpt = { ...opt, render: false };
+    const isXml = (file, src) => /\.(view|fragment)\.xml$/.test(file) || /^\s*</.test(src);
+    const indexOf = (texts) => classIndexOf([...texts.entries()].filter(([file, src]) => !isXml(file, src)).map(([, src]) => src));
+    let results = await checkFiles(files, checkOpt);
+    const original = new Map(results.map((r) => [r.file, fs.readFileSync(r.file, 'utf8')]));
+    const current = new Map(original);
+    let index = indexOf(current);
     let fixed = 0;
     let deferred = 0;
-    let dropped = 0;
-    const droppedIn = [];
+    let passes = 0;
+    let settled = false;
+    const droppedBy = new Map(); // file -> spans the latest check of it could not use
     // what a dry run WOULD settle, one `path:line:col rule-id` per finding -
     // the count alone left the reader with the findings that remain and no
     // way to tell which ones the pass had picked
     const wouldFix = [];
-    for (const r of await checkFiles(files, { ...opt, render: false })) {
-      const source = fs.readFileSync(r.file, 'utf8');
-      const result = applyFixes(source, r.findings);
-      // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
-      // line, and "would fix 216 problem(s)" stood over a list of six
-      deferred += result.deferredFindings.length;
-      if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
-      if (!result.applied) continue;
-      files_++;
-      fixed += result.findings.length;
-      if (dryRun) {
-        const rel = path.relative(process.cwd(), r.file);
-        for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
-          wouldFix.push(`${rel}:${f.line ?? 0}:${f.column ?? 0} ${f.type}`);
+    while (passes < MAX_FIX_PASSES) {
+      passes++;
+      const changed = [];
+      deferred = 0;
+      for (const r of results) {
+        const source = current.get(r.file);
+        const result = applyFixes(source, r.findings);
+        // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
+        // line, and "would fix 216 problem(s)" stood over a list of six
+        deferred += result.deferredFindings.length;
+        droppedBy.set(r.file, result.dropped);
+        if (!result.applied || result.output === source) continue;
+        fixed += result.findings.length;
+        if (dryRun) {
+          const rel = path.relative(process.cwd(), r.file);
+          for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
+            wouldFix.push(`${rel}:${f.line ?? 0}:${f.column ?? 0} ${f.type}${passes > 1 ? ` (pass ${passes})` : ''}`);
+          }
         }
+        current.set(r.file, result.output);
+        changed.push(r.file);
       }
-      if (!dryRun) fs.writeFileSync(r.file, result.output);
+      if (!changed.length) { settled = true; break; }
+      const next = indexOf(current);
+      const touched = new Set(changed);
+      const recheck = [...current.keys()].filter((file) => touched.has(file)
+        || (!isXml(file, current.get(file)) && classIndexDeps(current.get(file), next) !== classIndexDeps(current.get(file), index)));
+      index = next;
+      results = recheck.map((file) => {
+        const src = current.get(file);
+        const r = isXml(file, src)
+          ? checkXmlSource(src, { ...checkOpt, file })
+          : checkAbapSource(src, { ...checkOpt, file, classIndex: index });
+        r.file = file;
+        return r;
+      });
+    }
+    let files_ = 0;
+    for (const [file, text] of current) {
+      if (text === original.get(file)) continue;
+      files_++;
+      if (!dryRun) fs.writeFileSync(file, text);
     }
     if (fixed && opt.format === 'stylish') {
       if (wouldFix.length) console.log(wouldFix.join('\n'));
-      console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
-        `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
+      console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)`
+        + `${passes - (settled ? 1 : 0) > 1 ? ` in ${passes - (settled ? 1 : 0)} passes` : ''}`
+        + `${settled ? '' : `, stopped after ${MAX_FIX_PASSES} passes - run --fix again`}`
+        + `${deferred ? `, ${deferred} deferred (overlapping)` : ''}\n`);
     }
     /* A dropped span is a defect in a RULE, not in the checked repo, and it is
      * the one outcome `--fix` used to keep to itself: the finding survives every
      * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
      * a piped --json run stays parseable. */
+    const droppedIn = [...droppedBy].filter(([, n]) => n).map(([file]) => file);
+    const dropped = [...droppedBy.values()].reduce((a, n) => a + n, 0);
     if (dropped) {
       console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
         + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`

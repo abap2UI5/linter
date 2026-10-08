@@ -728,6 +728,11 @@ declare module "@abap2ui5/linter/fix" {
 
   export function isFixable(finding: PropertyFinding | null | undefined): boolean;
 
+  /** The most passes the CLI's `--fix` makes before it stops and says so
+   *  (10, ESLint's bound): it re-checks what a pass changed and applies again
+   *  until nothing changes. */
+  export const MAX_FIX_PASSES: number;
+
   /** Rewrites every `\n` in the findings' fix texts to `\r\n` when `source`
    *  breaks its lines mostly with CRLF - and every `\r\n` to `\n` when a
    *  `crlf-line-ending` finding is among them (its fix turns the file into
@@ -741,7 +746,8 @@ declare module "@abap2ui5/linter/fix" {
   ): T[];
 
   /** Rewrite `source` with every fix the findings carry. Overlapping spans are
-   *  deferred to the next run rather than resolved by guesswork. */
+   *  deferred to the next pass rather than resolved by guesswork (the CLI's
+   *  `--fix` repeats the pass until nothing changes). */
   export function applyFixes(
     source: string,
     findings: PropertyFinding[]

@@ -4237,12 +4237,15 @@ section('fix', async () => {
     };
 
     const dry = run({ ABAP2UI5LINT_FIX_DRY_RUN: 'true' });
-    assert(/would fix 5 problem\(s\)/.test(dry) && fs.readFileSync(target, 'utf8') === original,
+    /* six: --fix runs to its fixed point, and the TRAILING row's deletion
+     * leaves a one-row t_arg that event-arg-single-row-table's second pass
+     * writes as arg = (what a second --fix used to do) */
+    assert(/would fix 6 problem\(s\) in 1 file\(s\) in 2 passes/.test(dry) && fs.readFileSync(target, 'utf8') === original,
       'fix: the dry run reports what it would do and leaves the file alone');
 
     const out = run();
     const fixed = fs.readFileSync(target, 'utf8');
-    assert(/fixed 5 problem\(s\) in 1 file\(s\)/.test(out), 'fix: the five mechanical corrections are applied');
+    assert(/fixed 6 problem\(s\) in 1 file\(s\) in 2 passes/.test(out), 'fix: the five mechanical corrections are applied, and the one they leave');
     assert(/client->_bind\( name \)/.test(fixed) && !/_bind_edit/.test(fixed),
       'fix: obsolete-binder becomes client->_bind( )');
     assert(/client->follow_up_action\( val   = client->cs_event-urlhelper/.test(fixed)
@@ -4252,9 +4255,9 @@ section('fix', async () => {
       'fix: unconverted-abap-boolean moves onto b =, the token kept verbatim');
     assert(/`\$\{BARE_BRACE\}`/.test(fixed) && /`\$\{RESOLVED\}`/.test(fixed) && /`\{0\} selected`/.test(fixed),
       'fix: event-arg-unresolved gains its $, the already-correct and quoted forms untouched');
-    assert(/t_arg = VALUE #\( \( `first` \) \)/.test(fixed)
+    assert(/val = `TRAILING` arg = `first` \)/.test(fixed)
       && /val = `MIDDLE` t_arg = VALUE #\( \( `first` \) \( `` \) \( `third` \) \)/.test(fixed),
-    'fix: the trailing empty t_arg row is deleted, the load-bearing middle one kept');
+    'fix: the trailing empty t_arg row is deleted (and the one row left written as arg =), the load-bearing middle one kept');
     assert(!/obsolete-binder|obsolete-frontend-event|unconverted-abap-boolean|event-arg-unresolved|trailing-empty-event-arg/.test(out),
       'fix: what was fixed is gone from the report of the same run');
     assert(/binding-to-local/.test(out), 'fix: a finding without a mechanical correction survives');

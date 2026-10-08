@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **`--fix` runs to a fixed point.** One pass applies every fix whose span
+  overlaps none applied before it, and a fix can leave a shape another rule
+  fixes (a deleted trailing `t_arg` row leaves the one-row table
+  `event-arg-single-row-table` rewrites; `chain-house-layout` re-lays a
+  chain another fix sat in) - so a run ended with "N deferred to the next
+  run" and the reader ran `--fix` two or three times. The CLI now repeats the
+  pass in memory, re-checking the files the previous pass changed (and any
+  whose superclass facts moved), and writes each file once: the text the old
+  `--fix` reached when it was run until it changed nothing. Bounded at
+  `MAX_FIX_PASSES` (10, ESLint's bound, exported on `./fix`); a run that
+  stops there says so. The summary names the passes (`fixed 6 problem(s) in
+  1 file(s) in 2 passes`), and `--fix-dry-run` lists a later pass's fixes
+  with `(pass N)`. Measured on the test fixtures and on abap2UI5, popups,
+  sapgui and abap-cloud-gui (with their configs and with `chain-house-layout`
+  on): byte-identical to running the old `--fix` until it settled.
+
 - **A quote in a comment no longer silences the class.** The comment and
   literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
   lost their place in three shapes - a string template whose embedded
