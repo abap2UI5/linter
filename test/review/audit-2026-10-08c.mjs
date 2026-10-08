@@ -6,6 +6,8 @@
  *   1. the stylish report prints no control character out of the source
  *   2. a COND / SWITCH of literals is judged branch by branch, not reported
  *      as a value the gate cannot follow
+ *   3. a PUBLIC attribute another class of the run reads from outside is not
+ *      unbound (nor unused) - and the cache knows the cross-file fact
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -13,7 +15,7 @@ import path from 'node:path';
 import { applyFixes } from '../../lib/fix.mjs';
 import { formatStylish, githubAnnotations, summarize, terminalSafe } from '../../lib/report.mjs';
 
-export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource }) {
+export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles }) {
   const opts = { render: false };
   const CLI = path.join(FIX, '..', '..', 'cli.mjs');
   const ENV = { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' };
@@ -92,5 +94,75 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const out = applyFixes(src, r.findings).output;
     assert(out.includes('THEN `Emphasized` ELSE `Default`'), `--fix repairs the branch (${/COND.*\)/.exec(out)?.[0]})`);
     assert(!r.notes.some((n) => /unresolved value expression dropped: `/.test(n)), 'a branch attempt leaves no note of its own');
+  });
+
+  /* ── 3. read from outside ────────────────────────────────────────────── */
+
+  /* A popup hands its result back through a PUBLIC attribute the caller
+   * reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`): unbound by
+   * construction, and the rule's own text says no single source can see the
+   * caller. A run that holds the caller sees it now. */
+  const popup = 'CLASS zcl_pop DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+    + '    DATA ms_result TYPE string.\n    DATA mv_spare TYPE string.\n    DATA mv_text TYPE string.\nENDCLASS.\n\n'
+    + 'CLASS zcl_pop IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+    + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+    + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+    + '        )->ele( `Page` )->tag( `Input` )->a( n = `value` v = client->_bind_edit( mv_text ) )->tag( `Button` )->a( n = `text` v = `OK` )->a( n = `press` v = client->_event( `OK` ) ).\n'
+    + '    client->view_display( view->stringify( ) ).\n'
+    + '    IF client->get( )-event = `OK`.\n      ms_result = mv_text.\n      client->nav_app_leave( ).\n    ENDIF.\n  ENDMETHOD.\nENDCLASS.\n';
+  const caller = (read) => 'CLASS zcl_caller DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\nENDCLASS.\n\n'
+    + 'CLASS zcl_caller IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+    + '    IF client->check_on_navigated( ).\n'
+    + `      DATA(lo_pop) = CAST zcl_pop( client->get_app( client->get( )-s_draft-id_prev_app ) ).\n      DATA(lv) = lo_pop->${read}.\n`
+    + '      client->message_toast_display( lv ).\n    ENDIF.\n  ENDMETHOD.\nENDCLASS.\n';
+  const hits = (results, type) => results.find((r) => r.file.endsWith('zcl_pop.clas.abap')).findings
+    .filter((x) => x.type === type).map((x) => x.member).sort().join();
+
+  section('audit 2026-10-08c: a PUBLIC attribute another class of the run reads is not unbound', async () => {
+    const dir = tempDir('a2l-outside-');
+    const P = path.join(dir, 'zcl_pop.clas.abap');
+    const C = path.join(dir, 'zcl_caller.clas.abap');
+    fs.writeFileSync(P, popup);
+    fs.writeFileSync(C, caller('ms_result'));
+    assert(hits(await checkFiles([P], opts), 'unbound-public-attribute') === 'ms_result', 'alone: the result attribute is reported');
+    assert(hits(await checkFiles([P, C], opts), 'unbound-public-attribute') === '', 'with its caller in the run: silent');
+    assert(hits(await checkFiles([P, C], opts), 'unused-public-attribute') === 'mv_spare', 'unused: the attribute nothing reads still is');
+    fs.writeFileSync(C, caller('mv_spare'));
+    const both = await checkFiles([P, C], opts);
+    assert(hits(both, 'unused-public-attribute') === '' && hits(both, 'unbound-public-attribute') === 'ms_result',
+      `a read of the unused one silences that one only (${hits(both, 'unused-public-attribute')} / ${hits(both, 'unbound-public-attribute')})`);
+    // a read through a class the reader never names is somebody else's attribute
+    fs.writeFileSync(C, caller('ms_result').replace('CAST zcl_pop(', 'CAST z2ui5_if_app('));
+    assert(hits(await checkFiles([P, C], opts), 'unbound-public-attribute') === 'ms_result', 'a reader that never names the class does not count');
+    // ...nor one that names it and reaches `->ms_result` of ANOTHER object
+    // (popups' get_range_m: CAST to the popup, its own r_result->ms_result)
+    fs.writeFileSync(C, caller('ms_result').replace('DATA(lv) = lo_pop->ms_result.', 'DATA(lv) = lo_pop->result( ).\n      DATA(lo_me) = NEW zcl_caller( ).\n      lo_me->ms_result = lv.'));
+    assert(hits(await checkFiles([P, C], opts), 'unbound-public-attribute') === 'ms_result', 'the receiver has to be typed as the class');
+    // the other spellings of a typed receiver
+    for (const [what, body] of [
+      ['TYPE REF TO, written', 'DATA lo_p TYPE REF TO zcl_pop.\n      lo_p ?= client->get_app( `x` ).\n      lo_p->ms_result = `y`.'],
+      ['a static factory', 'DATA(lo_p) = zcl_pop=>factory( ).\n      DATA(lv) = lo_p->ms_result.'],
+      ['the cast itself', 'DATA(lv) = CAST zcl_pop( client->get_app( `x` ) )->ms_result.'],
+      ['an attribute, through me->', 'DATA(lv) = me->mo_pop->ms_result.'],
+    ]) {
+      const src = caller('ms_result').replace(/      DATA\(lo_pop\)[^\n]*\n      DATA\(lv\) = lo_pop->ms_result\./, `      ${body}`)
+        .replace('INTERFACES z2ui5_if_app.\n', 'INTERFACES z2ui5_if_app.\n    DATA mo_pop TYPE REF TO zcl_pop.\n');
+      assert(src.includes(body.split('\n')[0]) && !src.includes('lo_pop->ms_result'), `${what}: the variant is written`);
+      fs.writeFileSync(C, src);
+      assert(hits(await checkFiles([P, C], opts), 'unbound-public-attribute') === '', `${what}: silent`);
+    }
+
+    // --cache: the popup's stored result is keyed on what the caller reads
+    const ARGS = ['.', '--no-render', '--no-config', '--cache', '--json', '--no-progress'];
+    const cached = () => {
+      const doc = JSON.parse(run(ARGS, dir).out);
+      return hits(doc.results, 'unbound-public-attribute');
+    };
+    fs.writeFileSync(C, caller('ms_result'));
+    assert(cached() === '', 'cold, with the read: silent');
+    fs.writeFileSync(C, caller('mv_spare'));
+    assert(cached() === 'ms_result', 'the caller stops reading it: the CACHED popup is judged again');
+    fs.writeFileSync(C, caller('ms_result'));
+    assert(cached() === '', 'and back');
   });
 }

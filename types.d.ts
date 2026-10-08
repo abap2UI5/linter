@@ -18,7 +18,14 @@ declare module "@abap2ui5/linter" {
 
   /** Class name (lower case) -> what one class declares: the superclass it
    *  names in `INHERITING FROM`, and whether it declares a `cs_event`. */
-  export type ClassIndex = Map<string, { superclass: string | null; csEvent: boolean }>;
+  export type ClassIndex = Map<string, {
+    superclass: string | null;
+    csEvent: boolean;
+    /** Names (lower case) another class of the run reads as `->name` while
+     *  naming this class - what silences unbound-/unused-public-attribute.
+     *  Optional for a hand-built index. */
+    outsideReads?: ReadonlySet<string>;
+  }>;
 
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */

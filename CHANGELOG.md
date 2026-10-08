@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **`unbound-public-attribute` and `unused-public-attribute` see a reader in
+  the same run.** A popup hands its result back through a PUBLIC attribute
+  its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and a
+  caller sets a value on the app it calls the same way - unbound by
+  construction, and both rules said no single source can see that caller.
+  The class index (`classIndexOf( )`) now records per class `outsideReads`:
+  the names another class of the run reaches as `ref->name` through a
+  reference it types as this class (`TYPE REF TO`, an inline declaration
+  from `CAST`/`NEW`/a static factory, or that expression itself before the
+  arrow); a reference whose class is not written down is nobody's. Both
+  rules stand down for those names. `classIndexDeps( )` carries the set, so
+  `--cache` re-judges the popup when a caller starts or stops reading it
+  (and `--fix` re-checks it between passes). `ClassIndex` in `types.d.ts`
+  gains the optional field. Corpora: abap2UI5's `node/srv/zcl_tst_stack_a`
+  carries a `disable-next-line unbound-public-attribute` for
+  `backend_event`, which `zcl_tst_stack_b` sets through `lo_a TYPE REF TO
+  zcl_tst_stack_a` - the directive is now reported as `unused-directive`
+  (a hint) and can go. Nothing else moves: the other outside readers of
+  `ms_result`/`mv_*` in the corpora are ABAP Unit test classes, which no run
+  collects, or call the popup's `result( )` method.
+
 - **A `COND #( )` or `SWITCH #( )` of literals is judged branch by branch.**
   `COND #( WHEN n = 1 THEN \`Emphasized\` ELSE \`Default\` )` on a Button
   `type` has a closed set of values, and it was reported as
