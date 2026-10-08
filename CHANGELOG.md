@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`int`, `float` and `boolean` values are judged the way DataType parses
+  them.** The numeric check was `^[+-]?\d+(\.\d+)?$`: `.5`, `5.` and `1e3`
+  - numbers to DataType's `Number( )` - were reported as invalid, while
+  `10.5` on an `int` property (which `Number.isInteger` refuses, so the
+  current runtime rejects it) passed. An empty value is valid for all three
+  (`NaN` for a number, `false` for a boolean), and a value the
+  reconstruction guessed from a LOOP variable is no longer judged as if the
+  author had written it (it came out empty and was reported).
+
 - `uncurated-formatter` reads every alias a `core:require` points at
   `z2ui5/model/formatter`: `{ Fmt: 'z2ui5/model/formatter' }` with
   `formatter: 'Fmt.round2DP'` names the same removed function as

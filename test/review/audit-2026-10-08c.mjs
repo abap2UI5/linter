@@ -26,6 +26,7 @@
  *      read the client's call, with the argument wherever it stands
  *  13. uncurated-formatter reads every alias core:require points at the
  *      curated module, and no name that merely ends in `Formatter`
+ *  14. an int/float/boolean value is judged the way DataType parses it
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -452,5 +453,32 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     assert(hits('', '{= myFormatter.round2DP(${/D}) }') === '', 'a name that only ends in Formatter is not the alias');
     assert(hits('', "{ path: '/D', formatter: 'z2ui5.Formatter.round2DP' }") === 'round2DP', 'the global, as before');
     assert(hits('', "{ path: '/D', formatter: 'Formatter.round2DP' }") === 'round2DP', 'the conventional alias, as before');
+  });
+
+  /* ── 14. numbers as UI5 reads them ───────────────────────────────────── */
+
+  /* `^[+-]?\d+(\.\d+)?$` was the numeric check: `.5`, `5.` and `1e3` - all
+   * numbers to DataType's Number( ) - were reported, `10.5` on an int was
+   * not (Number.isInteger refuses it), and the empty value a LOOP variable
+   * reconstructs to was reported as the author's. */
+  section('audit 2026-10-08c: an int, float or boolean value is judged the way DataType parses it', () => {
+    const view = (attrs) => `<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"><Page title="x"><content>${attrs}</content></Page></mvc:View>`;
+    const bad = (attrs) => checkXmlSource(view(attrs), { ...opts, file: 'n.view.xml' }).findings
+      .filter((x) => x.type === 'invalid-property-value').map((x) => `${x.member}=${x.value}`).join();
+    assert(bad('<Slider value=".5" max="1e3" step="5." min=" -2 "/>') === '', 'float: every spelling Number( ) reads is a number');
+    assert(bad('<Slider value="1,5"/>') === 'value=1,5', 'float: a comma is not');
+    assert(bad('<Input value="{/V}" maxLength="1e1"/>') === '', 'int: 1e1 is the integer 10');
+    assert(bad('<Input value="{/V}" maxLength="10.5"/>') === 'maxLength=10.5', 'int: 10.5 is no integer');
+    assert(bad('<Input value="{/V}" maxLength=""/><Button text="a" enabled=""/>') === '', 'empty: NaN for a number, false for a boolean');
+    assert(bad('<Button text="a" enabled="True"/>') === 'enabled=True', 'a boolean spelt otherwise: as before');
+    // a value the reconstruction guessed from a LOOP variable is not judged
+    const src = 'CLASS zcl_n DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + '    TYPES: BEGIN OF ty_s, len TYPE i, on TYPE abap_bool, END OF ty_s.\n    DATA mt TYPE STANDARD TABLE OF ty_s WITH EMPTY KEY.\n    DATA mv TYPE string.\nENDCLASS.\n'
+      + 'CLASS zcl_n IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    DATA(page) = view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n        )->ele( `Page` ).\n'
+      + '    LOOP AT mt INTO DATA(ls).\n      page->tag( `Input` )->a( n = `value` v = client->_bind( mv ) )->a( n = `maxLength` v = |{ ls-len }| ).\n    ENDLOOP.\n'
+      + '    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const guessed = checkAbapSource(src, opts).findings.filter((x) => x.type === 'invalid-property-value');
+    assert(!guessed.length, `a guessed value: silent (${guessed.map((x) => `${x.member}=${x.value}`).join()})`);
   });
 }
