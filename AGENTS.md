@@ -293,7 +293,18 @@ A rule may also carry `fixes: [{ start, end, text }]` (see `lib/fix.mjs`):
 exact spans in the source it was given, applied by `--fix`. Attach them only
 when the correction is mechanical — a fix that has to guess is worse than a
 finding that stays — and describe it in the rule's `fixNote`, which the test
-requires for everything listed in `FIXABLE`.
+requires for everything listed in `FIXABLE`. Write a fix's line breaks as
+`\n`: the entry points rewrite them to the source's own line ending
+(`matchLineEndings( )` in `lib/fix.mjs`), so a CRLF file stays CRLF.
+
+`report( )` collapses findings of the same `type|control|member|value`. A
+rule whose every occurrence is its own finding (two keyless tables in one
+class) keeps them apart with `dedupe` (the offset, as a string), which the
+collapse reads and then drops — **never with a position in `value` or
+`member`**: both are part of the baseline key, and a position there makes a
+baselined finding stale the moment a line is inserted above it. Ten rules did
+that until 2026-10-08; `migrateKey( )` in `lib/baseline.mjs` still reads
+their old keys.
 
 ## Deliberate kinship with ui5lint and abaplint
 

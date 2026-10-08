@@ -36,7 +36,8 @@
  *   --max-warnings <n> more than n warnings fail the run, whatever --fail-on
  *                      says (ui5lint's flag) - the way to keep failing on
  *                      errors only while still capping the warning debt.
- *                      Also settable as "maxWarnings" in the config
+ *                      Not under --advisory / --fail-on never, which promise
+ *                      exit 0. Also settable as "maxWarnings" in the config
  *   --format <f>       stylish (default), json, markdown, sarif, checkstyle
  *                      or junit. --json is a shorthand for --format json.
  *                      sarif is the shape github/codeql-action/upload-sarif
@@ -213,6 +214,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
+import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
@@ -1028,6 +1030,8 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     cache = { file, context, entries: loadCache(file, context) };
   }
 
+  // what checkFiles( ) reads as a raw view rather than a class
+  const isXmlSource = (file, src) => /\.(view|fragment)\.xml$/.test(file) || /^\s*</.test(src);
   const compute = async () => {
     // the watch loop's warm browser, or nothing: checkFiles opens its own then
     opt.renderer = await rendererFor(opt);
@@ -1043,27 +1047,37 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       return [r];
     }
     if (cache) {
-      const slots = files.map((file) => {
-        const hash = hashOf(fs.readFileSync(file, 'utf8'));
+      const sources = files.map((file) => fs.readFileSync(file, 'utf8'));
+      /* The class index is built over EVERY file of the run, not only the
+       * ones the cache misses: a class is judged against what its
+       * superclass declares, and checkFiles( ) would otherwise build the
+       * index out of the misses alone. Each entry is keyed on the part of
+       * the index its check reads too (`deps`), so an edited superclass
+       * re-judges its subclasses. */
+      const classIndex = classIndexOf(sources.filter((src, i) => !isXmlSource(files[i], src)));
+      const slots = files.map((file, i) => {
+        const hash = hashOf(sources[i]);
+        const deps = hashOf(isXmlSource(file, sources[i]) ? '' : classIndexDeps(sources[i], classIndex));
         const hit = cache.entries[path.resolve(file)];
         /* An entry that parses but does not hold a result (result: null, a
          * truncated write, a hand-edited file) is a MISS, not a crash - the
          * cache is expendable by contract, so nothing read from it may be
          * trusted to have a shape. */
-        const valid = hit && hit.hash === hash
+        const valid = hit && hit.hash === hash && hit.deps === deps
           && hit.result && typeof hit.result === 'object'
           && Array.isArray(hit.result.findings);
-        return { file, hash, result: valid ? { ...hit.result, file } : null };
+        return { file, hash, deps, result: valid ? { ...hit.result, file } : null };
       });
       const missing = slots.filter((s) => !s.result).map((s) => s.file);
-      const fresh = missing.length ? await checkFiles(missing, opt) : [];
+      const fresh = missing.length ? await checkFiles(missing, { ...opt, classIndex }) : [];
       const byFile = new Map(fresh.map((r) => [r.file, r]));
       for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
       const entries = {};
-      for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
+      for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, deps: s.deps, result: cacheable(s.result) };
       /* Written BEFORE the baseline mutates the findings, and tolerantly: a
-       * cache that cannot be written costs the next run time, not correctness. */
-      try { saveCache(cache.file, cache.context, entries); }
+       * cache that cannot be written costs the next run time, not correctness.
+       * The entries of files this run did not look at are kept (saveCache). */
+      try { saveCache(cache.file, cache.context, entries, cache.entries); }
       catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
       return slots.map((s) => s.result);
     }
@@ -1242,10 +1256,14 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   /* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
    * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
    * while still holding the line on warning debt. Said on stderr, so a piped
-   * machine format stays parseable. */
+   * machine format stays parseable. The one exception is the stale entry's:
+   * --advisory / --fail-on never promise exit 0 whatever the report says,
+   * and a cap from the config used to break that promise - the excess is
+   * still said, it just does not fail. */
   const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
   if (overWarningCap) {
-    console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+    console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`
+      + (threshold === Infinity ? ' (not failing: --fail-on never / --advisory)' : ''));
   }
 
   /* …and where a PERSON is reading, the command that explains the ids just
@@ -1261,7 +1279,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   const staleFails = baselineStale.length > 0 && threshold !== Infinity;
   // an output the run was asked for and could not write is a tool error (2)
   if (outputFailed) return 2;
-  return summary.failing > 0 || staleFails || overWarningCap ? 1 : 0;
+  return summary.failing > 0 || staleFails || (overWarningCap && threshold !== Infinity) ? 1 : 0;
 }
 
 /*

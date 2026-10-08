@@ -728,6 +728,18 @@ declare module "@abap2ui5/linter/fix" {
 
   export function isFixable(finding: PropertyFinding | null | undefined): boolean;
 
+  /** Rewrites every `\n` in the findings' fix texts to `\r\n` when `source`
+   *  breaks its lines mostly with CRLF - and every `\r\n` to `\n` when a
+   *  `crlf-line-ending` finding is among them (its fix turns the file into
+   *  LF). The entry points apply it
+   *  to what survives the rules block and the directives; a consumer
+   *  assembling the pipeline itself applies it the same way. Mutates and
+   *  returns `findings`. */
+  export function matchLineEndings<T extends { type: string; fixes?: Array<{ start: number; end: number; text: string }> }>(
+    findings: T[],
+    source: string
+  ): T[];
+
   /** Rewrite `source` with every fix the findings carry. Overlapping spans are
    *  deferred to the next run rather than resolved by guesswork. */
   export function applyFixes(
@@ -1034,6 +1046,12 @@ declare module "@abap2ui5/linter/baseline" {
   /** The stable identity of a finding - line-free, so moved code stays
    *  matched. `relativeFile` is relative to the baseline file's directory. */
   export function findingKey(relativeFile: string, f: PropertyFinding): string;
+
+  /** A key as findingKey( ) writes it today: a key written before ten
+   *  position-carrying rules moved the offset/line number out of `value` /
+   *  `member` has it dropped; any other key is returned unchanged.
+   *  loadBaseline, applyBaseline and updateBaseline apply it themselves. */
+  export function migrateKey(key: string): string;
 
   /** The directory keys are computed against: where the baseline file lives. */
   export function baselineBase(file: string): string;

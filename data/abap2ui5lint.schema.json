@@ -101,7 +101,7 @@
     "maxWarnings": {
       "type": "integer",
       "minimum": 0,
-      "description": "More warnings than this fail the run, whatever failOn says (same as --max-warnings). The way to fail on errors only while still capping the warning debt."
+      "description": "More warnings than this fail the run, whatever failOn says - except never (--advisory), which promises exit 0 (same as --max-warnings). The way to fail on errors only while still capping the warning debt."
     },
     "baseline": {
       "type": "string",

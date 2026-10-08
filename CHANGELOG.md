@@ -2,6 +2,98 @@
 
 ## Unreleased
 
+- **A quote in a comment no longer silences the class.** The comment and
+  literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
+  lost their place in three shapes - a string template whose embedded
+  expression runs over two lines (`|Hello { to_upper(` / `` `world` ) }|``),
+  a `|` in a literal inside an embedded expression (`` sep = `|` ``), and a
+  UTF-8 BOM in front of a `*` comment line. The comment behind it was then
+  kept as code, a `'` in its text (`" don't care`) opened a literal that ran
+  to the end of the file, and most ABAP-side rules reported nothing for the
+  rest of the class. `scrub( )` now carries an open embedded expression over
+  the line break and reads a `"` inside one as a comment, a BOM is blanked,
+  and every reader ends a quote or backtick literal - and a template's text -
+  at its line, as ABAP does, so a reader that is ever wrong again is wrong for
+  one line. The same `literalEnd( )` is used by `parenRegion`, `topSplit`,
+  `namedArgMarks` and the reconstructor's paren scan. Measured on abap2UI5,
+  popups, sapgui and abap-cloud-gui (with and without their configs, with
+  `--all-classes`) and on the test fixtures: byte-identical findings.
+
+- **Baseline keys carry no source position any more.** Ten rules kept two
+  occurrences in one class apart by writing a position into a key field - the
+  source offset into `value` (`default-key-table`, `abapdoc-html-tag`,
+  `event-arg-default-index`, `display-after-nav-app-call`,
+  `double-display-in-branch`, `empty-catch-block`,
+  `boolc-instead-of-xsdbool`, `delete-index-in-loop`) or the line number into
+  `member` (`source-line-too-long`, `trailing-whitespace`). Both fields are
+  part of the baseline key, so a line inserted above a baselined finding made
+  it a stale entry AND a new finding. The position now travels as `dedupe`,
+  which only the per-class collapse reads and which is dropped before a
+  finding leaves the rules: those findings no longer carry the offset in
+  `value` or the line number in `member` (the `line` says it). A baseline
+  written before keeps working: `loadBaseline( )`, `applyBaseline( )` and
+  `updateBaseline( )` read an old key of one of the ten with a number in that
+  field as today's key (`migrateKey( )` on `./baseline`), so it matches
+  wherever the code moved, and the next `--update-baseline` writes the new
+  form.
+
+- **`--cache` follows the class index and the linter's own code.** A class
+  is judged against what its superclass declares (`cs_event`), and a cached
+  run built that index out of the cache MISSES only: a subclass re-checked
+  without its (cached) superclass read the inherited constant as unknown, and
+  an edited superclass left its subclasses' stale entries in place. The index
+  is now built over every file of the run, and each entry is also keyed on the
+  superclass facts its check read (`deps`), so an edit to a superclass
+  re-judges its subclasses. The context hash takes a fingerprint of
+  `cli.mjs`, `lib/*.mjs` and `data/*.json` beside the version: a checkout
+  between releases or a regenerated snapshot no longer replays the verdicts
+  of the code before it. A run over part of a tree keeps the entries of every
+  other file (and drops those whose file is gone) instead of shrinking the
+  cache to the files it looked at, and the per-document models
+  (`docModels`) are no longer stored. The cache file format moves to
+  version 2; an old file is simply a cold cache.
+
+- `view-never-displayed` no longer reports a helper class that hands its
+  stringified view to the caller - `result = view->stringify( )` where
+  `result` is a RETURNING, EXPORTING or CHANGING parameter of the method
+  (abap-cloud-gui's `z2ui5_cl_cgui_list` and `z2ui5_cl_cgui_selscreen`,
+  which its config excluded by name). Those two are the only findings that
+  went away on abap2UI5, popups, sapgui and abap-cloud-gui; the other
+  difference there is the offset no longer written into `value` (above).
+
+- `"rules": { "<id>": true }` switches an opt-in rule (`chain-house-layout`,
+  `portable-app`) on. It passed the config check and ran nothing; `true`
+  now means "on, as it is", like a severity string without the change.
+
+- A numeric `ui5` / `minUi5` in the config is refused with a message that
+  says why: JSON reads `1.120` as the number 1.12, so the floor moved eight
+  minors down without a word. Write it quoted, `"1.120"`.
+
+- A pragma behind an argument value (`` v = `Bogus` ##NO_TEXT ``) is no part
+  of it: the attribute was dropped as unresolved, and every check of its
+  value with it.
+
+- `--advisory` / `--fail-on never` exit 0 under `--max-warnings` (or a
+  config `maxWarnings`) too, as they do for stale baseline entries; the
+  excess is still said on stderr.
+
+- `--fix` keeps a CRLF file CRLF. The fixes that insert or re-lay lines
+  (`chain-house-layout`, `missing-on-navigated-branch`, the inserted
+  `class_constructor`, …) wrote LF, so with `crlf-line-ending` switched off a
+  fixed file came back with mixed line endings. Every fix now writes the
+  line ending of the source (`matchLineEndings( )` on `./fix`, applied by the
+  entry points to what survives the rules and directives) - LF while
+  `crlf-line-ending` is fixing the file to LF in the same pass. And
+  `chain-house-layout` compared a CRLF line break as if it were wrong, so it
+  reported every multi-line chain of a CRLF class whatever its layout; it
+  compares like with like now.
+
+- A UTF-8 BOM no longer shifts the columns of line 1 by one.
+
+- The GitHub annotations, `--format checkstyle` and `--format junit` write
+  `/`-separated paths on Windows too, as SARIF always did - an annotation
+  with a `\` path never reached its line on the pull request.
+
 - **The first display is modelled.** The model a view is judged and rendered
   against took its scalar seeds from the whole class, so a value only an
   event handler assigns was rendered as if it were there from the start.

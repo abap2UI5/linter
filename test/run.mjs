@@ -6320,8 +6320,9 @@ section('abapgit round trip', async () => {
     // --- trailing-whitespace --------------------------------------------------
     const tws = 'CLASS zcl_x DEFINITION PUBLIC.  \nENDCLASS.\t\n';
     const twsF = of(tws, 'trailing-whitespace');
-    assert(twsF.length === 2 && twsF.map((x) => x.member).join() === '1,2',
-      `trailing-whitespace: one finding per line, keyed by line number (got ${twsF.map((x) => x.member).join() || 'none'})`);
+    const twsLines = twsF.map((x) => tws.slice(0, x.offset).split('\n').length).join();
+    assert(twsF.length === 2 && twsLines === '1,2',
+      `trailing-whitespace: one finding per line (got ${twsLines || 'none'})`);
     assert(applyFixes(tws, twsF).output === clean,
       'trailing-whitespace: the fixes strip exactly the blanks');
     assert(of('DATA(x) = `text  ` && `y`.\n', 'trailing-whitespace').length === 0,
