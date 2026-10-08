@@ -225,7 +225,7 @@ import { applyFixes, MAX_FIX_PASSES } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter, terminalSafe } from './lib/report.mjs';
 import { RULES_PAGE } from './lib/rule-docs.mjs';
 import { caseMatch } from './lib/suggest.mjs';
 
@@ -1025,7 +1025,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
         if (dryRun) {
           const rel = path.relative(process.cwd(), r.file);
           for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
-            wouldFix.push(`${rel}:${f.line ?? 0}:${f.column ?? 0} ${f.type}${passes > 1 ? ` (pass ${passes})` : ''}`);
+            wouldFix.push(`${terminalSafe(rel)}:${f.line ?? 0}:${f.column ?? 0} ${f.type}${passes > 1 ? ` (pass ${passes})` : ''}`);
           }
         }
         current.set(r.file, result.output);
@@ -1308,12 +1308,12 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * summary carries the same count, so there it shrinks to the stale entries. */
   if (baselineNote && opt.format === 'stylish') {
     if (!showStats) console.log(baselineNote);
-    for (const s of baselineStale) console.log(`  ! stale: ${s.key} (${s.count})`);
+    for (const s of baselineStale) console.log(`  ! stale: ${terminalSafe(s.key)} (${s.count})`);
   }
 
   if (opt.verbose && opt.format === 'stylish') {
     for (const r of results) {
-      for (const n of r.notes) console.log(`note: ${path.relative(process.cwd(), r.file)}: ${n}`);
+      for (const n of r.notes) console.log(`note: ${terminalSafe(path.relative(process.cwd(), r.file))}: ${terminalSafe(n)}`);
     }
   }
 

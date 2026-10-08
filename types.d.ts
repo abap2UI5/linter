@@ -1111,6 +1111,12 @@ declare module "@abap2ui5/linter/report" {
   /** NO_COLOR / FORCE_COLOR are honoured before the TTY check. */
   export function colorEnabled(stream?: { isTTY?: boolean }): boolean;
 
+  /** Source-quoted text made safe for a terminal: a tab or line break
+   *  becomes a blank, every other C0/C1 control, DEL and the bidi
+   *  override/isolate characters a visible `\xNN` / `\uNNNN`. What the
+   *  stylish report and the annotations print a message through. */
+  export function terminalSafe(text: unknown): string;
+
   /** The distinct rules a run reported, in the order a reader first meets
    *  them - what every format's reference block is built from. */
   export function rulesReported(

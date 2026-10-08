@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **The stylish report no longer prints control characters out of the
+  source.** A message quotes the checked file (an attribute value, a name, a
+  render error), and an ESC in a literal reached the reviewer's terminal raw -
+  an escape sequence that clears, retitles or recolours it, or hides the line
+  it sits on. The stylish report, the annotations, the `--verbose` notes, the
+  stale-baseline lines and the `--fix` listing print every C0/C1 control, DEL
+  and the bidi override/isolate characters as a visible `\xNN` / `\uNNNN` (a
+  tab or line break as a blank); `terminalSafe( )` on `./report`. The machine
+  formats are unchanged: JSON and SARIF carry the text as written, the two
+  XML shapes already replaced what XML cannot hold.
+
 - **`--fix` runs to a fixed point.** One pass applies every fix whose span
   overlaps none applied before it, and a fix can leave a shape another rule
   fixes (a deleted trailing `t_arg` row leaves the one-row table
