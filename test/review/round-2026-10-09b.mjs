@@ -6,11 +6,13 @@
  *   2. linear where test/review/timing-sweep.mjs found it was not: many
  *      views with unused namespace declarations, many unclosed calls, a long
  *      run of blanks after a statement's first word
+ *   3. a name used in a method reads that method's variable: a literal or a
+ *      template is resolved per scope, not as the last write in the class
  */
 import { scalesLinearly } from '../timing.mjs';
 import { parenRegion } from '../../lib/abap.mjs';
 
-export default function ({ section, assert, checkAbapSource }) {
+export default function ({ section, assert, checkAbapSource, prepareAbap }) {
   const opts = { render: false };
   const unused = (src, o = {}) => checkAbapSource(src, { ...opts, ...o }).findings
     .filter((x) => x.type === 'unused-directive').map((x) => x.value);
@@ -122,5 +124,60 @@ export default function ({ section, assert, checkAbapSource }) {
     assert(parenRegion(star, star.indexOf('(')).body.trim().endsWith('c = 3'), 'nor in a * comment line');
     const literal = 'x = foo( a = `. ) ` b = |{ c }. | ).';
     assert(parenRegion(literal, literal.indexOf('(')).body === ' a = `. ) ` b = |{ c }. | ', 'nor in a literal or a template');
+  });
+
+  /* ── 3. scopes ───────────────────────────────────────────────────────── */
+
+  /* The literal half of the 2026-10-09 template guard. A name assigned a
+   * literal was read class-wide - the last such assignment anywhere - so a
+   * helper's parameter `type` was main's `DATA(type) = \`Bogus\``, and of
+   * two methods' locals of one name both read the later one. The
+   * declaration guard the template half got would have refused every name
+   * declared twice; the reconstructor reads the scope instead: the method's
+   * own variable where the name is one (an inline or a DATA declaration, a
+   * parameter), the class's attribute everywhere else. */
+  const scoped = (main, helpers, definition = '') => 'CLASS zcl_t DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+    + `    DATA mv_type TYPE string.\n${definition}ENDCLASS.\nCLASS zcl_t IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n`
+    + '    DATA(page) = z2ui5_cl_ui5_view_builder=>factory( )->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc` )->ele( `Page` ).\n'
+    + `${main}    client->view_display( page->stringify( ) ).\n  ENDMETHOD.\n${helpers}ENDCLASS.\n`;
+  const invalid = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'invalid-property-value').map((x) => x.value);
+  section('round 2026-10-09b: a literal is the value of its own method\'s variable', () => {
+    const param = scoped('    DATA(type) = `Bogus`.\n    add( page = page type = mv_type ).\n',
+      '  METHOD add.\n    page->tag( `Button` )->a( n = `type` v = type ).\n  ENDMETHOD.\n',
+      '    METHODS add IMPORTING page TYPE REF TO z2ui5_cl_ui5_view_builder type TYPE string.\n');
+    assert(!prepareAbap(param).docs.join('').includes('Bogus') && !invalid(param).length,
+      `a helper's parameter is not main's local of the same name (${invalid(param).join() || 'none'})`);
+    const two = scoped('    DATA(lv_type) = `Emphasized`.\n    page->tag( `Button` )->a( n = `type` v = lv_type ).\n    other( page ).\n',
+      '  METHOD other.\n    DATA(lv_type) = `Bogus`.\n    page->tag( `Button` )->a( n = `type` v = lv_type ).\n  ENDMETHOD.\n',
+      '    METHODS other IMPORTING page TYPE REF TO z2ui5_cl_ui5_view_builder.\n');
+    const docs = prepareAbap(two).docs.join('');
+    assert(docs.includes('type="Emphasized"') && docs.includes('type="Bogus"'), `two methods' locals of one name keep their own values (${docs.slice(-160)})`);
+    assert(JSON.stringify(invalid(two)) === '["Bogus"]', `and only the wrong one is reported (${invalid(two).join() || 'none'})`);
+    const late = scoped('    page->tag( `Button` )->a( n = `type` v = lv_type ).\n    DATA lv_type TYPE string.\n    lv_type = `Bogus`.\n', '');
+    assert(!prepareAbap(late).docs.join('').includes('Bogus'), 'a local written only after the use is not its value there');
+    const attribute = scoped('    page->tag( `Button` )->a( n = `type` v = mv_type ).\n    seed( ).\n',
+      '  METHOD seed.\n    mv_type = `Emphasized`.\n  ENDMETHOD.\n', '    METHODS seed.\n');
+    assert(prepareAbap(attribute).docs.join('').includes('type="Emphasized"'), 'an attribute set in another method still resolves class-wide, as before');
+    const shadowed = scoped('    page->tag( `Button` )->a( n = `type` v = mv_type ).\n    seed( ).\n',
+      '  METHOD seed.\n    DATA mv_type TYPE string.\n    mv_type = `Bogus`.\n  ENDMETHOD.\n', '    METHODS seed.\n');
+    assert(!prepareAbap(shadowed).docs.join('').includes('Bogus'), 'a local that shadows the attribute in another method is not the attribute');
+  });
+
+  section('round 2026-10-09b: a template is resolved in its own method, and only whole', () => {
+    const two = scoped('    DATA(expr) = |Emphasized|.\n    page->tag( `Button` )->a( n = `type` v = expr ).\n    other( page ).\n',
+      '  METHOD other.\n    DATA(expr) = |Bogus|.\n    page->tag( `Button` )->a( n = `type` v = expr ).\n  ENDMETHOD.\n',
+      '    METHODS other IMPORTING page TYPE REF TO z2ui5_cl_ui5_view_builder.\n');
+    const docs = prepareAbap(two).docs.join('');
+    assert(docs.includes('type="Emphasized"') && docs.includes('type="Bogus"'),
+      `a name declared in two methods resolves in each to its own template (${docs.slice(-160)})`);
+    /* samples app 000: `DATA(width) = |{ tenths DIV 10 }.{ tenths MOD 10 }em|`
+     * in one method, another `width` elsewhere. Read in its scope, the
+     * template expanded to the guess `.em`, which the render gate refuses as
+     * a CSSSize; a template with a piece the scan cannot compute is not
+     * expanded at all. */
+    const partial = scoped('    DATA(tenths) = lines( mt_x ).\n    DATA(width) = |{ tenths DIV 10 }.{ tenths MOD 10 }em|.\n'
+      + '    page->tag( `Link` )->a( n = `width` v = width ).\n', '');
+    const doc = prepareAbap(partial).docs.join('');
+    assert(!/width="/.test(doc), `a partly computable template leaves the attribute unresolved, not guessed (${doc.slice(-80)})`);
   });
 }

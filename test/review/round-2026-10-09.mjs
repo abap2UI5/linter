@@ -43,9 +43,12 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
     assert(!docs.includes('Bogus'), `the parameter is not main's template (${docs})`);
     const found = checkAbapSource(src, opts).findings.filter((x) => x.type === 'invalid-property-value').map((x) => x.value);
     assert(!found.length, `no invalid-property-value for a value nobody passes (${found.join() || 'none'})`);
-    // the shape the resolution exists for still resolves
+    // the shape the resolution exists for still resolves - an attribute,
+    // since a helper cannot read main's local (round-2026-10-09b.mjs reads
+    // the scopes)
     const one = src.replace('type TYPE string.', 'kind TYPE string.').replace('v = type', 'v = expr')
-      .replace('DATA(type) = |Bogus|.', 'DATA(expr) = |Emphasized|.');
+      .replace('DATA mv_type TYPE string.', 'DATA mv_type TYPE string.\n    DATA expr TYPE string.')
+      .replace('DATA(type) = |Bogus|.', 'expr = |Emphasized|.');
     assert(prepareAbap(one).docs.join('').includes('type="Emphasized"'), 'a name declared once still resolves to its template');
   });
 

@@ -113,6 +113,17 @@ every PR, and the same thing runs locally against sibling checkouts:
   runtime but is re-rooted here, so the document comes out with two roots.
   It fails loudly (the render gate rejects it as native HTML content) rather
   than silently — but the fix is in the port: write one chain per view.
+- **A name's value is read in its scope.** The reconstructor resolves an
+  attribute value written as a name (`v = lv_type`) to the literal or the
+  template the class gives it (`makeResolver( )` in `lib/reconstruct.mjs`),
+  and reads that per method: a name declared in the method it is used in (an
+  inline or a `DATA`/`STATICS`/`CONSTANTS` declaration, or a parameter) is
+  that method's variable and takes the last of its writes before the use;
+  any other name is the class's attribute and takes the class's last write.
+  A parameter is the caller's, so it stays unresolved; a value with no
+  position (a RETURNING helper inlined with its arguments) reads class-wide
+  with the single-declaration guard. A template is expanded only whole — a
+  piece the scan cannot compute would leave a guess the render gate refuses.
 
 ### The start path — what the first display shows
 

@@ -184,11 +184,25 @@
   `v = expr` on five controls - how a port hands one expression binding
   around - was dropped (samples-controls apps 445 and 452 carried fifteen
   `unresolved-attribute-value` hints for it). So was a name written once with
-  `cl_abap_char_utilities=>newline`. A second write of the name anywhere in
-  the class, or a second declaration of it - a method parameter of the same
-  name, another method's local - keeps it a variable, unresolved as before:
-  read class-wide, a helper's `v = type` came out as another method's
-  `DATA(type) = |…|`.
+  `cl_abap_char_utilities=>newline`. A second write of the name in its scope
+  keeps it a variable, unresolved as before, and so does a template with a
+  piece the scan cannot compute: `|{ tenths DIV 10 }.{ tenths MOD 10 }em|`
+  would stand as the guess `.em`, which the render gate refuses as a
+  CSSSize.
+
+- **A name is read in its scope.** A literal or a template the class gives
+  a name was read class-wide - the last literal assignment anywhere - so a
+  helper's `v = type` came out as main's `DATA(type) = \`Bogus\``, reported
+  as `invalid-property-value` and rendered with a value nobody passed, and
+  two methods' locals of one name both read the later one. A name that is a
+  variable of the method it is used in - an inline or a `DATA`/`STATICS`/
+  `CONSTANTS` declaration there, or one of its parameters - now reads that
+  method's own writes, the last one before the use; any other name is the
+  class's attribute and reads the class's writes to it, as before. A
+  parameter's value is the caller's, so a helper's `v = type` is
+  unresolved rather than borrowed. On the seven corpora no document and no
+  finding changes from the scopes; abap-cloud-gui's `z2ui5_cl_cgui_range`
+  no longer carries the guess `value="{}"` for `|\{{ part }\}|`.
 
 - A pragma behind an argument value (`` v = `Bogus` ##NO_TEXT ``) is no part
   of it: the attribute was dropped as unresolved, and every check of its
