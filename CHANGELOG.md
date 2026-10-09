@@ -428,7 +428,11 @@
   its root failed with "XMLView's root node must be 'View'". The file name
   decides now (`.fragment.xml` / `.view.xml`, on the result's `docKinds` and
   for `--screenshot`), and the renderer's own fallback reads past a BOM, the
-  XML declaration, comments and a doctype and accepts any prefix.
+  XML declaration, comments and a doctype and accepts any prefix. A leading
+  BOM is dropped before the page parses the document, as the decoder drops
+  it when the runtime loads the file: Chrome 153 (Playwright's chromium
+  1243) refuses U+FEFF ahead of `<?xml`, and UI5 reported the parser's
+  error document as "Using native HTML content in XMLViews is deprecated".
 
 ### Performance
 
