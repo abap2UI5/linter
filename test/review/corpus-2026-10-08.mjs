@@ -9,9 +9,15 @@
  *   2. a name written once with a string template resolves to that template
  *   3. a CONSTANTS value resolves, a structured one as `cs-name`
  *   4. the browser's network error is not a render error of the view
+ *   5. the metadata generator gives a class the methods it owns wherever
+ *      the file writes them (ColorPicker's colorString)
  */
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export default function ({ section, assert, tempDir, checkAbapSource, checkFiles }) {
   const opts = { render: false };
@@ -144,5 +150,25 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkFiles
     const errors = (r.renderErrors ?? []).map(String);
     assert(errors.length > 0, `the card without its manifest still reports what the card says (${errors.length})`);
     assert(!errors.some((e) => /Failed to fetch/.test(e)), `but not the network error itself (${errors.filter((e) => /fetch/i.test(e)).join(' | ')})`);
+  });
+  /* ── 5. a class's methods wherever the file writes them ───────────────── */
+
+  /* sap/ui/unified/ColorPicker.js defines the private _ColorPickerBox
+   * between the picker's extend call and the picker's own methods, and the
+   * generator read a class as "from its extend call to the next one": the
+   * picker's fireChange({ …, colorString }) was the box's, and an app
+   * reading $parameters>/colorString on a ColorPicker - what the demo kit
+   * sample does - was an unknown-event-parameter. */
+  section('corpus 2026-10-08: the generator reads a class\'s methods wherever the file writes them', () => {
+    const out = JSON.parse(execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'generate-metadata.mjs'), '--parse',
+      path.join(ROOT, 'test', 'fixtures', 'metadata', 'two-classes.js'), '--base', 'my/lib'], { encoding: 'utf8' })).controls;
+    const params = (c) => Object.keys(out[c]?.events?.change?.params ?? {}).sort().join();
+    assert(params('my.lib.Picker') === 'colorString,hex', `the picker's own fire call is the picker's (${params('my.lib.Picker')})`);
+    assert(params('my.lib._PickerBox') === 'boxOnly,x', `and only the box's is the box's (${params('my.lib._PickerBox')})`);
+    // the committed snapshot carries it
+    const snap = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'properties.json'), 'utf8'));
+    const cp = (snap.controls ?? snap)['sap.ui.unified.ColorPicker'];
+    assert(cp.events.change.params.colorString?.fired === true && cp.events.liveChange.params.colorString?.fired === true,
+      'sap.ui.unified.ColorPicker change/liveChange fire colorString');
   });
 }

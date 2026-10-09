@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **The metadata generator gives a class the methods it owns wherever the
+  file writes them.** A file defining two classes was read as "from one
+  extend call to the next", and sap/ui/unified/ColorPicker.js defines the
+  private `_ColorPickerBox` between the picker's extend call and the
+  picker's own methods: the `fireChange({ …, colorString })` the picker
+  fires was harvested for the box, so `$parameters>/colorString` on a
+  ColorPicker - what the demo kit sample reads - was an
+  `unknown-event-parameter`. `data/properties.json` now carries
+  `colorString` and `formatHSL` (`fired: true`) on the picker's `change`
+  and `liveChange`; no other class moved. The ColorPickerPopover, which
+  forwards the picker's parameters as a computed object, still declares
+  only its documented ones (samples-controls app 268's five hints stay).
+
 - **The render gate leaves the browser's network error alone.** A Card
   whose manifest lives on sdk.openui5.org (samples-controls apps 118 and
   168) fetches it when it renders; where that host does not answer - a
