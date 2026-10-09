@@ -26,6 +26,10 @@
       "types": "./types.d.ts",
       "default": "./lib/index.mjs"
     },
+    "./check": {
+      "types": "./types.d.ts",
+      "default": "./lib/check.mjs"
+    },
     "./reconstruct": {
       "types": "./types.d.ts",
       "default": "./lib/reconstruct.mjs"

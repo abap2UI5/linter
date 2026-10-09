@@ -122,11 +122,18 @@ runs:
     # Without this every consumer job re-downloaded Chromium (~150 MB) on every
     # run. Keyed on the action's own lockfile, which pins the playwright
     # version the browser build belongs to.
+    #
+    # The browsers go to ONE directory on every OS - PLAYWRIGHT_BROWSERS_PATH,
+    # set to the same value on each step that installs or launches Chromium.
+    # Playwright's default is ~/.cache/ms-playwright on Linux only (macOS:
+    # ~/Library/Caches, Windows: %USERPROFILE%\AppData\Local), so on a
+    # Windows or macOS runner this step cached a directory that never existed
+    # and every job downloaded the browser again.
     - name: Cache the Chromium build
       if: inputs.render != 'false'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: ~/.cache/ms-playwright
+        path: ${{ runner.temp }}/abap2ui5lint-ms-playwright
         key: abap2ui5lint-playwright-${{ runner.os }}-${{ steps.whereami.outputs.lock }}
 
     # The UI5 runtime is a WORKSPACE of this repository, not a dependency of the
@@ -152,6 +159,7 @@ runs:
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
+        PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/abap2ui5lint-ms-playwright
       run: npx --prefix "$ACTION_PATH" playwright install chromium --with-deps
     - name: Run abap2UI5 linter
       id: lint
@@ -163,6 +171,7 @@ runs:
       # by default inside a workflow - that is what puts a finding on the diff
       env:
         ACTION_PATH: ${{ github.action_path }}
+        PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/abap2ui5lint-ms-playwright
         LINT_PATHS: ${{ inputs.paths }}
         LINT_MIN_UI5: ${{ inputs['min-ui5'] }}
         LINT_FAIL_ON: ${{ inputs['fail-on'] }}
@@ -173,6 +182,12 @@ runs:
         LINT_SARIF: ${{ inputs.sarif }}
         LINT_FLAGS: ${{ inputs.flags }}
       run: |
+        # the two boolean inputs, lower-cased: the `if:` expressions above
+        # compare case-INsensitively (GitHub's rule), the shell does not - so
+        # `render: False` skipped the runtime install and then ran the gate
+        # anyway, and `annotations: False` annotated
+        LINT_RENDER="$(printf '%s' "$LINT_RENDER" | tr '[:upper:]' '[:lower:]')"
+        LINT_ANNOTATIONS="$(printf '%s' "$LINT_ANNOTATIONS" | tr '[:upper:]' '[:lower:]')"
         ARGS=()
         if [ -n "$LINT_MIN_UI5" ]; then ARGS+=(--min-ui5 "$LINT_MIN_UI5"); fi
         # render: false skipped the runtime install above, so the gate has to be
@@ -233,12 +248,14 @@ runs:
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
+        PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/abap2ui5lint-ms-playwright
         LINT_PATHS: ${{ inputs.paths }}
         LINT_RENDER: ${{ inputs.render }}
         SHOT_DIR: ${{ inputs.screenshots }}
         SHOT_SIZE: ${{ inputs['screenshot-size'] }}
         SHOT_THEME: ${{ inputs['screenshot-theme'] }}
       run: |
+        LINT_RENDER="$(printf '%s' "$LINT_RENDER" | tr '[:upper:]' '[:lower:]')"
         if [ "$LINT_RENDER" = "false" ]; then
           echo "::warning::screenshots were requested but render is false - the UI5 runtime was never installed, so there is nothing to photograph with"
           exit 0

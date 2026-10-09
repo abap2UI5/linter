@@ -2,6 +2,533 @@
 
 ## Unreleased
 
+### Read before upgrading
+
+- **This release is 0.9.0, not 0.8.6.** In `0.x` the minor is the number
+  that says "a consumer has to act" (`npm version minor`, RELEASING.md), and
+  three things below need action rather than a lockfile bump: the baseline
+  key format (a baseline written here is misread by 0.8.5 and older), the
+  refused numeric `ui5`, and the baselines a downstream repo has to refresh.
+  Nothing removed or renamed an export or a rule id - a renamed id is the
+  one change that would have been a breaking change on its own - and the
+  `--json` shape only grew. `@abap2ui5/linter-render` moves to 0.9.0 with
+  it (one tag, both packages) and `npm run sync-peer-range` writes the peer
+  range; its FLOOR stays 0.8.0, since nothing here needs a newer runtime.
+
+- **Refresh every downstream baseline with this release - and move every
+  tool that reads it at the same time.** Fixed false positives leave their
+  baseline entries behind, and a stale entry fails a run (exit 1) just as a
+  new finding does. abap2UI5-addons/popups carries one now:
+  `src/99/z2ui5_cl_pop_search_help.clas.abap|missing-view-display-on-navigated`,
+  the negated guard `IF client->check_on_navigated( ) = abap_false. RETURN.`
+  that 9c630cc (#134) stopped misreading - measured, popups' configured run
+  exits 1 on that entry alone. `abap2ui5lint --update-baseline` drops it.
+  The rewritten file uses this release's keys (the baseline-key bullet
+  below), which
+  0.8.5 and older do not read: bump the Action pin, any `npx` pin and the
+  VS Code extension's linter pin in the same change.
+
+- **abap2UI5/samples needs one waiver.** A void helper's parameter now
+  resolves from the call being replayed (Reconstruction), so app 507's
+  three `render_list( … items = client->_bind( … ) )` calls reconstruct
+  their `items` bindings - and `omit-initial-drops-false` sees the
+  `omit_initial = abap_true` list whose `enabled` column the sample drops on
+  purpose ("Archived is enabled now, its abap_false was initial too"). A true
+  positive on a sample that demonstrates the defect: waive it there
+  (`" abap2ui5lint-disable-next-line omit-initial-drops-false -- the sample
+  shows exactly this`). Nothing else changes on the seven corpora.
+
+- **Baseline keys carry no source position any more - and an older linter
+  cannot read the new ones.** Ten rules kept two occurrences in one class
+  apart by writing a position into a key field: the source offset into
+  `value` (`default-key-table`, `abapdoc-html-tag`,
+  `event-arg-default-index`, `display-after-nav-app-call`,
+  `double-display-in-branch`, `empty-catch-block`,
+  `boolc-instead-of-xsdbool`, `delete-index-in-loop`) or the line number
+  into `member` (`source-line-too-long`, `trailing-whitespace`). Both fields
+  are part of the baseline key, so a line inserted above a baselined finding
+  made it a stale entry AND a new finding. The position now travels as
+  `dedupe`, which only the per-class collapse reads and which is dropped
+  before a finding leaves the rules (the `line` says where it is). A
+  baseline written before keeps working: `loadBaseline( )`,
+  `applyBaseline( )` and `updateBaseline( )` read an old key of one of the
+  ten with a number in that field as today's key (`migrateKey( )` on
+  `./baseline`), so it matches wherever the code moved, and the next
+  `--update-baseline` writes the new form. The other direction does not
+  hold: 0.8.5 and older compute the old key for those ten rules, so a
+  baseline rewritten by this release waives nothing of theirs - the findings
+  come back and every such entry is reported stale (measured: a baseline
+  written by `--update-baseline` here fails a 0.8.5 run with exit 1). That
+  reaches whatever judges the same baseline with an older linter - an Action
+  or `npx` pinned to an earlier release, and the VS Code extension until its
+  pin moves, whose *Add to Baseline* then writes an old key beside the new
+  one, which this release reads as one key counted twice and reports stale.
+  Move every tool that reads one baseline to this release together.
+
+- **A numeric `ui5` / `minUi5` in the config is refused** (exit 2) with a
+  message that says why: JSON reads `1.120` as the number 1.12, so the floor
+  moved eight minors down without a word. Write it quoted, `"1.120"`. A
+  config that wrote `"ui5": 1.71` unquoted worked before and has to be
+  quoted now; the schema always said string.
+
+### Rules
+
+- **`chain-unbalanced-parens` ends an unclosed call at its statement's
+  period.** Its scan read an unclosed `(` as open to the end of the file:
+  every statement behind it ran into one, so a SECOND broken chain was
+  never reported, and a stray `)` further down was counted off against the
+  open one and vanished. A `.` before a blank ends the statement at any
+  depth now - `parenRegion( )`'s rule, since no ABAP call reaches past one -
+  so each broken chain is reported on its own statement. No corpus carries
+  one.
+
+- **`unbound-public-attribute` and `unused-public-attribute` see a reader in
+  the same run.** A popup hands its result back through a PUBLIC attribute
+  its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and
+  a caller sets a value on the app it calls the same way - unbound by
+  construction, and both rules said no single source can see that caller.
+  The class index (`classIndexOf( )`) now records per class `outsideReads`:
+  the names another class of the run reaches as `ref->name` through a
+  reference it types as this class (`TYPE REF TO`, an inline declaration
+  from `CAST`/`NEW`/a static factory, or that expression itself before the
+  arrow); a reference whose class is not written down is nobody's. Both
+  rules stand down for those names. Because that stand-down depends on what
+  the RUN holds, a waiver of either rule in such a class is unjudged rather
+  than `unused-directive` (`publicReadFromOutside( )` on `./abap-rules`,
+  fed to the directives as `stoodDown`): the same class linted alone - an
+  editor, a pre-commit hook - still needs it, and the unused-directive fix
+  would have deleted it. `classIndexDeps( )` carries the set, so `--cache`
+  re-judges the popup when a caller starts or stops reading it, and `--fix`
+  re-checks it between passes. `ClassIndex` in `types.d.ts` gains the
+  optional field. Corpora: nothing is reported differently -
+  abap2UI5/samples app 024's and abap2UI5's `node/srv/zcl_tst_stack_a`
+  waivers for the attribute their callers set stay (unjudged in a corpus
+  run, used when the class is linted alone); the other outside readers in
+  the corpora are ABAP Unit test classes, which no run collects, or call the
+  popup's `result( )` method.
+
+- **A `COND #( )` or `SWITCH #( )` of literals is judged branch by branch.**
+  `COND #( WHEN n = 1 THEN \`Emphasized\` ELSE \`Default\` )` on a Button
+  `type` has a closed set of values, and it was reported as
+  `unresolved-attribute-value` while a wrong value in a branch went
+  unjudged. The reconstructor records the values of a conditional with an
+  `ELSE` whose every result resolves (a literal, a `&&` chain, a nested
+  conditional of the same shape; a `THROW` branch yields none) as the node's
+  `branchValues`, and the property gate judges each like a literal:
+  `invalid-property-value` (with its case-only `--fix` landing on the
+  branch) and the other value rules, silent when all of them pass. No
+  `ELSE`, a `LET`, or a result that does not resolve keeps the hint.
+  abap-cloud-gui: its two `unresolved-attribute-value` hints are gone.
+
+- **`uncurated-formatter` reads more of the formatters a view names.** A
+  CONTROLLER formatter in a class (`formatter: '.weightState'`, the demo
+  kit's own form) names a function on the view's controller, which in
+  abap2UI5 is the framework's and defines none: the view fails to load with
+  *formatter function .weightState not found*, and only the render gate said
+  so. A raw view is left alone (it may be a freestyle app's, with a
+  controller of its own). And every alias a `core:require` points at
+  `z2ui5/model/formatter` is read (`{ Fmt: 'z2ui5/model/formatter' }` with
+  `formatter: 'Fmt.round2DP'`), the did-you-mean keeping the written alias;
+  the expression form no longer matches a name that merely ends in
+  `Formatter` (`myFormatter.round2DP(`).
+
+- **`int`, `float` and `boolean` values are judged the way DataType parses
+  them.** The numeric check was `^[+-]?\d+(\.\d+)?$`: `.5`, `5.` and `1e3` -
+  numbers to DataType's `Number( )` - were reported as invalid, while `10.5`
+  on an `int` property (which `Number.isInteger` refuses) passed. An empty
+  value is valid for all three (`NaN` for a number, `false` for a boolean),
+  and a value the reconstruction guessed from a LOOP variable is not judged
+  as if the author had written it.
+
+- **An `xmlns` on an inner element is scoped to it.** Every declaration of
+  a document went into one map, the last one winning, so `<VBox
+  xmlns="sap.ui.layout.form">` inside a sap.m Page turned the Page above it
+  into an `unknown-control`, and a prefix declared in one subtree passed as
+  declared in another, which the browser's parser refuses. The property
+  gate, the control-id map, the enum-bound-field reader and the run
+  summary's profile resolve each element against the declarations in scope
+  at it (`namespaceScopes( )` in `lib/properties.mjs`), and
+  `undeclared-namespace` reports a prefix used outside the element that
+  declares it. The top level stays one scope (a second root is judged with
+  what the first declares).
+
+- `popup-display-xml`, `popover-display-val` and
+  `popover-anchor-unknown-id` read the CLIENT's `popup_display( )` /
+  `popover_display( )` call and find the argument among the named ones
+  wherever it stands: an app's own `my_popup_display( xml = … )` was
+  reported and "fixed" into a parameter the method does not have, and
+  `popover_display( by_id = … val = … )` went unseen.
+
+- `view-never-displayed` no longer reports a helper class that hands its
+  stringified view to the caller - `result = view->stringify( )` where
+  `result` is a RETURNING, EXPORTING or CHANGING parameter of the method
+  (abap-cloud-gui's `z2ui5_cl_cgui_list` and `z2ui5_cl_cgui_selscreen`,
+  which its config excluded by name).
+
+- `unescaped-text-in-attribute` leaves `id` and `class` alone: the
+  XMLTemplateProcessor takes both verbatim and never parses a brace in them
+  as a binding, and the fix, `t =`, wrote a backslash into the id or the
+  class token.
+
+- `undefined-css-class` leaves a `class` value the reconstruction guessed:
+  `|state-{ ls-row-state }|` in a LOOP came out as `state-`, the literal
+  part of a class completed at runtime.
+
+- `unknown-icon` reads `` `sap-icon://status-` && lv_code `` as the prefix
+  it is - the backtick spelling of `|sap-icon://status-{ lv_code }|`, which
+  was already not judged.
+
+- `editable-control-without-binding` says the control "takes user input"
+  rather than that it "lets the user type": 152 of samples-controls's 343
+  findings are on controls nobody types into (RadioButton, CheckBox, Switch,
+  Slider, Select, …).
+
+- `"rules": { "<id>": true }` switches an opt-in rule (`chain-house-layout`,
+  `portable-app`) on. It passed the config check and ran nothing; `true` now
+  means "on, as it is".
+
+- `unused-directive` leaves a waiver alone where the rule it names never
+  ran: in an app class whose view another class builds, a helper class under
+  `--all-classes` and a class on the frozen builder, only some rules judge
+  the class (`SOURCE_RULES`, new on `./abap-rules`, plus the class-reading
+  rules for an app class), so a waiver of `unbound-public-attribute` or a
+  property-walk rule there had nothing it could suppress - and its fix
+  deleted the waiver the class needs the day its view moves back in. It is
+  unjudged now, as under `--no-properties`. No corpus carries one.
+
+### Reconstruction
+
+- **A void helper's parameter is the value its call passes.** A helper the
+  replay enters (`add_row( page = page text = \`Save\` )`) that writes its
+  parameter where the view needs a value (`a( n = \`text\` v = text )`)
+  left that value unresolved - a parameter is the caller's - so the
+  attribute was dropped with every rule that would judge it. During the
+  replay of one call the caller is known: the parameter is the value THAT
+  call passes, resolved where the call stands (a parameter handed on to a
+  second helper through the first one's call). Only when every call of the
+  helper in the class passes a value that resolves, and the helper never
+  writes the parameter itself: a `me->` call or a `CALL METHOD` (which the
+  replay does not enter) or one argument computed at runtime keeps it a
+  variable for every call. Eleven documents on the seven corpora gain their
+  attributes this way (samples-controls 585, demo_001 and app 000;
+  abap2UI5/samples 000, 502, 507 and 512; samples-stack 000; abap2UI5's
+  `z2ui5_cl_ui5_app_start` and its downport; abap-cloud-gui's range
+  popup) - no new render error, and one new finding (samples 507, see Read
+  before upgrading).
+
+- **A quote in a comment no longer silences the class.** The comment and
+  literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
+  lost their place in three shapes - a string template whose embedded
+  expression runs over two lines, a `|` in a literal inside an embedded
+  expression (`` sep = `|` ``), and a UTF-8 BOM in front of a `*` comment
+  line. The comment behind it was then kept as code, a `'` in its text
+  (`" don't care`) opened a literal that ran to the end of the file, and
+  most ABAP-side rules reported nothing for the rest of the class. `scrub( )`
+  now carries an open embedded expression over the line break and reads a
+  `"` inside one as a comment, a BOM is blanked, and every reader ends a
+  quote or backtick literal - and a template's text - at its line, as ABAP
+  does, so a reader that is ever wrong again is wrong for one line. The one
+  `literalEnd( )` is shared by `parenRegion`, `topSplit`, `namedArgMarks`,
+  the reconstructor's paren scan and `chain-house-layout`, whose own scanner
+  closed a template at the first `|` and so lost the `)` of a crammed chain
+  call behind `|{ concat_lines_of( table = mt sep = `|` ) }|`.
+
+- **A `CONSTANTS` value resolves.** `CONSTANTS c_base_url TYPE string VALUE
+  \`https://…\`` and `t = c_base_url && \`sample1.jpg\``, the chained
+  `CONSTANTS:` form and one level of `BEGIN OF cs … END OF cs` read as
+  `cs-name` were dropped as values the gate cannot follow, so a URL, a
+  colour or an enum value kept in a constant was judged by nothing and
+  rendered as absent.
+
+- **A name written once with a string template resolves to it.**
+  `DATA(expr) = |\{= ${ client->_bind( flag ) } ? 'A' : 'B' \}|.` and then
+  `v = expr` on five controls - how a port hands one expression binding
+  around - was dropped (samples-controls apps 445 and 452 carried fifteen
+  `unresolved-attribute-value` hints for it). So was a name written once with
+  `cl_abap_char_utilities=>newline`. A second write of the name in its scope
+  keeps it a variable, unresolved as before, and so does a template with a
+  piece the scan cannot compute: `|{ tenths DIV 10 }.{ tenths MOD 10 }em|`
+  would stand as the guess `.em`, which the render gate refuses as a
+  CSSSize.
+
+- **A name is read in its scope.** A literal or a template the class gives
+  a name was read class-wide - the last literal assignment anywhere - so a
+  helper's `v = type` came out as main's `DATA(type) = \`Bogus\``, reported
+  as `invalid-property-value` and rendered with a value nobody passed, and
+  two methods' locals of one name both read the later one. A name that is a
+  variable of the method it is used in - an inline or a `DATA`/`STATICS`/
+  `CONSTANTS` declaration there, or one of its parameters - now reads that
+  method's own writes, the last one before the use; any other name is the
+  class's attribute and reads the class's writes to it, as before. A
+  parameter's value is the caller's, so a helper's `v = type` is
+  unresolved rather than borrowed. On the seven corpora no document and no
+  finding changes from the scopes; abap-cloud-gui's `z2ui5_cl_cgui_range`
+  no longer carries the guess `value="{}"` for `|\{{ part }\}|`.
+
+- A pragma behind an argument value (`` v = `Bogus` ##NO_TEXT ``) is no part
+  of it: the attribute was dropped as unresolved, and every check of its
+  value with it.
+
+- **A builder handle kept in an attribute and stringified in another method
+  is skipped, not failed.** abap2UI5's `node/srv/zcl_tst_host` builds its
+  page in one method, keeps the handle in `mo_main_page`, lets a sub-app
+  created by name build into it and stringifies it in another; the replay
+  enters only the methods that open a factory, so the render gate failed the
+  class with `no view reconstructed from builder calls`. When the replay
+  yields no document, the builder calls in the methods it never entered are
+  counted as `helperTokens`, so the class is skipped with the usual "built in
+  helper methods" note (abap2UI5's `render-error` waiver for it now waives
+  nothing; sapgui's `zcl_sapgui_frame` and `zcl_sapgui_se91` are the same
+  shape). A class whose replay yields a document is unchanged.
+
+### `--fix`
+
+- **`--fix` runs to a fixed point.** One pass applies every fix whose span
+  overlaps none applied before it, and a fix can leave a shape another rule
+  fixes (a deleted trailing `t_arg` row leaves the one-row table
+  `event-arg-single-row-table` rewrites; `chain-house-layout` re-lays a
+  chain another fix sat in) - so a run ended with "N deferred to the next
+  run" and the reader ran `--fix` two or three times. The CLI now repeats
+  the pass in memory, re-checking the files the previous pass changed (and
+  any whose class-index facts - superclass chain, outside reads - moved),
+  and writes each file once: the text the old `--fix` reached when it was
+  run until it changed nothing. Bounded at `MAX_FIX_PASSES` (10, ESLint's
+  bound, exported on `./fix`); a run that stops there says so. The summary
+  names the passes (`fixed 6 problem(s) in 1 file(s) in 2 passes`), and
+  `--fix-dry-run` lists a later pass's fixes with `(pass N)`.
+
+- **`--fix` keeps a CRLF file CRLF.** The fixes that insert or re-lay lines
+  (`chain-house-layout`, `missing-on-navigated-branch`, the inserted
+  `class_constructor`, …) wrote LF, so with `crlf-line-ending` switched off a
+  fixed file came back with mixed line endings. Every fix now writes the
+  source's line ending (`matchLineEndings( )` on `./fix`, applied by the
+  entry points to what survives the rules and directives) - LF while
+  `crlf-line-ending` is fixing the file to LF in the same pass. And
+  `chain-house-layout` compared a CRLF line break as if it were wrong, so it
+  reported (and rewrote) every multi-line chain of a CRLF class whatever its
+  layout.
+
+### CLI, output and config
+
+- **The class index covers every class under the configured `paths`.** A
+  class's verdict reads two facts out of OTHER classes: a `cs_event` it
+  inherits, and a public attribute another class reads back
+  (`outsideReads`). The index was built over the files the run checked, so
+  it changed with what the run was handed: without `--all-classes` the
+  superclass or caller that builds no view was never in it, and a one-file
+  run (a pre-commit hook) saw no other class at all - both reported what the
+  full run, and the editor, which indexes its whole workspace, silence. The
+  CLI now indexes every ABAP class under the config's `paths` (the run's own
+  paths without a config), minus `ignore`, whatever it checks - `--stdin`
+  included, with the piped source in place of the file it names - and
+  `--watch` re-runs when one of them is saved. Cost, measured on
+  samples-controls (642 classes, 12 MB): a one-file run 0.25 s -> 0.58 s
+  (the walk 40 ms, the reads 25 ms, `classIndexOf( )` 275 ms); a full run
+  unchanged within noise, since its own files are most of the index.
+  Nothing changes on the seven corpora.
+
+- **`--stdin` refuses a path beside it** (exit 2). The path was neither read
+  nor linted, and the run reported on the piped source as if the file had
+  been checked: `cat a.clas.abap | abap2ui5lint --stdin b.view.xml` was
+  green whatever `b.view.xml` held. The message names `--stdin-filename`
+  and `--config`.
+
+- **The stylish report no longer prints control characters out of the
+  source.** A message quotes the checked file, and an ESC in a literal
+  reached the reviewer's terminal raw - an escape sequence that clears,
+  retitles or recolours it, or hides the line it sits on. The stylish
+  report, the annotations, the `--verbose` notes, the stale-baseline lines
+  and the `--fix` listing print every C0/C1 control, DEL and the bidi
+  override/isolate characters as a visible `\xNN` / `\uNNNN` (a tab or line
+  break as a blank); `terminalSafe( )` on `./report`. JSON and SARIF carry
+  the text as written.
+
+- `--format checkstyle` and `--format junit` stay well-formed whatever a
+  message quotes: a control character becomes U+FFFD, and a line break or
+  tab is written as a character reference, which an attribute keeps. Both,
+  and the GitHub annotations, write `/`-separated paths on Windows too, as
+  SARIF always did - an annotation with a `\` path never reached its line.
+
+- A run with nothing to check prints the EMPTY document of a machine format
+  (`checkstyle`, `junit`, `sarif`, as `json` already did) with the sentence
+  on stderr, and still writes `--sarif-out` and `--json-out`: a workflow's
+  upload-sarif step behind the Action's `sarif` input failed on a file that
+  was never written.
+
+- `--update-baseline` beside a machine format writes its "baseline: wrote"
+  line to stderr; stdout is the document a caller parses.
+
+- `--advisory` / `--fail-on never` exit 0 under `--max-warnings` (or a
+  config `maxWarnings`) too, as they do for stale baseline entries; the
+  excess is still said on stderr.
+
+- `--max-warnings`, `--jobs` and `--render-pages` take digits only. `''`
+  and `' '` were read as 0 and `0x2` as 2, so `--max-warnings "$MAX"` with
+  the variable unset failed the build on the first warning.
+
+- A baseline file that is valid JSON but no object (`null`, a number, an
+  array, a string) is refused with the file's name and the shape it should
+  have, instead of `Cannot read properties of null`.
+
+- The config's `ignore` count ("N files ignored by config") is taken in the
+  same directory walk; the CLI walked the tree a second time and read every
+  class twice. `collectFiles( )` takes an `onIgnored` callback for it.
+
+- A UTF-8 BOM no longer shifts the columns of line 1 by one.
+
+- `isXmlSource( )` on the main export: whether `checkFiles( )` reads a
+  source as a raw view or as a class - the one predicate the library, the
+  `--fix` passes and the cache's class index share.
+
+### `--cache`
+
+- **`--cache` follows the class index and the linter's own code.** A class
+  is judged against what its superclass declares (`cs_event`) and what the
+  other classes read of it (`outsideReads`), and a cached run built that
+  index out of the cache MISSES only: a subclass re-checked without its
+  cached superclass read the inherited constant as unknown, and an edited
+  superclass left its subclasses' stale entries in place. The index is built
+  over every file of the run, and each entry is also keyed on the index
+  facts its check read (`deps`, `classIndexDeps( )`). The context hash takes
+  a fingerprint of `cli.mjs`, `lib/*.mjs` and `data/*.json` beside the
+  version, so a checkout between releases or a regenerated snapshot does not
+  replay the verdicts of the code before it. A run over part of a tree keeps
+  the entries of every other file (and drops those whose file is gone), and
+  the per-document models (`docModels`) are no longer stored. The cache file
+  format moves to version 2; an old file is simply a cold cache.
+  The index the `deps` are read from is the wider one of the CLI entry
+  above, so editing a class the run only indexes - a helper that stops
+  reading a popup's result - re-judges the popup too.
+
+### Render gate
+
+- **An answer that arrives after a document's render window is charged to
+  that document.** A control that sends a request (a Card fetching its
+  manifest) reports what comes back whenever it comes back, and the page
+  meanwhile rendered the next document, whose window collected the error -
+  samples-controls apps 118 and 168 failed app 180, 183, 184 or 185
+  depending on the run. The harness counts the fetch/XHR requests a page has
+  in flight and lets them settle into the window of the document that sent
+  them; a page still waiting after `settleTimeout` (`openRenderer( )`,
+  default `RENDER_SETTLE_TIMEOUT_MS`, 2 s) is reloaded before the next
+  document, so a late answer can be lost but never misfiled. Not covered: an
+  error a control raises from a bare timer long after its view is gone.
+
+- **The browser's own network error is waived.** A Card whose manifest lives
+  on sdk.openui5.org fetches it when it renders; where that host does not
+  answer (a sandbox, an offline runner) `TypeError: Failed to fetch` is
+  environment noise like the other waived messages - whether a remote URL
+  answers is not a property of the view. What the control says about the
+  missing resource is still reported.
+
+- **A raw `.fragment.xml` renders as a fragment.** The gate decided view or
+  fragment by `^<core:FragmentDefinition` on the text, so a fragment file
+  that opened with an XML declaration or a comment, wrote
+  `FragmentDefinition` in the default namespace, or had a bare control as
+  its root failed with "XMLView's root node must be 'View'". The file name
+  decides now (`.fragment.xml` / `.view.xml`, on the result's `docKinds` and
+  for `--screenshot`), and the renderer's own fallback reads past a BOM, the
+  XML declaration, comments and a doctype and accepts any prefix.
+
+### Performance
+
+- **Linear on long input.** Measured quadratic and now linear:
+  `default-key-table` (a class of 10,000 `TYPE TABLE OF` lines took a
+  minute, also without a terminator behind the declarations), the PUBLIC
+  attribute reader and `unbound-public-attribute` (three regex scans of the
+  class per attribute), `client-handle-capture` (a scan per captured
+  handle), `commercial-ui5-host` (a regex tried after every `-` of one long
+  hyphenated token) and ten regexes anchored on `^\s*` under the multiline
+  flag (the model's literal seeds and table seeds, the section DATA blocks,
+  the event dispatch, `declaresApp( )`, …), which let every blank line -
+  and every blanked comment line - start a scan over all the ones behind
+  it. That last one is what the VS Code extension met: `prepareAbap( )` runs
+  on every edit, and 2,000 commented-out lines took a second in 0.8.5, 8,000
+  sixteen. The findings are unchanged on the corpora; `test/timing.mjs`
+  judges each case by n against 4n, so a loaded runner cannot fail it.
+
+- The class index (`outsideReads`) finds typed references by their `TYPE
+  REF TO` keyword instead of trying a name at every word of every class.
+
+- **Every rule is swept for growth.** `test/review/timing-sweep.mjs` takes
+  each rule's card - the example the rules page wraps into a class and
+  verifies - and grows it around the reported line in nine shapes (a long
+  run of blanks, a long literal, a long comment; a block of comment lines,
+  of declarations, the statement repeated, the method copied; nested IFs and
+  a nested view), every case judged n against 4n (`screenedLinearly( )` in
+  `test/timing.mjs`: one run each, the best of three only where that does
+  not pass), plus four raw-view shapes. What it and the shapes behind it
+  found, all three linear now: a class of many views with unused namespace
+  declarations counted each prefix over the whole source once per finding
+  (200 views, 5.7 s); an unclosed call handed the rule reading it the rest of
+  the file as its argument list, so 2,000 of them took 11 s (`parenRegion( )`
+  ends such a list at the statement's period now, and reads a `"` or `*`
+  comment as a comment); and `unescaped-text-in-attribute`'s write reader
+  split a long blank run after a statement's first word every possible way
+  (`CLASS-METHODS` and 32,000 blanks, a second). No finding changes on the
+  seven corpora.
+
+### Action
+
+- **`render: False` means false.** GitHub compares strings in an `if:`
+  case-insensitively and the shell does not, so `render: False` skipped the
+  runtime install and then ran the gate anyway, and `annotations: False`
+  annotated. Both inputs are lower-cased in the shell, in the lint and the
+  screenshot step.
+
+- **The Chromium cache works on Windows and macOS runners.** The cache step
+  saved `~/.cache/ms-playwright`, Playwright's browser directory on Linux
+  only, so elsewhere every job downloaded Chromium again. The install, lint
+  and screenshot steps set `PLAYWRIGHT_BROWSERS_PATH` to one directory under
+  `runner.temp`, and that is what is cached (a Linux runner misses the cache
+  once).
+
+### Metadata
+
+- **The generator gives a class the methods it owns wherever the file
+  writes them.** sap/ui/unified/ColorPicker.js defines the private
+  `_ColorPickerBox` between the picker's extend call and the picker's own
+  methods, and a file was read "from one extend call to the next": the
+  picker's `fireChange({ …, colorString })` was harvested for the box, so
+  `$parameters>/colorString` on a ColorPicker - what the demo kit sample
+  reads - was an `unknown-event-parameter`. `data/properties.json` now
+  carries `colorString` and `formatHSL` on the picker's `change` and
+  `liveChange`; no other class moved.
+
+### Also in this release
+
+- **`./check`: the entry point without the renderer.** `checkAbapSource( )`
+  and `checkXmlSource( )` move to `lib/check.mjs`, exported as
+  `@abap2ui5/linter/check` together with what they decide with -
+  `declaresApp`, `VIEWLESS_APP_RULE`, `sizeLimitRaised`,
+  `standDownUnusedNamespaces` (the `unused-namespace-declaration` stand-down,
+  a function now instead of a block inside `checkAbapSource( )`),
+  `frozenBuilderOf`/`FROZEN_BUILDERS`, `isXmlSource`, `isAbapGitXml`,
+  `xmlFileKind`. The main entry re-exports all of it unchanged; what it adds
+  is `checkFiles( )` with the worker pool and the renderer (`http`, `os`,
+  `module`), which a browser bundle cannot resolve - so the VS Code
+  extension's web build re-implemented each of those decisions and pinned
+  every copy to this source with a test of its own. Both entry points take
+  `data` (the snapshot itself, for a host without a path - from the new
+  `snapshotFromJson( )` on `./properties`, which reads data/properties.json's
+  text or object the way `loadSnapshot( )` reads the file) and `prep` (a
+  `prepareAbap( )` of the same source the caller already holds;
+  `checkFiles( )` ignores it). `npm test` imports `./check` in a fresh process
+  with a resolve hook and fails on the renderer, the entry point, a
+  `worker_threads`/`http`/`os`/`module` import or anything of the render
+  runtime. The pool's threads load `./check` too, not the renderer.
+
+- **A view nested 5,000 levels deep is judged.** Every walk over a tree
+  recursed once per level, and the property walk ran out of stack at about
+  a thousand: `RangeError: Maximum call stack size exceeded` out of the
+  middle of a run - from the namespace scopes, the main walk, `toXml( )`,
+  the portable walk and the namespace stand-down in turn. They go through
+  `lib/tree.mjs` now (`walkTree( )`, `nodesOf( )`), which keeps the
+  recursion's order without the recursion, so every finding comes out where
+  it did. What the browser makes of such a document is the render gate's to
+  report, as a render error: UI5 itself runs out of stack between 400 and
+  1,000 levels, and the browser's XML parser refuses 5,000.
+
 - **The first display is modelled.** The model a view is judged and rendered
   against took its scalar seeds from the whole class, so a value only an
   event handler assigns was rendered as if it were there from the start.
@@ -25,14 +552,21 @@
   non-literally, one bound under `omit_initial`, and a document the first
   display does not show are not judged.
 
-- **New rule `rows-hidden-by-visible`** (warning). A bound aggregation whose
-  row template carries a binding-valued `visible`, in a class that raises no
-  size limit: a JSONModel hands a bound aggregation at most 100 entries and
-  the hidden rows are among them, so the list stops short of its data without
-  a word. samples-controls' overview app listed a few dozen of its 622 ports
-  that way. The narrow successor of the `bound-aggregation-over-size-limit`
-  rule dropped in 0.3: one hit on the same six corpora, the real one. A raw
-  view has no class to ask and is not judged.
+- **New rule `rows-hidden-by-visible`** (warning). The `items` of a
+  non-growing list (`sap.m.ListBase`: List, Table, GridList, Tree) bound
+  without a `length` and with a binding-valued `visible` on the row template,
+  in a class that raises no size limit: a JSONModel hands such a binding at
+  most 100 entries and the hidden rows are among them, so the list stops
+  short of its data without a word. samples-controls' overview app listed a
+  few dozen of its 622 ports that way. The narrow successor of the
+  `bound-aggregation-over-size-limit` rule dropped in 0.3. Where the limit
+  does not apply it is silent: a growing list pages with lengths of its own,
+  a binding info's `length` is passed through, and a raw view has no class
+  to ask. Neither is a MultiInput's `tokens` or a layout container's
+  repeated `items` judged - a value set or a repeater, not rows of data; the
+  first version reported the hidden tokens of abap2UI5/samples app 078, of
+  popups' `z2ui5_cl_popup_get_range_m` and sample 19 and of abap2UI5's
+  frozen copy, its only hits on seven corpora.
 
 - **New rule `invalid-css-value`** (error, fixable). A size, colour or
   percentage literal its UI5 type refuses - `width="100"`, `100 px`,

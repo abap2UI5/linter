@@ -528,12 +528,43 @@ function parseControlSource(src, base) {
   // dependency -> parent resolution is file-wide (the sap.ui.define header)
   const parentOf = parentResolver(src, base);
 
+  /* Which local variable holds each class (`var ColorPicker =
+   * Control.extend(…)`), and where its `<Own>.prototype.<m> = function`
+   * bodies are. In a file that defines more than one class, a method is
+   * written wherever the author put it: ColorPicker.js defines the private
+   * _ColorPickerBox in the middle and the ColorPicker's own
+   * `_updateColorStringProperty` - the one fireChange( ) - after it, so the
+   * region "from this extend to the next" lent ColorPicker's fire call to
+   * the box and lost `colorString` for the picker. */
+  const owner = hits.map((hit) => /(\w+)\s*=\s*$/.exec(src.slice(src.lastIndexOf('\n', hit.index) + 1, hit.index))?.[1] ?? null);
+  const spansOf = (ident) => {
+    const spans = [];
+    if (!ident) return spans;
+    for (const m of src.matchAll(new RegExp(String.raw`\b${rxEscape(ident)}\.prototype\.\w+\s*=\s*function\b[^{]*\{`, 'g'))) {
+      const body = braceBody(src, m.index + m[0].length - 1);
+      spans.push([m.index, m.index + m[0].length + body.length + 1]);
+    }
+    return spans;
+  };
+  const spans = hits.length > 1 ? owner.map(spansOf) : hits.map(() => []);
+
   return hits.map((hit, ix) => {
     // the class's own metadata block: the first one after its extend call,
     // bounded by where the next class starts
     const from = hit.index;
     const to = hits[ix + 1]?.index ?? src.length;
-    const region = src.slice(from, to);
+    let region = src.slice(from, to);
+    if (hits.length > 1) {
+      // another class's methods out, this class's methods from elsewhere in
+      for (const [j, list] of spans.entries()) {
+        if (j === ix || owner[j] === owner[ix]) continue;
+        for (const [a, b] of list) {
+          if (a >= from && b <= to) region = region.slice(0, a - from) + ' '.repeat(b - a) + region.slice(b - from);
+        }
+      }
+      const elsewhere = spans[ix].filter(([a, b]) => a < from || b > to).map(([a, b]) => src.slice(a, b));
+      if (elsewhere.length) region += `\n${elsewhere.join('\n')}`;
+    }
     const metaAt = region.search(/\bmetadata\s*:\s*\{/);
     const meta = metaAt >= 0 ? braceBody(region, region.indexOf('{', metaAt)) : '';
     return parseClass(src, region, meta, hit.name, parentOf(hit.ident));

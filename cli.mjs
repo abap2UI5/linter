@@ -36,7 +36,8 @@
  *   --max-warnings <n> more than n warnings fail the run, whatever --fail-on
  *                      says (ui5lint's flag) - the way to keep failing on
  *                      errors only while still capping the warning debt.
- *                      Also settable as "maxWarnings" in the config
+ *                      Not under --advisory / --fail-on never, which promise
+ *                      exit 0. Also settable as "maxWarnings" in the config
  *   --format <f>       stylish (default), json, markdown, sarif, checkstyle
  *                      or junit. --json is a shorthand for --format json.
  *                      sarif is the shape github/codeql-action/upload-sarif
@@ -46,8 +47,11 @@
  *                      DevOps) ingest natively.
  *   --fix              rewrite what can be corrected mechanically (an obsolete
  *                      binder, an unwrapped ABAP boolean, a t_arg missing its
- *                      $), then report what is left. ABAP2UI5LINT_FIX_DRY_RUN=true
- *                      reports what it would change without touching a file.
+ *                      $), then report what is left. Repeats the pass until
+ *                      nothing changes (at most 10), so one run settles fixes
+ *                      that overlap or that leave a shape another rule fixes.
+ *                      ABAP2UI5LINT_FIX_DRY_RUN=true reports what it would
+ *                      change without touching a file.
  *   --sarif-out <file>  ALSO write the SARIF document to this file, whatever
  *                      --format prints on stdout. The way to keep the
  *                      annotated human report in the log and still hand a
@@ -127,8 +131,10 @@
  *   --stdin            lint source read from standard input instead of files.
  *                      Property gate only - the render gate needs a file
  *                      corpus and stays off for piped source. Incompatible
- *                      with --fix (there is no file to rewrite) and
- *                      --screenshot. Exit codes as usual
+ *                      with --fix (there is no file to rewrite),
+ *                      --screenshot and a path (which would not be read -
+ *                      name the source with --stdin-filename). Exit codes
+ *                      as usual
  *   --stdin-filename <name>
  *                      the name the piped source is reported under (default
  *                      <stdin>). It also decides the handling: a name ending
@@ -212,15 +218,16 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
+import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource, isXmlSource } from './lib/index.mjs';
+import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
-import { applyFixes } from './lib/fix.mjs';
+import { applyFixes, MAX_FIX_PASSES } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
 import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
-import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter } from './lib/report.mjs';
+import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter, terminalSafe } from './lib/report.mjs';
 import { RULES_PAGE } from './lib/rule-docs.mjs';
 import { caseMatch } from './lib/suggest.mjs';
 
@@ -467,6 +474,11 @@ let stdinName = '<stdin>';
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 // --watch: the same run, again on every change (see watchLoop below)
 let watchMode = false;
+/* A count as it is typed: digits and nothing else. `Number( )` reads '' and
+ * '  ' as 0 and '0x10' as 16, so `--max-warnings "$MAX"` with the variable
+ * unset was --max-warnings 0 - every warning failed the build, and the
+ * message named a limit nobody had set. NaN for anything else. */
+const wholeNumber = (text) => (/^\d+$/.test(String(text)) ? Number(text) : NaN);
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   // a flag that takes a value must actually have one - `--allow` as the last
@@ -501,14 +513,14 @@ for (let i = 0; i < args.length; i++) {
     opt.render = true;
     seen.add('render');
     renderAsked = true;
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 1) die(`--render-pages takes a positive integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 1)) die(`--render-pages takes a positive integer (got '${args[i]}')`);
     opt.renderPages = n;
     seen.add('renderPages');
   }
   else if (a === '--jobs') {
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 1) die(`--jobs takes a positive integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 1)) die(`--jobs takes a positive integer (got '${args[i]}')`);
     opt.jobs = n;
   }
   else if (a === '--screenshot') shot.out = value();
@@ -580,8 +592,8 @@ for (let i = 0; i < args.length; i++) {
     seen.add('failOn');
   }
   else if (a === '--max-warnings') {
-    const n = Number(value());
-    if (!Number.isInteger(n) || n < 0) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
+    const n = wholeNumber(value());
+    if (!(n >= 0)) die(`--max-warnings takes a non-negative integer (got '${args[i]}')`);
     opt.maxWarnings = n;
     seen.add('maxWarnings');
   }
@@ -709,6 +721,9 @@ function resolveRun() {
   const runPaths = [...parsed.paths];
   let asked = parsed.renderAsked;
   let configFile = null;
+  // where the class index is read from (see indexOnlySources) - the config's
+  // `paths` when it names them, whatever the run itself was handed
+  let indexPaths = null;
   // abap2ui5lint.jsonc - the committed settings of the checked repo
   if (!noConfig) {
     configFile = configFlag ?? findConfig(process.cwd(), runPaths);
@@ -724,9 +739,10 @@ function resolveRun() {
       // --render does: from here on a missing runtime is an error, not a
       // fallback. `render: false` says property-only, which needs no runtime.
       if (cfg.render === true && !seen.has('render')) asked = true;
-      if (!runPaths.length && cfg.paths) {
+      if (cfg.paths) {
         const base = path.dirname(configFile);
-        runPaths.push(...cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p))));
+        indexPaths = cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p)));
+        if (!runPaths.length) runPaths.push(...indexPaths);
       }
       // a baseline named in the config lives next to the config, not the cwd
       if (!seen.has('baseline') && cfg.baseline) {
@@ -749,6 +765,12 @@ function resolveRun() {
    * value. Asked-for render, --fix and --screenshot are refused rather than
    * silently ignored. */
   if (stdinMode) {
+    /* A path beside --stdin was neither read nor linted - only (as a last
+     * resort) searched for a config - and the run reported on the piped
+     * source as if the path had been checked. */
+    if (parsed.paths.length) {
+      die(`--stdin lints the source piped to it, not ${parsed.paths.length === 1 ? `'${parsed.paths[0]}'` : 'the paths given'} - name the piped source with --stdin-filename <name>, the config with --config <file>, or drop --stdin to lint files`);
+    }
     if (o.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
     if (shot.out) die('--stdin cannot be combined with --screenshot');
     if (asked) die('--stdin runs the property gate only - write the source to a file to render it');
@@ -778,7 +800,7 @@ function resolveRun() {
     const mismatch = runtimeSnapshotMismatch(snapshotVersion());
     if (mismatch) warn(mismatch);
   }
-  return { opt: o, paths: runPaths, configFile, asked };
+  return { opt: o, paths: runPaths, indexPaths: indexPaths ?? runPaths, configFile, asked };
 }
 
 /** One notice on stderr - a workflow warning inside Actions, so it lands on
@@ -818,12 +840,50 @@ const dropWarm = async () => {
   if (r) await r.close().catch(() => {});
 };
 
+/*
+ * The classes the CLASS INDEX reads (classIndexOf, lib/guide-rules.mjs) that
+ * the run does not check: every ABAP class under the configured `paths`
+ * (the run's own paths without a config), minus `ignore` - a helper class
+ * that builds no view, a superclass, a caller - however few files the run
+ * was handed.
+ *
+ * The index is the one input a class's verdict takes from OTHER classes: a
+ * `cs_event` it inherits (frontend-action-as-backend-event), a public
+ * attribute another class reads back (unused-/unbound-public-attribute).
+ * Built over the checked files only, it changed with what the run was
+ * handed: a run without --all-classes never saw the superclass that builds
+ * no view, a one-file run (a pre-commit hook) saw no other class at all, and
+ * both reported what the full run - and the editor, which indexes the whole
+ * workspace - silences. The answer is the same for every way in now.
+ *
+ * Sources, not files: the caller builds the index over these plus the
+ * checked files' current text. Empty when the walk would find nothing the run
+ * does not already hold: `--all-classes` collected `files` from the very
+ * same paths (`collectedFrom`; null for a piped source, which collected
+ * nothing).
+ */
+function indexOnlySources(indexPaths, files, opt, collectedFrom) {
+  const same = (a, b) => a.length === b.length && a.every((p, i) => path.resolve(p) === path.resolve(b[i]));
+  if (opt.allClasses === true && collectedFrom && same(indexPaths, collectedFrom)) return [];
+  const roots = indexPaths.filter((p) => fs.existsSync(p));
+  if (!roots.length) return [];
+  const checked = new Set(files.map((f) => path.resolve(f)));
+  const out = [];
+  for (const file of collectFiles(roots, { ignore: opt.ignore ?? [], allClasses: true })) {
+    if (checked.has(path.resolve(file)) || !/\.abap$/i.test(file)) continue;
+    let src;
+    try { src = fs.readFileSync(file, 'utf8'); } catch { continue; }
+    if (!isXmlSource(file, src)) out.push(src);
+  }
+  return out;
+}
+
 /**
  * One run over the resolved settings, returning the exit code instead of
  * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
  * run exits with it; the watch loop reports it and waits for the next change.
  */
-async function runOnce({ opt, paths, configFile = null, asked = false }) {
+async function runOnce({ opt, paths, indexPaths = paths, configFile = null, asked = false }) {
   let files;
   // checkable files the config's `ignore` kept out of the walk - said under
   // the count line, because "fewer findings than expected" is otherwise
@@ -835,10 +895,10 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     try {
       // `ignore` is repo-level and config-only on purpose: it describes the tree,
       // which is a property of the repo rather than of one invocation
-      files = collectFiles(paths, { ignore: opt.ignore ?? [], allClasses: opt.allClasses === true });
-      if (opt.ignore?.length) {
-        ignored = Math.max(0, collectFiles(paths, { allClasses: opt.allClasses === true }).length - files.length);
-      }
+      // one walk: the ignored trees are walked for the count, never read twice
+      files = collectFiles(paths, {
+        ignore: opt.ignore ?? [], allClasses: opt.allClasses === true, onIgnored: () => { ignored++; },
+      });
     } catch (e) {
       // a mistyped path is bad usage, not a crash - exit 2 with one clean line
       die(e.code === 'ENOENT' ? `no such file or directory: ${e.path}` : e.message);
@@ -939,60 +999,127 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
 
   if (!files.length) {
     const empty = { ...summarize([]), failing: 0 };
-    if (opt.format === 'json') {
-      // the same shape a real run prints - built by the one formatter, so the
-      // frozen --json contract cannot drift between the two paths
-      console.log(formatJson([], empty, opt));
+    const nothing = opt.allClasses
+      ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
+      : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`;
+    /* Every machine format prints its EMPTY document - built by the one
+     * formatter, so a contract cannot drift between the two paths - and the
+     * sentence goes to stderr. The XML formats and SARIF printed the sentence
+     * on stdout, which no parser reads as checkstyle or SARIF. */
+    const machine = {
+      json: () => formatJson([], empty, opt), sarif: () => formatSarif([]),
+      checkstyle: () => formatCheckstyle([]), junit: () => formatJunit([]),
+    }[opt.format];
+    if (machine) {
+      console.log(machine());
+      if (!opt.quiet) console.error(nothing);
     } else {
-      console.log(opt.allClasses
-        ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
-        : `abap2ui5lint: no checkable app classes under ${paths.join(', ')} (ABAP classes building a view with z2ui5_cl_ui5_view_builder, or *.view.xml / *.fragment.xml; --all-classes collects every class)`);
+      console.log(nothing);
     }
+    /* The files written beside the report are written for an empty run too:
+     * a workflow's upload-sarif step after the Action's `sarif` input failed
+     * on a file that was never there, for a repository that has nothing to
+     * check (yet). */
+    if (opt.sarifOut) writeBeside('the SARIF file', opt.sarifOut, `${formatSarif([])}\n`);
+    if (opt.jsonOut) writeBeside('the JSON file', opt.jsonOut, `${formatJson([], empty, opt)}\n`);
     emitBadge(empty, runStats([]));
     return outputFailed ? 2 : 0;
   }
 
+  /* The classes the class index reads beyond the ones this run checks - see
+   * indexOnlySources. Read once per run; every index below is built over
+   * the run's own sources (as they are at that moment) plus these. */
+  const indexExtra = indexOnlySources(indexPaths, files, opt, stdinMode ? null : paths);
+  const indexOver = (abapSources) => classIndexOf([...abapSources, ...indexExtra]);
+
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
    * the render result), rewrite, then the normal run reports what is left -
-   * which is what makes `--fix` safe to put in front of any other flag. */
+   * which is what makes `--fix` safe to put in front of any other flag.
+   *
+   * It runs to a FIXED POINT, as ESLint's does: two fixes whose spans overlap
+   * cannot both be applied to one text, and a fix can leave a shape another
+   * rule fixes (chain-house-layout re-lays a chain an attribute fix sat in),
+   * so one pass left "N deferred to the next run" and the reader ran --fix
+   * two or three times. The passes after the first are in memory: a file is
+   * re-checked when the previous pass changed it, or when the superclass
+   * facts its check reads (classIndexDeps) moved - every other file would
+   * produce the same findings, and with them the same no-op. The output is
+   * the one repeated runs reached, written once. Bounded: a pair of rules
+   * that undo each other cannot loop forever, and a run that stops at the
+   * bound says so. */
   if (opt.fix) {
     const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
-    let files_ = 0;
+    const checkOpt = { ...opt, render: false };
+    const indexOf = (texts) => indexOver([...texts.entries()].filter(([file, src]) => !isXmlSource(file, src)).map(([, src]) => src));
+    const original = new Map(files.map((file) => [file, fs.readFileSync(file, 'utf8')]));
+    const current = new Map(original);
+    let index = indexOf(current);
+    let results = await checkFiles(files, { ...checkOpt, classIndex: index });
     let fixed = 0;
     let deferred = 0;
-    let dropped = 0;
-    const droppedIn = [];
+    let passes = 0;
+    let settled = false;
+    const droppedBy = new Map(); // file -> spans the latest check of it could not use
     // what a dry run WOULD settle, one `path:line:col rule-id` per finding -
     // the count alone left the reader with the findings that remain and no
     // way to tell which ones the pass had picked
     const wouldFix = [];
-    for (const r of await checkFiles(files, { ...opt, render: false })) {
-      const source = fs.readFileSync(r.file, 'utf8');
-      const result = applyFixes(source, r.findings);
-      // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
-      // line, and "would fix 216 problem(s)" stood over a list of six
-      deferred += result.deferredFindings.length;
-      if (result.dropped) { dropped += result.dropped; droppedIn.push(r.file); }
-      if (!result.applied) continue;
-      files_++;
-      fixed += result.findings.length;
-      if (dryRun) {
-        const rel = path.relative(process.cwd(), r.file);
-        for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
-          wouldFix.push(`${rel}:${f.line ?? 0}:${f.column ?? 0} ${f.type}`);
+    while (passes < MAX_FIX_PASSES) {
+      passes++;
+      const changed = [];
+      deferred = 0;
+      for (const r of results) {
+        const source = current.get(r.file);
+        const result = applyFixes(source, r.findings);
+        // PROBLEMS, not edits: one crlf-line-ending finding carries an edit per
+        // line, and "would fix 216 problem(s)" stood over a list of six
+        deferred += result.deferredFindings.length;
+        droppedBy.set(r.file, result.dropped);
+        if (!result.applied || result.output === source) continue;
+        fixed += result.findings.length;
+        if (dryRun) {
+          const rel = path.relative(process.cwd(), r.file);
+          for (const f of result.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0) || (a.column ?? 0) - (b.column ?? 0))) {
+            wouldFix.push(`${terminalSafe(rel)}:${f.line ?? 0}:${f.column ?? 0} ${f.type}${passes > 1 ? ` (pass ${passes})` : ''}`);
+          }
         }
+        current.set(r.file, result.output);
+        changed.push(r.file);
       }
-      if (!dryRun) fs.writeFileSync(r.file, result.output);
+      if (!changed.length) { settled = true; break; }
+      const next = indexOf(current);
+      const touched = new Set(changed);
+      const recheck = [...current.keys()].filter((file) => touched.has(file)
+        || (!isXmlSource(file, current.get(file)) && classIndexDeps(current.get(file), next) !== classIndexDeps(current.get(file), index)));
+      index = next;
+      results = recheck.map((file) => {
+        const src = current.get(file);
+        const r = isXmlSource(file, src)
+          ? checkXmlSource(src, { ...checkOpt, file })
+          : checkAbapSource(src, { ...checkOpt, file, classIndex: index });
+        r.file = file;
+        return r;
+      });
+    }
+    let files_ = 0;
+    for (const [file, text] of current) {
+      if (text === original.get(file)) continue;
+      files_++;
+      if (!dryRun) fs.writeFileSync(file, text);
     }
     if (fixed && opt.format === 'stylish') {
       if (wouldFix.length) console.log(wouldFix.join('\n'));
-      console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)` +
-        `${deferred ? `, ${deferred} deferred to the next run (overlapping)` : ''}\n`);
+      console.log(`${dryRun ? 'would fix' : 'fixed'} ${fixed} problem(s) in ${files_} file(s)`
+        + `${passes - (settled ? 1 : 0) > 1 ? ` in ${passes - (settled ? 1 : 0)} passes` : ''}`
+        + `${settled ? '' : `, stopped after ${MAX_FIX_PASSES} passes - run --fix again`}`
+        + `${deferred ? `, ${deferred} deferred (overlapping)` : ''}\n`);
     }
     /* A dropped span is a defect in a RULE, not in the checked repo, and it is
      * the one outcome `--fix` used to keep to itself: the finding survives every
      * pass and the summary says "fixed 0 problems". Said out loud, on stderr, so
      * a piped --json run stays parseable. */
+    const droppedIn = [...droppedBy].filter(([, n]) => n).map(([file]) => file);
+    const dropped = [...droppedBy.values()].reduce((a, n) => a + n, 0);
     if (dropped) {
       console.error(`abap2ui5lint: ${dropped} fix(es) were discarded - their spans do not address the file they were computed for`
         + ` (${droppedIn.slice(0, 3).join(', ')}${droppedIn.length > 3 ? `, +${droppedIn.length - 3} more` : ''}).`
@@ -1035,39 +1162,56 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       const src = fs.readFileSync(0, 'utf8');
       // the filename decides the handling, exactly as collectFiles decides it
       // for a named path: the XML spellings, else content sniff, else ABAP
-      const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
-      const r = isXml
+      const xml = isXmlSource(stdinName, src);
+      /* the piped source is judged against the repo's other classes, as a
+       * saved file would be - the index holds it in place of the file of
+       * that name, which may be stale or absent */
+      const r = xml
         ? checkXmlSource(src, { ...opt, file: stdinName })
-        : checkAbapSource(src, { ...opt, file: stdinName });
+        : checkAbapSource(src, { ...opt, file: stdinName, ...(indexExtra.length ? { classIndex: indexOver([src]) } : {}) });
       r.file = stdinName;
       return [r];
     }
     if (cache) {
-      const slots = files.map((file) => {
-        const hash = hashOf(fs.readFileSync(file, 'utf8'));
+      const sources = files.map((file) => fs.readFileSync(file, 'utf8'));
+      /* The class index is built over EVERY file of the run, not only the
+       * ones the cache misses: a class is judged against what its
+       * superclass declares, and checkFiles( ) would otherwise build the
+       * index out of the misses alone. Each entry is keyed on the part of
+       * the index its check reads too (`deps`), so an edited superclass
+       * re-judges its subclasses. */
+      const classIndex = indexOver(sources.filter((src, i) => !isXmlSource(files[i], src)));
+      const slots = files.map((file, i) => {
+        const hash = hashOf(sources[i]);
+        const deps = hashOf(isXmlSource(file, sources[i]) ? '' : classIndexDeps(sources[i], classIndex));
         const hit = cache.entries[path.resolve(file)];
         /* An entry that parses but does not hold a result (result: null, a
          * truncated write, a hand-edited file) is a MISS, not a crash - the
          * cache is expendable by contract, so nothing read from it may be
          * trusted to have a shape. */
-        const valid = hit && hit.hash === hash
+        const valid = hit && hit.hash === hash && hit.deps === deps
           && hit.result && typeof hit.result === 'object'
           && Array.isArray(hit.result.findings);
-        return { file, hash, result: valid ? { ...hit.result, file } : null };
+        return { file, hash, deps, result: valid ? { ...hit.result, file } : null };
       });
       const missing = slots.filter((s) => !s.result).map((s) => s.file);
-      const fresh = missing.length ? await checkFiles(missing, opt) : [];
+      const fresh = missing.length ? await checkFiles(missing, { ...opt, classIndex }) : [];
       const byFile = new Map(fresh.map((r) => [r.file, r]));
       for (const s of slots) if (!s.result) s.result = byFile.get(s.file);
       const entries = {};
-      for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, result: cacheable(s.result) };
+      for (const s of slots) entries[path.resolve(s.file)] = { hash: s.hash, deps: s.deps, result: cacheable(s.result) };
       /* Written BEFORE the baseline mutates the findings, and tolerantly: a
-       * cache that cannot be written costs the next run time, not correctness. */
-      try { saveCache(cache.file, cache.context, entries); }
+       * cache that cannot be written costs the next run time, not correctness.
+       * The entries of files this run did not look at are kept (saveCache). */
+      try { saveCache(cache.file, cache.context, entries, cache.entries); }
       catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
       return slots.map((s) => s.result);
     }
-    return checkFiles(files, opt);
+    /* checkFiles builds the index over the files it is handed; one that
+     * reaches beyond them is built here, over the same sources plus the rest */
+    if (!indexExtra.length) return checkFiles(files, opt);
+    const own = files.map((file) => fs.readFileSync(file, 'utf8')).filter((src, i) => !isXmlSource(files[i], src));
+    return checkFiles(files, { ...opt, classIndex: indexOver(own) });
   };
 
   let results;
@@ -1122,7 +1266,10 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     // nothing is printed yet, so die( ) cuts nothing off here
     try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
     const n = [...map.values()].reduce((s, c) => s + c, 0);
-    console.log(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
+    /* The one line is the report of a stylish run. Beside a machine format it
+     * is prose, and stdout is the document a caller parses - so it goes to
+     * stderr there, like every other note. */
+    (opt.format === 'stylish' ? console.log : console.error)(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
     return 0;
   }
   let baselineNote = null;
@@ -1221,12 +1368,12 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
    * summary carries the same count, so there it shrinks to the stale entries. */
   if (baselineNote && opt.format === 'stylish') {
     if (!showStats) console.log(baselineNote);
-    for (const s of baselineStale) console.log(`  ! stale: ${s.key} (${s.count})`);
+    for (const s of baselineStale) console.log(`  ! stale: ${terminalSafe(s.key)} (${s.count})`);
   }
 
   if (opt.verbose && opt.format === 'stylish') {
     for (const r of results) {
-      for (const n of r.notes) console.log(`note: ${path.relative(process.cwd(), r.file)}: ${n}`);
+      for (const n of r.notes) console.log(`note: ${terminalSafe(path.relative(process.cwd(), r.file))}: ${terminalSafe(n)}`);
     }
   }
 
@@ -1242,10 +1389,14 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   /* --max-warnings / "maxWarnings": exceeding the cap fails the run whatever
    * --fail-on says — ui5lint's flag, and the way a repo fails on errors only
    * while still holding the line on warning debt. Said on stderr, so a piped
-   * machine format stays parseable. */
+   * machine format stays parseable. The one exception is the stale entry's:
+   * --advisory / --fail-on never promise exit 0 whatever the report says,
+   * and a cap from the config used to break that promise - the excess is
+   * still said, it just does not fail. */
   const overWarningCap = opt.maxWarnings !== undefined && summary.totals.warning > opt.maxWarnings;
   if (overWarningCap) {
-    console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`);
+    console.error(`abap2ui5lint: ${summary.totals.warning} warning(s) exceed --max-warnings ${opt.maxWarnings}`
+      + (threshold === Infinity ? ' (not failing: --fail-on never / --advisory)' : ''));
   }
 
   /* …and where a PERSON is reading, the command that explains the ids just
@@ -1261,7 +1412,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   const staleFails = baselineStale.length > 0 && threshold !== Infinity;
   // an output the run was asked for and could not write is a tool error (2)
   if (outputFailed) return 2;
-  return summary.failing > 0 || staleFails || overWarningCap ? 1 : 0;
+  return summary.failing > 0 || staleFails || (overWarningCap && threshold !== Infinity) ? 1 : 0;
 }
 
 /*
@@ -1389,6 +1540,16 @@ async function watchLoop() {
    * left to the first run, which says so and exits 2. */
   running = true;
   for (const p of first.paths) {
+    let isDir;
+    try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
+    if (isDir) watchTree(p); else watchFile(p);
+  }
+  /* The class index reads the configured paths whatever the run checks
+   * (indexOnlySources), so a saved superclass is a change to this run's
+   * verdict too. */
+  const watchedRoots = new Set(first.paths.map((p) => path.resolve(p)));
+  for (const p of first.indexPaths ?? []) {
+    if (watchedRoots.has(path.resolve(p))) continue;
     let isDir;
     try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
     if (isDir) watchTree(p); else watchFile(p);

@@ -378,9 +378,11 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
     fs.writeFileSync(file, fs.readFileSync(f('obsolete.clas.abap'), 'utf8').replace(/\n/g, '\r\n'));
     const first = run([file, '--no-render', '--no-config', '--no-progress', '--fix']);
     const second = run([file, '--no-render', '--no-config', '--no-progress', '--fix']);
-    const deferred = Number(/(\d+) deferred to the next run/.exec(first.out)?.[1] ?? 0);
+    // --fix runs to its fixed point now (audit-2026-10-08b): nothing is
+    // deferred, and the next run has nothing left to fix
+    const deferred = Number(/(\d+) deferred/.exec(first.out)?.[1] ?? 0);
     const nextFixed = Number(/fixed (\d+) problem/.exec(second.out)?.[1] ?? 0);
-    assert(deferred === nextFixed, `what one pass calls deferred is what the next pass fixes (${deferred} deferred, ${nextFixed} fixed next)`);
+    assert(deferred === 0 && nextFixed === 0, `nothing deferred, nothing left for the next run (${deferred} deferred, ${nextFixed} fixed next)`);
     assert(!fs.readFileSync(file, 'utf8').includes('\r'), 'and the file is LF throughout after the first pass');
   });
 

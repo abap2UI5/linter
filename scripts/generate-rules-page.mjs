@@ -327,7 +327,10 @@ function emitSites() {
   const found = new Map();
   const files = fs.readdirSync(LIB).filter((f) => f.endsWith('.mjs')).sort();
   for (const pass of ['emit', 'mention']) {
-    for (const file of files) {
+    /* the fallback is the REGISTRY first: a module that merely names an id
+     * (check.mjs lists the two directive rules it always judges) must not
+     * win over findings.mjs by sorting ahead of it */
+    for (const file of pass === 'mention' ? ['findings.mjs', ...files.filter((f) => f !== 'findings.mjs')] : files) {
       if (pass === 'emit' && file === 'findings.mjs') continue; // the registry is the fallback
       const lines = fs.readFileSync(path.join(LIB, file), 'utf8').split('\n');
       for (let i = 0; i < lines.length; i++) {

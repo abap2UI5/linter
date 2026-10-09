@@ -18,7 +18,14 @@ declare module "@abap2ui5/linter" {
 
   /** Class name (lower case) -> what one class declares: the superclass it
    *  names in `INHERITING FROM`, and whether it declares a `cs_event`. */
-  export type ClassIndex = Map<string, { superclass: string | null; csEvent: boolean }>;
+  export type ClassIndex = Map<string, {
+    superclass: string | null;
+    csEvent: boolean;
+    /** Names (lower case) another class of the run reads as `->name` while
+     *  naming this class - what silences unbound-/unused-public-attribute.
+     *  Optional for a hand-built index. */
+    outsideReads?: ReadonlySet<string>;
+  }>;
 
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */
@@ -50,6 +57,14 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** The snapshot itself, as loadSnapshot( ) / snapshotFromJson( )
+     *  (`@abap2ui5/linter/properties`) return it - for a host that has no
+     *  path to hand over. Wins over `snapshot`. */
+    data?: unknown;
+    /** prepareAbap( ) of EXACTLY the source handed to checkAbapSource( ),
+     *  when the caller already has it (an editor memoises it per document
+     *  version). checkFiles( ) ignores it. */
+    prep?: import("@abap2ui5/linter/reconstruct").PreparedAbap;
     /** The other classes of the run, from classIndexOf( )
      *  (`@abap2ui5/linter/abap-rules`): what tells a `cs_event` a class
      *  inherits from its superclass apart from the client's. checkFiles
@@ -172,6 +187,10 @@ declare module "@abap2ui5/linter" {
   export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
   /** Whether `src` is abapGit's own XML serialization rather than a view. */
   export function isAbapGitXml(src: string): boolean;
+  /** Whether checkFiles( ) reads a source as a raw XML view rather than an
+   *  ABAP class: a `.view.xml` / `.fragment.xml` file name, or text that
+   *  opens with `<`. */
+  export function isXmlSource(file: string | null | undefined, src: string): boolean;
   export function checkFiles(files: string[], opts?: CheckOptions): Promise<CheckResult[]>;
   /** Render every view the given files build and return the PNGs — the render
    *  gate as a preview. Needs the render runtime. */
@@ -201,16 +220,70 @@ declare module "@abap2ui5/linter" {
    *  `opts.ignore` are regex patterns matched against each walked path; a path
    *  named explicitly still gets checked, because ignoring an argument is the
    *  same silence. Symlink cycles terminate (the walk keys directories by
-   *  realpath). */
+   *  realpath). `opts.onIgnored` is called once for every checkable file
+   *  `ignore` kept out of the walk (the same walk: the ignored trees are
+   *  read for it, nothing in them is returned). */
   export function collectFiles(
     paths: string[],
-    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean }
+    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean; onIgnored?: (file: string) => void }
   ): string[];
 
   /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
    *  literals blanked) - what makes a class without a factory call an app
    *  class collectFiles keeps and checkAbapSource judges as `appWithoutView`. */
   export function declaresApp(source: string): boolean;
+}
+
+/**
+ * The property gate over ONE source with nothing that needs a browser, a
+ * thread or a socket - checkAbapSource( ) and checkXmlSource( ) exactly as
+ * the entry point exports them, plus the decisions they are made of. The
+ * entry point also carries checkFiles( ), and with it the renderer (`http`,
+ * `os`, `module`) and the worker pool, which a browser bundle cannot
+ * resolve; this subpath loads neither (npm test asserts it).
+ */
+declare module "@abap2ui5/linter/check" {
+  import type { CheckOptions, CheckResult } from "@abap2ui5/linter";
+  import type { PreparedAbap } from "@abap2ui5/linter/reconstruct";
+
+  export function checkAbapSource(source: string, opts?: CheckOptions): CheckResult;
+  export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
+  /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
+   *  literals blanked) - an app class, judged as `appWithoutView` when it
+   *  builds no view itself. */
+  export function declaresApp(source: string): boolean;
+  /** The rule ids an app class WITHOUT a view is judged by on top of
+   *  checkSourceRules( ): checkAbapSource keeps the findings of
+   *  checkAbapRules( ) whose type this matches. */
+  export const VIEWLESS_APP_RULE: RegExp;
+  /** Whether the class raises a model's size limit anywhere (the
+   *  `cs_event-set_size_limit` constant outside a literal, or the action
+   *  name as one) - checkNodes( )'s `sizeLimitRaised`. */
+  export function sizeLimitRaised(source: string): boolean;
+  /** The stand-down of `unused-namespace-declaration` where the
+   *  reconstruction is incomplete (`unplacedTokens`) or a prefix is written
+   *  in more builder literals than the documents carry. Returns the
+   *  surviving findings (the input is not mutated) and the rules that stood
+   *  down - for applyDirectives( )'s `stoodDown`. */
+  export function standDownUnusedNamespaces<F extends { type: string; member?: unknown }>(
+    findings: F[],
+    source: string,
+    prep: Pick<PreparedAbap, "unplacedTokens" | "nodes">
+  ): { findings: F[]; stoodDown: string[] };
+  /** The retired builder a source builds its view with
+   *  (`z2ui5_cl_xml_view`, `z2ui5_cl_xml_view_cc`), or null - a class
+   *  checkAbapSource reports `frozen-view-builder` for. */
+  export function frozenBuilderOf(content: string): string | null;
+  /** The retired builders, by class name. */
+  export const FROZEN_BUILDERS: readonly string[];
+  /** Whether checkFiles( ) reads a source as a raw XML view rather than an
+   *  ABAP class: a `.view.xml` / `.fragment.xml` name, or text opening `<`. */
+  export function isXmlSource(file: string | null | undefined, src: string): boolean;
+  /** Whether `src` is abapGit's own XML serialization rather than a view. */
+  export function isAbapGitXml(src: string): boolean;
+  /** How a raw XML file is loaded by its name: "fragment" for a
+   *  `.fragment.xml`, "view" for a `.view.xml`, undefined otherwise. */
+  export function xmlFileKind(file: string | null | undefined): "view" | "fragment" | undefined;
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -429,6 +502,13 @@ declare module "@abap2ui5/linter/properties" {
 
   export function loadSnapshot(file?: string): unknown;
 
+  /** The snapshot as checkNodes( ) reads it, from data/properties.json's
+   *  CONTENT (its text, or the parsed object) instead of a path - for a host
+   *  with no file system. What loadSnapshot( ) returns, minus the read and
+   *  the cache; handing the result back in returns it unchanged. Throws a
+   *  TypeError for anything without a `controls` object. */
+  export function snapshotFromJson(json: string | object): unknown;
+
   /** The ui5Version of the committed metadata snapshot ('' if unreadable). */
   export function snapshotVersion(file?: string): string;
 
@@ -602,6 +682,10 @@ declare module "@abap2ui5/linter/render" {
    *  document rendering. */
   export const RENDER_BOOT_TIMEOUT_MS: number;
   export const RENDER_TIMEOUT_MS: number;
+  /** openRenderer's default bound (ms) on the requests a document leaves in
+   *  flight: what they report until then is that document's render error,
+   *  and a page still waiting after it is reloaded before the next one. */
+  export const RENDER_SETTLE_TIMEOUT_MS: number;
 
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
@@ -640,6 +724,11 @@ declare module "@abap2ui5/linter/render" {
     /** Bound (ms) on one document rendering; past it that document gets a
      *  `HARNESS:` render error and its page is reloaded. */
     renderTimeout?: number;
+    /** Bound (ms) on the fetch/XHR requests a document leaves in flight
+     *  (default RENDER_SETTLE_TIMEOUT_MS): their errors are charged to that
+     *  document, and a page still waiting past it is reloaded, so a late
+     *  answer is never charged to the next document on the page. */
+    settleTimeout?: number;
   }): Promise<Renderer>;
 }
 
@@ -649,6 +738,8 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
   export function checkSourceRules(source: string): PropertyFinding[];
+  /** The rule ids checkSourceRules( ) can emit. */
+  export const SOURCE_RULES: ReadonlySet<string>;
 
   /** The frozen-builder half of `obsolete-custom-control` on its own:
    *  `_z2ui5( )->timer( )` and the seven other `z2ui5_cl_xml_view_cc`
@@ -685,6 +776,14 @@ declare module "@abap2ui5/linter/abap-rules" {
   /** The class index checkAbapRules/checkAbapSource take as `classIndex`,
    *  read from raw ABAP sources - checkFiles builds the same over its files. */
   export function classIndexOf(sources: Iterable<string>): import("@abap2ui5/linter").ClassIndex;
+
+  /** Whether another class of the run reads one of this class's PUBLIC
+   *  attributes (`outsideReads` in the class index) - the reads that stand
+   *  `unused-public-attribute` and `unbound-public-attribute` down. Where it
+   *  is true, a waiver of either rule in the class is unjudged (pass both
+   *  ids as `stoodDown` to applyDirectives) rather than `unused-directive`:
+   *  the same class linted alone still needs it. */
+  export function publicReadFromOutside(source: string, classIndex?: import("@abap2ui5/linter").ClassIndex | null): boolean;
 
   export function checkAbapRules(
     source: string,
@@ -728,8 +827,26 @@ declare module "@abap2ui5/linter/fix" {
 
   export function isFixable(finding: PropertyFinding | null | undefined): boolean;
 
+  /** The most passes the CLI's `--fix` makes before it stops and says so
+   *  (10, ESLint's bound): it re-checks what a pass changed and applies again
+   *  until nothing changes. */
+  export const MAX_FIX_PASSES: number;
+
+  /** Rewrites every `\n` in the findings' fix texts to `\r\n` when `source`
+   *  breaks its lines mostly with CRLF - and every `\r\n` to `\n` when a
+   *  `crlf-line-ending` finding is among them (its fix turns the file into
+   *  LF). The entry points apply it
+   *  to what survives the rules block and the directives; a consumer
+   *  assembling the pipeline itself applies it the same way. Mutates and
+   *  returns `findings`. */
+  export function matchLineEndings<T extends { type: string; fixes?: Array<{ start: number; end: number; text: string }> }>(
+    findings: T[],
+    source: string
+  ): T[];
+
   /** Rewrite `source` with every fix the findings carry. Overlapping spans are
-   *  deferred to the next run rather than resolved by guesswork. */
+   *  deferred to the next pass rather than resolved by guesswork (the CLI's
+   *  `--fix` repeats the pass until nothing changes). */
   export function applyFixes(
     source: string,
     findings: PropertyFinding[]
@@ -1035,6 +1152,12 @@ declare module "@abap2ui5/linter/baseline" {
    *  matched. `relativeFile` is relative to the baseline file's directory. */
   export function findingKey(relativeFile: string, f: PropertyFinding): string;
 
+  /** A key as findingKey( ) writes it today: a key written before ten
+   *  position-carrying rules moved the offset/line number out of `value` /
+   *  `member` has it dropped; any other key is returned unchanged.
+   *  loadBaseline, applyBaseline and updateBaseline apply it themselves. */
+  export function migrateKey(key: string): string;
+
   /** The directory keys are computed against: where the baseline file lives. */
   export function baselineBase(file: string): string;
 
@@ -1084,6 +1207,12 @@ declare module "@abap2ui5/linter/report" {
 
   /** NO_COLOR / FORCE_COLOR are honoured before the TTY check. */
   export function colorEnabled(stream?: { isTTY?: boolean }): boolean;
+
+  /** Source-quoted text made safe for a terminal: a tab or line break
+   *  becomes a blank, every other C0/C1 control, DEL and the bidi
+   *  override/isolate characters a visible `\xNN` / `\uNNNN`. What the
+   *  stylish report and the annotations print a message through. */
+  export function terminalSafe(text: unknown): string;
 
   /** The distinct rules a run reported, in the order a reader first meets
    *  them - what every format's reference block is built from. */
