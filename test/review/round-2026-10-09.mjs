@@ -5,7 +5,13 @@
  *
  *   1. a name written once with a template resolves only where it is ONE
  *      variable - a method parameter of the same name is another
+ *   2. linear on long input: a long hyphenated token (commercial-ui5-host),
+ *      thousands of PUBLIC attributes (unbound-public-attribute), thousands
+ *      of captured client handles (client-handle-capture), and a block of
+ *      commented-out lines in prepareAbap (what the VS Code extension runs on
+ *      every edit)
  */
+import { scalesLinearly } from '../timing.mjs';
 
 export default function ({ section, assert, checkAbapSource, prepareAbap }) {
   const opts = { render: false };
@@ -37,5 +43,44 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
     const one = src.replace('type TYPE string.', 'kind TYPE string.').replace('v = type', 'v = expr')
       .replace('DATA(type) = |Bogus|.', 'DATA(expr) = |Emphasized|.');
     assert(prepareAbap(one).docs.join('').includes('type="Emphasized"'), 'a name declared once still resolves to its template');
+  });
+
+  /* ── 2. linear on long input ─────────────────────────────────────────── */
+
+  /* Each of these read the whole class once per item: a regex tried at every
+   * word boundary inside one long `a-a-a-…` run (commercial-ui5-host's
+   * optional subdomain), three regex scans of the class per PUBLIC attribute
+   * (unbound-public-attribute), a scan for the captured name per capture
+   * (client-handle-capture). And prepareAbap's model readers, anchored on
+   * `^\s*` under /m, ran every blanked comment line into all the blank lines
+   * behind it - the VS Code extension runs it on every edit, so a large
+   * commented-out block stalled the editor (0.8.5: 2,000 such lines 1 s,
+   * 8,000 lines 16 s). Judged by scalesLinearly( ): n against 4n, best of
+   * three, so a loaded runner cannot fail it. */
+  section('round 2026-10-09: long tokens, many attributes, many captures, comment blocks - all linear', () => {
+    const check = (src) => checkAbapSource(src, opts);
+    const cases = [
+      ['a long hyphenated token', (n) => app('', `    x = ${'a-'.repeat(n)}b.`), check, 6000],
+      ['PUBLIC attributes, each written once', (n) => app(Array.from({ length: n }, (_, i) => `    DATA mv_${i} TYPE string.\n`).join(''),
+        Array.from({ length: n }, (_, i) => `    mv_${i} = \`x\`.`).join('\n')), check, 1500],
+      ['captured client handles', (n) => app('', Array.from({ length: n }, (_, i) => `    lv = client->_bind( mv_${i} ).`).join('\n')), check, 2000],
+      ['commented-out lines', (n) => app('', Array.from({ length: n }, (_, i) => `*      ls_row-f${i} = VALUE #( a = 1 ).  " t[ 1 ]-x`).join('\n')), prepareAbap, 2000],
+    ];
+    for (const [what, make, run, n] of cases) {
+      const r = scalesLinearly(make, run, n);
+      assert(r.ok, `${what}: four times the input, not sixteen times the time (${r.small} ms -> ${r.big} ms)`);
+    }
+    // what the rewritten readers decide is what the regexes decided
+    const vocab = app('    DATA mv_bound TYPE string.\n    DATA mv_path TYPE string.\n    DATA mv_flag TYPE abap_bool.\n    DATA mv_nested TYPE string.\n    DATA mv_free TYPE string.\n',
+      '    mv_bound = mv_path && mv_flag && mv_nested && mv_free.\n'
+      + '    DATA(a) = client->_bind( val = mv_bound ).\n    DATA(p) = `{/MV_PATH}`.\n    view->a( n = `visible` b = mv_flag ).\n'
+      + '    DATA(c) = client->_bind( conv( f( mv_nested ) ) ).');
+    const unbound = checkAbapSource(vocab, opts).findings.filter((x) => x.type === 'unbound-public-attribute').map((x) => x.member).sort();
+    assert(unbound.join() === 'mv_free,mv_nested', `bound through _bind, a path and b =; a name two parens deep is not (${unbound.join()})`);
+    const host = (url) => checkAbapSource(app('', `    DATA(u) = \`${url}\`.`), opts).findings.filter((x) => x.type === 'commercial-ui5-host').map((x) => x.value);
+    assert(host('https://sapui5.hana.ondemand.com/resources/sap-ui-core.js').join() === 'sapui5.hana.ondemand.com/resources/sap-ui-core.js'
+      && host('x-hana.ondemand.com/resources/x').join() === 'hana.ondemand.com/resources/x'
+      && host('a-b.hana.ondemand.com/resources/').join() === 'a-b.hana.ondemand.com/resources/',
+    'the host is read as before: a subdomain from the start of its run, a bare host after a hyphen');
   });
 }

@@ -19,6 +19,7 @@ import path from 'node:path';
 import { applyFixes, MAX_FIX_PASSES } from '../../lib/fix.mjs';
 import { collectFiles } from '../../lib/index.mjs';
 import { formatCheckstyle, formatJunit } from '../../lib/report.mjs';
+import { scalesLinearly } from '../timing.mjs';
 
 export default function ({ section, assert, f, FIX, tempDir, checkAbapSource }) {
   const opts = { render: false };
@@ -119,15 +120,18 @@ ENDCLASS.
    * line start a scan over all the blank lines behind it - 20,000 empty
    * lines in a definition took seconds, 100,000 minutes. */
   section('audit 2026-10-08b: 10,000 keyless tables and 100,000 blank lines are linear', () => {
-    let decl = '';
-    for (let i = 0; i < 10000; i++) decl += `    DATA mt_${i} TYPE TABLE OF string.\n`;
-    const keys = `CLASS zcl_t DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n${decl}ENDCLASS.\nCLASS zcl_t IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n`;
-    let t = Date.now();
-    const found = checkAbapSource(keys, { ...opts, rules: { 'default-key-table': 'warning' } }).findings.filter((x) => x.type === 'default-key-table');
-    const keysMs = Date.now() - t;
+    const keysOf = (n) => {
+      let decl = '';
+      for (let i = 0; i < n; i++) decl += `    DATA mt_${i} TYPE TABLE OF string.\n`;
+      return `CLASS zcl_t DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n${decl}ENDCLASS.\nCLASS zcl_t IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n`;
+    };
+    const keyless = (src) => checkAbapSource(src, { ...opts, rules: { 'default-key-table': 'warning' } }).findings.filter((x) => x.type === 'default-key-table');
+    const found = keyless(keysOf(10000));
     assert(found.length === 10000 && found[0].member === 'mt_0' && found[9999].member === 'mt_9999',
       `every declaration reported under its own name (${found.length}, ${found[0]?.member} … ${found.at(-1)?.member})`);
-    assert(keysMs < 8000, `in linear time (${keysMs} ms; a minute before)`);
+    // n against 4n, best of three (test/timing.mjs): a loaded runner cannot fail it
+    const keysTime = scalesLinearly(keysOf, keyless, 2500);
+    assert(keysTime.ok, `in linear time (${keysTime.small} ms -> ${keysTime.big} ms for four times the declarations; a minute for 10,000 before)`);
     const chain = checkAbapSource('CLASS zcl_t DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
       + '    DATA: mt_a TYPE TABLE OF string,\n          mt_b TYPE STANDARD TABLE OF i WITH EMPTY KEY,\n          mt_c TYPE STANDARD TABLE OF i.\n'
       + 'ENDCLASS.\nCLASS zcl_t IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n', opts)
@@ -139,12 +143,10 @@ ENDCLASS.
     const shape = (src) => checkAbapSource(src, opts).findings.map((x) => `${x.type} ${x.member ?? ''}`).sort().join('\n');
     const base = shape(rules);
     for (const at of [5, Math.floor(lines.length / 2)]) {
-      const padded = [...lines.slice(0, at), '\n'.repeat(100000), ...lines.slice(at)].join('\n');
-      t = Date.now();
-      const got = shape(padded);
-      const ms = Date.now() - t;
-      assert(ms < 8000, `100,000 blank lines at line ${at}: ${ms} ms`);
-      assert(got === base, `and the same findings as without them (line ${at})`);
+      const padded = (n) => [...lines.slice(0, at), '\n'.repeat(n), ...lines.slice(at)].join('\n');
+      assert(shape(padded(100000)) === base, `100,000 blank lines at line ${at}: the same findings as without them`);
+      const blanks = scalesLinearly(padded, shape, 25000);
+      assert(blanks.ok, `and in linear time (${blanks.small} ms -> ${blanks.big} ms for four times the blank lines; minutes for 100,000 before)`);
     }
   });
 

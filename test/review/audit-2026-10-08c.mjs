@@ -35,6 +35,7 @@ import path from 'node:path';
 import { applyFixes } from '../../lib/fix.mjs';
 import { checkIcons } from '../../lib/icons.mjs';
 import { formatStylish, githubAnnotations, summarize, terminalSafe } from '../../lib/report.mjs';
+import { scalesLinearly } from '../timing.mjs';
 
 export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap }) {
   const opts = { render: false };
@@ -254,17 +255,13 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
   section('audit 2026-10-08c: declarations with no terminator behind them are read in linear time', () => {
     const body = (n) => Array.from({ length: n }, (_, i) => `    DATA t${i} TYPE TABLE OF string`).join('\n');
     const src = (n) => `CLASS zcl_x DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n${body(n)}\nENDCLASS.\nCLASS zcl_x IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\nENDCLASS.\n`;
-    const time = (n) => {
-      const t = Date.now();
-      const found = checkAbapSource(src(n), opts).findings.filter((x) => x.type === 'default-key-table');
-      return { ms: Date.now() - t, found };
-    };
-    time(2000); // warm
-    const small = time(10000);
-    const big = time(40000);
-    assert(big.found.length === 40000 && big.found[0].member === 't0' && big.found.at(-1).member === 't39999',
-      `every declaration under its own name (${big.found.length})`);
-    assert(big.ms < 8000 && big.ms < small.ms * 4 * 2.5 + 200, `four times the input, about four times the time (${small.ms} ms -> ${big.ms} ms)`);
+    const keyless = (text) => checkAbapSource(text, opts).findings.filter((x) => x.type === 'default-key-table');
+    const found = keyless(src(40000));
+    assert(found.length === 40000 && found[0].member === 't0' && found.at(-1).member === 't39999',
+      `every declaration under its own name (${found.length})`);
+    // n against 4n, best of three (test/timing.mjs): a loaded runner cannot fail it
+    const r = scalesLinearly(src, keyless, 5000);
+    assert(r.ok, `four times the input, about four times the time (${r.small} ms -> ${r.big} ms)`);
     // a key clause still counts for its own element only
     const mixed = checkAbapSource('CLASS zcl_x DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
       + '    DATA a TYPE TABLE OF i WITH EMPTY KEY\n    DATA b TYPE TABLE OF i\n    DATA c TYPE TABLE OF i WITH DEFAULT KEY.\n    DATA d TYPE TABLE OF i.\n'
