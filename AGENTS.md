@@ -238,8 +238,10 @@ example (`playgroundSource( )`) grown in nine shapes - long line, line
 block, nesting - on one worker per core, screened with one run each and
 asked again with the best of three where the screen fails
 (`screenedLinearly( )`). Two things it does not ask: nesting deeper than a
-few hundred levels (the property walk recurses per level and runs out of
-stack at about a thousand - a crash, not a growth question), and a growth
+few hundred levels (a crash question, not a growth one - every walk over a
+tree goes through `lib/tree.mjs`, `walkTree( )`/`nodesOf( )`, which do not
+recurse; `round-2026-10-09c.mjs` judges a view nested 5,000 deep, and a new
+walk written as a recursion is what that test catches), and a growth
 whose quadratic part is still small at the sizes it can afford (many
 documents, many unclosed calls): those have targeted tests in
 `round-2026-10-09b.mjs`. A rule whose card changes shape changes what the

@@ -416,6 +416,17 @@
 
 ### Also in this release
 
+- **A view nested 5,000 levels deep is judged.** Every walk over a tree
+  recursed once per level, and the property walk ran out of stack at about
+  a thousand: `RangeError: Maximum call stack size exceeded` out of the
+  middle of a run - from the namespace scopes, the main walk, `toXml( )`,
+  the portable walk and the namespace stand-down in turn. They go through
+  `lib/tree.mjs` now (`walkTree( )`, `nodesOf( )`), which keeps the
+  recursion's order without the recursion, so every finding comes out where
+  it did. What the browser makes of such a document is the render gate's to
+  report, as a render error: UI5 itself runs out of stack between 400 and
+  1,000 levels, and the browser's XML parser refuses 5,000.
+
 - **The first display is modelled.** The model a view is judged and rendered
   against took its scalar seeds from the whole class, so a value only an
   event handler assigns was rendered as if it were there from the start.
