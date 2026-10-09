@@ -255,7 +255,16 @@
   `updateBaseline( )` read an old key of one of the ten with a number in that
   field as today's key (`migrateKey( )` on `./baseline`), so it matches
   wherever the code moved, and the next `--update-baseline` writes the new
-  form.
+  form. **The other direction does not hold:** 0.8.5 and older compute the
+  old key for those ten rules and do not match the new one, so a baseline
+  rewritten by this release waives nothing of theirs - the findings come
+  back and every such entry is reported stale (measured: a baseline written
+  by `--update-baseline` here fails a 0.8.5 run with exit 1). That reaches
+  whatever judges the same baseline with an older linter: an Action or
+  `npx` pinned to an earlier release, and the VS Code extension until its
+  pin moves - whose *Add to Baseline* then writes an old key beside the new
+  one, which this release reads as one key counted twice and reports
+  stale. Move every tool that reads one baseline to this release together.
 
 - **`--cache` follows the class index and the linter's own code.** A class
   is judged against what its superclass declares (`cs_event`), and a cached
