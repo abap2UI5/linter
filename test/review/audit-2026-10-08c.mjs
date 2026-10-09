@@ -66,12 +66,21 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     assert(terminalSafe('a\tb\r\nc') === 'a b  c', 'a tab or line break is a blank: the stylish line stays one line');
     assert(terminalSafe('Grüße – ok') === 'Grüße – ok', 'printable text is untouched');
 
-    // the CLI end to end, with a file NAME that carries one too
-    const dir = tempDir('a2l-esc-');
-    fs.writeFileSync(path.join(dir, 'e\u001b[1mvil.view.xml'), xml);
-    const out = run(['.', '--no-render', '--no-config', '--no-progress', '--verbose'], dir);
-    assert(!/[\u001b\u0007\u009b]/.test(out.out) && /e\\x1B\[1mvil\.view\.xml/.test(out.out),
-      `the CLI's stdout carries none, the path included (${JSON.stringify(out.out.split('\n')[0])})`);
+    /* The CLI end to end, with a file NAME that carries one too. Windows
+     * refuses a C0 control (U+0000-U+001F) in a file name, so an ESC-named
+     * file cannot exist there; a C1 CSI (U+009B, the one-character ESC [)
+     * and a bidi override can, and are written on every platform. */
+    const names = [
+      ['e\u009b1mvil\u202e.view.xml', /e\\x9B1mvil\\u202E\.view\.xml/],
+      ...(process.platform === 'win32' ? [] : [['e\u001b[1mvil.view.xml', /e\\x1B\[1mvil\.view\.xml/]]),
+    ];
+    for (const [name, shown] of names) {
+      const dir = tempDir('a2l-esc-');
+      fs.writeFileSync(path.join(dir, name), xml);
+      const out = run(['.', '--no-render', '--no-config', '--no-progress', '--verbose'], dir);
+      assert(!/[\u001b\u0007\u009b\u202e]/.test(out.out) && shown.test(out.out),
+        `the CLI's stdout carries none, the path included (${JSON.stringify(out.out.split('\n')[0])})`);
+    }
   });
 
   /* ── 2. literal branches ─────────────────────────────────────────────── */
