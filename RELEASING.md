@@ -74,6 +74,25 @@ up after the new one and keeps it as an optional peer at the range of the
 lines it has (`LEGACY` in `scripts/peer-range.mjs`), so a project that
 installed it keeps a working render gate across the linter upgrade.
 
+## Which number
+
+The package stays in `0.x` (AGENTS.md, *Release model*), where npm's caret
+treats the MINOR as the breaking digit: `^0.8.3` takes 0.8.9 and never
+0.9.0. So the choice is about what a consumer has to do, not about how much
+changed:
+
+- **minor** when a consumer has to act before the upgrade is green: a file
+  this release writes that an older release misreads (the baseline), a
+  config that worked and is refused now, a renamed rule id or export, a
+  finding a downstream corpus has to waive or fix, a stale baseline entry it
+  has to drop. The CHANGELOG's *Read before upgrading* says which, and its
+  first bullet names the number and why.
+- **patch** when the lockfile bump is the whole upgrade: fixes, new rules
+  that are silent on the downstream corpora, new exports, speed.
+
+The Unreleased section after 0.8.5 is a minor - 0.9.0 - for the reasons its
+first bullet lists.
+
 ## Every release
 
 ```sh

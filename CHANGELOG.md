@@ -4,6 +4,30 @@
 
 ### Read before upgrading
 
+- **This release is 0.9.0, not 0.8.6.** In `0.x` the minor is the number
+  that says "a consumer has to act" (`npm version minor`, RELEASING.md), and
+  three things below need action rather than a lockfile bump: the baseline
+  key format (a baseline written here is misread by 0.8.5 and older), the
+  refused numeric `ui5`, and the baselines a downstream repo has to refresh.
+  Nothing removed or renamed an export or a rule id - a renamed id is the
+  one change that would have been a breaking change on its own - and the
+  `--json` shape only grew. `@abap2ui5/linter-render` moves to 0.9.0 with
+  it (one tag, both packages) and `npm run sync-peer-range` writes the peer
+  range; its FLOOR stays 0.8.0, since nothing here needs a newer runtime.
+
+- **Refresh every downstream baseline with this release - and move every
+  tool that reads it at the same time.** Fixed false positives leave their
+  baseline entries behind, and a stale entry fails a run (exit 1) just as a
+  new finding does. abap2UI5-addons/popups carries one now:
+  `src/99/z2ui5_cl_pop_search_help.clas.abap|missing-view-display-on-navigated`,
+  the negated guard `IF client->check_on_navigated( ) = abap_false. RETURN.`
+  that 9c630cc (#134) stopped misreading - measured, popups' configured run
+  exits 1 on that entry alone. `abap2ui5lint --update-baseline` drops it.
+  The rewritten file uses this release's keys (the baseline-key bullet
+  below), which
+  0.8.5 and older do not read: bump the Action pin, any `npx` pin and the
+  VS Code extension's linter pin in the same change.
+
 - **abap2UI5/samples needs one waiver.** A void helper's parameter now
   resolves from the call being replayed (Reconstruction), so app 507's
   three `render_list( … items = client->_bind( … ) )` calls reconstruct
