@@ -10,7 +10,11 @@
  *      of captured client handles (client-handle-capture), and a block of
  *      commented-out lines in prepareAbap (what the VS Code extension runs on
  *      every edit)
+ *   3. an answer that arrives after a document's render window is charged to
+ *      that document, never to the next one on the page
  */
+import http from 'node:http';
+import { openRenderer } from '../../lib/render.mjs';
 import { scalesLinearly } from '../timing.mjs';
 
 export default function ({ section, assert, checkAbapSource, prepareAbap }) {
@@ -82,5 +86,42 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
       && host('x-hana.ondemand.com/resources/x').join() === 'hana.ondemand.com/resources/x'
       && host('a-b.hana.ondemand.com/resources/').join() === 'a-b.hana.ondemand.com/resources/',
     'the host is read as before: a subdomain from the start of its run, a bare host after a hyphen');
+  });
+
+  /* ── 3. a late answer is charged to the document that asked ──────────── */
+
+  /* A document is not done when its view is destroyed: a control that sent
+   * a request reports what came back whenever it comes back, and the page
+   * meanwhile renders the next document - whose window then collected the
+   * error (samples-controls apps 118/168, charged to 180-185 depending on the
+   * run). The harness now counts the requests in flight and lets them settle
+   * into the window of the document that sent them; a page still waiting
+   * after the bound is reloaded, so the answer is lost rather than misfiled. */
+  section('round 2026-10-09: an answer after the render window is charged to its own document', async () => {
+    const server = http.createServer((req) => setTimeout(() => req.socket.destroy(), 400));
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${server.address().port}/late`;
+    const late = '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:core="sap.ui.core"><core:HTML content="'
+      + `&lt;script&gt;fetch(&quot;${url}&quot;).catch(() =&gt; window.uiErrors.push(&quot;LOG: late answer&quot;))&lt;/script&gt;"/></mvc:View>`;
+    const clean = '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"><Text text="clean"/></mvc:View>';
+    try {
+      for (const [label, settleTimeout, own] of [['settled', undefined, true], ['past the bound', 100, false]]) {
+        const renderer = await openRenderer({ pages: 1, ...(settleTimeout ? { settleTimeout } : {}) });
+        try {
+          const first = await renderer.render({ xml: late });
+          // clean documents on the same page for longer than the answer takes
+          const after = [];
+          const t = Date.now();
+          while (Date.now() - t < 1200) after.push(...(await renderer.render({ xml: clean })));
+          assert(!after.length, `${label}: no later document is charged with it (${after.join(' | ') || 'clean'})`);
+          assert(first.includes('LOG: late answer') === own,
+            `${label}: ${own ? 'the document that sent the request gets its answer' : 'the page is reloaded and the answer dropped'} (${first.join(' | ') || 'none'})`);
+        } finally {
+          await renderer.close();
+        }
+      }
+    } finally {
+      server.close();
+    }
   });
 }

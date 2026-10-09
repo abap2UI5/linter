@@ -615,6 +615,10 @@ declare module "@abap2ui5/linter/render" {
    *  document rendering. */
   export const RENDER_BOOT_TIMEOUT_MS: number;
   export const RENDER_TIMEOUT_MS: number;
+  /** openRenderer's default bound (ms) on the requests a document leaves in
+   *  flight: what they report until then is that document's render error,
+   *  and a page still waiting after it is reloaded before the next one. */
+  export const RENDER_SETTLE_TIMEOUT_MS: number;
 
   export interface Renderer {
     /** Render one document; resolves to the filtered error list ([] = clean). */
@@ -653,6 +657,11 @@ declare module "@abap2ui5/linter/render" {
     /** Bound (ms) on one document rendering; past it that document gets a
      *  `HARNESS:` render error and its page is reloaded. */
     renderTimeout?: number;
+    /** Bound (ms) on the fetch/XHR requests a document leaves in flight
+     *  (default RENDER_SETTLE_TIMEOUT_MS): their errors are charged to that
+     *  document, and a page still waiting past it is reloaded, so a late
+     *  answer is never charged to the next document on the page. */
+    settleTimeout?: number;
   }): Promise<Renderer>;
 }
 
