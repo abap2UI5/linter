@@ -258,6 +258,23 @@
 
 ### CLI, output and config
 
+- **The class index covers every class under the configured `paths`.** A
+  class's verdict reads two facts out of OTHER classes: a `cs_event` it
+  inherits, and a public attribute another class reads back
+  (`outsideReads`). The index was built over the files the run checked, so
+  it changed with what the run was handed: without `--all-classes` the
+  superclass or caller that builds no view was never in it, and a one-file
+  run (a pre-commit hook) saw no other class at all - both reported what the
+  full run, and the editor, which indexes its whole workspace, silence. The
+  CLI now indexes every ABAP class under the config's `paths` (the run's own
+  paths without a config), minus `ignore`, whatever it checks - `--stdin`
+  included, with the piped source in place of the file it names - and
+  `--watch` re-runs when one of them is saved. Cost, measured on
+  samples-controls (642 classes, 12 MB): a one-file run 0.25 s -> 0.58 s
+  (the walk 40 ms, the reads 25 ms, `classIndexOf( )` 275 ms); a full run
+  unchanged within noise, since its own files are most of the index.
+  Nothing changes on the seven corpora.
+
 - **`--stdin` refuses a path beside it** (exit 2). The path was neither read
   nor linted, and the run reported on the piped source as if the file had
   been checked: `cat a.clas.abap | abap2ui5lint --stdin b.view.xml` was
@@ -327,6 +344,9 @@
   the entries of every other file (and drops those whose file is gone), and
   the per-document models (`docModels`) are no longer stored. The cache file
   format moves to version 2; an old file is simply a cold cache.
+  The index the `deps` are read from is the wider one of the CLI entry
+  above, so editing a class the run only indexes - a helper that stops
+  reading a popup's result - re-judges the popup too.
 
 ### Render gate
 

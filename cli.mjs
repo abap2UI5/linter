@@ -721,6 +721,9 @@ function resolveRun() {
   const runPaths = [...parsed.paths];
   let asked = parsed.renderAsked;
   let configFile = null;
+  // where the class index is read from (see indexOnlySources) - the config's
+  // `paths` when it names them, whatever the run itself was handed
+  let indexPaths = null;
   // abap2ui5lint.jsonc - the committed settings of the checked repo
   if (!noConfig) {
     configFile = configFlag ?? findConfig(process.cwd(), runPaths);
@@ -736,9 +739,10 @@ function resolveRun() {
       // --render does: from here on a missing runtime is an error, not a
       // fallback. `render: false` says property-only, which needs no runtime.
       if (cfg.render === true && !seen.has('render')) asked = true;
-      if (!runPaths.length && cfg.paths) {
+      if (cfg.paths) {
         const base = path.dirname(configFile);
-        runPaths.push(...cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p))));
+        indexPaths = cfg.paths.map((p) => (path.isAbsolute(p) ? p : path.join(base, p)));
+        if (!runPaths.length) runPaths.push(...indexPaths);
       }
       // a baseline named in the config lives next to the config, not the cwd
       if (!seen.has('baseline') && cfg.baseline) {
@@ -796,7 +800,7 @@ function resolveRun() {
     const mismatch = runtimeSnapshotMismatch(snapshotVersion());
     if (mismatch) warn(mismatch);
   }
-  return { opt: o, paths: runPaths, configFile, asked };
+  return { opt: o, paths: runPaths, indexPaths: indexPaths ?? runPaths, configFile, asked };
 }
 
 /** One notice on stderr - a workflow warning inside Actions, so it lands on
@@ -836,12 +840,50 @@ const dropWarm = async () => {
   if (r) await r.close().catch(() => {});
 };
 
+/*
+ * The classes the CLASS INDEX reads (classIndexOf, lib/guide-rules.mjs) that
+ * the run does not check: every ABAP class under the configured `paths`
+ * (the run's own paths without a config), minus `ignore` - a helper class
+ * that builds no view, a superclass, a caller - however few files the run
+ * was handed.
+ *
+ * The index is the one input a class's verdict takes from OTHER classes: a
+ * `cs_event` it inherits (frontend-action-as-backend-event), a public
+ * attribute another class reads back (unused-/unbound-public-attribute).
+ * Built over the checked files only, it changed with what the run was
+ * handed: a run without --all-classes never saw the superclass that builds
+ * no view, a one-file run (a pre-commit hook) saw no other class at all, and
+ * both reported what the full run - and the editor, which indexes the whole
+ * workspace - silences. The answer is the same for every way in now.
+ *
+ * Sources, not files: the caller builds the index over these plus the
+ * checked files' current text. Empty when the walk would find nothing the run
+ * does not already hold: `--all-classes` collected `files` from the very
+ * same paths (`collectedFrom`; null for a piped source, which collected
+ * nothing).
+ */
+function indexOnlySources(indexPaths, files, opt, collectedFrom) {
+  const same = (a, b) => a.length === b.length && a.every((p, i) => path.resolve(p) === path.resolve(b[i]));
+  if (opt.allClasses === true && collectedFrom && same(indexPaths, collectedFrom)) return [];
+  const roots = indexPaths.filter((p) => fs.existsSync(p));
+  if (!roots.length) return [];
+  const checked = new Set(files.map((f) => path.resolve(f)));
+  const out = [];
+  for (const file of collectFiles(roots, { ignore: opt.ignore ?? [], allClasses: true })) {
+    if (checked.has(path.resolve(file)) || !/\.abap$/i.test(file)) continue;
+    let src;
+    try { src = fs.readFileSync(file, 'utf8'); } catch { continue; }
+    if (!isXmlSource(file, src)) out.push(src);
+  }
+  return out;
+}
+
 /**
  * One run over the resolved settings, returning the exit code instead of
  * exiting: 0 clean, 1 findings at or above --fail-on, 2 bad usage. The single
  * run exits with it; the watch loop reports it and waits for the next change.
  */
-async function runOnce({ opt, paths, configFile = null, asked = false }) {
+async function runOnce({ opt, paths, indexPaths = paths, configFile = null, asked = false }) {
   let files;
   // checkable files the config's `ignore` kept out of the walk - said under
   // the count line, because "fewer findings than expected" is otherwise
@@ -984,6 +1026,12 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     return outputFailed ? 2 : 0;
   }
 
+  /* The classes the class index reads beyond the ones this run checks - see
+   * indexOnlySources. Read once per run; every index below is built over
+   * the run's own sources (as they are at that moment) plus these. */
+  const indexExtra = indexOnlySources(indexPaths, files, opt, stdinMode ? null : paths);
+  const indexOver = (abapSources) => classIndexOf([...abapSources, ...indexExtra]);
+
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
    * the render result), rewrite, then the normal run reports what is left -
    * which is what makes `--fix` safe to put in front of any other flag.
@@ -1002,11 +1050,11 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   if (opt.fix) {
     const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
     const checkOpt = { ...opt, render: false };
-      const indexOf = (texts) => classIndexOf([...texts.entries()].filter(([file, src]) => !isXmlSource(file, src)).map(([, src]) => src));
-    let results = await checkFiles(files, checkOpt);
-    const original = new Map(results.map((r) => [r.file, fs.readFileSync(r.file, 'utf8')]));
+    const indexOf = (texts) => indexOver([...texts.entries()].filter(([file, src]) => !isXmlSource(file, src)).map(([, src]) => src));
+    const original = new Map(files.map((file) => [file, fs.readFileSync(file, 'utf8')]));
     const current = new Map(original);
     let index = indexOf(current);
+    let results = await checkFiles(files, { ...checkOpt, classIndex: index });
     let fixed = 0;
     let deferred = 0;
     let passes = 0;
@@ -1114,9 +1162,13 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       const src = fs.readFileSync(0, 'utf8');
       // the filename decides the handling, exactly as collectFiles decides it
       // for a named path: the XML spellings, else content sniff, else ABAP
-      const r = isXmlSource(stdinName, src)
+      const xml = isXmlSource(stdinName, src);
+      /* the piped source is judged against the repo's other classes, as a
+       * saved file would be - the index holds it in place of the file of
+       * that name, which may be stale or absent */
+      const r = xml
         ? checkXmlSource(src, { ...opt, file: stdinName })
-        : checkAbapSource(src, { ...opt, file: stdinName });
+        : checkAbapSource(src, { ...opt, file: stdinName, ...(indexExtra.length ? { classIndex: indexOver([src]) } : {}) });
       r.file = stdinName;
       return [r];
     }
@@ -1128,7 +1180,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
        * index out of the misses alone. Each entry is keyed on the part of
        * the index its check reads too (`deps`), so an edited superclass
        * re-judges its subclasses. */
-      const classIndex = classIndexOf(sources.filter((src, i) => !isXmlSource(files[i], src)));
+      const classIndex = indexOver(sources.filter((src, i) => !isXmlSource(files[i], src)));
       const slots = files.map((file, i) => {
         const hash = hashOf(sources[i]);
         const deps = hashOf(isXmlSource(file, sources[i]) ? '' : classIndexDeps(sources[i], classIndex));
@@ -1155,7 +1207,11 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       catch (e) { console.error(`abap2ui5lint: could not write the cache file ${cache.file}: ${e.message}`); }
       return slots.map((s) => s.result);
     }
-    return checkFiles(files, opt);
+    /* checkFiles builds the index over the files it is handed; one that
+     * reaches beyond them is built here, over the same sources plus the rest */
+    if (!indexExtra.length) return checkFiles(files, opt);
+    const own = files.map((file) => fs.readFileSync(file, 'utf8')).filter((src, i) => !isXmlSource(files[i], src));
+    return checkFiles(files, { ...opt, classIndex: indexOver(own) });
   };
 
   let results;
@@ -1484,6 +1540,16 @@ async function watchLoop() {
    * left to the first run, which says so and exits 2. */
   running = true;
   for (const p of first.paths) {
+    let isDir;
+    try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
+    if (isDir) watchTree(p); else watchFile(p);
+  }
+  /* The class index reads the configured paths whatever the run checks
+   * (indexOnlySources), so a saved superclass is a change to this run's
+   * verdict too. */
+  const watchedRoots = new Set(first.paths.map((p) => path.resolve(p)));
+  for (const p of first.indexPaths ?? []) {
+    if (watchedRoots.has(path.resolve(p))) continue;
     let isDir;
     try { isDir = fs.statSync(p).isDirectory(); } catch { continue; }
     if (isDir) watchTree(p); else watchFile(p);

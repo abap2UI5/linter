@@ -4,6 +4,9 @@
  *   1. `./check`: checkAbapSource, checkXmlSource and the decisions they are
  *      made of, reachable without the renderer - and the same functions the
  *      entry point exports
+ *   2. the CLI's class index covers every class under the configured paths,
+ *      not only the files the run checks - and --cache re-judges a class when
+ *      one of those changes
  *   3. a tree nested 5,000 levels deep is judged, not a RangeError
  *   4. an unclosed `(` ends at its statement's period
  */
@@ -168,6 +171,83 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     fs.writeFileSync(file, xml);
     const [r] = await checkFiles([file], { ...opts, prep: prepareRaw(src) });
     assert(r.findings.some((x) => x.type === 'unknown-control'), 'checkFiles ignores a `prep`');
+  });
+
+  /* ── 2. the class index covers the configured paths ──────────────────── */
+
+  /* A popup whose public result its caller reads (`lo_pop->ms_result`) binds
+   * nothing to it: unbound-public-attribute stands down when the caller is
+   * in the class index. The caller here is a HELPER - no view, no app
+   * interface - so a run without --all-classes never collected it, and a
+   * one-file run never saw any other class at all: both reported what the
+   * full run (and the editor, which indexes the workspace) silences. */
+  const popup = 'CLASS zcl_pop DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+    + '    DATA ms_result TYPE string.\n    DATA mv_text TYPE string.\nENDCLASS.\n\n'
+    + 'CLASS zcl_pop IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+    + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+    + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+    + '        )->ele( `Page` )->tag( `Input` )->a( n = `value` v = client->_bind_edit( mv_text ) )->tag( `Button` )->a( n = `text` v = `OK` )->a( n = `press` v = client->_event( `OK` ) ).\n'
+    + '    client->view_display( view->stringify( ) ).\n'
+    + '    IF client->get( )-event = `OK`.\n      ms_result = mv_text.\n      client->nav_app_leave( ).\n    ENDIF.\n  ENDMETHOD.\nENDCLASS.\n';
+  const helper = (read) => 'CLASS zcl_reader DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    METHODS result IMPORTING io_pop TYPE REF TO zcl_pop RETURNING VALUE(rv) TYPE string.\nENDCLASS.\n\n'
+    + `CLASS zcl_reader IMPLEMENTATION.\n  METHOD result.\n    rv = io_pop->${read}.\n  ENDMETHOD.\nENDCLASS.\n`;
+  const repo = () => {
+    const dir = tempDir('a2l-index-');
+    fs.mkdirSync(path.join(dir, 'src', 'ui'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src', 'skip'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'ui', 'zcl_pop.clas.abap'), popup);
+    fs.writeFileSync(path.join(dir, 'src', 'zcl_reader.clas.abap'), helper('ms_result'));
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '{ "paths": ["src"], "render": false }\n');
+    return dir;
+  };
+  // the findings of the rule in a --format json report
+  const unbound = (out) => {
+    try {
+      return JSON.parse(out).results.flatMap((r) => r.findings).filter((x) => x.type === 'unbound-public-attribute').length;
+    } catch {
+      return -1;
+    }
+  };
+
+  section('round 2026-10-09c: the class index reads every class under the configured paths', () => {
+    const dir = repo();
+    const full = run(['--no-progress', '--format', 'json'], dir);
+    assert(full.code !== 2 && unbound(full.out) === 0,
+      `the configured run: the helper reads ms_result, nothing reported (${unbound(full.out)}, ${full.err.split('\n')[0]})`);
+    const one = run(['src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir);
+    assert(unbound(one.out) === 0, `a one-file run reads the same index (${unbound(one.out)})`);
+    const sub = run(['src/ui', '--no-progress', '--format', 'json'], dir);
+    assert(unbound(sub.out) === 0, 'a run over part of the paths too');
+    const stdin = run(['--stdin', '--stdin-filename', 'src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir, popup);
+    assert(unbound(stdin.out) === 0, `--stdin is judged against the repo's other classes (${unbound(stdin.out)})`);
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '{ "paths": ["src"], "allClasses": true, "render": false }\n');
+    assert(unbound(run(['--stdin', '--stdin-filename', 'src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir, popup).out) === 0
+      && unbound(run(['src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir).out) === 0,
+      'and under allClasses, which collects the paths it indexes, a piped source and a named file still read the rest');
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '{ "paths": ["src"], "render": false }\n');
+    // the control: nobody reads it - reported, in every shape of run
+    fs.writeFileSync(path.join(dir, 'src', 'zcl_reader.clas.abap'), helper('mv_text'));
+    assert(unbound(run(['--no-progress', '--format', 'json'], dir).out) === 1 && unbound(run(['src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir).out) === 1,
+      'with the read gone the finding is back, whole run and one file alike');
+    // `ignore` keeps a class out of the index as it keeps it out of the run
+    fs.writeFileSync(path.join(dir, 'src', 'skip', 'zcl_reader.clas.abap'), helper('ms_result'));
+    assert(unbound(run(['--no-progress', '--format', 'json'], dir).out) === 0, 'a reader in another folder of the paths counts');
+    fs.writeFileSync(path.join(dir, 'abap2ui5lint.jsonc'), '{ "paths": ["src"], "ignore": ["/skip/"], "render": false }\n');
+    assert(unbound(run(['src/ui/zcl_pop.clas.abap', '--no-progress', '--format', 'json'], dir).out) === 1, 'one under `ignore` does not');
+    // without a config the run's own paths are the index's
+    const bare = run(['--no-config', 'src', '--no-render', '--no-progress', '--format', 'json'], repo());
+    assert(unbound(bare.out) === 0, `--no-config: the classes under the paths given, collected or not (${unbound(bare.out)})`);
+  });
+
+  section('round 2026-10-09c: --cache re-judges a class when a class only the index reads changes', () => {
+    const dir = repo();
+    const args = ['src/ui/zcl_pop.clas.abap', '--cache', '--no-progress', '--format', 'json'];
+    assert(unbound(run(args, dir).out) === 0, 'first run: read from outside, silent');
+    assert(unbound(run(args, dir).out) === 0, 'second run (from the cache): the same');
+    fs.writeFileSync(path.join(dir, 'src', 'zcl_reader.clas.abap'), helper('mv_text'));
+    assert(unbound(run(args, dir).out) === 1, 'the helper stops reading it: the cached entry is not replayed');
+    fs.writeFileSync(path.join(dir, 'src', 'zcl_reader.clas.abap'), helper('ms_result'));
+    assert(unbound(run(args, dir).out) === 0, 'and back');
   });
 
   /* ── 3. 5,000 levels ─────────────────────────────────────────────────── */
