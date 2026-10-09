@@ -9,6 +9,8 @@
  *      one of those changes
  *   3. a tree nested 5,000 levels deep is judged, not a RangeError
  *   4. an unclosed `(` ends at its statement's period
+ *   5. a void helper's parameter is the value its call passes, during the
+ *      replay of that call - when every call in the class passes one
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -333,5 +335,53 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     const literal = app('    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( `Page`\n      )->tag( `Text` )->a( n = `text` v = `a. b` " c. d\n      )->a( n = `width` v = `1.5rem` ).\n'
       + '    client->view_display( view->stringify( ) ).\n');
     assert(found(literal) === '', `no finding for a period in a literal or a comment (${found(literal)})`);
+  });
+
+  /* ── 5. a helper's parameter is what its call passes ─────────────────── */
+
+  /* `add_button( page = page type = \`Bogus\` )` and the helper writes
+   * `a( n = \`type\` v = type )`: the parameter was the caller's, so the
+   * value stayed unresolved and was dropped - the document had no `type`,
+   * the invalid value went unreported, and unresolved-attribute-value said
+   * only that something could not be followed. The replay enters the helper
+   * once per call, so it knows the caller: the parameter is the value THAT
+   * call passes. Only when every call of the helper in the class passes a
+   * value that resolves - one call the replay does not enter (`me->`), or
+   * passes a variable, and the parameter is a variable again. */
+  section('round 2026-10-09c: a void helper\'s parameter resolves from the call being replayed', () => {
+    const cls = (main, helpers, defs) => 'CLASS zcl_h DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_type TYPE string.\n'
+      + `${defs}ENDCLASS.\nCLASS zcl_h IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n`
+      + '    DATA(page) = z2ui5_cl_ui5_view_builder=>factory( )->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc` )->ele( `Page` ).\n'
+      + `${main}    client->view_display( page->stringify( ) ).\n  ENDMETHOD.\n${helpers}ENDCLASS.\n`;
+    const defs = '    METHODS add IMPORTING page TYPE REF TO z2ui5_cl_ui5_view_builder type TYPE string text TYPE string.\n';
+    const add = '  METHOD add.\n    page->tag( `Button` )->a( n = `type` v = type )->a( n = `text` v = text ).\n  ENDMETHOD.\n';
+    const buttons = (src) => (checkAbapSource(src, opts).docs.join('').match(/<Button[^>]*\/>/g) ?? []).join('');
+    const types = (src) => checkAbapSource(src, opts).findings.map((x) => `${x.type}:${x.value ?? ''}`)
+      .filter((x) => /^(?:invalid-property-value|unresolved-attribute-value)/.test(x)).join();
+
+    const both = cls('    add( page = page type = `Emphasized` text = `Save` ).\n    add( page = page type = `Bogus` text = |Cancel| ).\n', add, defs);
+    assert(buttons(both) === '<Button type="Emphasized" text="Save"/><Button type="Bogus" text="Cancel"/>',
+      `each replay carries its own call's values (${buttons(both)})`);
+    assert(types(both) === 'invalid-property-value:Bogus', `and the wrong one is judged like a literal (${types(both)})`);
+
+    const variable = cls('    add( page = page type = `Emphasized` text = `Save` ).\n    add( page = page type = mv_type text = `More` ).\n', add, defs);
+    assert(buttons(variable) === '<Button text="Save"/><Button text="More"/>',
+      `one call passing a variable leaves that parameter unresolved for every call, the other one resolves (${buttons(variable)})`);
+    assert(types(variable).startsWith('unresolved-attribute-value'), `and says so (${types(variable)})`);
+
+    const viaMe = cls('    add( page = page type = `Emphasized` text = `Save` ).\n    me->add( page = page type = `Reject` text = `No` ).\n', add, defs);
+    assert(!/type=/.test(buttons(viaMe)), `a call the replay does not enter keeps the parameter a variable (${buttons(viaMe)})`);
+
+    const forwarded = cls('    outer( page = page type = `Accept` ).\n',
+      `${add}  METHOD outer.\n    add( page = page type = type text = \`Go\` ).\n  ENDMETHOD.\n`,
+      `${defs}    METHODS outer IMPORTING page TYPE REF TO z2ui5_cl_ui5_view_builder type TYPE string.\n`);
+    assert(buttons(forwarded) === '<Button type="Accept" text="Go"/>', `a parameter handed on resolves through its caller's call (${buttons(forwarded)})`);
+
+    const written = cls('    add( page = page type = `Accept` text = `a` ).\n',
+      '  METHOD add.\n    type = to_upper( type ).\n    page->tag( `Button` )->a( n = `type` v = type )->a( n = `text` v = text ).\n  ENDMETHOD.\n', defs);
+    assert(buttons(written) === '<Button text="a"/>', `a parameter the helper writes itself is its own (${buttons(written)})`);
+
+    const bound = cls('    add( page = page type = `Accept` text = client->_bind( mv_type ) ).\n', add, defs);
+    assert(buttons(bound) === '<Button type="Accept" text="{/MV_TYPE}"/>', `a binding passed in is the binding (${buttons(bound)})`);
   });
 }

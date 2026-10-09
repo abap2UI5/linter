@@ -120,9 +120,16 @@ every PR, and the same thing runs locally against sibling checkouts:
   inline or a `DATA`/`STATICS`/`CONSTANTS` declaration, or a parameter) is
   that method's variable and takes the last of its writes before the use;
   any other name is the class's attribute and takes the class's last write.
-  A parameter is the caller's, so it stays unresolved; a value with no
-  position (a RETURNING helper inlined with its arguments) reads class-wide
-  with the single-declaration guard. A template is expanded only whole — a
+  A parameter is the caller's, so it stays unresolved - except in a void
+  helper the replay enters: during the replay of ONE call the parameter is
+  the value that call passes, resolved where the call stands (a forwarded
+  parameter through its caller's frame), as long as EVERY call of the
+  helper in the class passes a value that resolves and the helper never
+  writes the parameter itself (`inHelperCall( )`; a `me->` call or a
+  `CALL METHOD` is a call the replay does not enter, so it keeps the
+  parameter a variable). A value with no position (a RETURNING helper
+  inlined with its arguments) reads class-wide with the single-declaration
+  guard. A template is expanded only whole — a
   piece the scan cannot compute would leave a guess the render gate refuses.
 
 ### The start path — what the first display shows

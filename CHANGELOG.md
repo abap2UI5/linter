@@ -4,6 +4,16 @@
 
 ### Read before upgrading
 
+- **abap2UI5/samples needs one waiver.** A void helper's parameter now
+  resolves from the call being replayed (Reconstruction), so app 507's
+  three `render_list( … items = client->_bind( … ) )` calls reconstruct
+  their `items` bindings - and `omit-initial-drops-false` sees the
+  `omit_initial = abap_true` list whose `enabled` column the sample drops on
+  purpose ("Archived is enabled now, its abap_false was initial too"). A true
+  positive on a sample that demonstrates the defect: waive it there
+  (`" abap2ui5lint-disable-next-line omit-initial-drops-false -- the sample
+  shows exactly this`). Nothing else changes on the seven corpora.
+
 - **Baseline keys carry no source position any more - and an older linter
   cannot read the new ones.** Ten rules kept two occurrences in one class
   apart by writing a position into a key field: the source offset into
@@ -163,6 +173,24 @@
   unjudged now, as under `--no-properties`. No corpus carries one.
 
 ### Reconstruction
+
+- **A void helper's parameter is the value its call passes.** A helper the
+  replay enters (`add_row( page = page text = \`Save\` )`) that writes its
+  parameter where the view needs a value (`a( n = \`text\` v = text )`)
+  left that value unresolved - a parameter is the caller's - so the
+  attribute was dropped with every rule that would judge it. During the
+  replay of one call the caller is known: the parameter is the value THAT
+  call passes, resolved where the call stands (a parameter handed on to a
+  second helper through the first one's call). Only when every call of the
+  helper in the class passes a value that resolves, and the helper never
+  writes the parameter itself: a `me->` call or a `CALL METHOD` (which the
+  replay does not enter) or one argument computed at runtime keeps it a
+  variable for every call. Eleven documents on the seven corpora gain their
+  attributes this way (samples-controls 585, demo_001 and app 000;
+  abap2UI5/samples 000, 502, 507 and 512; samples-stack 000; abap2UI5's
+  `z2ui5_cl_ui5_app_start` and its downport; abap-cloud-gui's range
+  popup) - no new render error, and one new finding (samples 507, see Read
+  before upgrading).
 
 - **A quote in a comment no longer silences the class.** The comment and
   literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
