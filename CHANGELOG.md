@@ -2,399 +2,378 @@
 
 ## Unreleased
 
-- The class index (`outsideReads`, built once per run before the first
-  file is judged) finds typed references by their `TYPE REF TO` keyword
-  instead of trying a name at every word of every class: a third less time
-  on samples-controls (about 260 ms to 180 ms), the same index on all six
-  corpora.
+### Read before upgrading
 
-- **`uncurated-formatter` reports a controller formatter in a class.**
-  `formatter: '.weightState'` - the demo kit's own form, which
-  samples-controls's sidecars record port after port having to drop - names
-  a function on the view's controller, and in abap2UI5 that controller is
-  the framework's, which defines none: the view fails to load with
-  *formatter function .weightState not found*. Only the render gate said
-  so, so the editor and every `--no-render` run passed it. A raw view is
-  left alone (it may be a freestyle app's, with a controller of its own).
-  No finding moved on the six corpora.
+- **Baseline keys carry no source position any more - and an older linter
+  cannot read the new ones.** Ten rules kept two occurrences in one class
+  apart by writing a position into a key field: the source offset into
+  `value` (`default-key-table`, `abapdoc-html-tag`,
+  `event-arg-default-index`, `display-after-nav-app-call`,
+  `double-display-in-branch`, `empty-catch-block`,
+  `boolc-instead-of-xsdbool`, `delete-index-in-loop`) or the line number
+  into `member` (`source-line-too-long`, `trailing-whitespace`). Both fields
+  are part of the baseline key, so a line inserted above a baselined finding
+  made it a stale entry AND a new finding. The position now travels as
+  `dedupe`, which only the per-class collapse reads and which is dropped
+  before a finding leaves the rules (the `line` says where it is). A
+  baseline written before keeps working: `loadBaseline( )`,
+  `applyBaseline( )` and `updateBaseline( )` read an old key of one of the
+  ten with a number in that field as today's key (`migrateKey( )` on
+  `./baseline`), so it matches wherever the code moved, and the next
+  `--update-baseline` writes the new form. The other direction does not
+  hold: 0.8.5 and older compute the old key for those ten rules, so a
+  baseline rewritten by this release waives nothing of theirs - the findings
+  come back and every such entry is reported stale (measured: a baseline
+  written by `--update-baseline` here fails a 0.8.5 run with exit 1). That
+  reaches whatever judges the same baseline with an older linter - an Action
+  or `npx` pinned to an earlier release, and the VS Code extension until its
+  pin moves, whose *Add to Baseline* then writes an old key beside the new
+  one, which this release reads as one key counted twice and reports stale.
+  Move every tool that reads one baseline to this release together.
 
-- `editable-control-without-binding` says the control "takes user input"
-  rather than that it "lets the user type": 152 of samples-controls's 343
-  findings are on controls nobody types into - RadioButton, CheckBox,
-  SegmentedButton, Switch, Slider, Select, RatingIndicator, RangeSlider.
+- **A numeric `ui5` / `minUi5` in the config is refused** (exit 2) with a
+  message that says why: JSON reads `1.120` as the number 1.12, so the floor
+  moved eight minors down without a word. Write it quoted, `"1.120"`. A
+  config that wrote `"ui5": 1.71` unquoted worked before and has to be
+  quoted now; the schema always said string.
 
-- **The metadata generator gives a class the methods it owns wherever the
-  file writes them.** A file defining two classes was read as "from one
-  extend call to the next", and sap/ui/unified/ColorPicker.js defines the
-  private `_ColorPickerBox` between the picker's extend call and the
-  picker's own methods: the `fireChange({ …, colorString })` the picker
-  fires was harvested for the box, so `$parameters>/colorString` on a
-  ColorPicker - what the demo kit sample reads - was an
-  `unknown-event-parameter`. `data/properties.json` now carries
-  `colorString` and `formatHSL` (`fired: true`) on the picker's `change`
-  and `liveChange`; no other class moved. The ColorPickerPopover, which
-  forwards the picker's parameters as a computed object, still declares
-  only its documented ones (samples-controls app 268's five hints stay).
-
-- **The render gate leaves the browser's network error alone.** A Card
-  whose manifest lives on sdk.openui5.org (samples-controls apps 118 and
-  168) fetches it when it renders; where that host does not answer - a
-  sandbox, an offline runner - the fetch rejects whenever the network gives
-  up, after the document's window, and `TypeError: Failed to fetch` was
-  charged to whichever document the page rendered next: view-gates failed
-  app 180, 183, 184 or 185 depending on the run. Whether a remote URL
-  answers is not a property of the view, so the message joins the
-  environment noise the gate already waives. What the control says about
-  the missing resource is still reported.
-
-- **A `CONSTANTS` value resolves.** `CONSTANTS c_base_url TYPE string
-  VALUE \`https://…\`` and `t = c_base_url && \`sample1.jpg\`` (samples-
-  controls app 044, demo app 004), the chained `CONSTANTS:` form and one
-  level of `BEGIN OF cs … END OF cs` read as `cs-name` were dropped as
-  values the gate cannot follow, so a URL, a colour or an enum value kept
-  in a constant was judged by nothing and rendered as absent. So was a
-  name written once with `cl_abap_char_utilities=>newline`. No finding
-  moved on the six corpora; the documents carry the values now.
-
-- **A name written once with a string template resolves to it.**
-  `DATA(expr) = |\{= ${ client->_bind( flag ) } ? 'A' : 'B' \}|.` and
-  then `v = expr` on five controls - how a port hands one expression
-  binding around - was dropped as a value the gate cannot follow, because
-  only names assigned literals were followed: samples-controls apps 445
-  and 452 carried fifteen `unresolved-attribute-value` hints for it, and
-  the version findings on those attributes pointed at the control rather
-  than at the attribute. A second write of the name anywhere in the class
-  keeps it a variable, unresolved as before.
-
-- **A waiver of `unbound-public-attribute` / `unused-public-attribute` is
-  not reported as unused where the run reads the attribute.** Both rules
-  stand down for an attribute another class of the run reads (`->name`),
-  so in a corpus run the waiver abap2UI5/samples app 024 carries for the
-  attribute app 025 sets suppressed nothing and became an
-  `unused-directive` - whose deleting fix removed the waiver the class
-  still needs when it is linted alone. Such a waiver is unjudged now, the
-  way one of `unused-namespace-declaration` is where that rule stands down.
-
-- `undefined-css-class` leaves a `class` value the reconstruction guessed:
-  `|state-{ ls-row-state }|` in a LOOP came out as the guess `state-`, the
-  literal part of a class completed at runtime, and was reported as a class
-  nothing defines.
-
-- **`int`, `float` and `boolean` values are judged the way DataType parses
-  them.** The numeric check was `^[+-]?\d+(\.\d+)?$`: `.5`, `5.` and `1e3`
-  - numbers to DataType's `Number( )` - were reported as invalid, while
-  `10.5` on an `int` property (which `Number.isInteger` refuses, so the
-  current runtime rejects it) passed. An empty value is valid for all three
-  (`NaN` for a number, `false` for a boolean), and a value the
-  reconstruction guessed from a LOOP variable is no longer judged as if the
-  author had written it (it came out empty and was reported).
-
-- `uncurated-formatter` reads every alias a `core:require` points at
-  `z2ui5/model/formatter`: `{ Fmt: 'z2ui5/model/formatter' }` with
-  `formatter: 'Fmt.round2DP'` names the same removed function as
-  `Formatter.round2DP` and went unseen, because only the alias spelled
-  `Formatter` was judged. The did-you-mean keeps the written alias. And the
-  expression form no longer matches a name that merely ends in `Formatter`
-  (`myFormatter.round2DP(`).
-
-- `popup-display-xml`, `popover-display-val` and
-  `popover-anchor-unknown-id` read the CLIENT's `popup_display( )` /
-  `popover_display( )` call, the way the other client-call rules do, and
-  find the argument among the named ones wherever it stands. They matched
-  the text: an app's own `my_popup_display( xml = … )` was reported and its
-  "fix" wrote a parameter the method does not have, and `popover_display(
-  by_id = … val = … )` went unseen because `val` was not first.
-
-- **Action: `render: False` means false.** GitHub compares strings in an
-  `if:` case-insensitively and the shell does not, so `render: False`
-  skipped the runtime install and then ran the gate anyway (falling back,
-  or failing where the config asks for the render gate), and
-  `annotations: False` annotated. Both inputs are lower-cased in the shell
-  now, in the lint and the screenshot step.
-
-- **Action: the Chromium cache works on Windows and macOS runners.** The
-  cache step saved `~/.cache/ms-playwright`, which is Playwright's browser
-  directory on Linux only, so elsewhere it cached nothing and every job
-  downloaded Chromium again. The install, lint and screenshot steps set
-  `PLAYWRIGHT_BROWSERS_PATH` to one directory under `runner.temp`, and that
-  is what is cached (a Linux runner misses the cache once).
-
-- **A raw `.fragment.xml` renders as a fragment.** The render gate decided
-  view or fragment by `^<core:FragmentDefinition` on the text, so a fragment
-  file that opened with an XML declaration or a comment, wrote
-  `FragmentDefinition` in the default namespace, or had a bare control as
-  its root went through `XMLView.create` and failed with "XMLView's root
-  node must be 'View'". The file name decides now (`.fragment.xml` /
-  `.view.xml`, on the result's `docKinds` and for `--screenshot`), and the
-  renderer's own fallback reads past a BOM, the XML declaration, comments
-  and a doctype and accepts any prefix.
-
-- `unescaped-text-in-attribute` leaves `id` and `class` alone. Neither is a
-  property: the XMLTemplateProcessor hands them to `getId( )` and
-  `addStyleClass( )` verbatim and never parses a brace in them as a
-  binding - and the fix, `t =`, wrote a backslash into the id or the class
-  token.
-
-- `unknown-icon` reads `` `sap-icon://status-` && lv_code `` as the prefix it
-  is - the backtick spelling of `|sap-icon://status-{ lv_code }|`, which
-  was already not judged - instead of reporting a glyph named `status-`.
-
-- **An `xmlns` on an inner element is scoped to it.** Every declaration of
-  a document went into one map, the last one winning, so `<VBox
-  xmlns="sap.ui.layout.form">` inside a sap.m Page turned the Page above it
-  and the Panel beside it into `unknown-control`s (`sap.ui.layout.form.Page
-  does not exist - typo?`), and a prefix declared in one subtree passed as
-  declared in another, which the browser's parser refuses. The property
-  gate, the control-id map, the enum-bound-field reader and the run
-  summary's profile now resolve each element against the declarations in
-  scope at it (`namespaceScopes( )` in `lib/properties.mjs`), and
-  `undeclared-namespace` reports a prefix used outside the element that
-  declares it. The top level stays one scope: a second root (a split chain
-  re-rooted, `second-root`) is judged with what the first root declares,
-  as before. No change on the four corpora, which declare their
-  namespaces on the root.
-
-- `default-key-table` and the PUBLIC attribute reader behind
-  `unbound-public-attribute` are linear when no `.` or `,` follows the
-  declarations: each one searched (and sliced) to the end of the file for
-  its terminator, so 40,000 such lines took a minute through
-  `checkAbapSource`. Now about a second. The findings are unchanged.
-
-- A baseline file that is valid JSON but no object (`null`, a number, an
-  array, a string) is refused with the file's name and the shape it should
-  have; `null` failed as `Cannot read properties of null (reading
-  'findings')`.
-
-- **`--stdin` refuses a path beside it** (exit 2). The path was neither read
-  nor linted - only searched for a config when the working directory had
-  none - and the run reported on the piped source as if the file had been
-  checked: `cat a.clas.abap | abap2ui5lint --stdin b.view.xml` was green
-  whatever `b.view.xml` held. The message names `--stdin-filename` (the
-  name the piped source is reported and handled under) and `--config`.
-
-- **A builder handle kept in an attribute and stringified in another method
-  is skipped, not failed.** abap2UI5's `node/srv/zcl_tst_host` (sample 338
-  as a fixture) builds its page in `view_display( )`, keeps the handle in
-  `mo_main_page`, lets a sub-app created by name build into it and
-  stringifies it in `render_sub_app( )`. The handle-aware replay enters only
-  the methods that open a factory, so nothing came out and the render gate
-  failed the class with `no view reconstructed from builder calls` -
-  abap2UI5 waived that in its config and said the gap was the linter's.
-  When the replay yields no document, the builder calls in the methods it
-  never entered are now counted as `helperTokens` (calls outside any chain
-  it can follow), so the class is skipped with the usual "built in helper
-  methods" note. A class whose replay does yield a document is unchanged.
-  abap2UI5's `rules['render-error'].exclude` entry for
-  `/node/srv/zcl_tst_host.` now waives nothing and can go. sapgui's
-  `zcl_sapgui_frame` and `zcl_sapgui_se91` (a popup opened in one method,
-  its handles returned in a structure and built on elsewhere) are the same
-  shape: skipped with `--render` now instead of failing - sapgui's config
-  runs no render gate, so its report does not change.
+### Rules
 
 - **`unbound-public-attribute` and `unused-public-attribute` see a reader in
   the same run.** A popup hands its result back through a PUBLIC attribute
-  its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and a
-  caller sets a value on the app it calls the same way - unbound by
+  its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and
+  a caller sets a value on the app it calls the same way - unbound by
   construction, and both rules said no single source can see that caller.
   The class index (`classIndexOf( )`) now records per class `outsideReads`:
   the names another class of the run reaches as `ref->name` through a
   reference it types as this class (`TYPE REF TO`, an inline declaration
   from `CAST`/`NEW`/a static factory, or that expression itself before the
   arrow); a reference whose class is not written down is nobody's. Both
-  rules stand down for those names. `classIndexDeps( )` carries the set, so
-  `--cache` re-judges the popup when a caller starts or stops reading it
-  (and `--fix` re-checks it between passes). `ClassIndex` in `types.d.ts`
-  gains the optional field. Corpora: abap2UI5's `node/srv/zcl_tst_stack_a`
-  carries a `disable-next-line unbound-public-attribute` for
-  `backend_event`, which `zcl_tst_stack_b` sets through `lo_a TYPE REF TO
-  zcl_tst_stack_a` - the directive is now reported as `unused-directive`
-  (a hint) and can go. Nothing else moves: the other outside readers of
-  `ms_result`/`mv_*` in the corpora are ABAP Unit test classes, which no run
-  collects, or call the popup's `result( )` method.
+  rules stand down for those names. Because that stand-down depends on what
+  the RUN holds, a waiver of either rule in such a class is unjudged rather
+  than `unused-directive` (`publicReadFromOutside( )` on `./abap-rules`,
+  fed to the directives as `stoodDown`): the same class linted alone - an
+  editor, a pre-commit hook - still needs it, and the unused-directive fix
+  would have deleted it. `classIndexDeps( )` carries the set, so `--cache`
+  re-judges the popup when a caller starts or stops reading it, and `--fix`
+  re-checks it between passes. `ClassIndex` in `types.d.ts` gains the
+  optional field. Corpora: nothing is reported differently -
+  abap2UI5/samples app 024's and abap2UI5's `node/srv/zcl_tst_stack_a`
+  waivers for the attribute their callers set stay (unjudged in a corpus
+  run, used when the class is linted alone); the other outside readers in
+  the corpora are ABAP Unit test classes, which no run collects, or call the
+  popup's `result( )` method.
 
 - **A `COND #( )` or `SWITCH #( )` of literals is judged branch by branch.**
   `COND #( WHEN n = 1 THEN \`Emphasized\` ELSE \`Default\` )` on a Button
   `type` has a closed set of values, and it was reported as
-  `unresolved-attribute-value` - "a value this gate cannot follow" - while
-  a wrong one in a branch went unjudged. The reconstructor now records the
-  values of a conditional with an `ELSE` whose every result resolves (a
-  literal, a `&&` chain, a nested conditional of the same shape; a `THROW`
-  branch yields none) as the node's `branchValues`, and the property gate
-  judges each like a literal: `invalid-property-value` (with its case-only
-  `--fix` landing on the branch) and the other value rules, silent when all
-  of them pass. No `ELSE`, a `LET`, or a result that does not resolve keeps
-  the hint. abap-cloud-gui: its two `unresolved-attribute-value` hints
-  (`z2ui5_cl_cgui_popup`, `z2ui5_cl_cgui_report`) are gone, nothing new.
+  `unresolved-attribute-value` while a wrong value in a branch went
+  unjudged. The reconstructor records the values of a conditional with an
+  `ELSE` whose every result resolves (a literal, a `&&` chain, a nested
+  conditional of the same shape; a `THROW` branch yields none) as the node's
+  `branchValues`, and the property gate judges each like a literal:
+  `invalid-property-value` (with its case-only `--fix` landing on the
+  branch) and the other value rules, silent when all of them pass. No
+  `ELSE`, a `LET`, or a result that does not resolve keeps the hint.
+  abap-cloud-gui: its two `unresolved-attribute-value` hints are gone.
 
-- **The stylish report no longer prints control characters out of the
-  source.** A message quotes the checked file (an attribute value, a name, a
-  render error), and an ESC in a literal reached the reviewer's terminal raw -
-  an escape sequence that clears, retitles or recolours it, or hides the line
-  it sits on. The stylish report, the annotations, the `--verbose` notes, the
-  stale-baseline lines and the `--fix` listing print every C0/C1 control, DEL
-  and the bidi override/isolate characters as a visible `\xNN` / `\uNNNN` (a
-  tab or line break as a blank); `terminalSafe( )` on `./report`. The machine
-  formats are unchanged: JSON and SARIF carry the text as written, the two
-  XML shapes already replaced what XML cannot hold.
+- **`uncurated-formatter` reads more of the formatters a view names.** A
+  CONTROLLER formatter in a class (`formatter: '.weightState'`, the demo
+  kit's own form) names a function on the view's controller, which in
+  abap2UI5 is the framework's and defines none: the view fails to load with
+  *formatter function .weightState not found*, and only the render gate said
+  so. A raw view is left alone (it may be a freestyle app's, with a
+  controller of its own). And every alias a `core:require` points at
+  `z2ui5/model/formatter` is read (`{ Fmt: 'z2ui5/model/formatter' }` with
+  `formatter: 'Fmt.round2DP'`), the did-you-mean keeping the written alias;
+  the expression form no longer matches a name that merely ends in
+  `Formatter` (`myFormatter.round2DP(`).
+
+- **`int`, `float` and `boolean` values are judged the way DataType parses
+  them.** The numeric check was `^[+-]?\d+(\.\d+)?$`: `.5`, `5.` and `1e3` -
+  numbers to DataType's `Number( )` - were reported as invalid, while `10.5`
+  on an `int` property (which `Number.isInteger` refuses) passed. An empty
+  value is valid for all three (`NaN` for a number, `false` for a boolean),
+  and a value the reconstruction guessed from a LOOP variable is not judged
+  as if the author had written it.
+
+- **An `xmlns` on an inner element is scoped to it.** Every declaration of
+  a document went into one map, the last one winning, so `<VBox
+  xmlns="sap.ui.layout.form">` inside a sap.m Page turned the Page above it
+  into an `unknown-control`, and a prefix declared in one subtree passed as
+  declared in another, which the browser's parser refuses. The property
+  gate, the control-id map, the enum-bound-field reader and the run
+  summary's profile resolve each element against the declarations in scope
+  at it (`namespaceScopes( )` in `lib/properties.mjs`), and
+  `undeclared-namespace` reports a prefix used outside the element that
+  declares it. The top level stays one scope (a second root is judged with
+  what the first declares).
+
+- `popup-display-xml`, `popover-display-val` and
+  `popover-anchor-unknown-id` read the CLIENT's `popup_display( )` /
+  `popover_display( )` call and find the argument among the named ones
+  wherever it stands: an app's own `my_popup_display( xml = … )` was
+  reported and "fixed" into a parameter the method does not have, and
+  `popover_display( by_id = … val = … )` went unseen.
+
+- `view-never-displayed` no longer reports a helper class that hands its
+  stringified view to the caller - `result = view->stringify( )` where
+  `result` is a RETURNING, EXPORTING or CHANGING parameter of the method
+  (abap-cloud-gui's `z2ui5_cl_cgui_list` and `z2ui5_cl_cgui_selscreen`,
+  which its config excluded by name).
+
+- `unescaped-text-in-attribute` leaves `id` and `class` alone: the
+  XMLTemplateProcessor takes both verbatim and never parses a brace in them
+  as a binding, and the fix, `t =`, wrote a backslash into the id or the
+  class token.
+
+- `undefined-css-class` leaves a `class` value the reconstruction guessed:
+  `|state-{ ls-row-state }|` in a LOOP came out as `state-`, the literal
+  part of a class completed at runtime.
+
+- `unknown-icon` reads `` `sap-icon://status-` && lv_code `` as the prefix
+  it is - the backtick spelling of `|sap-icon://status-{ lv_code }|`, which
+  was already not judged.
+
+- `editable-control-without-binding` says the control "takes user input"
+  rather than that it "lets the user type": 152 of samples-controls's 343
+  findings are on controls nobody types into (RadioButton, CheckBox, Switch,
+  Slider, Select, …).
+
+- `"rules": { "<id>": true }` switches an opt-in rule (`chain-house-layout`,
+  `portable-app`) on. It passed the config check and ran nothing; `true` now
+  means "on, as it is".
+
+### Reconstruction
+
+- **A quote in a comment no longer silences the class.** The comment and
+  literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
+  lost their place in three shapes - a string template whose embedded
+  expression runs over two lines, a `|` in a literal inside an embedded
+  expression (`` sep = `|` ``), and a UTF-8 BOM in front of a `*` comment
+  line. The comment behind it was then kept as code, a `'` in its text
+  (`" don't care`) opened a literal that ran to the end of the file, and
+  most ABAP-side rules reported nothing for the rest of the class. `scrub( )`
+  now carries an open embedded expression over the line break and reads a
+  `"` inside one as a comment, a BOM is blanked, and every reader ends a
+  quote or backtick literal - and a template's text - at its line, as ABAP
+  does, so a reader that is ever wrong again is wrong for one line. The one
+  `literalEnd( )` is shared by `parenRegion`, `topSplit`, `namedArgMarks`,
+  the reconstructor's paren scan and `chain-house-layout`, whose own scanner
+  closed a template at the first `|` and so lost the `)` of a crammed chain
+  call behind `|{ concat_lines_of( table = mt sep = `|` ) }|`.
+
+- **A `CONSTANTS` value resolves.** `CONSTANTS c_base_url TYPE string VALUE
+  \`https://…\`` and `t = c_base_url && \`sample1.jpg\``, the chained
+  `CONSTANTS:` form and one level of `BEGIN OF cs … END OF cs` read as
+  `cs-name` were dropped as values the gate cannot follow, so a URL, a
+  colour or an enum value kept in a constant was judged by nothing and
+  rendered as absent.
+
+- **A name written once with a string template resolves to it.**
+  `DATA(expr) = |\{= ${ client->_bind( flag ) } ? 'A' : 'B' \}|.` and then
+  `v = expr` on five controls - how a port hands one expression binding
+  around - was dropped (samples-controls apps 445 and 452 carried fifteen
+  `unresolved-attribute-value` hints for it). So was a name written once with
+  `cl_abap_char_utilities=>newline`. A second write of the name anywhere in
+  the class, or a second declaration of it - a method parameter of the same
+  name, another method's local - keeps it a variable, unresolved as before:
+  read class-wide, a helper's `v = type` came out as another method's
+  `DATA(type) = |…|`.
+
+- A pragma behind an argument value (`` v = `Bogus` ##NO_TEXT ``) is no part
+  of it: the attribute was dropped as unresolved, and every check of its
+  value with it.
+
+- **A builder handle kept in an attribute and stringified in another method
+  is skipped, not failed.** abap2UI5's `node/srv/zcl_tst_host` builds its
+  page in one method, keeps the handle in `mo_main_page`, lets a sub-app
+  created by name build into it and stringifies it in another; the replay
+  enters only the methods that open a factory, so the render gate failed the
+  class with `no view reconstructed from builder calls`. When the replay
+  yields no document, the builder calls in the methods it never entered are
+  counted as `helperTokens`, so the class is skipped with the usual "built in
+  helper methods" note (abap2UI5's `render-error` waiver for it now waives
+  nothing; sapgui's `zcl_sapgui_frame` and `zcl_sapgui_se91` are the same
+  shape). A class whose replay yields a document is unchanged.
+
+### `--fix`
 
 - **`--fix` runs to a fixed point.** One pass applies every fix whose span
   overlaps none applied before it, and a fix can leave a shape another rule
   fixes (a deleted trailing `t_arg` row leaves the one-row table
   `event-arg-single-row-table` rewrites; `chain-house-layout` re-lays a
   chain another fix sat in) - so a run ended with "N deferred to the next
-  run" and the reader ran `--fix` two or three times. The CLI now repeats the
-  pass in memory, re-checking the files the previous pass changed (and any
-  whose superclass facts moved), and writes each file once: the text the old
-  `--fix` reached when it was run until it changed nothing. Bounded at
-  `MAX_FIX_PASSES` (10, ESLint's bound, exported on `./fix`); a run that
-  stops there says so. The summary names the passes (`fixed 6 problem(s) in
-  1 file(s) in 2 passes`), and `--fix-dry-run` lists a later pass's fixes
-  with `(pass N)`. Measured on the test fixtures and on abap2UI5, popups,
-  sapgui and abap-cloud-gui (with their configs and with `chain-house-layout`
-  on): byte-identical to running the old `--fix` until it settled.
+  run" and the reader ran `--fix` two or three times. The CLI now repeats
+  the pass in memory, re-checking the files the previous pass changed (and
+  any whose class-index facts - superclass chain, outside reads - moved),
+  and writes each file once: the text the old `--fix` reached when it was
+  run until it changed nothing. Bounded at `MAX_FIX_PASSES` (10, ESLint's
+  bound, exported on `./fix`); a run that stops there says so. The summary
+  names the passes (`fixed 6 problem(s) in 1 file(s) in 2 passes`), and
+  `--fix-dry-run` lists a later pass's fixes with `(pass N)`.
 
-- `chain-house-layout` reads literals with the shared `literalEnd( )`. Its
-  own scanner closed a string template at the first `|`, so in
-  `|{ concat_lines_of( table = mt sep = `|` ) }|` the backtick behind that
-  `|` opened a literal that ran to the line end and took the `)` closing the
-  `a( )` with it: a crammed `)->tag( ... )` behind it was reported and its
-  fix never re-laid it.
+- **`--fix` keeps a CRLF file CRLF.** The fixes that insert or re-lay lines
+  (`chain-house-layout`, `missing-on-navigated-branch`, the inserted
+  `class_constructor`, …) wrote LF, so with `crlf-line-ending` switched off a
+  fixed file came back with mixed line endings. Every fix now writes the
+  source's line ending (`matchLineEndings( )` on `./fix`, applied by the
+  entry points to what survives the rules and directives) - LF while
+  `crlf-line-ending` is fixing the file to LF in the same pass. And
+  `chain-house-layout` compared a CRLF line break as if it were wrong, so it
+  reported (and rewrote) every multi-line chain of a CRLF class whatever its
+  layout.
 
-- **Linear on long sources.** `default-key-table` sliced the rest of the
-  class and matched against everything before each declaration - a class of
-  10,000 `TYPE TABLE OF` lines took a minute, now under half a second. And
-  ten regexes anchored on `^\s*` under the multiline flag (the int targets
-  of `redundant-conv-i`, the literal seeds of the model, the section DATA
-  blocks, the event dispatch, `declaresApp( )`, the handle-reuse count) let
-  every blank line start a scan over all the blank lines behind it: 20,000
-  empty lines took seconds, 100,000 minutes. They read the line's own
-  indentation now; the matches are the same.
+### CLI, output and config
 
-- The config's `ignore` count ("N files ignored by config") is taken in the
-  same directory walk: the CLI walked the tree a second time without the
-  patterns and read every class of the run twice. `collectFiles( )` takes an
-  `onIgnored` callback for it.
+- **`--stdin` refuses a path beside it** (exit 2). The path was neither read
+  nor linted, and the run reported on the piped source as if the file had
+  been checked: `cat a.clas.abap | abap2ui5lint --stdin b.view.xml` was
+  green whatever `b.view.xml` held. The message names `--stdin-filename`
+  and `--config`.
 
-- `--update-baseline` beside a machine format (`--format json`, …) writes
-  its "baseline: wrote" line to stderr; stdout is the document a caller
-  parses. A stylish run keeps it on stdout, where it is the report.
+- **The stylish report no longer prints control characters out of the
+  source.** A message quotes the checked file, and an ESC in a literal
+  reached the reviewer's terminal raw - an escape sequence that clears,
+  retitles or recolours it, or hides the line it sits on. The stylish
+  report, the annotations, the `--verbose` notes, the stale-baseline lines
+  and the `--fix` listing print every C0/C1 control, DEL and the bidi
+  override/isolate characters as a visible `\xNN` / `\uNNNN` (a tab or line
+  break as a blank); `terminalSafe( )` on `./report`. JSON and SARIF carry
+  the text as written.
+
+- `--format checkstyle` and `--format junit` stay well-formed whatever a
+  message quotes: a control character becomes U+FFFD, and a line break or
+  tab is written as a character reference, which an attribute keeps. Both,
+  and the GitHub annotations, write `/`-separated paths on Windows too, as
+  SARIF always did - an annotation with a `\` path never reached its line.
 
 - A run with nothing to check prints the EMPTY document of a machine format
   (`checkstyle`, `junit`, `sarif`, as `json` already did) with the sentence
-  on stderr - it printed the sentence on stdout, which no parser reads as
-  XML or SARIF - and still writes `--sarif-out` and `--json-out`: a
-  workflow's upload-sarif step behind the Action's `sarif` input failed on a
-  file that was never written.
+  on stderr, and still writes `--sarif-out` and `--json-out`: a workflow's
+  upload-sarif step behind the Action's `sarif` input failed on a file that
+  was never written.
 
-- `--format checkstyle` and `--format junit` stay well-formed whatever a
-  message quotes: a control character (no XML 1.0 character, raw or as a
-  reference) becomes U+FFFD, and a line break or tab is written as a
-  character reference, which an attribute keeps.
-
-- `--max-warnings`, `--jobs` and `--render-pages` take digits only. `''`
-  and `' '` were read as 0 and `0x2` as 2, so `--max-warnings "$MAX"` with
-  the variable unset failed the build on the first warning.
-
-- **A quote in a comment no longer silences the class.** The comment and
-  literal readers (`scrub( )`, `blankLiterals( )`, `splitStatements( )`)
-  lost their place in three shapes - a string template whose embedded
-  expression runs over two lines (`|Hello { to_upper(` / `` `world` ) }|``),
-  a `|` in a literal inside an embedded expression (`` sep = `|` ``), and a
-  UTF-8 BOM in front of a `*` comment line. The comment behind it was then
-  kept as code, a `'` in its text (`" don't care`) opened a literal that ran
-  to the end of the file, and most ABAP-side rules reported nothing for the
-  rest of the class. `scrub( )` now carries an open embedded expression over
-  the line break and reads a `"` inside one as a comment, a BOM is blanked,
-  and every reader ends a quote or backtick literal - and a template's text -
-  at its line, as ABAP does, so a reader that is ever wrong again is wrong for
-  one line. The same `literalEnd( )` is used by `parenRegion`, `topSplit`,
-  `namedArgMarks` and the reconstructor's paren scan. Measured on abap2UI5,
-  popups, sapgui and abap-cloud-gui (with and without their configs, with
-  `--all-classes`) and on the test fixtures: byte-identical findings.
-
-- **Baseline keys carry no source position any more.** Ten rules kept two
-  occurrences in one class apart by writing a position into a key field - the
-  source offset into `value` (`default-key-table`, `abapdoc-html-tag`,
-  `event-arg-default-index`, `display-after-nav-app-call`,
-  `double-display-in-branch`, `empty-catch-block`,
-  `boolc-instead-of-xsdbool`, `delete-index-in-loop`) or the line number into
-  `member` (`source-line-too-long`, `trailing-whitespace`). Both fields are
-  part of the baseline key, so a line inserted above a baselined finding made
-  it a stale entry AND a new finding. The position now travels as `dedupe`,
-  which only the per-class collapse reads and which is dropped before a
-  finding leaves the rules: those findings no longer carry the offset in
-  `value` or the line number in `member` (the `line` says it). A baseline
-  written before keeps working: `loadBaseline( )`, `applyBaseline( )` and
-  `updateBaseline( )` read an old key of one of the ten with a number in that
-  field as today's key (`migrateKey( )` on `./baseline`), so it matches
-  wherever the code moved, and the next `--update-baseline` writes the new
-  form. **The other direction does not hold:** 0.8.5 and older compute the
-  old key for those ten rules and do not match the new one, so a baseline
-  rewritten by this release waives nothing of theirs - the findings come
-  back and every such entry is reported stale (measured: a baseline written
-  by `--update-baseline` here fails a 0.8.5 run with exit 1). That reaches
-  whatever judges the same baseline with an older linter: an Action or
-  `npx` pinned to an earlier release, and the VS Code extension until its
-  pin moves - whose *Add to Baseline* then writes an old key beside the new
-  one, which this release reads as one key counted twice and reports
-  stale. Move every tool that reads one baseline to this release together.
-
-- **`--cache` follows the class index and the linter's own code.** A class
-  is judged against what its superclass declares (`cs_event`), and a cached
-  run built that index out of the cache MISSES only: a subclass re-checked
-  without its (cached) superclass read the inherited constant as unknown, and
-  an edited superclass left its subclasses' stale entries in place. The index
-  is now built over every file of the run, and each entry is also keyed on the
-  superclass facts its check read (`deps`), so an edit to a superclass
-  re-judges its subclasses. The context hash takes a fingerprint of
-  `cli.mjs`, `lib/*.mjs` and `data/*.json` beside the version: a checkout
-  between releases or a regenerated snapshot no longer replays the verdicts
-  of the code before it. A run over part of a tree keeps the entries of every
-  other file (and drops those whose file is gone) instead of shrinking the
-  cache to the files it looked at, and the per-document models
-  (`docModels`) are no longer stored. The cache file format moves to
-  version 2; an old file is simply a cold cache.
-
-- `view-never-displayed` no longer reports a helper class that hands its
-  stringified view to the caller - `result = view->stringify( )` where
-  `result` is a RETURNING, EXPORTING or CHANGING parameter of the method
-  (abap-cloud-gui's `z2ui5_cl_cgui_list` and `z2ui5_cl_cgui_selscreen`,
-  which its config excluded by name). Those two are the only findings that
-  went away on abap2UI5, popups, sapgui and abap-cloud-gui; the other
-  difference there is the offset no longer written into `value` (above).
-
-- `"rules": { "<id>": true }` switches an opt-in rule (`chain-house-layout`,
-  `portable-app`) on. It passed the config check and ran nothing; `true`
-  now means "on, as it is", like a severity string without the change.
-
-- A numeric `ui5` / `minUi5` in the config is refused with a message that
-  says why: JSON reads `1.120` as the number 1.12, so the floor moved eight
-  minors down without a word. Write it quoted, `"1.120"`.
-
-- A pragma behind an argument value (`` v = `Bogus` ##NO_TEXT ``) is no part
-  of it: the attribute was dropped as unresolved, and every check of its
-  value with it.
+- `--update-baseline` beside a machine format writes its "baseline: wrote"
+  line to stderr; stdout is the document a caller parses.
 
 - `--advisory` / `--fail-on never` exit 0 under `--max-warnings` (or a
   config `maxWarnings`) too, as they do for stale baseline entries; the
   excess is still said on stderr.
 
-- `--fix` keeps a CRLF file CRLF. The fixes that insert or re-lay lines
-  (`chain-house-layout`, `missing-on-navigated-branch`, the inserted
-  `class_constructor`, …) wrote LF, so with `crlf-line-ending` switched off a
-  fixed file came back with mixed line endings. Every fix now writes the
-  line ending of the source (`matchLineEndings( )` on `./fix`, applied by the
-  entry points to what survives the rules and directives) - LF while
-  `crlf-line-ending` is fixing the file to LF in the same pass. And
-  `chain-house-layout` compared a CRLF line break as if it were wrong, so it
-  reported every multi-line chain of a CRLF class whatever its layout; it
-  compares like with like now.
+- `--max-warnings`, `--jobs` and `--render-pages` take digits only. `''`
+  and `' '` were read as 0 and `0x2` as 2, so `--max-warnings "$MAX"` with
+  the variable unset failed the build on the first warning.
+
+- A baseline file that is valid JSON but no object (`null`, a number, an
+  array, a string) is refused with the file's name and the shape it should
+  have, instead of `Cannot read properties of null`.
+
+- The config's `ignore` count ("N files ignored by config") is taken in the
+  same directory walk; the CLI walked the tree a second time and read every
+  class twice. `collectFiles( )` takes an `onIgnored` callback for it.
 
 - A UTF-8 BOM no longer shifts the columns of line 1 by one.
 
-- The GitHub annotations, `--format checkstyle` and `--format junit` write
-  `/`-separated paths on Windows too, as SARIF always did - an annotation
-  with a `\` path never reached its line on the pull request.
+- `isXmlSource( )` on the main export: whether `checkFiles( )` reads a
+  source as a raw view or as a class - the one predicate the library, the
+  `--fix` passes and the cache's class index share.
+
+### `--cache`
+
+- **`--cache` follows the class index and the linter's own code.** A class
+  is judged against what its superclass declares (`cs_event`) and what the
+  other classes read of it (`outsideReads`), and a cached run built that
+  index out of the cache MISSES only: a subclass re-checked without its
+  cached superclass read the inherited constant as unknown, and an edited
+  superclass left its subclasses' stale entries in place. The index is built
+  over every file of the run, and each entry is also keyed on the index
+  facts its check read (`deps`, `classIndexDeps( )`). The context hash takes
+  a fingerprint of `cli.mjs`, `lib/*.mjs` and `data/*.json` beside the
+  version, so a checkout between releases or a regenerated snapshot does not
+  replay the verdicts of the code before it. A run over part of a tree keeps
+  the entries of every other file (and drops those whose file is gone), and
+  the per-document models (`docModels`) are no longer stored. The cache file
+  format moves to version 2; an old file is simply a cold cache.
+
+### Render gate
+
+- **An answer that arrives after a document's render window is charged to
+  that document.** A control that sends a request (a Card fetching its
+  manifest) reports what comes back whenever it comes back, and the page
+  meanwhile rendered the next document, whose window collected the error -
+  samples-controls apps 118 and 168 failed app 180, 183, 184 or 185
+  depending on the run. The harness counts the fetch/XHR requests a page has
+  in flight and lets them settle into the window of the document that sent
+  them; a page still waiting after `settleTimeout` (`openRenderer( )`,
+  default `RENDER_SETTLE_TIMEOUT_MS`, 2 s) is reloaded before the next
+  document, so a late answer can be lost but never misfiled. Not covered: an
+  error a control raises from a bare timer long after its view is gone.
+
+- **The browser's own network error is waived.** A Card whose manifest lives
+  on sdk.openui5.org fetches it when it renders; where that host does not
+  answer (a sandbox, an offline runner) `TypeError: Failed to fetch` is
+  environment noise like the other waived messages - whether a remote URL
+  answers is not a property of the view. What the control says about the
+  missing resource is still reported.
+
+- **A raw `.fragment.xml` renders as a fragment.** The gate decided view or
+  fragment by `^<core:FragmentDefinition` on the text, so a fragment file
+  that opened with an XML declaration or a comment, wrote
+  `FragmentDefinition` in the default namespace, or had a bare control as
+  its root failed with "XMLView's root node must be 'View'". The file name
+  decides now (`.fragment.xml` / `.view.xml`, on the result's `docKinds` and
+  for `--screenshot`), and the renderer's own fallback reads past a BOM, the
+  XML declaration, comments and a doctype and accepts any prefix.
+
+### Performance
+
+- **Linear on long input.** Measured quadratic and now linear:
+  `default-key-table` (a class of 10,000 `TYPE TABLE OF` lines took a
+  minute, also without a terminator behind the declarations), the PUBLIC
+  attribute reader and `unbound-public-attribute` (three regex scans of the
+  class per attribute), `client-handle-capture` (a scan per captured
+  handle), `commercial-ui5-host` (a regex tried after every `-` of one long
+  hyphenated token) and ten regexes anchored on `^\s*` under the multiline
+  flag (the model's literal seeds and table seeds, the section DATA blocks,
+  the event dispatch, `declaresApp( )`, …), which let every blank line -
+  and every blanked comment line - start a scan over all the ones behind
+  it. That last one is what the VS Code extension met: `prepareAbap( )` runs
+  on every edit, and 2,000 commented-out lines took a second in 0.8.5, 8,000
+  sixteen. The findings are unchanged on the corpora; `test/timing.mjs`
+  judges each case by n against 4n, so a loaded runner cannot fail it.
+
+- The class index (`outsideReads`) finds typed references by their `TYPE
+  REF TO` keyword instead of trying a name at every word of every class.
+
+### Action
+
+- **`render: False` means false.** GitHub compares strings in an `if:`
+  case-insensitively and the shell does not, so `render: False` skipped the
+  runtime install and then ran the gate anyway, and `annotations: False`
+  annotated. Both inputs are lower-cased in the shell, in the lint and the
+  screenshot step.
+
+- **The Chromium cache works on Windows and macOS runners.** The cache step
+  saved `~/.cache/ms-playwright`, Playwright's browser directory on Linux
+  only, so elsewhere every job downloaded Chromium again. The install, lint
+  and screenshot steps set `PLAYWRIGHT_BROWSERS_PATH` to one directory under
+  `runner.temp`, and that is what is cached (a Linux runner misses the cache
+  once).
+
+### Metadata
+
+- **The generator gives a class the methods it owns wherever the file
+  writes them.** sap/ui/unified/ColorPicker.js defines the private
+  `_ColorPickerBox` between the picker's extend call and the picker's own
+  methods, and a file was read "from one extend call to the next": the
+  picker's `fireChange({ …, colorString })` was harvested for the box, so
+  `$parameters>/colorString` on a ColorPicker - what the demo kit sample
+  reads - was an `unknown-event-parameter`. `data/properties.json` now
+  carries `colorString` and `formatHSL` on the picker's `change` and
+  `liveChange`; no other class moved.
+
+### Also in this release
 
 - **The first display is modelled.** The model a view is judged and rendered
   against took its scalar seeds from the whole class, so a value only an
