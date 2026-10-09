@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A `CONSTANTS` value resolves.** `CONSTANTS c_base_url TYPE string
+  VALUE \`https://…\`` and `t = c_base_url && \`sample1.jpg\`` (samples-
+  controls app 044, demo app 004), the chained `CONSTANTS:` form and one
+  level of `BEGIN OF cs … END OF cs` read as `cs-name` were dropped as
+  values the gate cannot follow, so a URL, a colour or an enum value kept
+  in a constant was judged by nothing and rendered as absent. So was a
+  name written once with `cl_abap_char_utilities=>newline`. No finding
+  moved on the six corpora; the documents carry the values now.
+
 - **A name written once with a string template resolves to it.**
   `DATA(expr) = |\{= ${ client->_bind( flag ) } ? 'A' : 'B' \}|.` and
   then `v = expr` on five controls - how a port hands one expression

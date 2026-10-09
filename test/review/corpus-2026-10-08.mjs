@@ -7,6 +7,7 @@
  *   1. a waiver of unbound-/unused-public-attribute in a class another class
  *      of the run reads is unjudged, not an unused directive
  *   2. a name written once with a string template resolves to that template
+ *   3. a CONSTANTS value resolves, a structured one as `cs-name`
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -89,5 +90,41 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkFiles
     // a template that names itself does not loop
     const self = checkAbapSource(app('    DATA(wrapping) = |{ wrapping }x|.'), opts).findings.map((x) => x.type);
     assert(Array.isArray(self), 'a self-reference terminates');
+  });
+  /* ── 3. constants ────────────────────────────────────────────────────── */
+
+  /* samples-controls app 044 keeps its image base in `CONSTANTS c_base_url
+   * TYPE string VALUE \`https://…\`` and writes `t = c_base_url &&
+   * \`sample1.jpg\``; demo_004 does the same with `|{ c_img }…|` and a
+   * `DATA(line_break) = cl_abap_char_utilities=>newline`. None of them was
+   * followed: the value was dropped, so neither the URL rules nor the
+   * render gate saw what the view carries. */
+  section('corpus 2026-10-08: a CONSTANTS value resolves, plain, chained and in a BEGIN OF block', () => {
+    const app = (decl, v) => 'CLASS zcl_k DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + `${decl}\n`
+      + 'ENDCLASS.\n\nCLASS zcl_k IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+      + '    DATA(nl) = cl_abap_char_utilities=>newline.\n'
+      + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+      + '        )->ele( `Page` )->tag( `Button` )->a( n = `text` v = `Go` )\n'
+      + `            ->a( n = \`type\` v = ${v}\n`
+      + '        )->tag( `Image` )->a( n = `alt` v = `x` )->a( n = `src` v = c_base && `a.jpg`\n'
+      + '        )->tag( `Text` )->a( n = `text` v = |one{ nl }two|\n'
+      + '        )->end( ).\n    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const run = (decl, v) => checkAbapSource(app(decl, v), opts);
+    const base = '    CONSTANTS c_base TYPE string VALUE `https://example.org/img/`.';
+    const plain = run(`${base}\n    CONSTANTS c_type TYPE string VALUE \`Emphasised\`.`, 'c_type');
+    const kinds = (r) => r.findings.map((x) => `${x.type}:${x.value ?? ''}`).filter((x) => /property-value|unresolved/.test(x));
+    assert(kinds(plain).join() === 'invalid-property-value:Emphasised', `a constant is judged like the literal it is (${kinds(plain).join()})`);
+    assert(plain.docs.join().includes('src="https://example.org/img/a.jpg"'), `the && chain resolves (${plain.docs.join()})`);
+    assert(plain.docs.join().includes('text="one\ntwo"') || plain.docs.join().includes('text="one&#10;two"') || plain.docs.join().includes('text="one&#xA;two"'),
+      `a name written once with cl_abap_char_utilities=>newline resolves (${plain.docs.join().match(/text="one[^"]*"/)?.[0]})`);
+    const chained = run('    CONSTANTS: c_base TYPE string VALUE `https://example.org/img/`,\n               c_type TYPE string VALUE `Accept`.', 'c_type');
+    assert(kinds(chained).join() === '' && chained.docs.join().includes('type="Accept"'), `a chained CONSTANTS resolves (${kinds(chained).join()})`);
+    const block = run(`${base}\n    CONSTANTS: BEGIN OF cs_type,\n                 ok  TYPE string VALUE \`Accept\`,\n                 bad TYPE string VALUE \`Rejekt\`,\n               END OF cs_type.`, 'cs_type-bad');
+    assert(kinds(block).join() === 'invalid-property-value:Rejekt', `a BEGIN OF block resolves as cs-name (${kinds(block).join()})`);
+    // a work-area field is not a constant: still dropped, still said
+    const wa = run(base, 'ls_row-type');
+    assert(kinds(wa).join() === 'unresolved-attribute-value:', `a structure field nothing declares stays unresolved (${kinds(wa).join()})`);
   });
 }
