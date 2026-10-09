@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The class index (`outsideReads`, built once per run before the first
+  file is judged) finds typed references by their `TYPE REF TO` keyword
+  instead of trying a name at every word of every class: a third less time
+  on samples-controls (about 260 ms to 180 ms), the same index on all six
+  corpora.
+
 - **`uncurated-formatter` reports a controller formatter in a class.**
   `formatter: '.weightState'` - the demo kit's own form, which
   samples-controls's sidecars record port after port having to drop - names
