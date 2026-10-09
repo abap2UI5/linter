@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `editable-control-without-binding` says the control "takes user input"
+  rather than that it "lets the user type": 152 of samples-controls's 343
+  findings are on controls nobody types into - RadioButton, CheckBox,
+  SegmentedButton, Switch, Slider, Select, RatingIndicator, RangeSlider.
+
 - **The metadata generator gives a class the methods it owns wherever the
   file writes them.** A file defining two classes was read as "from one
   extend call to the next", and sap/ui/unified/ColorPicker.js defines the
