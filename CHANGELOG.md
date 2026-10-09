@@ -398,14 +398,21 @@
   non-literally, one bound under `omit_initial`, and a document the first
   display does not show are not judged.
 
-- **New rule `rows-hidden-by-visible`** (warning). A bound aggregation whose
-  row template carries a binding-valued `visible`, in a class that raises no
-  size limit: a JSONModel hands a bound aggregation at most 100 entries and
-  the hidden rows are among them, so the list stops short of its data without
-  a word. samples-controls' overview app listed a few dozen of its 622 ports
-  that way. The narrow successor of the `bound-aggregation-over-size-limit`
-  rule dropped in 0.3: one hit on the same six corpora, the real one. A raw
-  view has no class to ask and is not judged.
+- **New rule `rows-hidden-by-visible`** (warning). The `items` of a
+  non-growing list (`sap.m.ListBase`: List, Table, GridList, Tree) bound
+  without a `length` and with a binding-valued `visible` on the row template,
+  in a class that raises no size limit: a JSONModel hands such a binding at
+  most 100 entries and the hidden rows are among them, so the list stops
+  short of its data without a word. samples-controls' overview app listed a
+  few dozen of its 622 ports that way. The narrow successor of the
+  `bound-aggregation-over-size-limit` rule dropped in 0.3. Where the limit
+  does not apply it is silent: a growing list pages with lengths of its own,
+  a binding info's `length` is passed through, and a raw view has no class
+  to ask. Neither is a MultiInput's `tokens` or a layout container's
+  repeated `items` judged - a value set or a repeater, not rows of data; the
+  first version reported the hidden tokens of abap2UI5/samples app 078, of
+  popups' `z2ui5_cl_popup_get_range_m` and sample 19 and of abap2UI5's
+  frozen copy, its only hits on seven corpora.
 
 - **New rule `invalid-css-value`** (error, fixable). A size, colour or
   percentage literal its UI5 type refuses - `width="100"`, `100 px`,
