@@ -73,6 +73,30 @@
 
 ### Rules
 
+- **A deprecation horizon: `deprecatedAt` / `--deprecated-at`, and the
+  rule `deprecated-after-target` (hint).** `ui5` answered two questions with
+  one number - what exists on the target, and what counts as deprecated -
+  so an app held to 1.71 heard nothing about the 60 controls and 58
+  members UI5 deprecated between 1.72 and 1.136, the legacy-free baseline
+  SAP measures best-practice code against (abap2UI5/linter#148). With
+  `"deprecatedAt": "1.136"` beside `"ui5": "1.71"`, what took effect after
+  the target and up to the horizon is reported, naming the replacement the
+  deprecation links and whether the target already has it
+  (`sap.m.MessagePage` → `IllustratedMessage`, @since 1.98: keep it until
+  the target moves). Every other rule still judges against `ui5`; a horizon
+  below the target is refused. Unset, nothing changes - no consumer sees a
+  new finding until it asks for the horizon.
+
+- **`native-html-in-view` (hint): native XHTML/SVG in a view.** UI5 1.120
+  deprecated markup in the XHTML and SVG namespaces inside an XML view; the
+  XMLView logs a `[FUTURE FATAL]` for it and the next major release refuses
+  the view. Reported once per island, on its outermost element, and only
+  on a target of 1.120 or later - below that it is a
+  `deprecated-after-target` under a horizon and silent without one. A hint
+  for its first release: abap2UI5 views have long carried `<html:style>`
+  blocks, and a corpus on a 1.120+ target should see its count before the
+  rule can fail a build.
+
 - **`chain-unbalanced-parens` ends an unclosed call at its statement's
   period.** Its scan read an unclosed `(` as open to the end of the file:
   every statement behind it ran into one, so a SECOND broken chain was

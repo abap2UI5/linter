@@ -20,6 +20,12 @@
  *                      system runs (default 1.71, alias --min-ui5). Controls and
  *                      members introduced later are reported, as are
  *                      deprecations already in effect at that version.
+ *   --deprecated-at <ver>  the deprecation horizon past --ui5 (e.g. 1.136, the
+ *                      legacy-free baseline): deprecations that take effect
+ *                      after the target and up to this version are reported
+ *                      as deprecated-after-target hints, naming the
+ *                      replacement and whether the target has it yet.
+ *                      Nothing else changes. Also "deprecatedAt" in the config
  *   --distribution <d>  sapui5 or openui5 - which distribution the target
  *                      system serves. On openui5, controls from SAPUI5-only
  *                      libraries (sap.ui.comp, sap.suite.*, ...) are reported
@@ -95,7 +101,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      168 rules passed" green, "7 errors" red)
+ *                      170 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·
@@ -221,7 +227,7 @@ import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource, isXmlSource } from './lib/index.mjs';
 import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
-import { snapshotVersion } from './lib/properties.mjs';
+import { snapshotVersion, withinUi5Floor } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes, MAX_FIX_PASSES } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
@@ -232,7 +238,7 @@ import { RULES_PAGE } from './lib/rule-docs.mjs';
 import { caseMatch } from './lib/suggest.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--distribution sapui5|openui5] '
+const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
@@ -493,6 +499,12 @@ for (let i = 0; i < args.length; i++) {
     opt.minUi5 = version;
     seen.add('minUi5');
   }
+  else if (a === '--deprecated-at') {
+    const version = value();
+    if (!UI5_VERSION_RE.test(version)) die(`${a} takes a version like 1.136 (got '${version}')`);
+    opt.deprecatedAt = version;
+    seen.add('deprecatedAt');
+  }
   else if (a === '--distribution') {
     const distribution = value().toLowerCase();
     if (!DISTRIBUTIONS.includes(distribution)) die(`--distribution takes ${DISTRIBUTIONS.join(' or ')} (got '${distribution}')`);
@@ -637,6 +649,12 @@ for (let i = 0; i < args.length; i++) {
   // failing in a browser. Raise it once you know the system.
   "ui5": "1.71",
 
+  // the deprecation horizon: what UI5 deprecated after your target and up
+  // to this version is reported as a hint (deprecated-after-target), with
+  // the replacement and whether your target has it yet. 1.136 is the
+  // legacy-free baseline SAP measures best-practice code against.
+  // "deprecatedAt": "1.136",
+
   // "sapui5" allows the libraries only SAPUI5 ships (sap.ui.comp, sap.suite.*,
   // sap.ushell, sap.fe). "openui5" turns those into errors. Leave the line out
   // entirely and they are hints instead - the linter says what it sees without
@@ -753,6 +771,13 @@ function resolveRun() {
         o.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file) }));
       }
     }
+  }
+  /* A horizon BELOW the floor would report nothing - every deprecation up to
+   * it is already in effect and reported as control-/member-deprecated. A
+   * setting that silently does nothing is the typo this tool refuses. Judged
+   * here, after the config: the two halves may come from different places. */
+  if (o.deprecatedAt && !withinUi5Floor(o.minUi5, o.deprecatedAt)) {
+    die(`deprecatedAt ${o.deprecatedAt} is below the ui5 target ${o.minUi5} - the horizon has to lie past the target (e.g. --ui5 1.71 --deprecated-at 1.136)`);
   }
   if (!runPaths.length) runPaths.push('src');
   // a badge is a verdict written to disk, and a watch is not one verdict -
