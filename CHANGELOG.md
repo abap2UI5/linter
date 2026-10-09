@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **A name written once with a string template resolves to it.**
+  `DATA(expr) = |\{= ${ client->_bind( flag ) } ? 'A' : 'B' \}|.` and
+  then `v = expr` on five controls - how a port hands one expression
+  binding around - was dropped as a value the gate cannot follow, because
+  only names assigned literals were followed: samples-controls apps 445
+  and 452 carried fifteen `unresolved-attribute-value` hints for it, and
+  the version findings on those attributes pointed at the control rather
+  than at the attribute. A second write of the name anywhere in the class
+  keeps it a variable, unresolved as before.
+
 - **A waiver of `unbound-public-attribute` / `unused-public-attribute` is
   not reported as unused where the run reads the attribute.** Both rules
   stand down for an attribute another class of the run reads (`->name`),
