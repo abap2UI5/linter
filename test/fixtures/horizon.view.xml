@@ -1,0 +1,18 @@
+<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:html="http://www.w3.org/1999/xhtml" xmlns:svg="http://www.w3.org/2000/svg">
+  <Page title="Deprecation horizon">
+    <!-- deprecated 1.112, replaced by IllustratedMessage (@since 1.98) -->
+    <MessagePage text="Nothing here"/>
+    <!-- valueHelpOnly: deprecated 1.119, no replacement named -->
+    <Input valueHelpOnly="true" value="{/VALUE}"/>
+    <!-- one island of native markup: reported on the div, not on the span -->
+    <html:div>
+      <html:span>native</html:span>
+      <Text text="a UI5 control inside native markup"/>
+    </html:div>
+    <svg:svg width="10" height="10"/>
+    <!-- a finding of another rule, which the horizon must leave as it is -->
+    <Button text="other" type="NotAType"/>
+    <!-- deprecated 1.149: past the 1.136 horizon, never reported here -->
+    <ActionSheet/>
+  </Page>
+</mvc:View>

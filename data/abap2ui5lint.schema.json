@@ -39,6 +39,11 @@
       "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
       "description": "Alias of \"ui5\"."
     },
+    "deprecatedAt": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+      "description": "The deprecation horizon past \"ui5\", e.g. \"1.136\" (the legacy-free baseline). Deprecations that take effect after the target and up to this version are reported as deprecated-after-target hints, naming the replacement and whether the target has it yet. Must not be below \"ui5\"."
+    },
     "distribution": {
       "enum": [
         "sapui5",
@@ -124,7 +129,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 168 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 170 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -290,6 +295,10 @@
         "denied-control-method": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'denied-control-method' — default severity: error"
+        },
+        "deprecated-after-target": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'deprecated-after-target' — default severity: hint"
         },
         "deprecated-library": {
           "$ref": "#/definitions/rule",
@@ -546,6 +555,10 @@
         "missing-view-display-on-navigated": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-view-display-on-navigated' — default severity: error"
+        },
+        "native-html-in-view": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'native-html-in-view' — default severity: hint"
         },
         "navigation-lost-on-rebuild": {
           "$ref": "#/definitions/rule",

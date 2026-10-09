@@ -80,6 +80,11 @@ export function buildSchema() {
         description: 'The UI5 version the target system runs. Controls and members introduced later are reported; deprecations are reported once in effect at this version.',
       },
       minUi5: { type: 'string', pattern: '^\\d+\\.\\d+(\\.\\d+)?$', description: 'Alias of "ui5".' },
+      deprecatedAt: {
+        type: 'string',
+        pattern: '^\\d+\\.\\d+(\\.\\d+)?$',
+        description: 'The deprecation horizon past "ui5", e.g. "1.136" (the legacy-free baseline). Deprecations that take effect after the target and up to this version are reported as deprecated-after-target hints, naming the replacement and whether the target has it yet. Must not be below "ui5".',
+      },
       distribution: {
         enum: ['sapui5', 'openui5'],
         description: 'Which distribution the target system serves. On "openui5", controls from SAPUI5-only libraries are errors; on "sapui5" they are not reported at all. Leave the key out and they are hints - the run cannot tell which system you deploy to.',
@@ -132,7 +137,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 168 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 170 rules passed").',
       },
       rules: {
         type: 'object',

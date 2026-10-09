@@ -5586,6 +5586,8 @@ section('rules page', async () => {
       ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
       ['malformed-xml', 'the builder serializes a tree, so no class can write a document that is not well-formed - the card is raw XML'],
       ['validating-setter-out-of-range', 'the only lower-bounded setter in the snapshot belongs to sap.ui.unified.RecurringCalendarAppointment, a control newer than the default floor - there it is too new for its values to be judged at all'],
+      ['deprecated-after-target', 'it fires only under a deprecation horizon (deprecatedAt), which the frame\'s default config never sets - test/review/deprecation-horizon.mjs judges it'],
+      ['native-html-in-view', 'native markup is deprecated since 1.120, past the default 1.71 floor the frame judges against - test/review/deprecation-horizon.mjs judges it on a 1.120 target'],
     ]);
     const wrappedFires = (id, half) => {
       const file = playgroundSource(id, half);

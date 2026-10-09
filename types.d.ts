@@ -30,6 +30,10 @@ declare module "@abap2ui5/linter" {
   export interface CheckOptions {
     /** The UI5 version of the target system (default "1.71"). */
     minUi5?: string;
+    /** The deprecation horizon past `minUi5` (e.g. "1.136"): deprecations
+     *  that take effect after the target and up to this version are reported
+     *  as `deprecated-after-target`. Unset (the default): no such findings. */
+    deprecatedAt?: string | null;
     /** Which distribution the target serves. Unset (the default) is its own
      *  answer, not a synonym for "sapui5": a SAPUI5-only control is then a
      *  hint rather than an error ("openui5") or nothing at all ("sapui5"). */
@@ -477,8 +481,21 @@ declare module "@abap2ui5/linter/properties" {
      *  is, and whether it is the frozen one — `member` carries the path. */
     what?: string;
     frozen?: boolean;
-    /** non-released-api: the object (or project) that took its place, if any. */
+    /** non-released-api: the object (or project) that took its place, if any.
+     *  deprecated-after-target: the replacement the deprecation names, when
+     *  the snapshot knows it. */
     replacement?: string;
+    /** deprecated-after-target: the replacement's own release, and whether
+     *  the target (`minUi5`) already has it. */
+    replacementSince?: string | null;
+    replacementAvailable?: boolean;
+    /** deprecated-after-target: what is deprecated - 'control', 'member' or
+     *  'native-markup' - and the horizon it was judged against. */
+    kind?: string | null;
+    deprecatedAt?: string;
+    /** native-html-in-view, deprecated-after-target (native-markup): 'XHTML'
+     *  or 'SVG'. */
+    namespace?: string | null;
     /** chain-indentation: which way the layout contradicts the tree
      *  ('siblings' | 'attributes' | 'outdented'). */
     shape?: string;
@@ -582,6 +599,8 @@ declare module "@abap2ui5/linter/properties" {
     opts: {
       data: unknown;
       minUi5?: string;
+      /** The deprecation horizon - see CheckOptions.deprecatedAt. */
+      deprecatedAt?: string | null;
       allow?: string[];
       distribution?: string;
       /** Without these two the binding-path rules cannot run at all. */
@@ -1113,6 +1132,7 @@ declare module "@abap2ui5/linter/config" {
      *  which is per rule. */
     ignore?: string[];
     minUi5?: string;
+    deprecatedAt?: string;
     distribution?: string;
     allow?: string[];
     render?: boolean;

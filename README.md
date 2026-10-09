@@ -86,6 +86,28 @@ refreshed with `npm run sync-portable-profile`. One class opts out with
 `" abap2ui5lint-disable portable-app` at its top, a path with the rule's
 `exclude` list.
 
+## Legacy-free code on an old target
+
+`ui5` is the release your system runs, and a deprecation is reported once it
+is in effect there — right for "will this break", silent about "is this
+legacy". An app held to 1.71 so that it runs on old systems can still be
+measured against SAP's legacy-free baseline with a second bound:
+
+```jsonc
+// abap2ui5lint.jsonc
+{
+  "ui5": "1.71",
+  "deprecatedAt": "1.136"   // or --deprecated-at 1.136
+}
+```
+
+Everything deprecated after the target and up to the horizon — controls,
+their properties and events, and native XHTML/SVG markup — is then a
+[`deprecated-after-target`](https://abap2ui5.github.io/linter/#deprecated-after-target)
+hint that names the replacement and says whether your target already has it
+(`sap.m.MessagePage` → `IllustratedMessage`, which needs 1.98: keep it until
+the target moves). Every other rule still judges against `ui5`.
+
 ## Where it runs
 
 The CLI, a GitHub Action (`abap2UI5/linter@v0`), and a library — plus two
