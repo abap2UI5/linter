@@ -5381,7 +5381,7 @@ section('compat', async () => {
     assert(/^\d+\.\d+$/.test(compat.ui5.floor) && compat.ui5.floor === UI5_FLOOR,
       `compat: ui5.floor is a UI5 minor (${compat.ui5.floor})`);
     // the floor the generator states is the one the library defaults to
-    const defaults = fs.readFileSync(path.join(ROOT, 'lib', 'index.mjs'), 'utf8').match(/minUi5: '([\d.]+)'/);
+    const defaults = fs.readFileSync(path.join(ROOT, 'lib', 'defaults.mjs'), 'utf8').match(/minUi5: '([\d.]+)'/);
     assert(defaults && defaults[1] === compat.ui5.floor,
       `compat: ui5.floor is the library's default minUi5 (${compat.ui5.floor} vs ${defaults?.[1]})`);
     const num = (v) => v.split('.').map(Number);

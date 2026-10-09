@@ -53,7 +53,7 @@ export const COMPAT_FILE = path.join(ROOT, 'data', 'compat.json');
  * assume something newer, and say which rule in the CHANGELOG. */
 export const FRAMEWORK_MINIMUM = '1.144.0';
 
-/* The default `minUi5` (lib/index.mjs DEFAULTS, the `--ui5` flag): abap2UI5's
+/* The default `minUi5` (lib/defaults.mjs DEFAULTS, the `--ui5` flag): abap2UI5's
  * own OpenUI5 floor. The gate's knowledge runs from here to the snapshot. */
 export const UI5_FLOOR = '1.71';
 

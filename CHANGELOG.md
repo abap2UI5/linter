@@ -425,6 +425,27 @@
 
 ### Also in this release
 
+- **`./check`: the entry point without the renderer.** `checkAbapSource( )`
+  and `checkXmlSource( )` move to `lib/check.mjs`, exported as
+  `@abap2ui5/linter/check` together with what they decide with -
+  `declaresApp`, `VIEWLESS_APP_RULE`, `sizeLimitRaised`,
+  `standDownUnusedNamespaces` (the `unused-namespace-declaration` stand-down,
+  a function now instead of a block inside `checkAbapSource( )`),
+  `frozenBuilderOf`/`FROZEN_BUILDERS`, `isXmlSource`, `isAbapGitXml`,
+  `xmlFileKind`. The main entry re-exports all of it unchanged; what it adds
+  is `checkFiles( )` with the worker pool and the renderer (`http`, `os`,
+  `module`), which a browser bundle cannot resolve - so the VS Code
+  extension's web build re-implemented each of those decisions and pinned
+  every copy to this source with a test of its own. Both entry points take
+  `data` (the snapshot itself, for a host without a path - from the new
+  `snapshotFromJson( )` on `./properties`, which reads data/properties.json's
+  text or object the way `loadSnapshot( )` reads the file) and `prep` (a
+  `prepareAbap( )` of the same source the caller already holds;
+  `checkFiles( )` ignores it). `npm test` imports `./check` in a fresh process
+  with a resolve hook and fails on the renderer, the entry point, a
+  `worker_threads`/`http`/`os`/`module` import or anything of the render
+  runtime. The pool's threads load `./check` too, not the renderer.
+
 - **A view nested 5,000 levels deep is judged.** Every walk over a tree
   recursed once per level, and the property walk ran out of stack at about
   a thousand: `RangeError: Maximum call stack size exceeded` out of the

@@ -57,6 +57,14 @@ declare module "@abap2ui5/linter" {
     file?: string;
     /** Path override for data/properties.json. */
     snapshot?: string;
+    /** The snapshot itself, as loadSnapshot( ) / snapshotFromJson( )
+     *  (`@abap2ui5/linter/properties`) return it - for a host that has no
+     *  path to hand over. Wins over `snapshot`. */
+    data?: unknown;
+    /** prepareAbap( ) of EXACTLY the source handed to checkAbapSource( ),
+     *  when the caller already has it (an editor memoises it per document
+     *  version). checkFiles( ) ignores it. */
+    prep?: import("@abap2ui5/linter/reconstruct").PreparedAbap;
     /** The other classes of the run, from classIndexOf( )
      *  (`@abap2ui5/linter/abap-rules`): what tells a `cs_event` a class
      *  inherits from its superclass apart from the client's. checkFiles
@@ -224,6 +232,58 @@ declare module "@abap2ui5/linter" {
    *  literals blanked) - what makes a class without a factory call an app
    *  class collectFiles keeps and checkAbapSource judges as `appWithoutView`. */
   export function declaresApp(source: string): boolean;
+}
+
+/**
+ * The property gate over ONE source with nothing that needs a browser, a
+ * thread or a socket - checkAbapSource( ) and checkXmlSource( ) exactly as
+ * the entry point exports them, plus the decisions they are made of. The
+ * entry point also carries checkFiles( ), and with it the renderer (`http`,
+ * `os`, `module`) and the worker pool, which a browser bundle cannot
+ * resolve; this subpath loads neither (npm test asserts it).
+ */
+declare module "@abap2ui5/linter/check" {
+  import type { CheckOptions, CheckResult } from "@abap2ui5/linter";
+  import type { PreparedAbap } from "@abap2ui5/linter/reconstruct";
+
+  export function checkAbapSource(source: string, opts?: CheckOptions): CheckResult;
+  export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
+  /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
+   *  literals blanked) - an app class, judged as `appWithoutView` when it
+   *  builds no view itself. */
+  export function declaresApp(source: string): boolean;
+  /** The rule ids an app class WITHOUT a view is judged by on top of
+   *  checkSourceRules( ): checkAbapSource keeps the findings of
+   *  checkAbapRules( ) whose type this matches. */
+  export const VIEWLESS_APP_RULE: RegExp;
+  /** Whether the class raises a model's size limit anywhere (the
+   *  `cs_event-set_size_limit` constant outside a literal, or the action
+   *  name as one) - checkNodes( )'s `sizeLimitRaised`. */
+  export function sizeLimitRaised(source: string): boolean;
+  /** The stand-down of `unused-namespace-declaration` where the
+   *  reconstruction is incomplete (`unplacedTokens`) or a prefix is written
+   *  in more builder literals than the documents carry. Returns the
+   *  surviving findings (the input is not mutated) and the rules that stood
+   *  down - for applyDirectives( )'s `stoodDown`. */
+  export function standDownUnusedNamespaces<F extends { type: string; member?: unknown }>(
+    findings: F[],
+    source: string,
+    prep: Pick<PreparedAbap, "unplacedTokens" | "nodes">
+  ): { findings: F[]; stoodDown: string[] };
+  /** The retired builder a source builds its view with
+   *  (`z2ui5_cl_xml_view`, `z2ui5_cl_xml_view_cc`), or null - a class
+   *  checkAbapSource reports `frozen-view-builder` for. */
+  export function frozenBuilderOf(content: string): string | null;
+  /** The retired builders, by class name. */
+  export const FROZEN_BUILDERS: readonly string[];
+  /** Whether checkFiles( ) reads a source as a raw XML view rather than an
+   *  ABAP class: a `.view.xml` / `.fragment.xml` name, or text opening `<`. */
+  export function isXmlSource(file: string | null | undefined, src: string): boolean;
+  /** Whether `src` is abapGit's own XML serialization rather than a view. */
+  export function isAbapGitXml(src: string): boolean;
+  /** How a raw XML file is loaded by its name: "fragment" for a
+   *  `.fragment.xml`, "view" for a `.view.xml`, undefined otherwise. */
+  export function xmlFileKind(file: string | null | undefined): "view" | "fragment" | undefined;
 }
 
 declare module "@abap2ui5/linter/reconstruct" {
@@ -441,6 +501,13 @@ declare module "@abap2ui5/linter/properties" {
   }
 
   export function loadSnapshot(file?: string): unknown;
+
+  /** The snapshot as checkNodes( ) reads it, from data/properties.json's
+   *  CONTENT (its text, or the parsed object) instead of a path - for a host
+   *  with no file system. What loadSnapshot( ) returns, minus the read and
+   *  the cache; handing the result back in returns it unchanged. Throws a
+   *  TypeError for anything without a `controls` object. */
+  export function snapshotFromJson(json: string | object): unknown;
 
   /** The ui5Version of the committed metadata snapshot ('' if unreadable). */
   export function snapshotVersion(file?: string): string;
