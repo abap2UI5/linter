@@ -8,6 +8,7 @@
  *      of the run reads is unjudged, not an unused directive
  *   2. a name written once with a string template resolves to that template
  *   3. a CONSTANTS value resolves, a structured one as `cs-name`
+ *   4. the browser's network error is not a render error of the view
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -126,5 +127,22 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkFiles
     // a work-area field is not a constant: still dropped, still said
     const wa = run(base, 'ls_row-type');
     assert(kinds(wa).join() === 'unresolved-attribute-value:', `a structure field nothing declares stays unresolved (${kinds(wa).join()})`);
+  });
+  /* ── 4. a host the gate cannot reach ─────────────────────────────────── */
+
+  /* samples-controls apps 118 and 168 give a Card a manifest on
+   * sdk.openui5.org. Where that host does not answer (a sandbox, an offline
+   * runner) the fetch rejects whenever the network says so - after the
+   * document's window, so view-gates failed app 180, 183, 184 or 185
+   * depending on the run, with "TypeError: Failed to fetch". */
+  section('corpus 2026-10-08: a fetch the network refuses is not a render error', async () => {
+    const dir = tempDir('a2l-fetch-');
+    const file = path.join(dir, 'card.view.xml');
+    fs.writeFileSync(file, '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:w="sap.ui.integration.widgets">\n'
+      + '  <w:Card manifest="http://127.0.0.1:9/manifest.json" width="300px"/>\n</mvc:View>\n');
+    const [r] = await checkFiles([file], { render: true });
+    const errors = (r.renderErrors ?? []).map(String);
+    assert(errors.length > 0, `the card without its manifest still reports what the card says (${errors.length})`);
+    assert(!errors.some((e) => /Failed to fetch/.test(e)), `but not the network error itself (${errors.filter((e) => /fetch/i.test(e)).join(' | ')})`);
   });
 }

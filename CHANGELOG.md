@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **The render gate leaves the browser's network error alone.** A Card
+  whose manifest lives on sdk.openui5.org (samples-controls apps 118 and
+  168) fetches it when it renders; where that host does not answer - a
+  sandbox, an offline runner - the fetch rejects whenever the network gives
+  up, after the document's window, and `TypeError: Failed to fetch` was
+  charged to whichever document the page rendered next: view-gates failed
+  app 180, 183, 184 or 185 depending on the run. Whether a remote URL
+  answers is not a property of the view, so the message joins the
+  environment noise the gate already waives. What the control says about
+  the missing resource is still reported.
+
 - **A `CONSTANTS` value resolves.** `CONSTANTS c_base_url TYPE string
   VALUE \`https://…\`` and `t = c_base_url && \`sample1.jpg\`` (samples-
   controls app 044, demo app 004), the chained `CONSTANTS:` form and one
