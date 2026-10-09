@@ -39,6 +39,15 @@
 
 ### Rules
 
+- **`chain-unbalanced-parens` ends an unclosed call at its statement's
+  period.** Its scan read an unclosed `(` as open to the end of the file:
+  every statement behind it ran into one, so a SECOND broken chain was
+  never reported, and a stray `)` further down was counted off against the
+  open one and vanished. A `.` before a blank ends the statement at any
+  depth now - `parenRegion( )`'s rule, since no ABAP call reaches past one -
+  so each broken chain is reported on its own statement. No corpus carries
+  one.
+
 - **`unbound-public-attribute` and `unused-public-attribute` see a reader in
   the same run.** A popup hands its result back through a PUBLIC attribute
   its caller reads (`CAST zcl_pop( client->get_app( … ) )->ms_result`), and

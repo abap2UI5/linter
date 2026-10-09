@@ -2,6 +2,7 @@
  * The third 2026-10-09 round. See test/review/README.md for the harness.
  *
  *   3. a tree nested 5,000 levels deep is judged, not a RangeError
+ *   4. an unclosed `(` ends at its statement's period
  */
 import cp from 'node:child_process';
 import fs from 'node:fs';
@@ -74,5 +75,35 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     }, tree, 0);
     assert(order.join() === 'a0,b1,c2,d2,e1,f2', `pre-order, siblings in order, state per child (${order.join()})`);
     assert([...nodesOf(tree)].map((n) => n.name).join('') === 'abcdef', 'nodesOf: the same order');
+  });
+
+  /* ── 4. an unclosed ( ends at its statement's period ─────────────────── */
+
+  /* noteUnbalancedParens read an unclosed `(` as open to the end of the
+   * file: every statement behind it ran into one, so a SECOND broken chain
+   * was never reported, and a stray `)` further down was counted off
+   * against the open one and vanished with it. parenRegion( ) has the rule
+   * the scan lacked - a `.` before a blank ends the statement at any depth,
+   * since no ABAP call reaches past one. */
+  section('round 2026-10-09c: chain-unbalanced-parens ends an unclosed call at its period', () => {
+    const app = (body) => 'CLASS zcl_p DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_text TYPE string.\nENDCLASS.\n'
+      + `CLASS zcl_p IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n${body}  ENDMETHOD.\nENDCLASS.\n`;
+    const open = '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( `Page`\n      )->tag( `Input` )->a( n = `value` v = client->_bind( mv_text ).\n'
+      + '    client->view_display( view->stringify( ) ).\n';
+    const extra = '    DATA(pop) = z2ui5_cl_ui5_view_builder=>factory( ).\n    pop->ele( `Dialog`\n      )->tag( `Text` )->a( n = `text` v = `x` ) ) ).\n'
+      + '    client->popup_display( pop->stringify( ) ).\n';
+    const unclosed = '    DATA(pop) = z2ui5_cl_ui5_view_builder=>factory( ).\n    pop->ele( `Dialog`\n      )->tag( `Text` )->a( n = `text` v = `x` .\n'
+      + '    client->popup_display( pop->stringify( ) ).\n';
+    const found = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'chain-unbalanced-parens')
+      .map((x) => `${/never/.test(x.value) ? 'open' : 'extra'}@${x.line}`).join();
+    const two = app(open + unclosed);
+    assert(found(two) === 'open@9,open@13', `two unclosed chains: two findings, each on its statement (${found(two)})`);
+    const then = app(open + extra);
+    assert(found(then) === 'open@9,extra@14', `an unclosed chain does not swallow the stray ) of the next (${found(then)})`);
+    assert(found(app(open)) === 'open@9', `one is one, where it always was (${found(app(open))})`);
+    // a period inside a literal, a comment or a number does not end anything
+    const literal = app('    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( `Page`\n      )->tag( `Text` )->a( n = `text` v = `a. b` " c. d\n      )->a( n = `width` v = `1.5rem` ).\n'
+      + '    client->view_display( view->stringify( ) ).\n');
+    assert(found(literal) === '', `no finding for a period in a literal or a comment (${found(literal)})`);
   });
 }
