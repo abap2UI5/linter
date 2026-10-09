@@ -369,11 +369,27 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     const body = [];
     for (let j = runAt + 1; j < lines.length && !(lines[j].trim() && lines[j].match(/^\s*/)[0].length <= indent); j++) body.push(lines[j]);
     const script = body.map((l) => l.slice(indent + 2)).join('\n');
+    /* The script is bash, not sh (arrays, `+=`, `read -a`, `<<<`): dash
+     * refuses it, so the suite's usual `sh -c` cannot run it. And a bare
+     * `bash` is not portable either - on a Windows runner it can resolve to
+     * System32's bash.exe, the WSL launcher, rather than the Git for Windows
+     * bash that `shell: bash` runs there. So: bash on Linux and macOS, Git's
+     * own bash.exe on Windows (found from `git --exec-path`, or under
+     * Program Files), and the shell half skipped, said so, without one. */
+    const bash = (() => {
+      if (process.platform !== 'win32') return 'bash';
+      const execPath = cp.spawnSync('git', ['--exec-path'], { encoding: 'utf8' }).stdout?.trim();
+      const candidates = [
+        execPath && path.resolve(execPath, '..', '..', '..', 'bin', 'bash.exe'), // <git>/mingw64/libexec/git-core
+        process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe'),
+      ];
+      return candidates.find((c) => c && fs.existsSync(c)) ?? null;
+    })();
     const dir = tempDir('a2l-action-');
     fs.writeFileSync(path.join(dir, 'cli.mjs'), "import fs from 'node:fs';\nfs.writeFileSync(process.env.ARGV_OUT, JSON.stringify(process.argv.slice(2)));\n");
     const argv = (env) => {
       const out = path.join(dir, 'argv.json');
-      const r = cp.spawnSync('bash', ['-c', script], {
+      const r = cp.spawnSync(bash, ['-c', script], {
         encoding: 'utf8',
         env: { ...process.env, ACTION_PATH: dir, RUNNER_TEMP: dir, GITHUB_OUTPUT: path.join(dir, 'out.txt'), ARGV_OUT: out,
           LINT_PATHS: 'src', LINT_RENDER: 'true', LINT_ANNOTATIONS: 'true', ...env },
@@ -381,10 +397,14 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
       assert(r.status === 0, `the step runs (${r.stderr})`);
       return JSON.parse(fs.readFileSync(out, 'utf8'));
     };
-    assert(!argv({}).includes('--no-render') && !argv({}).includes('--no-annotate'), 'the defaults pass neither');
-    for (const v of ['false', 'False', 'FALSE']) {
-      const a = argv({ LINT_RENDER: v, LINT_ANNOTATIONS: v });
-      assert(a.includes('--no-render') && a.includes('--no-annotate'), `${v}: --no-render and --no-annotate (${a.join(' ')})`);
+    if (!bash) {
+      assert(true, 'action.yml: no Git for Windows bash found - the lint step\'s script was not run (the cache checks below still ran)');
+    } else {
+      assert(!argv({}).includes('--no-render') && !argv({}).includes('--no-annotate'), 'the defaults pass neither');
+      for (const v of ['false', 'False', 'FALSE']) {
+        const a = argv({ LINT_RENDER: v, LINT_ANNOTATIONS: v });
+        assert(a.includes('--no-render') && a.includes('--no-annotate'), `${v}: --no-render and --no-annotate (${a.join(' ')})`);
+      }
     }
 
     /* The browser cache: Playwright's default directory is ~/.cache only on
