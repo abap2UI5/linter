@@ -11,6 +11,7 @@
  *   4. the browser's network error is not a render error of the view
  *   5. the metadata generator gives a class the methods it owns wherever
  *      the file writes them (ColorPicker's colorString)
+ *   6. a controller formatter in a class is an uncurated-formatter
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-export default function ({ section, assert, tempDir, checkAbapSource, checkFiles }) {
+export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSource, checkFiles }) {
   const opts = { render: false };
 
   /* ── 1. a waiver the run's other classes made redundant ──────────────── */
@@ -170,5 +171,31 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkFiles
     const cp = (snap.controls ?? snap)['sap.ui.unified.ColorPicker'];
     assert(cp.events.change.params.colorString?.fired === true && cp.events.liveChange.params.colorString?.fired === true,
       'sap.ui.unified.ColorPicker change/liveChange fire colorString');
+  });
+  /* ── 6. a controller formatter ───────────────────────────────────────── */
+
+  /* The demo kit binds `state="{path: 'WeightMeasure', formatter:
+   * '.weightState'}"` against its own controller, and samples-controls's
+   * sidecars record port after port that had to drop it. In an abap2UI5 view
+   * the controller is the framework's, which defines no formatter: the view
+   * does not load. Only the render gate said so. */
+  section('corpus 2026-10-08: a controller formatter in a class is an uncurated-formatter', () => {
+    const app = (v) => 'CLASS zcl_f DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA weight TYPE string.\nENDCLASS.\n\n'
+      + 'CLASS zcl_f IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+      + '    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + '    view->ele( n = `View` ns = `mvc` )->a( n = `xmlns` v = `sap.m` )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n'
+      + '        )->ele( `Page` )->tag( `ObjectNumber` )->a( n = `number` v = `1`\n'
+      + `            )->a( n = \`state\` v = ${v}\n`
+      + '        )->end( ).\n    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const fmt = (v) => checkAbapSource(app(v), opts).findings.filter((x) => x.type === 'uncurated-formatter').map((x) => x.value).join();
+    assert(fmt("|\\{ path: '{ client->_bind_path( weight ) }', formatter: '.weightState' \\}|") === '.weightState', 'the controller formatter is reported');
+    assert(fmt('`{ path: \'/WEIGHT\', formatter: ".formatter.weightState" }`') === '.formatter.weightState', 'in either quote, with a member path');
+    assert(fmt("`{ path: '/WEIGHT', formatter: 'Formatter.DateCreateObject' }`") === '', 'a curated formatter is not');
+    assert(fmt("`{ path: '/WEIGHT', formatter: 'my.lib.fmt' }`") === '', 'nor a global of somebody else');
+    const msg = checkAbapSource(app("`{ path: '/WEIGHT', formatter: '.weightState' }`"), opts).findings.find((x) => x.type === 'uncurated-formatter')?.message ?? '';
+    assert(/controller formatter/.test(msg) && !/'Formatter\./.test(msg), `the message names it a controller formatter (${msg.slice(0, 90)})`);
+    // a raw view may be a freestyle app's, with a controller of its own
+    const xml = checkXmlSource('<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" controllerName="my.C"><ObjectNumber number="1" state="{ path: \'/W\', formatter: \'.weightState\' }"/></mvc:View>', { ...opts, file: 'v.view.xml' });
+    assert(!xml.findings.some((x) => x.type === 'uncurated-formatter'), 'a raw view is left alone');
   });
 }

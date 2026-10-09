@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **`uncurated-formatter` reports a controller formatter in a class.**
+  `formatter: '.weightState'` - the demo kit's own form, which
+  samples-controls's sidecars record port after port having to drop - names
+  a function on the view's controller, and in abap2UI5 that controller is
+  the framework's, which defines none: the view fails to load with
+  *formatter function .weightState not found*. Only the render gate said
+  so, so the editor and every `--no-render` run passed it. A raw view is
+  left alone (it may be a freestyle app's, with a controller of its own).
+  No finding moved on the six corpora.
+
 - `editable-control-without-binding` says the control "takes user input"
   rather than that it "lets the user type": 152 of samples-controls's 343
   findings are on controls nobody types into - RadioButton, CheckBox,
