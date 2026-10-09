@@ -671,6 +671,8 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
   export function checkSourceRules(source: string): PropertyFinding[];
+  /** The rule ids checkSourceRules( ) can emit. */
+  export const SOURCE_RULES: ReadonlySet<string>;
 
   /** The frozen-builder half of `obsolete-custom-control` on its own:
    *  `_z2ui5( )->timer( )` and the seven other `z2ui5_cl_xml_view_cc`

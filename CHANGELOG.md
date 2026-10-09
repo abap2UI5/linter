@@ -144,6 +144,15 @@
   `portable-app`) on. It passed the config check and ran nothing; `true` now
   means "on, as it is".
 
+- `unused-directive` leaves a waiver alone where the rule it names never
+  ran: in an app class whose view another class builds, a helper class under
+  `--all-classes` and a class on the frozen builder, only some rules judge
+  the class (`SOURCE_RULES`, new on `./abap-rules`, plus the class-reading
+  rules for an app class), so a waiver of `unbound-public-attribute` or a
+  property-walk rule there had nothing it could suppress - and its fix
+  deleted the waiver the class needs the day its view moves back in. It is
+  unjudged now, as under `--no-properties`. No corpus carries one.
+
 ### Reconstruction
 
 - **A quote in a comment no longer silences the class.** The comment and
