@@ -695,6 +695,14 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  read from raw ABAP sources - checkFiles builds the same over its files. */
   export function classIndexOf(sources: Iterable<string>): import("@abap2ui5/linter").ClassIndex;
 
+  /** Whether another class of the run reads one of this class's PUBLIC
+   *  attributes (`outsideReads` in the class index) - the reads that stand
+   *  `unused-public-attribute` and `unbound-public-attribute` down. Where it
+   *  is true, a waiver of either rule in the class is unjudged (pass both
+   *  ids as `stoodDown` to applyDirectives) rather than `unused-directive`:
+   *  the same class linted alone still needs it. */
+  export function publicReadFromOutside(source: string, classIndex?: import("@abap2ui5/linter").ClassIndex | null): boolean;
+
   export function checkAbapRules(
     source: string,
     opts?: {

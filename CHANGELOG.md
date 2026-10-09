@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A waiver of `unbound-public-attribute` / `unused-public-attribute` is
+  not reported as unused where the run reads the attribute.** Both rules
+  stand down for an attribute another class of the run reads (`->name`),
+  so in a corpus run the waiver abap2UI5/samples app 024 carries for the
+  attribute app 025 sets suppressed nothing and became an
+  `unused-directive` - whose deleting fix removed the waiver the class
+  still needs when it is linted alone. Such a waiver is unjudged now, the
+  way one of `unused-namespace-declaration` is where that rule stands down.
+
 - `undefined-css-class` leaves a `class` value the reconstruction guessed:
   `|state-{ ls-row-state }|` in a LOOP came out as the guess `state-`, the
   literal part of a class completed at runtime, and was reported as a class
