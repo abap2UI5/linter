@@ -218,7 +218,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource } from './lib/index.mjs';
+import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource, isXmlSource } from './lib/index.mjs';
 import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion } from './lib/properties.mjs';
@@ -1002,8 +1002,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
   if (opt.fix) {
     const dryRun = opt.fixDryRun === true || process.env.ABAP2UI5LINT_FIX_DRY_RUN === 'true';
     const checkOpt = { ...opt, render: false };
-    const isXml = (file, src) => /\.(view|fragment)\.xml$/.test(file) || /^\s*</.test(src);
-    const indexOf = (texts) => classIndexOf([...texts.entries()].filter(([file, src]) => !isXml(file, src)).map(([, src]) => src));
+      const indexOf = (texts) => classIndexOf([...texts.entries()].filter(([file, src]) => !isXmlSource(file, src)).map(([, src]) => src));
     let results = await checkFiles(files, checkOpt);
     const original = new Map(results.map((r) => [r.file, fs.readFileSync(r.file, 'utf8')]));
     const current = new Map(original);
@@ -1043,11 +1042,11 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       const next = indexOf(current);
       const touched = new Set(changed);
       const recheck = [...current.keys()].filter((file) => touched.has(file)
-        || (!isXml(file, current.get(file)) && classIndexDeps(current.get(file), next) !== classIndexDeps(current.get(file), index)));
+        || (!isXmlSource(file, current.get(file)) && classIndexDeps(current.get(file), next) !== classIndexDeps(current.get(file), index)));
       index = next;
       results = recheck.map((file) => {
         const src = current.get(file);
-        const r = isXml(file, src)
+        const r = isXmlSource(file, src)
           ? checkXmlSource(src, { ...checkOpt, file })
           : checkAbapSource(src, { ...checkOpt, file, classIndex: index });
         r.file = file;
@@ -1108,8 +1107,6 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
     cache = { file, context, entries: loadCache(file, context) };
   }
 
-  // what checkFiles( ) reads as a raw view rather than a class
-  const isXmlSource = (file, src) => /\.(view|fragment)\.xml$/.test(file) || /^\s*</.test(src);
   const compute = async () => {
     // the watch loop's warm browser, or nothing: checkFiles opens its own then
     opt.renderer = await rendererFor(opt);
@@ -1117,8 +1114,7 @@ async function runOnce({ opt, paths, configFile = null, asked = false }) {
       const src = fs.readFileSync(0, 'utf8');
       // the filename decides the handling, exactly as collectFiles decides it
       // for a named path: the XML spellings, else content sniff, else ABAP
-      const isXml = /\.(view|fragment)\.xml$/.test(stdinName) || /^\s*</.test(src);
-      const r = isXml
+      const r = isXmlSource(stdinName, src)
         ? checkXmlSource(src, { ...opt, file: stdinName })
         : checkAbapSource(src, { ...opt, file: stdinName });
       r.file = stdinName;

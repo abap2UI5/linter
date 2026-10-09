@@ -179,6 +179,10 @@ declare module "@abap2ui5/linter" {
   export function checkXmlSource(xml: string, opts?: CheckOptions): CheckResult;
   /** Whether `src` is abapGit's own XML serialization rather than a view. */
   export function isAbapGitXml(src: string): boolean;
+  /** Whether checkFiles( ) reads a source as a raw XML view rather than an
+   *  ABAP class: a `.view.xml` / `.fragment.xml` file name, or text that
+   *  opens with `<`. */
+  export function isXmlSource(file: string | null | undefined, src: string): boolean;
   export function checkFiles(files: string[], opts?: CheckOptions): Promise<CheckResult[]>;
   /** Render every view the given files build and return the PNGs — the render
    *  gate as a preview. Needs the render runtime. */
