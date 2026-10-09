@@ -22,12 +22,24 @@ export function bestOf(work, tries = 3) {
   return best;
 }
 
-/** { ok, small, big } for `run(make(n))` against `run(make(4 * n))`. */
-export function scalesLinearly(make, run, n, { floorMs = 25, bound = 10 } = {}) {
+/** { ok, small, big } for `run(make(n))` against `run(make(4 * n))`.
+ *  `tries: 1` with `warm: false` is a SCREEN - one run each, for a sweep of
+ *  many cases over code the earlier ones already compiled. A case it fails
+ *  is asked again with the defaults before it counts (`screenedLinearly( )`),
+ *  so noise cannot fail a sweep; it can at most let one case through by
+ *  slowing its small run, which the next run of the suite asks again. */
+export function scalesLinearly(make, run, n, { floorMs = 25, bound = 10, tries = 3, warm = true } = {}) {
   const smallInput = make(n);
   const bigInput = make(4 * n);
-  run(smallInput); // warm: the first call pays for compiling the code
-  const small = bestOf(() => run(smallInput));
-  const big = bestOf(() => run(bigInput));
+  if (warm) run(smallInput); // warm: the first call pays for compiling the code
+  const small = bestOf(() => run(smallInput), tries);
+  const big = bestOf(() => run(bigInput), tries);
   return { ok: big < Math.max(small, floorMs) * bound, small: Math.round(small), big: Math.round(big) };
+}
+
+/** scalesLinearly( ) for a sweep: the one-run screen first, the full
+ *  question only for a case the screen did not pass. */
+export function screenedLinearly(make, run, n, options = {}) {
+  const screen = scalesLinearly(make, run, n, { ...options, tries: 1, warm: false });
+  return screen.ok ? screen : scalesLinearly(make, run, n, options);
 }

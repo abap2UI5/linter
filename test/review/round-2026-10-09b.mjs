@@ -3,7 +3,13 @@
  *
  *   1. a waiver in a class that builds no view, for a rule that never runs
  *      on such a class, is unjudged - not unused-directive
+ *   2. linear where test/review/timing-sweep.mjs found it was not: many
+ *      views with unused namespace declarations, many unclosed calls, a long
+ *      run of blanks after a statement's first word
  */
+import { scalesLinearly } from '../timing.mjs';
+import { parenRegion } from '../../lib/abap.mjs';
+
 export default function ({ section, assert, checkAbapSource }) {
   const opts = { render: false };
   const unused = (src, o = {}) => checkAbapSource(src, { ...opts, ...o }).findings
@@ -63,5 +69,58 @@ export default function ({ section, assert, checkAbapSource }) {
     const emitted = new Set(names.flatMap((n) => [...body(n).matchAll(/type: '([a-z0-9-]+)'/g)].map((m) => m[1])));
     assert(names.length === 4 && JSON.stringify([...emitted].sort()) === JSON.stringify([...SOURCE_RULES].sort()),
       `the set matches the emit sites of ${names.join(', ')} (missing: ${[...emitted].filter((id) => !SOURCE_RULES.has(id)).join(', ') || 'none'}; extra: ${[...SOURCE_RULES].filter((id) => !emitted.has(id)).join(', ') || 'none'})`);
+  });
+
+  /* ── 2. linear ───────────────────────────────────────────────────────── */
+
+  section('round 2026-10-09b: many views, many unclosed calls, a long blank run - all linear', () => {
+    /* The unused-namespace stand-down counted a prefix's uses in the whole
+     * source once per FINDING, and every document reports its own unused
+     * declarations: 200 views with 40 unused prefixes each took 5.7 s. */
+    const views = (k) => {
+      const xmlns = Array.from({ length: 40 }, (_, j) => `        )->a( n = \`xmlns:p${j}\` v = \`sap.p${j}\``).join('\n');
+      return 'CLASS zcl_q DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA client TYPE REF TO z2ui5_if_client.\n'
+        + Array.from({ length: k }, (_, i) => `    METHODS v${i}.`).join('\n')
+        + '\nENDCLASS.\nCLASS zcl_q IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    me->client = client.\n    v0( ).\n  ENDMETHOD.\n'
+        + Array.from({ length: k }, (_, i) => `  METHOD v${i}.\n    client->view_display( z2ui5_cl_ui5_view_builder=>factory( )->ele( n = \`View\` ns = \`mvc\`\n`
+          + `        )->a( n = \`xmlns\` v = \`sap.m\`\n        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`\n${xmlns}\n`
+          + '        )->ele( `Page` )->stringify( ) ).\n  ENDMETHOD.').join('\n') + '\nENDCLASS.\n';
+    };
+    const ns = checkAbapSource(views(2), opts).findings.filter((x) => x.type === 'unused-namespace-declaration');
+    assert(ns.length === 80, `the shape reports what it should: 40 unused prefixes per view (${ns.length})`);
+    const many = scalesLinearly(views, (src) => checkAbapSource(src, opts), 50);
+    assert(many.ok, `views with unused declarations: linear (${many.small} ms -> ${many.big} ms)`);
+
+    /* An unclosed call's argument list ran to the end of the file, so every
+     * rule that reads one read the rest of the class per call: 2,000 of them
+     * took 11 s. It ends at the statement now. */
+    const unclosed = (k) => 'CLASS zcl_q DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv TYPE string.\nENDCLASS.\n'
+      + 'CLASS zcl_q IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n'
+      + Array(k).fill('    view->tag( `Input` )->a( n = `value` v = client->_bind( mv ).').join('\n')
+      + '\n    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const calls = scalesLinearly(unclosed, (src) => checkAbapSource(src, opts), 500);
+    assert(calls.ok, `unclosed calls: linear (${calls.small} ms -> ${calls.big} ms)`);
+
+    /* `\s*\)?\s*` in unescaped-text-in-attribute's write reader split a run
+     * of blanks every possible way before failing: `CLASS-METHODS` and 32,000
+     * blanks took a second. */
+    const blanks = (k) => 'CLASS zcl_q DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
+      + `    CLASS-METHODS${' '.repeat(k)}class_constructor.\nENDCLASS.\nCLASS zcl_q IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n  ENDMETHOD.\n`
+      + '  METHOD class_constructor.\n  ENDMETHOD.\nENDCLASS.\n';
+    const run = scalesLinearly(blanks, (src) => checkAbapSource(src, opts), 8000);
+    assert(run.ok, `a long blank run after the first word: linear (${run.small} ms -> ${run.big} ms)`);
+  });
+
+  section('round 2026-10-09b: an unclosed call ends at its statement; a comment is not code', () => {
+    const src = 'x = foo( a = 1.\ny = bar( b = 2 ).\n';
+    const r = parenRegion(src, src.indexOf('('));
+    assert(r.body === ' a = 1' && r.end === src.length, `the body stops at the period, the end still says "unclosed" (${JSON.stringify(r)})`);
+    const commented = 'x = foo( a = 1 " a comment with ) and . in it\n  b = 2 ).';
+    assert(parenRegion(commented, commented.indexOf('(')).body.trim().endsWith('b = 2'),
+      'a ) and a . in a trailing comment neither close nor end the call');
+    const star = 'x = foo( a = 1\n* b = 2 ). in a comment line\n  c = 3 ).';
+    assert(parenRegion(star, star.indexOf('(')).body.trim().endsWith('c = 3'), 'nor in a * comment line');
+    const literal = 'x = foo( a = `. ) ` b = |{ c }. | ).';
+    assert(parenRegion(literal, literal.indexOf('(')).body === ' a = `. ) ` b = |{ c }. | ', 'nor in a literal or a template');
   });
 }

@@ -222,6 +222,17 @@ asks it through `test/timing.mjs` (`scalesLinearly( )`: n against 4n, best
 of three, a 10x bound between linear's 4x and quadratic's 16x), never with a
 bare wall-clock bound: the suite runs on loaded CI runners, and a fixed
 number of milliseconds is a flake waiting for a slow one.
+`test/review/timing-sweep.mjs` asks it of every rule at once: each card's
+example (`playgroundSource( )`) grown in nine shapes - long line, line
+block, nesting - on one worker per core, screened with one run each and
+asked again with the best of three where the screen fails
+(`screenedLinearly( )`). Two things it does not ask: nesting deeper than a
+few hundred levels (the property walk recurses per level and runs out of
+stack at about a thousand - a crash, not a growth question), and a growth
+whose quadratic part is still small at the sizes it can afford (many
+documents, many unclosed calls): those have targeted tests in
+`round-2026-10-09b.mjs`. A rule whose card changes shape changes what the
+sweep exercises, so a new rule is swept without anything to register.
 
 **Before writing a rule, ask whether the file is even collected.** A rule can
 fail in two places and only one of them is visible: it can judge wrongly, or it

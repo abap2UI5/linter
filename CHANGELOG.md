@@ -355,6 +355,24 @@
 - The class index (`outsideReads`) finds typed references by their `TYPE
   REF TO` keyword instead of trying a name at every word of every class.
 
+- **Every rule is swept for growth.** `test/review/timing-sweep.mjs` takes
+  each rule's card - the example the rules page wraps into a class and
+  verifies - and grows it around the reported line in nine shapes (a long
+  run of blanks, a long literal, a long comment; a block of comment lines,
+  of declarations, the statement repeated, the method copied; nested IFs and
+  a nested view), every case judged n against 4n (`screenedLinearly( )` in
+  `test/timing.mjs`: one run each, the best of three only where that does
+  not pass), plus four raw-view shapes. What it and the shapes behind it
+  found, all three linear now: a class of many views with unused namespace
+  declarations counted each prefix over the whole source once per finding
+  (200 views, 5.7 s); an unclosed call handed the rule reading it the rest of
+  the file as its argument list, so 2,000 of them took 11 s (`parenRegion( )`
+  ends such a list at the statement's period now, and reads a `"` or `*`
+  comment as a comment); and `unescaped-text-in-attribute`'s write reader
+  split a long blank run after a statement's first word every possible way
+  (`CLASS-METHODS` and 32,000 blanks, a second). No finding changes on the
+  seven corpora.
+
 ### Action
 
 - **`render: False` means false.** GitHub compares strings in an `if:`
