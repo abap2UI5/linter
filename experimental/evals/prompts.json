@@ -1,0 +1,62 @@
+[
+  {
+    "id": "table-filter",
+    "ask": "Build me an abap2UI5 app that shows a table of flight bookings (carrier, connection number, date, price) with an input field above it to filter by carrier. Filtering happens in the backend.",
+    "covers": "the commonest first app - a bound table, a bound input, one event"
+  },
+  {
+    "id": "value-help",
+    "ask": "In an abap2UI5 app, the user should pick a customer for an input field from a popup list instead of typing the id. Write the app.",
+    "covers": "a second app as a value help, and what comes back from it"
+  },
+  {
+    "id": "nav-two-apps",
+    "ask": "Write two abap2UI5 apps: a list of cost centres, and a detail screen for one cost centre. Clicking a row opens the detail app, and leaving it returns to the list with the selection kept.",
+    "covers": "navigation between apps and the display branch after returning"
+  },
+  {
+    "id": "form-validation",
+    "ask": "Write an abap2UI5 app with a form of three fields (name, email, amount) and a save button. On save, empty or invalid fields must be reported to the user.",
+    "covers": "messages, and whether validation lands in ABAP or is invented in the frontend"
+  },
+  {
+    "id": "confirm-delete",
+    "ask": "An abap2UI5 app shows a list of documents. Deleting one must ask the user to confirm first, and only then delete.",
+    "covers": "a confirm popup and the event that follows it"
+  },
+  {
+    "id": "editable-table",
+    "ask": "Write an abap2UI5 app with an editable table where the user can add a row, change the cells and delete the selected rows.",
+    "covers": "two-way binding over a table and row-level state"
+  },
+  {
+    "id": "upload-download",
+    "ask": "Write an abap2UI5 app that lets the user upload a CSV file, shows its rows in a table, and offers the same file for download again.",
+    "covers": "file transfer in both directions"
+  },
+  {
+    "id": "tabs-icons",
+    "ask": "Write an abap2UI5 app with three tabs - overview, items, notes - each with its own icon and its own content.",
+    "covers": "an icon tab bar, and whether the icon names exist"
+  },
+  {
+    "id": "chart",
+    "ask": "Write an abap2UI5 app that shows monthly revenue as a bar chart.",
+    "covers": "charting, where the control may not exist on the target distribution"
+  },
+  {
+    "id": "tree",
+    "ask": "Write an abap2UI5 app that shows cost centres as a tree with expandable nodes.",
+    "covers": "a nested aggregation built from ABAP data"
+  },
+  {
+    "id": "currency-i18n",
+    "ask": "Write an abap2UI5 app that lists invoice amounts formatted as currency, with the column headers translatable.",
+    "covers": "formatting and texts - the two things typically invented client-side"
+  },
+  {
+    "id": "busy-progress",
+    "ask": "Write an abap2UI5 app with a button that starts a long-running calculation, shows a busy state while it runs and a progress bar with the result.",
+    "covers": "state that has to survive a roundtrip rather than live in the browser"
+  }
+]

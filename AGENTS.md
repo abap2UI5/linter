@@ -1585,6 +1585,39 @@ never reaches the package. Treat it as documentation that happens to execute.
   divergence this bullet used to describe is closed; keep the config loader
   backward compatible, three consumers read it now.
 
+## `experimental/evals/` — what a model writes, measured
+
+`frozen-view-builder` is a rule here because the public web taught
+`z2ui5_cl_xml_view`: a model asked for an app answers from that, in an API that
+is no longer the one to use. The documentation's AI page, the framework's
+`AGENTS.md` and `llms.txt`, the plugin and the MCP server exist to correct it.
+Whether they do is a **number**, and `experimental/evals/` is where it is
+produced — twelve prompts phrased the way a user asks, answered in a fresh
+model session with nothing in the context, scored by this checkout's CLI.
+
+- `node experimental/evals/score.mjs --prompts` prints the pack. Answers are
+  saved as `<prompt-id>.clas.abap`; `score.mjs <dir> --label <run>` reports the
+  headline rows — current builder, frozen builder, no view built, not an app
+  class, clean — plus findings grouped by `CATEGORIES` with the taxonomy's own
+  titles, so a rule or category added in `lib/rule-docs.mjs` appears there
+  without this directory being touched. `--json-out` keeps a run comparable,
+  `--render` answers whether the view loads rather than whether it names real
+  controls.
+- It calls **no model**: no keys, no vendor list, no per-run cost that would
+  keep it out of reach, and no claim here about which models matter next month.
+  The harness is the artefact; the answers are data.
+- The run uses the linter's **defaults** (1.71, fail on warning, distribution
+  unset) deliberately: that is the verdict a consumer gets with no
+  configuration, which is where the measured code would land.
+- **Not in `npm test`**, not in any release, excluded from the npm `files`
+  allowlist — the same standing as `github-app/`, and for a sharper reason: a
+  scoring run needs answers, which CI does not have.
+- A session that has already read abap2UI5 documentation — including an agent
+  working in this repository — is contaminated and cannot produce a baseline.
+  `experimental/evals/README.md` says what the numbers do and do not mean
+  before anyone quotes one.
+
+
 ## Relation to samples-controls — this repo is canonical now
 
 > **One name, three spellings in the history.** The corpus repository is
