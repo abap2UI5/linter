@@ -1513,8 +1513,9 @@ never reaches the package. Treat it as documentation that happens to execute.
   moved to an **npm range** (`^0.8.3` as of 2026-09; its `bump_linter.yaml` raises it) and lets `package-lock.json` decide which
   published version its gates actually run, bumped weekly to `latest` by its
   own `bump_linter.yaml` (which runs the full strict view gates over the 416
-  ports before the PR exists). The VS Code extension still pins
-  `github:abap2UI5/linter#<sha>` in its `package-lock.json`. Either way the
+  ports before the PR exists). The VS Code extension pins an EXACT published
+  version (`"@abap2ui5/linter": "0.8.5"`, since its 0.30.2 - before that a
+  `github:abap2UI5/linter#<sha>`), moved by its own `bump-linter.yml`. Either way the
   downstream workflow is what says a bump is safe. npm additionally serves the
   consumers that have no such workflow — a developer linting their own app,
   and anyone who wants a pinnable version instead of `@main`.
@@ -1575,9 +1576,10 @@ never reaches the package. Treat it as documentation that happens to execute.
   part of that contract** — it may grow keys (`problems` was added that way),
   never lose or rename them. The human `stylish` output is not: it is for
   people, and it changed shape once already.
-- The VS Code extension additionally pins a **linter commit SHA** in its
-  `package-lock.json` for the bundled property gate — a new finding type is
-  invisible in the editor until that lock is bumped there.
+- The VS Code extension additionally records the **release commit** of the
+  linter version it bundles (`linterRelease` in its `package.json`) to pick
+  the matching `render-gate-bundle-<sha12>` — a new finding type is invisible
+  in the editor until that pin is bumped there.
 - **`abap2ui5lint.jsonc` is honoured by the CLI, the Action AND the VS Code
   extension** — the extension discovers it via `findConfigFrom`/`loadConfig`
   from `@abap2ui5/linter/config` and lets it beat the VS Code settings
@@ -1641,8 +1643,9 @@ ports, POST_171 deviations, declared skips, advisories). Rules of thumb:
 - **No consumer follows main.** samples-controls takes this repo from npm
   (`"@abap2ui5/linter": "^0.8.3"` at the time of writing, resolved by its `package-lock.json`, moved
   to the latest published version weekly by its `bump_linter.yaml`); the VS
-  Code extension pins a **commit SHA** (`github:abap2UI5/linter#<sha>`) in its
-  lock; mcp-server pins nothing and imports whatever checkout sits beside it. So a
+  Code extension pins an **exact published version** plus its release commit
+  (`linterRelease`); mcp-server declares a peer range on the published minor
+  and imports a checkout beside it first. So a
   merge here reaches nobody on its own except an mcp-server developer: for the
   other two, moving the pin is a deliberate change in the consumer, and the
   downstream workflow is what says whether that move is safe. A pin pointing
