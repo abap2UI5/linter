@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-10-11
+
 ### Read before upgrading
 
 - **This release is 0.9.0, not 0.8.6.** In `0.x` the minor is the number
@@ -513,6 +515,18 @@
 
 ### Metadata
 
+- **The snapshot is OpenUI5 1.153.0** (from 1.152.0): `data/properties.json`,
+  `data/icons.json` and the `@openui5/*` pins of `@abap2ui5/linter-render`
+  moved together (RELEASING.md step 1c). One control is new
+  (`sap.ui.core.tooltip.TooltipFocusGuard`) and three enums
+  (`sap.m.InputDescriptionAlign`, `sap.ui.core.popover.PopoverPlacement`,
+  `sap.ui.table.ShowScrollHandle`); the icon font is unchanged (707 names).
+  A member new in 1.153 was an `unknown-*` "typo?" finding and a render
+  failure; it is now `*-too-new` against a lower `minUi5`, which a consumer
+  can accept. A `@abap2ui5/linter-render` of 0.8.x serves 1.152 and is named
+  on stderr as a version gap (`runtimeSnapshotMismatch`): install the 0.9.0
+  runtime with this release.
+
 - **The generator gives a class the methods it owns wherever the file
   writes them.** sap/ui/unified/ColorPicker.js defines the private
   `_ColorPickerBox` between the picker's extend call and the picker's own
@@ -775,14 +789,14 @@
   method (reported without a fix when nothing there displays); one that does
   not leave is not a navigated branch.
 
-- **`@abap2ui5/linter-render` asks for `playwright ^1.63.0`.** The workspace
+- **`@abap2ui5/linter-render` asks for `playwright ^1.64.0`.** The workspace
   manifest still said `^1.61.1` while `@abap2ui5/mcp-server`, samples-controls
-  and the playground had moved to `^1.63.0`, so a project installing the
-  render runtime next to one of them resolved TWO Playwright versions - two
-  packages in the tree and two Chromium downloads for one browser. The lock
-  already resolved 1.63.0; the range now says so, and one install shares the
-  one Playwright. The `@openui5` pins are untouched: they are the metadata
-  snapshot (RELEASING.md step 1c), not a dependency.
+  and the playground had moved on, so a project installing the render
+  runtime next to one of them resolved TWO Playwright versions - two
+  packages in the tree and two Chromium downloads for one browser. The range
+  now follows the sibling repositories (`^1.64.0`, as `@abap2ui5/mcp-server`
+  asks), and one install shares the one Playwright. The `@openui5` pins moved
+  with the metadata snapshot (see Metadata), not as a dependency.
 
 ## 0.8.5 - 2026-09-30
 

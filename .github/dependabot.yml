@@ -18,6 +18,12 @@ updates:
       interval: monthly
       time: "06:30"
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node follows engines.node (>=22), not the newest Node: it only
+      # type-checks types.d.ts, and typings of a later major would accept
+      # what a Node 22 consumer's do not. Move it with the engine, by hand.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # The @openui5 pins get a group of their own because they are not a
       # dependency bump, they are a KNOWLEDGE bump: moving them makes
