@@ -26,7 +26,7 @@ npm run sync-portable-profile     # data/portable-v1.json - abap2UI5/protocol's 
                                   # -- --check compares only); npm test pins its hash
 npm run generate-compat           # data/compat.json - after a version bump, or with
                                   # -- --local <abap2UI5 checkout> after a mirror sync
-node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 79
+node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 81
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
 npm run generate-dependents       # the README "Used by" list - NEEDS NETWORK
@@ -738,7 +738,7 @@ would need, or why it can never be one. Three of them were marked ready:
 `data/icons.json` is the round's new knowledge file, and the first one built by
 **scanning history** rather than one snapshot: `scripts/generate-icons.mjs`
 packs the `@openui5/sap.ui.core` registry of every minor from 1.71 to the
-pinned version (79 releases) and records, per icon, the release it first
+pinned version (81 releases) and records, per icon, the release it first
 appears in. That is what makes `icon-too-new` answer for *any* target instead
 of only for the floor — the staging entry had proposed a bare 1.71 name list,
 which would have been silent above the floor. It also surfaced a fact no
@@ -1226,7 +1226,7 @@ nothing.
 
 ## `data/properties.json` is generated — never hand-edit
 
-The 506 KB one-line snapshot (`ui5Version` 1.152.0, 962 controls, 240
+The 508 KB one-line snapshot (`ui5Version` 1.153.0, 963 controls, 243
 enums) is generated from the installed `@openui5/*` packages (or
 `OPENUI5_DIR`) by:
 
