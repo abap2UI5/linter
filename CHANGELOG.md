@@ -400,6 +400,18 @@
   same directory walk; the CLI walked the tree a second time and read every
   class twice. `collectFiles( )` takes an `onIgnored` callback for it.
 
+- **A config writes only inside its own directory.** The `badge` files (on
+  every run) and the `baseline` (`--update-baseline`) a config names are
+  repository content, and a cloned repository's `"badge": {"file":
+  "../../.bashrc", "label": "..."}` had a plain `npx @abap2ui5/linter` in it
+  overwrite that file with JSON whose label the config chose. A path that is
+  absolute or leaves the config's directory is now refused when the config
+  is loaded (exit 2, the message names the key), and one that leaves it
+  through a symbolic link the repository ships is refused when it would be
+  written. `--badge`, `--badge-corpus` and `--baseline` on the command line
+  still write wherever they point. Every downstream config names files
+  under its own directory and is unaffected.
+
 - A UTF-8 BOM no longer shifts the columns of line 1 by one.
 
 - `isXmlSource( )` on the main export: whether `checkFiles( )` reads a
@@ -407,6 +419,13 @@
   `--fix` passes and the cache's class index share.
 
 ### `--cache`
+
+- **The cache file is never written through a symbolic link.** It sits in
+  the working directory - the repository - so a repository that shipped
+  `.abap2ui5lintcache` as a link to a file of the user's, beside
+  `"cache": true`, had every run overwrite that file. A link there is now
+  refused with one line on stderr (the run itself is unaffected, as for any
+  cache that cannot be written).
 
 - **`--cache` follows the class index and the linter's own code.** A class
   is judged against what its superclass declares (`cs_event`) and what the
