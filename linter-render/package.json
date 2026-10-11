@@ -28,19 +28,19 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@openui5/sap.f": "1.152.0",
-    "@openui5/sap.m": "1.152.0",
-    "@openui5/sap.tnt": "1.152.0",
-    "@openui5/sap.ui.codeeditor": "1.152.0",
-    "@openui5/sap.ui.core": "1.152.0",
-    "@openui5/sap.ui.integration": "1.152.0",
-    "@openui5/sap.ui.layout": "1.152.0",
-    "@openui5/sap.ui.table": "1.152.0",
-    "@openui5/sap.ui.unified": "1.152.0",
-    "@openui5/sap.uxap": "1.152.0",
-    "@openui5/themelib_sap_horizon": "1.152.0",
+    "@openui5/sap.f": "1.153.0",
+    "@openui5/sap.m": "1.153.0",
+    "@openui5/sap.tnt": "1.153.0",
+    "@openui5/sap.ui.codeeditor": "1.153.0",
+    "@openui5/sap.ui.core": "1.153.0",
+    "@openui5/sap.ui.integration": "1.153.0",
+    "@openui5/sap.ui.layout": "1.153.0",
+    "@openui5/sap.ui.table": "1.153.0",
+    "@openui5/sap.ui.unified": "1.153.0",
+    "@openui5/sap.uxap": "1.153.0",
+    "@openui5/themelib_sap_horizon": "1.153.0",
     "less-openui5": "^0.12.0",
-    "playwright": "^1.63.0"
+    "playwright": "^1.64.0"
   },
   "engines": {
     "node": ">=22"
