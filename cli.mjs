@@ -237,6 +237,36 @@ import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkd
 import { RULES_PAGE } from './lib/rule-docs.mjs';
 import { caseMatch } from './lib/suggest.mjs';
 
+/** Whether `target` - every symbolic link on its path resolved - lies outside
+ *  the directory `root`. For a path not written yet the nearest existing
+ *  ancestor is resolved; a dangling link on the way is outside (writing
+ *  through it creates its target, wherever that is). True on any error. The
+ *  write-time half of `ownTree` in lib/config.mjs: a repository can ship
+ *  `.github/badges` as a link out of itself. */
+function outsideTree(root, target) {
+  try {
+    const realRoot = fs.realpathSync(root);
+    let at = path.resolve(target);
+    const rest = [];
+    for (;;) {
+      let st = null;
+      try { st = fs.lstatSync(at); } catch { /* not there - go up */ }
+      if (st) {
+        if (st.isSymbolicLink() && !fs.existsSync(at)) return true;
+        break;
+      }
+      const up = path.dirname(at);
+      if (up === at) return true;
+      rest.unshift(path.basename(at));
+      at = up;
+    }
+    const real = path.join(fs.realpathSync(at), ...rest);
+    return !(real === realRoot || real.startsWith(realRoot + path.sep));
+  } catch {
+    return true;
+  }
+}
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
@@ -763,12 +793,16 @@ function resolveRun() {
         if (!runPaths.length) runPaths.push(...indexPaths);
       }
       // a baseline named in the config lives next to the config, not the cwd
+      // - and is written only inside the config's tree (outsideTree); one
+      // named on the command line is the user's and goes anywhere
+      o.baselineRoot = undefined;
       if (!seen.has('baseline') && cfg.baseline) {
         o.baseline = path.resolve(path.dirname(configFile), cfg.baseline);
+        o.baselineRoot = cfg.baselineRoot ?? path.dirname(configFile);
       }
       // ditto the badge files: the config says where in the REPO they belong
       if (!seen.has('badge') && cfg.badge) {
-        o.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file) }));
+        o.badge = cfg.badge.map((b) => ({ ...b, file: path.resolve(path.dirname(configFile), b.file), root: b.root ?? path.dirname(configFile) }));
       }
     }
   }
@@ -1014,6 +1048,12 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
   const emitBadge = (summary, stats) => {
     if (!opt.badge) return;
     for (const badge of opt.badge) {
+      if (badge.root && outsideTree(badge.root, badge.file)) {
+        console.error(`abap2ui5lint: could not write the badge file ${badge.file}: it resolves, through a symbolic link, `
+          + `outside ${badge.root}, the directory of the config that names it`);
+        outputFailed = true;
+        continue;
+      }
       const text = `${JSON.stringify(badgeEndpoint(summary, stats, { ...badge, rules: opt.rules }), null, 2)}\n`;
       if (!writeBeside('the badge file', badge.file, text)) continue;
       if (opt.format === 'stylish' && !opt.quiet) {
@@ -1276,6 +1316,10 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
    * too — a suppression can never quietly outlive what it suppressed. */
   if (updateBaseline) {
     const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
+    if (opt.baselineRoot && outsideTree(opt.baselineRoot, file)) {
+      die(`refusing to write the baseline file ${file}: it resolves, through a symbolic link, outside ${opt.baselineRoot}, `
+        + 'the directory of the config that names it (name a file elsewhere with --baseline)');
+    }
     /* The files this run looked at get their entries replaced; every other
      * file's entries stay. Rebuilding from this run alone shrank a baseline
      * over `src` to the one file an update happened to be run on. */

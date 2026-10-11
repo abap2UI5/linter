@@ -5115,6 +5115,29 @@ section('run summary, progress and badge', async () => {
       'an unknown kind names the two that exist instead of silently writing neither');
     rejects('{ "badge": [{ "file": "a.json" }, { "file": "b.json" }] }', /lists kind 'checks' twice/,
       'the same badge written to two files is a copy-paste, and says so');
+
+    // a config is repository content: what it names to WRITE stays in its tree
+    rejects('{ "badge": "../../outside.json" }', /'badge' names \.\.\/\.\.\/outside\.json, which is outside this config's directory/,
+      'a badge path out of the config\'s directory is refused - a cloned repository chose it, not the user');
+    rejects(JSON.stringify({ badge: { file: path.join(os.tmpdir(), 'abs.json') } }), /outside this config's directory.*--badge/,
+      'an absolute badge path is refused, and the message names the command-line flag that still writes anywhere');
+    rejects('{ "baseline": "../baseline.json" }', /'baseline' names \.\.\/baseline\.json, which is outside/,
+      'a baseline path out of the config\'s directory is refused too (--update-baseline writes it)');
+    // ... and a link the repository ships is not followed out of it at write time
+    const away = tempDir('a2ui5badge-away-');
+    fs.symlinkSync(away, path.join(dir, 'linked'), 'dir');
+    fs.writeFileSync(cfgFile, '{ "badge": "linked/badge.json" }');
+    const linked = run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile]);
+    assert(linked.code === 2 && !fs.existsSync(path.join(away, 'badge.json')),
+      `badge: a config-named badge that resolves through a symbolic link out of the config's tree is not written (exit ${linked.code})`);
+    const flagged = run([path.join(dir, 'good.clas.abap'), '--no-render', '--badge', path.join(dir, 'linked', 'badge.json')]);
+    assert(flagged.code === 0 && fs.existsSync(path.join(away, 'badge.json')),
+      'badge: one named on the command line is the user\'s own choice and is written where it points');
+    fs.writeFileSync(cfgFile, '{ "baseline": "linked/baseline.json" }');
+    const based = run([path.join(dir, 'good.clas.abap'), '--no-render', '--config', cfgFile, '--update-baseline']);
+    assert(based.code === 2 && !fs.existsSync(path.join(away, 'baseline.json')),
+      `baseline: --update-baseline does not write a config-named baseline through a link out of the tree (exit ${based.code})`);
+    fs.rmSync(away, { recursive: true, force: true });
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
