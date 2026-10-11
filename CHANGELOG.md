@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-10-11
+
 ### Read before upgrading
 
 - **This release is 0.9.0, not 0.8.6.** In `0.x` the minor is the number

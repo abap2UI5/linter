@@ -90,8 +90,8 @@ changed:
 - **patch** when the lockfile bump is the whole upgrade: fixes, new rules
   that are silent on the downstream corpora, new exports, speed.
 
-The Unreleased section after 0.8.5 is a minor - 0.9.0 - for the reasons its
-first bullet lists.
+0.9.0 was a minor for the reasons the first bullet of its CHANGELOG section
+lists.
 
 ## Every release
 
