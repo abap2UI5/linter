@@ -420,6 +420,13 @@
 
 ### `--cache`
 
+- **The cache file is never written through a symbolic link.** It sits in
+  the working directory - the repository - so a repository that shipped
+  `.abap2ui5lintcache` as a link to a file of the user's, beside
+  `"cache": true`, had every run overwrite that file. A link there is now
+  refused with one line on stderr (the run itself is unaffected, as for any
+  cache that cannot be written).
+
 - **`--cache` follows the class index and the linter's own code.** A class
   is judged against what its superclass declares (`cs_event`) and what the
   other classes read of it (`outsideReads`), and a cached run built that

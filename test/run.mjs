@@ -1361,6 +1361,18 @@ section('cache', async () => {
       'cache: another context reads as empty');
     saveCache(cacheFile, 'ctx', { a: { hash: 'h', result: {} } });
     assert(loadCache(cacheFile, 'ctx').a.hash === 'h', 'cache: save/load round-trips');
+    // the cache sits in the working directory - the repository - and a link
+    // the repository ships there is never written through
+    const victim = path.join(tempDir('a2ui5cache-away-'), 'victim');
+    fs.writeFileSync(victim, 'keep me\n');
+    const linkedCache = path.join(path.dirname(cacheFile), 'linked-cache');
+    fs.symlinkSync(victim, linkedCache);
+    let refused = '';
+    try { saveCache(linkedCache, 'ctx', { a: { hash: 'h', result: {} } }); } catch (e) { refused = e.message; }
+    assert(/symbolic link/.test(refused) && fs.readFileSync(victim, 'utf8') === 'keep me\n',
+      `cache: a cache file that is a symbolic link is not written through (${refused || 'written'})`);
+    fs.rmSync(linkedCache);
+    fs.rmSync(path.dirname(victim), { recursive: true, force: true });
 
     /* An entry that parses but carries no usable result (result: null - a
      * truncated write, a hand-edit) is a MISS, never a crash: the cache is
