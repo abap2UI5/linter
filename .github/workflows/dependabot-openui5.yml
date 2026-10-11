@@ -27,6 +27,11 @@ name: dependabot-openui5
 # with a write token - is bounded here by the actor guard below (only
 # Dependabot's own branches, which live in this repository) and by the fact
 # that the branch is checked out explicitly rather than merged into main.
+# The actor alone is not that guard: `github.actor` is whoever caused THIS
+# event, and a fork's pull request becomes Dependabot's actor the moment
+# Dependabot rebases the fork's own branch - then the fork's code ran here
+# with a write token. So the job also requires a pull request Dependabot
+# opened, from a branch of this repository.
 
 on:
   pull_request_target:
@@ -45,7 +50,10 @@ jobs:
   regenerate:
     # Dependabot's branches only. Anything else touching these paths is a human
     # change, and a human who bumps the pins is told by npm test what to run.
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: >-
+      ${{ github.actor == 'dependabot[bot]'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
