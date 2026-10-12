@@ -128,9 +128,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # production only: the render runtime's @openui5 packages are an optional
-      # peer, and an advisory in a devDependency is not a supply-chain risk to
-      # anybody installing this package
+      # production only - of BOTH published packages. The linter itself has no
+      # runtime dependency, so what this audits is the linter-render workspace's
+      # production set (the @openui5 packages, playwright, less-openui5): that
+      # is what `npm i @abap2ui5/linter-render` installs, and it is in this
+      # root lockfile, so --omit=dev still sees it (--workspaces=false does not
+      # narrow npm audit - measured, the audited count is the same either way).
+      # An advisory in a devDependency is not a supply-chain risk to anybody
+      # installing either package, and is left out.
       - name: npm audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high
       - name: The tarball still carries what the exports map names

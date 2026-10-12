@@ -2434,9 +2434,17 @@ section('popover-display-val', async () => {
       view->tag( \`Panel\` )->a( n = \`binding\` v = \`{/Products('4711')}\` ).`)
       .some((x) => x.type === 'hardcoded-binding-path'),
       'hardcoded-binding-path: an OData entity path with a key predicate is exempt when the class switches its default model');
-    assert(!checkAbapRules('DATA(css) = `<style>.a \\{/* keep */color:red\\}</style>`.')
+    /* The sheet has to be a VALUE for the exemption to be tested at all: the
+     * rule judges only `v =` literals and t_arg rows, so a `DATA(css) = …`
+     * assignment was never judged and this assertion passed with the
+     * exemption gone (2026-10-12). The same CSS on a core:HTML `content`
+     * reaches judge( ), where `<style` and the escaped brace stand it down. */
+    assert(!checkAbapRules('view->tag( n = `HTML` ns = `core` )->a( n = `content` v = `<style>.a \\{/* keep */color:red\\}</style>` ).')
       .some((x) => x.type === 'hardcoded-binding-path'),
-      'hardcoded-binding-path: a CSS comment after a brace inside <style> is not a path');
+      'hardcoded-binding-path: a CSS comment after a brace inside a <style> value is not a path');
+    assert(checkAbapRules('view->tag( `Text` )->a( n = `text` v = `{/* keep */}` ).')
+      .some((x) => x.type === 'hardcoded-binding-path'),
+      'hardcoded-binding-path: the same characters outside a stylesheet and unescaped are still a path');
 
     assert(hasC('duplicate-for-iterator', (x) => x.member === 'i'),
       'duplicate-for-iterator: the reused iterator across two VALUE blocks in one method');
@@ -5228,14 +5236,17 @@ section('typings', async () => {
     const dts = fs.readFileSync(path.join(ROOT, 'types.d.ts'), 'utf8');
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
-    // every exports subpath that resolves to code has its declare-module block,
-    // and every subpath's "types" condition points at this file
+    // EVERY exports subpath has its declare-module block - the code ones and
+    // the JSON ones alike (a string-valued export is a data file; `./schema`
+    // shipped untyped for a year because this filter only asked the objects),
+    // and every code subpath's "types" condition points at this file
     const subpaths = Object.entries(pkg.exports).filter(([, v]) => typeof v === 'object');
-    const undeclared = subpaths
-      .map(([k]) => (k === '.' ? '@abap2ui5/linter' : `@abap2ui5/linter/${k.slice(2)}`))
+    const moduleOf = (k) => (k === '.' ? '@abap2ui5/linter' : `@abap2ui5/linter/${k.slice(2)}`);
+    const undeclared = Object.keys(pkg.exports)
+      .map(moduleOf)
       .filter((m) => !dts.includes(`declare module "${m}"`));
-    assert(subpaths.length && !undeclared.length,
-      `typings: every code subpath of the exports map is declared (missing: ${undeclared.join(', ') || 'none'})`);
+    assert(subpaths.length && Object.keys(pkg.exports).length > subpaths.length && !undeclared.length,
+      `typings: every subpath of the exports map is declared, JSON ones included (missing: ${undeclared.join(', ') || 'none'})`);
     assert(subpaths.every(([, v]) => v.types === './types.d.ts') && pkg.types === './types.d.ts'
       && pkg.files.includes('types.d.ts'),
       'typings: the types conditions, the top-level types field and files[] all carry types.d.ts');

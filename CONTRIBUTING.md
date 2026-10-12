@@ -7,12 +7,16 @@ Check out the contribution guidelines [here.](https://abap2ui5.github.io/docs/re
 ```bash
 npm ci
 npx playwright install chromium   # the render gate needs a browser
-npm test                          # node --test test/run.mjs - the whole suite
+npm run check                     # what every pull request must pass: npm test
+                                  # plus the github-app dry run (the two CI jobs
+                                  # a plain checkout can run)
+npm test                          # node --test test/run.mjs - the whole suite alone
 node --test-name-pattern=fix test/run.mjs   # just one section, while iterating
 ```
 
 `npm test` also gates the generated artefacts, so run `npm run generate-schema`
-and `npm run generate-rules-page` after adding or rewording a rule and commit
-what they write. [AGENTS.md](AGENTS.md) is the full contract: what the linter
+and `npm run generate-rules-page` after adding or rewording a rule, and
+`npm run generate-compat` after a version bump or a mirror sync
+(`-- --local <abap2UI5 checkout>`), and commit what they write. [AGENTS.md](AGENTS.md) is the full contract: what the linter
 can and cannot see, how a rule is added, and what a change owes the downstream
 consumers.

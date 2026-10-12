@@ -53,6 +53,32 @@ jobs:
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           exit "$STATUS"
 
+      # The mirrors above are synced against ONE upstream release, and
+      # data/compat.json says which (framework.mirrored - what app-template's
+      # check-pin and the VS Code extension read). A mirror can be in sync while
+      # that number lags: upstream bumps its version on every release, most of
+      # which touch none of the four files. So the lag is a WARNING line in the
+      # run, not a failure and not an issue - this workflow files issues for
+      # drift a human has to resolve, and a lag resolves itself with the next
+      # `npm run generate-compat -- --local <checkout>` after a real sync.
+      - name: Compare framework.mirrored against upstream's version
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          upstream=$(curl -fsSL --retry 3 -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://raw.githubusercontent.com/abap2UI5/abap2UI5/main/package.json \
+            | node -e "process.stdin.on('data', (d) => process.stdout.write(JSON.parse(d).version))" || true)
+          mirrored=$(node -p "require('./data/compat.json').framework.mirrored")
+          if [ -z "$upstream" ]; then
+            echo "::warning::could not read abap2UI5's package.json version - framework.mirrored ($mirrored) not compared"
+          elif [ "$upstream" != "$mirrored" ]; then
+            echo "::warning::data/compat.json framework.mirrored is $mirrored, abap2UI5 main is $upstream - after the next mirror sync run: npm run generate-compat -- --local <abap2UI5 checkout>"
+          else
+            echo "framework.mirrored $mirrored matches abap2UI5 main"
+          fi
+
       # The fifth mirror lives in another repository: data/portable-v1.json,
       # the verbatim copy of abap2UI5/protocol's portable profile that the
       # opt-in portable-app rule judges against. Same exit codes (1 drift,

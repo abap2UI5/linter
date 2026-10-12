@@ -6,7 +6,7 @@ name: Publish to npm
 #
 # They are one release with one version. The runtime exists so that a default
 # `npm i @abap2ui5/linter` (and `npx`, which has no --omit=optional) stays at
-# ~240 kB instead of dragging ~123 MB of @openui5 in; splitting it out is only
+# ~600 kB instead of dragging ~123 MB of @openui5 in; splitting it out is only
 # safe if the two never drift, because the linter's metadata snapshot is
 # generated from exactly the @openui5 version pinned over there.
 #
