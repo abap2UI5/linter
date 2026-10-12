@@ -151,6 +151,22 @@ export default function ({ section, assert, f, FIX, tempDir }) {
     assert(read.code === 0 && /suppressed by/.test(read.out), `and read from there on the next run from the same cwd (exit ${read.code})`);
     const elsewhere = run(['--no-render', '--no-progress'], repo);
     assert(elsewhere.code === 0 && /suppressed by abap2ui5lint-baseline\.json/.test(elsewhere.out), `and from the repository root (exit ${elsewhere.code})`);
+
+    /* The default lands in the (cloned) repository next to its config, so a
+     * link the repository ships under that name is not followed out of it:
+     * dangling, it has nothing to parse first, and the baseline JSON - whose
+     * keys carry the repository's file names - went wherever it pointed. */
+    const planted = corpus('a2l-defaultlink-');
+    fs.writeFileSync(path.join(planted, 'abap2ui5lint.json'), '{ "paths": ["src"] }');
+    const away = tempDir('a2l-defaultlink-away-');
+    const victim = path.join(away, '.bash_aliases');
+    fs.symlinkSync(victim, path.join(planted, 'abap2ui5lint-baseline.json'));
+    const fromOutside = run([path.join(planted, 'src'), '--no-render', '--no-progress', '--update-baseline'], away);
+    assert(fromOutside.code === 2 && /symbolic link/.test(fromOutside.err) && !fs.existsSync(victim),
+      `--update-baseline does not write the default baseline through a link out of its directory (exit ${fromOutside.code}: ${fromOutside.err.trim()})`);
+    const named = path.join(planted, 'abap2ui5lint-baseline.json');
+    const flagged = run([path.join(planted, 'src'), '--no-render', '--no-progress', '--update-baseline', '--baseline', named], away);
+    assert(flagged.code === 0 && fs.existsSync(victim), `one named with --baseline is the user's choice and is written where it points (exit ${flagged.code})`);
   });
 
   /* ── 5. --stdin --update-baseline ────────────────────────────────────── */
