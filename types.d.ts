@@ -264,6 +264,14 @@ declare module "@abap2ui5/linter/check" {
    *  `cs_event-set_size_limit` constant outside a literal, or the action
    *  name as one) - checkNodes( )'s `sizeLimitRaised`. */
   export function sizeLimitRaised(source: string): boolean;
+  /** The id of the opt-in rule that reads seededRowCounts( ). */
+  export const SIZE_LIMIT_RULE: 'bound-aggregation-over-size-limit';
+  /** The rows each bound table is seen to hold at least - the one literal
+   *  seed's rows, or the APPENDs of literal DO loops - keyed by the model's
+   *  upper-case root name; only the tables whose count the source decides.
+   *  `model` is prepareAbap( )'s render model. checkNodes( )'s
+   *  `seededRows`, for bound-aggregation-over-size-limit. */
+  export function seededRowCounts(source: string, model: Record<string, unknown> | null | undefined): Map<string, number>;
   /** The stand-down of `unused-namespace-declaration` where the
    *  reconstruction is incomplete (`unplacedTokens`) or a prefix is written
    *  in more builder literals than the documents carry. Returns the
@@ -625,6 +633,11 @@ declare module "@abap2ui5/linter/properties" {
        *  — `false` lets rows-hidden-by-visible judge, `null` (a raw view, no
        *  class to ask) leaves it silent. */
       sizeLimitRaised?: boolean | null;
+      /** The rows each bound table is seen to hold at least
+       *  (seededRowCounts( )) - set only when the opt-in
+       *  bound-aggregation-over-size-limit is asked for; null leaves it
+       *  silent. */
+      seededRows?: Map<string, number> | null;
       /** The source was ABAP, not raw XML. Both halves of
        *  raw-javascript-to-frontend judge a value as authored only when this
        *  says so. */

@@ -89,4 +89,83 @@ export default async function ({ section, assert, f, checkAbapSource, checkXmlSo
     assert(!checkXmlSource(xml, opts).findings.some((x) => x.type === 'rows-hidden-by-visible'),
       'raw XML: not judged - whether the limit is raised is a fact about the class');
   });
+
+  /* bound-aggregation-over-size-limit: the general rule dropped in 0.3,
+   * back as an opt-in. Off unless asked; asked, it reports a list bound to a
+   * table the class is SEEN to seed past 100 rows - the one literal seed, or
+   * the APPENDs of literal DO loops - and nothing whose count it cannot
+   * decide. */
+  const RULE = 'bound-aggregation-over-size-limit';
+  const on = { ...opts, rules: { [RULE]: 'warning' } };
+  const over = fs.readFileSync(f('overlimit.clas.abap'), 'utf8');
+  const hitsOf = (src, o = on) => checkAbapSource(src, o).findings.filter((x) => x.type === RULE);
+  const doLoop = '      DO 400 TIMES.\n        APPEND VALUE #( name = |row { sy-index }| ) TO t_rows.\n      ENDDO.\n';
+  const withLoop = (by) => over.replace(doLoop, by);
+
+  section('bound-aggregation-over-size-limit: opt-in, and the fixture', () => {
+    assert(hitsOf(over, opts).length === 0, 'not asked for: silent');
+    const hits = hitsOf(over);
+    assert(hits.length === 1 && hits[0].member === 'items' && hits[0].severity === 'warning',
+      `asked for: the list is reported once, as a warning (got ${hits.length})`);
+    assert(/at least 400 rows/.test(hits[0].message) && /set_size_limit/.test(hits[0].message),
+      'the message names the count and the repair');
+    assert(checkAbapSource(over, on).findings.filter((x) => x.type !== RULE).length === 0,
+      'the fixture carries no other finding');
+  });
+
+  section('bound-aggregation-over-size-limit: what the count is read from', () => {
+    const rows = (n) => Array.from({ length: n }, (_, i) => `( name = \`r${i}\` )`).join(' ');
+    const seed = (n) => `      t_rows = VALUE #( ${rows(n)} ).\n`;
+    assert(hitsOf(withLoop(seed(101))).length === 1 && /at least 101 rows/.test(hitsOf(withLoop(seed(101)))[0].message),
+      'a literal seed of 101 rows: reported with its count');
+    assert(hitsOf(withLoop(seed(100))).length === 0, 'a literal seed of 100 rows: within the limit, silent');
+    assert(hitsOf(withLoop(seed(101) + seed(101))).length === 0, 'two seeds: which one is shown is a runtime matter, silent');
+    const nested = '      DO 20 TIMES.\n        DO 10 TIMES.\n          APPEND INITIAL LINE TO t_rows.\n        ENDDO.\n      ENDDO.\n';
+    assert(/at least 200 rows/.test(hitsOf(withLoop(nested))[0]?.message ?? ''), 'nested literal DOs multiply');
+    assert(hitsOf(withLoop('      DO 400 TIMES.\n        INSERT VALUE #( ) INTO TABLE t_rows.\n      ENDDO.\n')).length === 1,
+      'INSERT … INTO TABLE counts like APPEND');
+    assert(hitsOf(withLoop('      DO 50 TIMES.\n        APPEND INITIAL LINE TO t_rows.\n      ENDDO.\n')).length === 0,
+      'a loop of 50: silent');
+  });
+
+  section('bound-aggregation-over-size-limit: an undecided count is not a large one', () => {
+    for (const [after, why] of [
+      ['      DELETE t_rows WHERE name IS INITIAL.\n', 'DELETE … WHERE'],
+      ['      CLEAR t_rows.\n', 'CLEAR'],
+      ['      t_rows = t_other.\n', 'a reassignment'],
+      ['      SELECT * FROM ztab INTO TABLE @t_rows.\n', 'SELECT … INTO TABLE'],
+      ['      fill( CHANGING ct = t_rows ).\n', 'handed to a method'],
+    ]) {
+      assert(hitsOf(withLoop(doLoop + after)).length === 0, `${why}: the count is undecided, silent`);
+    }
+    for (const [wrap, why] of [
+      [(b) => `      IF lv_flag = abap_true.\n${b}      ENDIF.\n`, 'under an IF'],
+      [(b) => `      LOOP AT t_other INTO DATA(ls).\n${b}      ENDLOOP.\n`, 'inside a LOOP'],
+      [(b) => `      DO lv_n TIMES.\n${b}      ENDDO.\n`, 'a DO whose count is not a literal'],
+      [(b) => `      TRY.\n${b}      CATCH cx_root.\n      ENDTRY.\n`, 'inside a TRY'],
+    ]) {
+      assert(hitsOf(withLoop(wrap(doLoop))).length === 0, `the APPEND ${why}: not counted`);
+    }
+    const notInit = over.replace('IF client->check_on_navigated( ).', 'IF NOT client->check_on_navigated( ).');
+    assert(hitsOf(notInit).length === 0, 'IF NOT check_on_navigated( ): a condition, not the start path');
+  });
+
+  section('bound-aggregation-over-size-limit: where the 100 applies', () => {
+    const raised = over.replace('      client->view_display( page->stringify( ) ).\n',
+      '      client->view_display( page->stringify( ) ).\n'
+      + '      client->follow_up_action( val = client->cs_event-set_size_limit t_arg = VALUE #( ( `1000` ) ( `MAIN` ) ) ).\n');
+    assert(hitsOf(raised).length === 0, 'the class raises the limit: silent');
+    const growing = over.replace("page->ele( `List`\n", "page->ele( `List`\n          )->a( n = `growing` v = `true`\n");
+    assert(hitsOf(growing).length === 0, 'a growing list pages: silent');
+    const length = over.replace('v = client->_bind( t_rows )', 'v = `{ path: \'/T_ROWS\', length: 1000 }`');
+    assert(hitsOf(length).length === 0, 'a binding info with a length: silent');
+    const select = over.replace('page->ele( `List`', 'page->ele( `Select`').replace('tag( `StandardListItem`', 'tag( `core:Item`')
+      .replace('n = `title` v = `{NAME}`', 'n = `text` v = `{NAME}`')
+      .replace("          )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n",
+        "          )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`\n          )->a( n = `xmlns:core` v = `sap.ui.core`\n");
+    assert(hitsOf(select).length === 1, 'a Select binds its whole value list: reported');
+    const vbox = over.replace('page->ele( `List`', 'page->ele( `VBox`').replace('tag( `StandardListItem`', 'tag( `Text`')
+      .replace('n = `title` v = `{NAME}`', 'n = `text` v = `{NAME}`');
+    assert(hitsOf(vbox).length === 0, 'a layout container\'s repeated items: not a list, silent');
+  });
 }
