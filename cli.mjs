@@ -1198,6 +1198,17 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
         die(`refusing to write the baseline file ${file}: it resolves, through a symbolic link, outside ${opt.baselineRoot}, `
           + 'the directory of the config that names it (name a file elsewhere with --baseline)');
       }
+      /* The DEFAULT file is not the user's choice either: it lands next to a
+       * discovered config - in a cloned repository, possibly not the cwd at
+       * all - and a link the repository ships under that name (dangling, so
+       * there is nothing to parse first) wrote the baseline wherever it
+       * pointed, a shell start-up file included. Only a file named with
+       * --baseline is written where it points. */
+      const defaultDir = !opt.baseline || opt.baselineDefault ? path.dirname(file) : null;
+      if (!opt.baselineRoot && defaultDir && outsideTree(defaultDir, file)) {
+        die(`refusing to write the baseline file ${file}: it resolves, through a symbolic link, outside ${defaultDir}, `
+          + 'where the default baseline is written (name a file elsewhere with --baseline)');
+      }
       /* The files this run looked at get their entries replaced; every other
        * file's entries stay. Rebuilding from this run alone shrank a baseline
        * over `src` to the one file an update happened to be run on. */

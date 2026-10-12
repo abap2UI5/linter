@@ -223,6 +223,17 @@
 
 ### CLI, output and config
 
+- **`--update-baseline` does not write the default baseline through a
+  symbolic link out of its directory.** Without `--baseline` the file now
+  lands next to a discovered config, in the repository rather than the
+  cwd, so a cloned repository that shipped `abap2ui5lint-baseline.json` as
+  a dangling link (nothing to parse first) had the update write the
+  baseline JSON - whose keys carry the repository's own file names - to
+  wherever the link pointed, a shell start-up file included. That is
+  refused now (exit 2), as for a config-named baseline since 0.9.0; a file
+  named with `--baseline` is still the user's and is written where it
+  points.
+
 - `cli.mjs` housekeeping, no behaviour: one `ownPackage( )`/`ownVersion( )`
   reads package.json (it was parsed three times: the schema URL, `--version`,
   the cache key), one `shownPath( )` prints a path relative to the cwd where
