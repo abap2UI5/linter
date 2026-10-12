@@ -17,7 +17,7 @@ see them, because the view only exists at runtime.
 npx @abap2ui5/linter src
 ```
 
-That is the whole of it: no install, no SAP system, no configuration. ~340 kB
+That is the whole of it: no install, no SAP system, no configuration. ~600 kB
 and no dependencies, so the line above is a fast one.
 
 ```
@@ -148,7 +148,8 @@ Action is a user, but never appears in this list.
 ```sh
 npm ci
 npx playwright install chromium   # the render runtime is an npm workspace here
-node cli.mjs src                  # the CLI, from the checkout
+node cli.mjs test/fixtures --no-render   # the CLI, from the checkout, over its own fixtures
+node cli.mjs ../your-app/src             # or over a sibling app (this checkout has no src/)
 npm test
 ```
 

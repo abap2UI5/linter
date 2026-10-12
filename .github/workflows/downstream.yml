@@ -31,9 +31,12 @@ on:
 permissions:
   contents: read
 
+# A superseded push keeps burning runners otherwise, and each job here is a
+# consumer's full install plus Chromium. main is deliberately NOT cancelled
+# (same as ci.yml): its runs are the record of what landed.
 concurrency:
   group: downstream-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   samples-controls:

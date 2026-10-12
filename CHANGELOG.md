@@ -2,6 +2,304 @@
 
 ## Unreleased
 
+### Read before upgrading
+
+- **A run whose walk collects nothing now has its baseline judged.** The
+  "no checkable app classes" return ran BEFORE the baseline block, so the one
+  run in which every entry is stale by construction - the classes were
+  deleted, or moved under `ignore` - was green: no stale entry was reported
+  (exit 0 instead of 1), `--update-baseline` kept the entries instead of
+  pruning them, and a `--baseline` file that did not exist was no error. The
+  empty run applies the baseline (stale entries print under the sentence in
+  the stylish report, ride in the `json` document's `baseline` block and
+  decide the exit code in every format; `--advisory` still exits 0),
+  `--update-baseline` prunes the entries of the files that are gone, and a
+  named baseline that is missing is exit 2. A consumer whose corpus was
+  emptied and whose baseline still has entries sees exit 1 where it saw 0 -
+  `abap2ui5lint --update-baseline` settles it.
+
+- **`abap2ui5lint-baseline.json` is read where `--update-baseline` wrote
+  it.** Without `--baseline` and without `"baseline"` in the config the
+  update wrote that file and no later run looked for it, so every run kept
+  reporting the debt it had just frozen. A run that names no baseline reads
+  `abap2ui5lint-baseline.json` next to the config (or, without one, in the
+  current directory) when it exists, `--update-baseline` writes the default
+  to the same place (next to the config, where it used to be the cwd), and
+  the update prints a second line saying so and how to pin it (`--baseline
+  <file>` or `"baseline"` in `abap2ui5lint.jsonc`). A repository that happens
+  to carry a file of that name next to its config, from an earlier update it
+  never wired up, is baselined from now on - the run summary's `baselined`
+  row and the stale-entry rule say so.
+
+- **Contradictory or ineffective flag pairs are refused (exit 2) instead of
+  silently doing something else.** A value flag no longer takes the next
+  option as its value: `--allow --no-render` allowed a control called
+  `--no-render` and ran the render gate the user had just switched off,
+  `--sarif-out --json` wrote a file literally named `--json`. Also refused:
+  `--update-baseline` beside `--json-out`, `--sarif-out`, `--badge` or
+  `--badge-corpus` (the sidecars were never written, and the Action's
+  outputs stayed empty); `--stdin --update-baseline` without
+  `--stdin-filename` (`<stdin>|...` entries no run could match);
+  `--deprecated-at` equal to `--ui5` (an empty horizon that reported
+  nothing); `--no-config` beside `--config`; `--badge` twice;
+  `--cache-location` without `--cache`; `--stdin-filename` without `--stdin`.
+  A workflow carrying one of these in `flags` goes red with the message
+  where it was silently green. The machine `--format`s beside
+  `--update-baseline` keep their 0.9.0 contract (the "baseline: wrote" line
+  on stderr, stdout empty), now spelled out in `--help`.
+
+### Reconstruction
+
+- **`me->` is read as the attribute it names, everywhere the reconstructor
+  reads a target or a handle.** `me->mv_type = `+'`Error`'+r` seeded nothing: the
+  bound enum was modelled as `""`, and the render gate reported a false
+  `render-error` on a correct class. `me->mo_view = …factory( )`,
+  `me->mo_page = me->mo_view->ele( … )` and `me->mo_page->tag( … )` were no
+  handle, so a view held in attributes produced no document at all. One
+  fragment (`OWN` in `lib/reconstruct.mjs`) now stands in front of every
+  such name - the literal and template writes of the resolver, the scalar
+  and table seeds, the derived seeds, the factory, capture and handle chains,
+  and the capture scan that chooses the handle-aware reconstruction - and the
+  bare name is the key. A write spelled `me->x` is the ATTRIBUTE's write even
+  where the method declares a local `x`. `FINAL(view) = …` is an inline
+  declaration like `DATA(view) = …` in the same places (`INLINE`).
+
+- **The client under another name binds.** `bindingOf( )` knew
+  `client->_bind( )` alone; `mo_client->_bind_edit( mv_name )` and
+  `me->client->_bind( mv_name )` were "unresolved value expression dropped",
+  the attribute gone from every gate's view of the class. It reads any word
+  ending in `client`, with or without `me->` - the reading the event rules
+  already had (`clientArrows` in `lib/abap.mjs`).
+
+- **Helper declarations are read per METHODS element.** Three things hid a
+  helper: the keyword was required in front of EVERY name, so a
+  colon-chained `METHODS: render_toolbar …, add_button … RETURNING …` declared
+  no helper; the lazy `IMPORTING[\s\S]*?RETURNING` ran from a void method's
+  declaration across its period into the next one, so a void method declared
+  ahead of a RETURNING helper swallowed it; and the returning parameter had
+  to be called `result`. `parseHelpers( )` reads each METHODS statement
+  through `splitStatements` + `topSplit(',')` (as `paramsOf` does), judges
+  every element on its own, and takes the returning parameter's name from
+  the signature (`ro_view = io_view->tag( … )` is the chain).
+
+- **A RETURNING helper's parameter is substituted in code only.** The
+  inlined body had its parameter names replaced textually, literals
+  included: a parameter named `text` turned `n = `+'`text`'+r` into
+  `n = `+'``Save``'+r`, which parsed as no attribute at all (the Button lost
+  its text, and every rule that judges it with it). `codeOnly( )` masks the
+  literals - the embedded expressions of a `|…{ text }…|` template stay code
+  and are still substituted - and an argument NAME in front of `=` is never
+  the parameter.
+
+- **An element or attribute named by a constant resolves.** `ele( n = c_page )`
+  and `a( n = c_attr v = … )` were "unparsed": the element was dropped, its
+  children reparented into the element above (a false `unknown-property` on
+  their attributes) and its `end( )` closed that one instead (a false
+  `excess-shut`). `n =` is read through the resolver now (`nameOf( )`),
+  which knew the constant all along. A name that does not resolve - a
+  parameter, a computed string - still OPENS an element: a nameless
+  placeholder node (`unresolvedName`) keeps the tree's shape and the `end( )`
+  count right; `toXml( )` and the walk look through it as they do through the
+  document wrapper, and its attributes stay off the element above.
+
+- **A pragma after `VALUE` no longer hides the declaration.** `DATA mv_state
+  TYPE string VALUE 'Success' ##NO_TEXT.` read as no declaration ("bound
+  variable has no DATA declaration - mocked as string", value lost), and
+  `CONSTANTS c_title … VALUE 'My Title' ##NO_TEXT.` as no constant. Pragmas
+  are blanked (`blankPragmas`) before `DATA_DECL`, `LIKE_DECL`, the
+  constants reader, the literal writes and the scalar seeds.
+
+- **A conditional inside a `VALUE #( )` row leaks nothing.** The row reader
+  took a seed pair by pair, so `state = COND #( WHEN mv_ok = abap_true THEN
+  … )` made `MV_OK` a FIELD of the row and seeded `STATE` as `""` - a false
+  render error on the enum (`"" is not a ValueState`). A parenthesised value
+  (`COND #( )`, `SWITCH #( )`, `CONV string( )`, a method call, a bare
+  `( … )`) is skipped as one region (`SEED_CALL`); a conditional whose every
+  branch is a literal seeds its ELSE value (`literalBranches` with a
+  literal-only resolver), and anything else leaves the field out of the
+  render model - the control keeps its default, as for an unseeded scalar -
+  while the shape keeps the declared default so the path is still judged.
+  The leak hid a true `unknown-binding-path` on `{MV_OK}`, which the probe
+  class now reports.
+
+- **An `IMPORTING … DEFAULT` is the value a call that omits the parameter
+  passes**, so `add_button( io_page = page )` resolves `text` to the
+  declared `+'`Save`'+r` in the replay (`defaultsOf` beside `paramsOf`). And a
+  numeric literal (`v = 20`) is its digits, not a name to look up: it used to
+  be dropped as unresolvable.
+
+- Measured (abap2UI5 `src` + `node/srv`, 39 files, and the 100 fixtures with
+  `--all-classes`): finding counts per type, per-file stats and reconstructor
+  notes identical before and after; the render gate's errors identical. The
+  probe classes that reproduce each item are in
+  `test/review/round-2026-10-12-reconstruct.mjs`.
+
+### Rules
+
+- **`unescaped-brace-in-style` and `collapsed-brace-in-style` read a `<style>`
+  tag with attributes, in any case.** Both rules bounded a stylesheet with the
+  literal `<style>` … `</style>`, so a sheet opened as `<style type="text/css">`
+  - the form a `core:HTML` content copied from an HTML page carries - was
+  never judged, and its unescaped braces reached the XMLView parser as a
+  binding. The opening tag is read as `lib/css-classes.mjs` reads it
+  (`<style\b[^>]*>`, case-insensitive), the closing tag the same way.
+
+- **`hardcoded-binding-path` stands down inside a `<style>` value again.** The
+  exemption the rule documents - `{/` between `<style>` and `</style>` is an
+  escaped CSS brace meeting a CSS comment, not a path - had gone out of
+  `judge( )` when the rule was narrowed to attribute values, and
+  `v = `+'`<style>.a \{/* brand */ color: red; \}</style>`'+r` was reported. A
+  literal that opens a `<style` tag is not judged, and a `{/` written behind a
+  backslash is never a path, in any literal. The test that asserted the
+  exemption did so on a `DATA(css) = …` assignment the rule no longer judges at
+  all, which is why it kept passing; it asks on a `content` value now.
+
+- **`binding-to-local` judges the ROOT of the bound name.** The scan required
+  the name to end at a blank or `)`, so `client->_bind( ls_local-field )` -
+  a component of a method-local structure, lost with it after the roundtrip -
+  was never seen while `_bind( lv_plain )` beside it was. The root decides, as
+  it does for `binding-to-static` and `binding-to-nonpublic`. Two shapes the
+  old scan did not judge stay unjudged: a `->` dereference (a reference into
+  data that lives elsewhere) and a call carrying `tab =`, the framework's
+  cell binding whose path is derived from the table.
+
+- **`duplicate-for-iterator` folds case.** `FOR i` and `FOR I` in one method
+  are one variable to the 7.02 downport that materializes them as
+  `DATA i TYPE i`, and were two names to the rule. The member is reported as
+  written.
+
+- **One list of boolean types.** `abap-rules.mjs` declared its own
+  (`abap_bool|abap_boolean|boolean|xfeld|flag`) and `guide-rules.mjs` another
+  with `xsdboolean` and `boole_d` on top, so a `DATA mv_flag TYPE boole_d`
+  written through `v =` was not an `unconverted-abap-boolean`, not a
+  `manual-init-flag`, not a `lifecycle-is-initial` candidate - while
+  `omit-initial-drops-false` saw it. `BOOLEAN_TYPES` is exported from
+  `guide-rules.mjs` and read by `checkAbapBooleans( )`, whose `boolVars` the
+  two lifecycle rules and the text rule's `isBool` share.
+
+- Measured on abap2UI5 `src` + `node/srv` (103 findings in 39 files) and this
+  repo's fixtures with `--all-classes` (327 in 80): no change per type.
+
+### `--fix`
+
+- **`chain-house-layout --fix` indented a `*` comment inside the chain -
+  and a `*` is a comment in column 1 only.** The fix moved every
+  continuation line of a re-laid segment by the segment's delta, a comment
+  line among them, so the rewritten class did not activate. A continuation
+  line whose first non-blank character is a comment keeps its column now - a
+  `"` comment too, whose indent is the author's and not the chain's
+  (`lib/chain-layout.mjs`).
+
+- **`redundant-serializable` no longer deletes a comment with the line.** The
+  fix was anchored on the scrubbed copy, where a trailing comment is blanked
+  to spaces that the pattern's `[ \t]*` before the line break swallowed, so
+  `INTERFACES if_serializable_object. " keep: the draft needs it` went
+  whole. A line the original spells differently from the scrubbed match is
+  reported without a fix - the `same( )` rule `lifecycle-rules.mjs` applies
+  to its own deletions - and the bare line keeps it.
+
+- **A moved declaration lands directly under its new section's last line.**
+  `moveDeclarationFix( )` (`binding-to-nonpublic`, `private-app-attribute`)
+  inserted at the line start of the NEXT section header, below the blank line
+  that closes the target section, so the moved `DATA` stood alone under the
+  gap, detached from its siblings. The blank lines are walked back over and
+  the declaration is appended under the section's last declaration (under
+  its header when the section is empty); the gap keeps closing the section.
+
+- **Four rules that rewrote under `--fix` are listed as fixable and say what
+  the fix does.** `unknown-view-slot` (`main` → `MAIN`),
+  `invalid-frontend-action` (a filter-row operator up to letter case,
+  `contains` → `Contains`), `association-unknown-id` and
+  `unknown-source-property` (the id or `$source>` segment up to letter case
+  and separators) carried fixes without being in `FIXABLE`, so the rules page
+  showed no `--fix` badge and no `fixNote`, and `--fix` rewrote what the page
+  said it would not touch. The filter-operator fix rides on the finding now
+  (as `unknown-view-slot`'s does) instead of only on the pipeline's
+  `attachSuggestionFixes( )`, so a caller of `checkAbapRules( )` alone sees
+  it too. And the missing direction is gated:
+  `test/review/round-2026-10-12-rules.mjs` observes every finding type
+  produced with a fix over the cards and the four shapes, and fails on one
+  that `FIXABLE` does not list.
+
+### CLI, output and config
+
+- `cli.mjs` housekeeping, no behaviour: one `ownPackage( )`/`ownVersion( )`
+  reads package.json (it was parsed three times: the schema URL, `--version`,
+  the cache key), one `shownPath( )` prints a path relative to the cwd where
+  that is shorter (`configShown` in the report and `nice` in the watch loop
+  were the same function), and the baseline block is one `baselineStep( )`
+  shared by the normal run and the empty walk.
+
+- `lib/config.mjs`'s key list documents `baseline`, which the loader has
+  accepted since 0.8.x.
+
+- **`@abap2ui5/linter/schema` is typed.** The exports map has served
+  `data/abap2ui5lint.schema.json` as `./schema` and `types.d.ts` declared
+  every subpath but that one, so a TypeScript consumer importing it got an
+  implicit `any` under `--strict`. `declare module "@abap2ui5/linter/schema"`
+  exports it as `Record<string, unknown>`, and the typings gate in `npm test`
+  now requires a `declare module` block for EVERY key of the exports map -
+  the JSON ones too, which the previous filter (`typeof v === 'object'`)
+  never asked about.
+
+### Performance
+
+- **Three per-item RegExp rescans read once.** `navigation-lost-on-rebuild`
+  rebuilt two patterns and rescanned the class for every bound field of
+  every navigation wire (`literalsOf( )`, memoized per field);
+  `omit-initial-drops-false` built one per boolean column per `omit_initial`
+  bind (the declared boolean names are read once per class);
+  `manual-init-flag` built the `= abap_true` pattern per `IF` (cached per
+  flag). Same verdicts, measured on both corpora.
+
+### Action
+
+- The Action's `exit-code` output describes exit 2 too: the run did not
+  happen (bad usage, a bad config, a missing render runtime), and the count
+  outputs are empty then.
+
+### Metadata
+
+- **`data/compat.json` says the mirrors are synced against abap2UI5 1.147.0**
+  (`framework.mirrored`, was 1.146.0 - the mirrors had been synced, the record
+  had not; `npm run generate-compat -- --local <abap2UI5 checkout>` is the
+  step that was skipped). app-template's `check-pin` and the VS Code extension
+  read this field, so a 1.147.0 app stops reading as "newer than the linter
+  knows". The weekly `upstream-sync` workflow now compares the field against
+  upstream's `package.json` version and prints a warning line on lag - a
+  warning, not a failure or an issue: a version bump upstream that touches
+  none of the four mirrored files is not drift, and that workflow files issues
+  for drift only.
+
+### Also in this release
+
+- **The package size the docs quote is measured, not remembered.** README,
+  AGENTS.md, RELEASING.md and release.yml said ~340 kB (release.yml ~240 kB);
+  `npm pack --dry-run` produces a ~600 kB tarball (44 files, 2.2 MB unpacked -
+  `data/properties.json` grew with every snapshot and nothing counted). All
+  four say ~600 kB, and a new gate (`test/review/round-2026-10-12-hygiene.mjs`)
+  reads the README figure, requires the other three to agree with it, and
+  fails when it is more than 25% off the tarball `npm pack` produces.
+
+- **Workflows: `downstream.yml` no longer cancels an in-progress run on
+  main** - the same `cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}`
+  as `ci.yml`, so main's runs stay the record of what landed while a
+  superseded branch push still frees its runner. The `package` job's
+  `npm audit --omit=dev` comment now says what it audits: the production set
+  of BOTH published packages (the linter has none; the linter-render
+  workspace's @openui5, playwright and less-openui5 are in the root lockfile),
+  not "the linter minus an optional peer" - `--workspaces=false` was measured
+  and does not narrow `npm audit`, so the flag was not added.
+
+- **Docs: the README's "Working on this repository" block no longer runs
+  `node cli.mjs src`** (a directory this checkout does not have - it answered
+  `no such file or directory`); it lints `test/fixtures --no-render` and shows
+  the sibling-app form. CONTRIBUTING.md names `npm run check` as what a pull
+  request must pass (`npm test` plus the github-app dry run) and lists
+  `generate-compat` with the other gated generators; `test/review/README.md`
+  describes what the directory holds today (review rounds, audits, corpus
+  sweeps, topic files) instead of "the 2026-09 review round".
+
 ## 0.9.0 - 2026-10-11
 
 ### Read before upgrading

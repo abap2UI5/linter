@@ -73,10 +73,22 @@
  *                      longer occurs fails too, as a stale entry - judged
  *                      for the files under the paths this run walked (and
  *                      for files that are gone), never for a file it did
- *                      not look at
+ *                      not look at. Without the flag (and without "baseline"
+ *                      in the config) an abap2ui5lint-baseline.json next to
+ *                      the config, else in the current directory, is read
+ *                      when it exists - the file --update-baseline writes
+ *                      when nothing names one
  *   --update-baseline  write/refresh that file from this run and exit 0: the
  *                      entries of the files under the paths walked are
- *                      replaced, every other file's are kept
+ *                      replaced, every other file's are kept - including
+ *                      when the walk collects nothing, which prunes the
+ *                      entries of files that are gone. The one line it
+ *                      prints is the run's report (on stderr beside a
+ *                      machine --format, whose stdout stays empty: an update
+ *                      produces no document), so it is refused together
+ *                      with --sarif-out, --json-out, --badge and
+ *                      --badge-corpus, which would be written empty or not
+ *                      at all. With --stdin it needs --stdin-filename
  *   --cache            store each file's result and replay it on the next run
  *                      while nothing relevant changed - the file's content,
  *                      the linter version, the metadata snapshot, every
@@ -88,7 +100,8 @@
  *                      deleting it is always safe
  *   --cache-location <file>
  *                      where the cache lives (default .abap2ui5lintcache in
- *                      the current directory)
+ *                      the current directory). Refused without --cache (or
+ *                      "cache": true in the config): it would change nothing
  *   --quiet            report errors only - the counts still show everything,
  *                      and the run summary and progress go quiet too
  *   --stats            print the run summary: what was checked (files, views,
@@ -146,7 +159,8 @@
  *                      <stdin>). It also decides the handling: a name ending
  *                      .view.xml/.fragment.xml is checked as a raw view,
  *                      anything else as an ABAP class - unless the content
- *                      itself starts with '<'
+ *                      itself starts with '<'. Refused without --stdin: a
+ *                      name for a source that is not piped names nothing
  *   --watch            run once, then keep running: every checked file (and
  *                      every new file under a checked directory), the config
  *                      file and the baseline are watched, and a change re-runs
@@ -189,7 +203,8 @@
  *                      flag the file is searched upward from the current
  *                      directory and from each given path (eslint-style).
  *                      Precedence: explicit CLI flag > config file > default.
- *   --no-config        ignore any config file
+ *   --no-config        ignore any config file (contradicts --config <file>,
+ *                      so the two together are refused)
  *   --init             write a commented abap2ui5lint.jsonc into the current
  *                      directory, with $schema resolved against the version
  *                      actually installed, and exit
@@ -268,7 +283,35 @@ function outsideTree(root, target) {
 }
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const USAGE = 'usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136] [--distribution sapui5|openui5] '
+
+/* The linter's own package.json - the version keys the cache, names the
+ * published schema and answers --version. It was parsed in each of those
+ * three places; one read, once. */
+let ownPackageJson = null;
+const ownPackage = () => {
+  ownPackageJson ??= JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  return ownPackageJson;
+};
+const ownVersion = () => ownPackage().version;
+
+/* A path as the reader knows it: relative to the cwd where that is shorter,
+ * as given otherwise (an absolute /tmp path is not `../../../tmp`). The
+ * report's config line, the watch announcements and the baseline lines all
+ * print paths this way. */
+const shownPath = (p) => {
+  const rel = path.relative(process.cwd(), p);
+  return rel && !rel.startsWith('..') ? rel : p;
+};
+
+/* The baseline file --update-baseline writes when neither --baseline nor the
+ * config's "baseline" names one. It used to be written and never read: no
+ * later run looked for it, so the adopted debt was in a file nobody opened.
+ * The read side picks it up where the write side put it - next to the config
+ * when there is one, else in the current directory - when it exists. */
+const DEFAULT_BASELINE_FILE = 'abap2ui5lint-baseline.json';
+const defaultBaselineDir = (configFile) => (configFile ? path.dirname(configFile) : process.cwd());
+
+const USAGE ='usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
   + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
@@ -399,7 +442,7 @@ function schemaRef(target) {
   }
   const rel = path.relative(from, own);
   if (!rel.startsWith('..') && !path.isAbsolute(rel) && !rel.split(path.sep).includes('node_modules')) return posix(rel);
-  const { name, version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+  const { name, version } = ownPackage();
   return `https://unpkg.com/${name}@${version}/data/abap2ui5lint.schema.json`;
 }
 
@@ -506,6 +549,7 @@ let updateBaseline = false;
 // --stdin: lint piped source instead of files (property gate only)
 let stdinMode = false;
 let stdinName = '<stdin>';
+let stdinNamed = false; // --stdin-filename was given (it is refused without --stdin)
 // --screenshot and its two dials: a MODE, not a gate (see the run below)
 const shot = { out: null, theme: 'sap_horizon', sizes: [] };
 // --watch: the same run, again on every change (see watchLoop below)
@@ -517,10 +561,18 @@ let watchMode = false;
 const wholeNumber = (text) => (/^\d+$/.test(String(text)) ? Number(text) : NaN);
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
-  // a flag that takes a value must actually have one - `--allow` as the last
-  // argument would otherwise push undefined and crash deep in the gate
+  /* A flag that takes a value must actually have one - `--allow` as the last
+   * argument would otherwise push undefined and crash deep in the gate. And
+   * the value must not be the NEXT FLAG: `--allow --no-render` read
+   * `--no-render` as the allowed control name and ran the render gate, and
+   * `--sarif-out --json` wrote a file literally named `--json` and printed
+   * the stylish report. A value of this tool's never starts like an option
+   * (a control name, a version, a path, a format, a count), so a token that
+   * does is the flag the user meant to type next, with the value forgotten. */
   const value = () => {
     if (i + 1 >= args.length) die(`${a} needs a value\n${usageBlock()}`);
+    const next = args[i + 1];
+    if (/^--?[a-zA-Z]/.test(next)) die(`${a} needs a value, but got the option '${next}' - the value is missing\n${usageBlock()}`);
     return args[++i];
   };
   if (a === '--min-ui5' || a === '--ui5') {
@@ -605,7 +657,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--cache') { opt.cache = true; seen.add('cache'); }
   else if (a === '--cache-location') { opt.cacheLocation = value(); }
   else if (a === '--stdin') stdinMode = true;
-  else if (a === '--stdin-filename') stdinName = value();
+  else if (a === '--stdin-filename') { stdinName = value(); stdinNamed = true; }
   else if (a === '--watch') watchMode = true;
   else if (a === '--update-baseline') updateBaseline = true;
   else if (a === '--annotate') opt.annotate = true;
@@ -615,9 +667,17 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--progress') opt.progress = true;
   else if (a === '--no-progress') opt.progress = false;
   // the two badges accumulate: a run that wants both names both files, and
-  // naming either one on the command line takes the config's block out
-  else if (a === '--badge') { opt.badge = [...(opt.badge ?? []), { kind: 'checks', file: value() }]; seen.add('badge'); }
-  else if (a === '--badge-corpus') { opt.badge = [...(opt.badge ?? []), { kind: 'corpus', file: value() }]; seen.add('badge'); }
+  // naming either one on the command line takes the config's block out.
+  // The same kind twice is the same badge written to two files, and only
+  // the second name survived here - the config refuses it (loadBadge), so
+  // the flags do too
+  else if (a === '--badge' || a === '--badge-corpus') {
+    const kind = a === '--badge' ? 'checks' : 'corpus';
+    const file = value();
+    if (opt.badge?.some((b) => b.kind === kind)) die(`${a} given twice - one file per badge kind (--badge for the verdict, --badge-corpus for the corpus)`);
+    opt.badge = [...(opt.badge ?? []), { kind, file }];
+    seen.add('badge');
+  }
   // a second pass over the same corpus (a job summary, a piped --json) must
   // not overwrite the badges the real run wrote - it saw fewer gates
   else if (a === '--no-badge') { opt.badge = null; seen.add('badge'); }
@@ -722,8 +782,7 @@ for (let i = 0; i < args.length; i++) {
     await exitFlushed(0);
   }
   else if (a === '--version' || a === '-v') {
-    const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
-    console.log(`abap2ui5lint ${version} (${path.join(HERE, 'cli.mjs')})`);
+    console.log(`abap2ui5lint ${ownVersion()} (${path.join(HERE, 'cli.mjs')})`);
     await exitFlushed(0);
   }
   else if (a === '--help' || a === '-h') {
@@ -753,6 +812,31 @@ if (watchMode) {
   if (clash) die(`--watch cannot be combined with ${clash} - a watch re-runs the report, and ${clash} is a single-run mode or output`);
   if (opt.format !== 'stylish') {
     die(`--watch prints the stylish report only - --format ${opt.format} is one document per run, not a loop`);
+  }
+}
+
+/* The combinations that did SOMETHING ELSE than what was typed, each refused
+ * the way --watch refuses its clashes: a flag that silently changes nothing
+ * is the typo this tool refuses everywhere else.
+ *
+ * --no-config beside --config <file> read no config at all - the file named
+ * was simply ignored. --stdin-filename without --stdin names a source that
+ * is not there to name. --update-baseline ends the run after writing the
+ * file, so a --sarif-out / --json-out / badge beside it was never written
+ * (the Action always adds --json-out for its outputs, which then stayed
+ * empty). --cache-location is judged in resolveRun, after the config: the
+ * config's "cache": true is the other way to switch the cache on. */
+if (noConfig && configFlag) die(`--no-config and --config ${configFlag} contradict each other - drop one of them`);
+if (stdinNamed && !stdinMode) die(`--stdin-filename has no effect without --stdin - it names the source piped to --stdin`);
+if (updateBaseline) {
+  const clash = opt.sarifOut ? '--sarif-out'
+    : opt.jsonOut ? '--json-out'
+      : opt.badge?.some((b) => b.kind === 'corpus') ? '--badge-corpus'
+        : opt.badge?.length ? '--badge'
+          : null;
+  if (clash) {
+    die(`--update-baseline cannot be combined with ${clash} - an update writes the baseline and prints one line about it, `
+      + `so ${clash} would be written empty or not at all; run the update on its own, then the report`);
   }
 }
 
@@ -806,13 +890,32 @@ function resolveRun() {
       }
     }
   }
-  /* A horizon BELOW the floor would report nothing - every deprecation up to
-   * it is already in effect and reported as control-/member-deprecated. A
-   * setting that silently does nothing is the typo this tool refuses. Judged
-   * here, after the config: the two halves may come from different places. */
-  if (o.deprecatedAt && !withinUi5Floor(o.minUi5, o.deprecatedAt)) {
-    die(`deprecatedAt ${o.deprecatedAt} is below the ui5 target ${o.minUi5} - the horizon has to lie past the target (e.g. --ui5 1.71 --deprecated-at 1.136)`);
+  /* Nothing names a baseline: the default file is read when it is where
+   * --update-baseline without --baseline puts it (DEFAULT_BASELINE_FILE). A
+   * file that is not there is not an error here - only a NAMED baseline that
+   * is missing is one (runOnce); the default's absence is the common case. */
+  if (!o.baseline) {
+    const candidate = path.join(defaultBaselineDir(configFile), DEFAULT_BASELINE_FILE);
+    if (fs.existsSync(candidate)) {
+      o.baseline = candidate;
+      o.baselineDefault = true;
+    }
   }
+  /* A horizon BELOW the floor would report nothing - every deprecation up to
+   * it is already in effect and reported as control-/member-deprecated. One
+   * EQUAL to it reports nothing either: deprecated-after-target covers the
+   * versions after the target and up to the horizon, and that range is
+   * empty. A setting that silently does nothing is the typo this tool
+   * refuses. Judged here, after the config: the two halves may come from
+   * different places. (withinUi5Floor(a, b) is a <= b on major.minor.) */
+  if (o.deprecatedAt && withinUi5Floor(o.deprecatedAt, o.minUi5)) {
+    const equal = withinUi5Floor(o.minUi5, o.deprecatedAt);
+    die(`deprecatedAt ${o.deprecatedAt} is ${equal ? 'equal to' : 'below'} the ui5 target ${o.minUi5} - the horizon has to lie past the target (e.g. --ui5 1.71 --deprecated-at 1.136)`);
+  }
+  /* The cache file's location is a setting OF the cache; without one it did
+   * nothing, silently. Judged after the config, whose "cache": true is the
+   * other way to switch it on, and before --stdin stands the cache down. */
+  if (o.cacheLocation && !o.cache) die('--cache-location has no effect without --cache (or "cache": true in the config)');
   if (!runPaths.length) runPaths.push('src');
   // a badge is a verdict written to disk, and a watch is not one verdict -
   // the flags are refused above, the config's block is stood down here
@@ -832,6 +935,12 @@ function resolveRun() {
     }
     if (o.fix) die('--stdin cannot be combined with --fix - there is no file to rewrite');
     if (shot.out) die('--stdin cannot be combined with --screenshot');
+    /* A baseline entry is keyed on the file's path; an update over a source
+     * called <stdin> writes `<stdin>|rule|...` entries no later run - over the
+     * file, or over the same source piped with its name - can ever match. */
+    if (updateBaseline && !stdinNamed) {
+      die('--stdin --update-baseline needs --stdin-filename <path> - an entry keyed on <stdin> can never match a file');
+    }
     if (asked) die('--stdin runs the property gate only - write the source to a file to render it');
     o.render = false;
     o.cache = false;
@@ -1062,7 +1171,83 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
     }
   };
 
+  const threshold = opt.failOn === 'never' ? Infinity : severityRank(opt.failOn);
+
+  /* The baseline: adopt the linter on a repo that already has findings.
+   * --update-baseline freezes the CURRENT findings as accepted debt;
+   * a configured baseline suppresses exactly those on every later run, new
+   * findings fail normally, and a STALE entry (its finding is gone) fails
+   * too — a suppression can never quietly outlive what it suppressed.
+   *
+   * One step for both shapes of a run - the normal one and the one whose
+   * walk collected NOTHING. The empty walk used to return before the baseline
+   * had its say, and that is exactly the run in which every entry is stale:
+   * the classes were deleted, or moved under `ignore`, and the run was green
+   * (exit 0), --update-baseline kept the entries and a named baseline that
+   * was not there was no error. applyBaseline( ) over no results judges the
+   * entries of the files under the walked paths as stale; mergeBaseline( )
+   * over no results prunes them.
+   *
+   * Returns { done: true } when the file was written (the run's report is the
+   * one line, exit 0), { note, stale, stats } for an applied baseline, null
+   * for a run without one. */
+  const baselineStep = (results) => {
+    if (updateBaseline) {
+      const file = opt.baseline ?? path.join(defaultBaselineDir(configFile), DEFAULT_BASELINE_FILE);
+      if (opt.baselineRoot && outsideTree(opt.baselineRoot, file)) {
+        die(`refusing to write the baseline file ${file}: it resolves, through a symbolic link, outside ${opt.baselineRoot}, `
+          + 'the directory of the config that names it (name a file elsewhere with --baseline)');
+      }
+      /* The files this run looked at get their entries replaced; every other
+       * file's entries stay. Rebuilding from this run alone shrank a baseline
+       * over `src` to the one file an update happened to be run on. */
+      let previous = null;
+      if (fs.existsSync(file)) {
+        try { previous = loadBaseline(file); } catch (e) { die(`${e.message} - fix or delete it before --update-baseline`); }
+      }
+      // keys are relative to the baseline file's own directory, so every runner
+      // (CLI from any cwd, the Action, the VS Code extension) computes the same
+      // scope: the paths the run walked - an entry of a file under them that
+      // was not collected (it builds no view any more) is dropped, not kept
+      const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
+      // nothing is printed yet, so die( ) cuts nothing off here
+      try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
+      const n = [...map.values()].reduce((s, c) => s + c, 0);
+      /* The one line is the report of a stylish run. Beside a machine format it
+       * is prose, and stdout is the document a caller parses - so it goes to
+       * stderr there, like every other note. */
+      const say = opt.format === 'stylish' ? console.log : console.error;
+      say(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${shownPath(file)}`);
+      /* Written to the default name: say where the next run finds it, because
+       * for a long time it did not - the file was written and never read. */
+      if (!opt.baseline || opt.baselineDefault) {
+        say(`baseline: the next run reads it from there (${configFile ? 'next to the config' : 'the current directory'}) - `
+          + `to pin it, add --baseline ${shownPath(file)} or "baseline": ${JSON.stringify(path.basename(file))} to ${configFile ? shownPath(configFile) : 'abap2ui5lint.jsonc'}`);
+      }
+      return { done: true };
+    }
+    if (!opt.baseline) return null;
+    if (!fs.existsSync(opt.baseline)) die(`baseline file not found: ${opt.baseline} (create it with --update-baseline)`);
+    let map;
+    try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
+    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline), { scope: stdinMode ? [] : paths });
+    const shown = shownPath(opt.baseline);
+    return {
+      stale,
+      stats: { suppressed, byRule, stale: stale.length, staleEntries: stale, file: shown },
+      note: `baseline: ${suppressed} finding(s) suppressed by ${shown}`
+        + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : ''),
+    };
+  };
+  /* A stale entry fails like a finding at the threshold - and like one, not
+   * under --advisory / --fail-on never, which promise exit 0 whatever the
+   * report says. It is still reported. */
+  const staleFails = (stale) => stale.length > 0 && threshold !== Infinity;
+
   if (!files.length) {
+    const baselined = baselineStep([]);
+    if (baselined?.done) return 0;
+    const stale = baselined?.stale ?? [];
     const empty = { ...summarize([]), failing: 0 };
     const nothing = opt.allClasses
       ? `abap2ui5lint: no ABAP classes or views under ${paths.join(', ')} (*.clas.abap, *.view.xml / *.fragment.xml)`
@@ -1070,9 +1255,12 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
     /* Every machine format prints its EMPTY document - built by the one
      * formatter, so a contract cannot drift between the two paths - and the
      * sentence goes to stderr. The XML formats and SARIF printed the sentence
-     * on stdout, which no parser reads as checkstyle or SARIF. */
+     * on stdout, which no parser reads as checkstyle or SARIF. The json
+     * document carries the baseline block like a full run's does: the stale
+     * entries are the one thing this run can report. */
+    const jsonOpt = { ...opt, baseline: baselined?.stats ?? null };
     const machine = {
-      json: () => formatJson([], empty, opt), sarif: () => formatSarif([]),
+      json: () => formatJson([], empty, jsonOpt), sarif: () => formatSarif([]),
       checkstyle: () => formatCheckstyle([]), junit: () => formatJunit([]),
     }[opt.format];
     if (machine) {
@@ -1080,15 +1268,22 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
       if (!opt.quiet) console.error(nothing);
     } else {
       console.log(nothing);
+      // the baseline prose, where the stylish report has it: on stdout, the
+      // stale entries one per line (they are what fails this run)
+      if (baselined) {
+        console.log(baselined.note);
+        for (const s of stale) console.log(`  ! stale: ${terminalSafe(s.key)} (${s.count})`);
+      }
     }
     /* The files written beside the report are written for an empty run too:
      * a workflow's upload-sarif step after the Action's `sarif` input failed
      * on a file that was never there, for a repository that has nothing to
      * check (yet). */
     if (opt.sarifOut) writeBeside('the SARIF file', opt.sarifOut, `${formatSarif([])}\n`);
-    if (opt.jsonOut) writeBeside('the JSON file', opt.jsonOut, `${formatJson([], empty, opt)}\n`);
+    if (opt.jsonOut) writeBeside('the JSON file', opt.jsonOut, `${formatJson([], empty, jsonOpt)}\n`);
     emitBadge(empty, runStats([]));
-    return outputFailed ? 2 : 0;
+    if (outputFailed) return 2;
+    return staleFails(stale) ? 1 : 0;
   }
 
   /* The classes the class index reads beyond the ones this run checks - see
@@ -1211,7 +1406,7 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
    * exit code are decided per RUN, on replayed findings like on fresh ones. */
   let cache = null;
   if (opt.cache) {
-    const { version } = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8'));
+    const version = ownVersion();
     const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
     // the runtime's UI5 release keys a RENDERED result too (lib/cache.mjs)
     const context = cacheContext({
@@ -1309,54 +1504,13 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
     throw e;
   }
 
-  /* The baseline: adopt the linter on a repo that already has findings.
-   * --update-baseline freezes the CURRENT findings as accepted debt;
-   * a configured baseline suppresses exactly those on every later run, new
-   * findings fail normally, and a STALE entry (its finding is gone) fails
-   * too — a suppression can never quietly outlive what it suppressed. */
-  if (updateBaseline) {
-    const file = opt.baseline ?? 'abap2ui5lint-baseline.json';
-    if (opt.baselineRoot && outsideTree(opt.baselineRoot, file)) {
-      die(`refusing to write the baseline file ${file}: it resolves, through a symbolic link, outside ${opt.baselineRoot}, `
-        + 'the directory of the config that names it (name a file elsewhere with --baseline)');
-    }
-    /* The files this run looked at get their entries replaced; every other
-     * file's entries stay. Rebuilding from this run alone shrank a baseline
-     * over `src` to the one file an update happened to be run on. */
-    let previous = null;
-    if (fs.existsSync(file)) {
-      try { previous = loadBaseline(file); } catch (e) { die(`${e.message} - fix or delete it before --update-baseline`); }
-    }
-    // keys are relative to the baseline file's own directory, so every runner
-    // (CLI from any cwd, the Action, the VS Code extension) computes the same
-    // scope: the paths the run walked - an entry of a file under them that
-    // was not collected (it builds no view any more) is dropped, not kept
-    const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
-    // nothing is printed yet, so die( ) cuts nothing off here
-    try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
-    const n = [...map.values()].reduce((s, c) => s + c, 0);
-    /* The one line is the report of a stylish run. Beside a machine format it
-     * is prose, and stdout is the document a caller parses - so it goes to
-     * stderr there, like every other note. */
-    (opt.format === 'stylish' ? console.log : console.error)(`baseline: wrote ${n} finding(s) as ${map.size} entr${map.size === 1 ? 'y' : 'ies'} to ${path.relative(process.cwd(), file)}`);
-    return 0;
-  }
-  let baselineNote = null;
-  let baselineStale = [];
-  let baselineStats = null;
-  if (opt.baseline && fs.existsSync(opt.baseline)) {
-    let map;
-    try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline), { scope: stdinMode ? [] : paths });
-    baselineStale = stale;
-    baselineStats = { suppressed, byRule, stale: stale.length, staleEntries: stale, file: path.relative(process.cwd(), opt.baseline) };
-    baselineNote = `baseline: ${suppressed} finding(s) suppressed by ${path.relative(process.cwd(), opt.baseline)}`
-      + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : '');
-  } else if (opt.baseline && !updateBaseline) {
-    die(`baseline file not found: ${opt.baseline} (create it with --update-baseline)`);
-  }
+  // the baseline, over what the run found - see baselineStep above
+  const baselined = baselineStep(results);
+  if (baselined?.done) return 0;
+  const baselineNote = baselined?.note ?? null;
+  const baselineStale = baselined?.stale ?? [];
+  const baselineStats = baselined?.stats ?? null;
 
-  const threshold = opt.failOn === 'never' ? Infinity : severityRank(opt.failOn);
   /** Findings at or above the threshold decide the exit code - a hint never
    *  breaks a build unless it was asked to. Render errors count as errors (the
    *  view demonstrably did not load) unless the config's rules['render-error']
@@ -1375,11 +1529,7 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
    * controls were judged or the reconstruction produced nothing at all. One
    * file needs none of that, so the default is by corpus size. */
   const showStats = (opt.stats ?? files.length > 1) && !opt.quiet;
-  // the config path as the reader knows it: relative where that is shorter
-  const configShown = configFile && (() => {
-    const rel = path.relative(process.cwd(), configFile);
-    return rel && !rel.startsWith('..') ? rel : configFile;
-  })();
+  const configShown = configFile && shownPath(configFile);
   const reportOpt = {
     ...opt,
     context,
@@ -1475,13 +1625,9 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
   const footer = explainFooter(results, { quiet: opt.quiet, format: opt.format, tty: process.stderr.isTTY === true });
   if (footer) console.error(footer);
 
-  /* A stale entry fails like a finding at the threshold - and like one, not
-   * under --advisory / --fail-on never, which promise exit 0 whatever the
-   * report says. It is still reported. */
-  const staleFails = baselineStale.length > 0 && threshold !== Infinity;
   // an output the run was asked for and could not write is a tool error (2)
   if (outputFailed) return 2;
-  return summary.failing > 0 || staleFails || (overWarningCap && threshold !== Infinity) ? 1 : 0;
+  return summary.failing > 0 || staleFails(baselineStale) || (overWarningCap && threshold !== Infinity) ? 1 : 0;
 }
 
 /*
@@ -1519,16 +1665,10 @@ async function watchLoop() {
 
   const hasFile = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
   const stamp = () => new Date().toTimeString().slice(0, 8);
-  // a path as the reader knows it: relative to the cwd where that is shorter,
-  // as given otherwise (an absolute /tmp path is not `../../../tmp`)
-  const nice = (p) => {
-    const rel = path.relative(process.cwd(), p);
-    return rel && !rel.startsWith('..') ? rel : p;
-  };
   const announce = () => {
     console.error(`abap2ui5lint: watching ${first.paths.join(', ')}`
-      + `${first.configFile ? ` and ${nice(first.configFile)}` : ''}`
-      + `${first.opt.baseline && hasFile(first.opt.baseline) ? ` and ${nice(first.opt.baseline)}` : ''}`
+      + `${first.configFile ? ` and ${shownPath(first.configFile)}` : ''}`
+      + `${first.opt.baseline && hasFile(first.opt.baseline) ? ` and ${shownPath(first.opt.baseline)}` : ''}`
       + ' - Ctrl+C stops');
   };
 
@@ -1568,7 +1708,7 @@ async function watchLoop() {
   const watchFile = (file) => {
     const abs = path.resolve(file);
     watch(path.dirname(abs), {}, (_, filename) => {
-      if (filename === path.basename(abs)) schedule(nice(file));
+      if (filename === path.basename(abs)) schedule(shownPath(file));
     });
   };
   /* A tree: recursive where the platform offers it, else one watcher per
@@ -1579,7 +1719,7 @@ async function watchLoop() {
   };
   const watchTree = (dir) => {
     const abs = path.resolve(dir);
-    const shown = nice(dir);
+    const shown = shownPath(dir);
     const onEvent = (base) => (_, filename) => {
       if (!filename) return;
       const rel = base ? path.join(base, filename) : filename;

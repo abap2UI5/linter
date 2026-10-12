@@ -74,7 +74,7 @@ outputs:
     description: 'Number of files the gates were run over'
     value: ${{ steps.lint.outputs.files }}
   exit-code:
-    description: 'The linter''s exit code: 0 clean, 1 findings at or above fail-on'
+    description: 'The linter''s exit code: 0 clean, 1 findings at or above fail-on, 2 the run did not happen (bad usage, a bad config, a missing render runtime) - the count outputs above are empty then'
     value: ${{ steps.lint.outputs.exit-code }}
   sarif:
     description: 'Path of the SARIF file, when the "sarif" input asked for one'
