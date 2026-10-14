@@ -40,9 +40,15 @@ export default function ({ section, assert }) {
     // npm is npm.cmd on Windows, which Node refuses to spawn without a shell
     const pack = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['pack', '--dry-run', '--json'],
       { cwd: ROOT, encoding: 'utf8', shell: process.platform === 'win32', timeout: 60_000 });
-    assert(pack.status === 0 && pack.stdout.trim().startsWith('['),
+    assert(pack.status === 0 && /^[[{]/.test(pack.stdout.trim()),
       `size: npm pack --dry-run --json runs (${pack.status} ${(pack.stderr || '').slice(0, 200)})`);
-    const [tarball] = JSON.parse(pack.stdout.trim());
+    // npm 10 answers an array of tarballs; npm 12 (the one release.yml installs
+    // for OIDC publishing, and the first that answered this way) an object keyed
+    // by package name - v0.9.0's first publish run died here on the shape alone
+    const parsed = JSON.parse(pack.stdout.trim());
+    const tarball = Array.isArray(parsed)
+      ? parsed[0]
+      : (parsed['@abap2ui5/linter'] ?? Object.values(parsed)[0]);
     const measured = tarball.size / 1024;
     assert(Math.abs(measured - figure) <= figure * 0.25,
       `size: the README's ~${figure} kB is within 25% of the tarball (${Math.round(measured)} kB, ${tarball.files.length} files)`);
