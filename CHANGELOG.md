@@ -2,23 +2,7 @@
 
 ## Unreleased
 
-- **New opt-in rule `bound-aggregation-over-size-limit`** (warning, off
-  until a `rules` entry asks for it). A list bound to a table the class
-  seeds past the JSONModel's 100 entries - the `items` of a non-growing
-  `sap.m.ListBase`, a `Select` or a `ComboBoxBase`, bound without a
-  `length`, in a class that raises no size limit - stops at 100 without a
-  word. The count is read where the source decides it, as a lower bound:
-  the table's one literal `VALUE #( ( … ) ( … ) )` seed, or the APPENDs
-  directly inside literal `DO n TIMES` loops (on the start path's
-  `check_on_init( )` / `check_on_navigated( )` branch too). A table the
-  class may also shorten or replace - DELETE, CLEAR, a second seed, a
-  SELECT into it, a method it is handed to - is not judged, nor an APPEND
-  under any other condition. The general rule was built and dropped in 0.3
-  for noise on the samples-controls ports, whose originals cap at 100 too;
-  opt-in, it is offered to app authors, for whom 123 rows showing 100 is the
-  defect.
-
-## 0.9.0 - 2026-10-12
+## 0.9.0 - 2026-10-14
 
 ### Read before upgrading
 
@@ -136,6 +120,22 @@
   on stderr, stdout empty), now spelled out in `--help`.
 
 ### Rules
+
+- **New opt-in rule `bound-aggregation-over-size-limit`** (warning, off
+  until a `rules` entry asks for it). A list bound to a table the class
+  seeds past the JSONModel's 100 entries - the `items` of a non-growing
+  `sap.m.ListBase`, a `Select` or a `ComboBoxBase`, bound without a
+  `length`, in a class that raises no size limit - stops at 100 without a
+  word. The count is read where the source decides it, as a lower bound:
+  the table's one literal `VALUE #( ( … ) ( … ) )` seed, or the APPENDs
+  directly inside literal `DO n TIMES` loops (on the start path's
+  `check_on_init( )` / `check_on_navigated( )` branch too). A table the
+  class may also shorten or replace - DELETE, CLEAR, a second seed, a
+  SELECT into it, a method it is handed to - is not judged, nor an APPEND
+  under any other condition. The general rule was built and dropped in 0.3
+  for noise on the samples-controls ports, whose originals cap at 100 too;
+  opt-in, it is offered to app authors, for whom 123 rows showing 100 is the
+  defect.
 
 - **A deprecation horizon: `deprecatedAt` / `--deprecated-at`, and the
   rule `deprecated-after-target` (hint).** `ui5` answered two questions with
