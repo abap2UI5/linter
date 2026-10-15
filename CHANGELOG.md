@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`z2ui5_if_ui5_llm`, `z2ui5_cx_ui5_llm` and `z2ui5_cl_ui5_llm` are
+  released API.** abap2UI5 adds a language model seam to its released
+  package `src/02`: one `chat( )` for apps and addons, its exception, and a
+  factory for the Claude, OpenAI-compatible and local providers. Unlisted,
+  `non-released-api` would have reported every app that calls it, since
+  the names fall under the internal `z2ui5_*_ui5_*` prefixes. The provider
+  classes in `src/01/05` stay internal and are still reported.
+
 ## 0.9.0 - 2026-10-14
 
 ### Read before upgrading
