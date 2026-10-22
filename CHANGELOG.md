@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **`unescaped-text-in-attribute` judges a template by what it
+  interpolates, not by its shape.** `|{ gc_label }: 5|` with a `CONSTANTS`
+  holding `{/NAME}` was reported as carrying data - the reconstruction
+  renders that attribute as a binding - and `--fix` moved it to `t`, after
+  which `escape_literal( )` turned the binding into text. A template is
+  now read piece by piece like a `&&` chain: a literal, a constant or a
+  literal-only parameter is text that needs no escaping, a constant whose
+  value holds a brace makes the template a binding (no finding, no fix), a
+  name is judged by its writes, and a call or an expression is data as
+  before. A constant holding plain text (`VALUE \`Total\``) was reported
+  too; it no longer is.
+- **`chain-indentation` and `chain-element-per-line` no longer read a
+  builder verb inside a literal as a chain token.** `v = |{ 'a' } )->ele( |`
+  (or a help text quoting the builder) opened a phantom element, and every
+  attribute of the next control was reported against the wrong column. The
+  tokens are now taken through the same literal mask `chain-house-layout`
+  reads the chain with.
+
 - **`z2ui5_if_ui5_llm`, `z2ui5_cx_ui5_llm` and `z2ui5_cl_ui5_llm` are
   released API.** abap2UI5 adds a language model seam to its released
   package `src/02`: one `chat( )` for apps and addons, its exception, and a
