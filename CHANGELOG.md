@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`obsolete-custom-control` knows the eight controls are gone after
+  abap2UI5 1.148.0.** abap2UI5/abap2UI5#2935 removed Timer, Focus,
+  Scrolling, Title, LPTitle, Favicon, Info and History, and the weekly
+  drift gate (and abap2UI5's `check_gates`) went red on eight mirrors with
+  no source. Each entry records `removedAfter: "1.148.0"`; the finding says
+  a later release fails to load the view, and `check-upstream` now expects
+  a removed control's source to be gone - one that comes back is the drift.
+  They stay mirrored, so the render gate still creates a view for an
+  installation that has them and the rule stays the one finding.
 - **`unescaped-text-in-attribute` judges a template by what it
   interpolates, not by its shape.** `|{ gc_label }: 5|` with a `CONSTANTS`
   holding `{/NAME}` was reported as carrying data - the reconstruction

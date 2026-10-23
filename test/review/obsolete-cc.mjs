@@ -120,6 +120,10 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
     assert(Object.entries(OBSOLETE_CC_HELPERS).map(([h, n]) => `${h}>${n}`).sort().join()
       === 'favicon>Favicon,focus>Focus,history>History,info_frontend>Info,lp_title>LPTitle,scrolling>Scrolling,timer>Timer,title>Title',
       'the frozen builder helper per control, as z2ui5_cl_xml_view_cc names them');
+    assert(Object.values(OBSOLETE_CC_CONTROLS).every((o) => o.removedAfter === '1.148.0'),
+      'all eight are recorded as removed after 1.148.0 (abap2UI5/abap2UI5#2935)');
+    assert(/removed after 1\.148\.0/.test(of(checkAbapSource(viewWith('Timer'), opts).findings)[0]?.message ?? ''),
+      'the finding says so');
     /* every cs_event constant a replacement names is one the client interface
      * releases - the fixture is the mirrored cs_event block */
     const csEvent = fs.readFileSync(f('cs_event.intf.abap'), 'utf8').toLowerCase();
