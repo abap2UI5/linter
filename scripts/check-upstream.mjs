@@ -600,6 +600,20 @@ if (invokedDirectly) {
    * control whose source is GONE upstream is reported too, because a mirror
    * of nothing is worse than no mirror. */
   for (const name of Object.keys(CC_CONTROLS)) {
+    /* A control upstream REMOVED (`obsolete.removedAfter`) is mirrored for
+     * the installations that still have it, so its source is expected to be
+     * gone - one that comes back is the drift, and nothing is compared. */
+    const removedAfter = CC_CONTROLS[name].obsolete?.removedAfter;
+    if (removedAfter) {
+      if (ccSrc[name]) {
+        drift++;
+        console.log(`DRIFT companion control ${name} (lib/cc-controls.mjs):`);
+        console.log(`  ! ${CC_DIR}/${name}.js is back upstream — recorded here as removed after ${removedAfter} (drop removedAfter and mirror it again)`);
+      } else {
+        console.log(`ok    companion control ${name} (lib/cc-controls.mjs): removed upstream after ${removedAfter}, as recorded`);
+      }
+      continue;
+    }
     if (!ccSrc[name]) {
       drift++;
       console.log(`DRIFT companion control ${name} (lib/cc-controls.mjs):`);
@@ -649,8 +663,9 @@ if (invokedDirectly) {
      * set, and this one is a set of things the rule REPORTS - a name missing
      * here lets obsolete code pass, a stale one reports correct code. */
     const what = 'obsolete companion controls, the // OBSOLETE: headers (lib/cc-controls.mjs)';
-    const marked = Object.keys(OBSOLETE_CC_CONTROLS);
-    const newlyObsolete = setDiff(Object.keys(headers), marked);
+    // a removed control has no source, so no header either - judged above
+    const marked = Object.keys(OBSOLETE_CC_CONTROLS).filter((n) => !OBSOLETE_CC_CONTROLS[n].removedAfter);
+    const newlyObsolete = setDiff(Object.keys(headers), Object.keys(OBSOLETE_CC_CONTROLS));
     const noLongerObsolete = setDiff(marked, Object.keys(headers));
     if (!newlyObsolete.length && !noLongerObsolete.length) {
       console.log(`ok    ${what}: in sync (${marked.length} entries)`);
