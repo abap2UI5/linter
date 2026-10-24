@@ -51,6 +51,7 @@ INTERFACE zif_fixture_cs_event PUBLIC.
       hash_attach_changed       TYPE string VALUE `HASH_ATTACH_CHANGED`,
       hash_routing              TYPE string VALUE `SET_NAV_ROUTING`,
       app_state_set_active      TYPE string VALUE `SET_APP_STATE_ACTIVE`,
+      offline_queue             TYPE string VALUE `OFFLINE_QUEUE`,
 
     END OF cs_event.
 

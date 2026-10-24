@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`cs_event-offline_queue` is a known frontend action.** abap2UI5 adds
+  `OFFLINE_QUEUE` (experimental: the events an app names wait in the
+  browser while the backend cannot be reached), handled in
+  `core/actions/Browser.js`. Until it is in the dispatch mirror, a correct
+  `follow_up_action( val = client->cs_event-offline_queue ... )` would be
+  reported as `unknown-frontend-action`.
 - **`obsolete-custom-control` knows the eight controls are gone after
   abap2UI5 1.148.0.** abap2UI5/abap2UI5#2935 removed Timer, Focus,
   Scrolling, Title, LPTitle, Favicon, Info and History, and the weekly
