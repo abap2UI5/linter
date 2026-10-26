@@ -1,5 +1,5 @@
 * A copy of z2ui5_if_client=>cs_event - abap2UI5, src/02/z2ui5_if_client.intf.abap,
-* as of 2026-09-24: the closed set of event names an app may hand to
+* as of 2026-10-26: the closed set of event names an app may hand to
 * _event_client( ) or follow_up_action( ). scripts/check-upstream.mjs reads the
 * live interface (weekly, with network); this copy is what the suite reads
 * offline, so every constant here has to be accepted by lib/frontend-actions.mjs
@@ -15,6 +15,7 @@ INTERFACE zif_fixture_cs_event PUBLIC.
 
       cross_app_nav_to_ext      TYPE string VALUE `CROSS_APP_NAV_TO_EXT`,
       cross_app_nav_to_prev_app TYPE string VALUE `CROSS_APP_NAV_TO_PREV_APP`,
+      cross_app_nav_get_links   TYPE string VALUE `CROSS_APP_NAV_GET_LINKS`,
 
       set_size_limit            TYPE string VALUE `SET_SIZE_LIMIT`,
       set_odata_model           TYPE string VALUE `SET_ODATA_MODEL`,

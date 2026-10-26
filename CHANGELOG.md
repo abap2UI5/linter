@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`cs_event-cross_app_nav_get_links` is a known frontend action.**
+  abap2UI5/abap2UI5#2948 adds `CROSS_APP_NAV_GET_LINKS` (the intents the
+  launchpad offers for a semantic object, CrossApplicationNavigation
+  getLinks, handed back to a backend event as JSON), handled in
+  `core/actions/Launchpad.js` next to its `CROSS_APP_NAV_TO_*` siblings.
+  Until it is in the dispatch mirror, a correct
+  `follow_up_action( val = client->cs_event-cross_app_nav_get_links ... )`
+  would be reported as `unknown-frontend-action`.
 - **`cs_event-offline_queue` is a known frontend action.** abap2UI5 adds
   `OFFLINE_QUEUE` (experimental: the events an app names wait in the
   browser while the backend cannot be reached), handled in
