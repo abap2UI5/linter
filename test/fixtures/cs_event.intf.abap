@@ -22,6 +22,7 @@ INTERFACE zif_fixture_cs_event PUBLIC.
       clipboard_copy            TYPE string VALUE `CLIPBOARD_COPY`,
       set_title                 TYPE string VALUE `SET_TITLE`,
       set_title_launchpad       TYPE string VALUE `SET_TITLE_LAUNCHPAD`,
+      set_app_full_width        TYPE string VALUE `SET_APP_FULL_WIDTH`,
       set_favicon               TYPE string VALUE `SET_FAVICON`,
       set_focus                 TYPE string VALUE `SET_FOCUS`,
       scroll_to                 TYPE string VALUE `SCROLL_TO`,

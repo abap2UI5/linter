@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`cs_event-set_app_full_width` is a known frontend action.**
+  abap2UI5/abap2UI5#2953 adds `SET_APP_FULL_WIDTH` (AppConfiguration
+  setApplicationFullWidth, so an app in the launchpad can use the whole
+  screen), handled in `core/actions/Launchpad.js` next to
+  `SET_TITLE_LAUNCHPAD`. Until it is in the dispatch mirror, a correct
+  `follow_up_action( val = client->cs_event-set_app_full_width ... )` would be
+  reported as `unknown-frontend-action`.
 - **`cs_event-cross_app_nav_get_links` is a known frontend action.**
   abap2UI5/abap2UI5#2948 adds `CROSS_APP_NAV_GET_LINKS` (the intents the
   launchpad offers for a semantic object, CrossApplicationNavigation
