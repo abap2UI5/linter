@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`HTMLFrame` is a mirrored companion control.** abap2UI5/abap2UI5#2955
+  adds `z2ui5.cc.HTMLFrame` (an app's own HTML document in an iframe, its
+  `sapevent:` links and forms fired as `sapevent` with `action`, `getdata`
+  and `postdata` - the stand-in for `cl_gui_html_viewer`). Until it is in
+  `CC_CONTROLS`, a view naming `<z2ui5:HTMLFrame>` fails creation in the
+  render gate with a module 404 and the property walk looks away from it;
+  with it, the walk judges its `content`, `width`, `height`, `title` and
+  the event like any other control's.
 - **`cs_event-set_app_full_width` is a known frontend action.**
   abap2UI5/abap2UI5#2953 adds `SET_APP_FULL_WIDTH` (AppConfiguration
   setApplicationFullWidth, so an app in the launchpad can use the whole
