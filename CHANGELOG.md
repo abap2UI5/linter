@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`z2ui5.cc.HTMLFrame` is a mirrored companion control.**
+  abap2UI5/abap2UI5#2955 adds HTMLFrame (an app's own HTML document in an
+  iframe, its sapevent: links and forms handed back as the event
+  `sapevent`), and the weekly drift gate and abap2UI5's `check_gates` went
+  red on it. Until it is in `lib/cc-controls.mjs`, a view naming
+  `<z2ui5:HTMLFrame>` fails creation in the render gate with a module 404
+  and the property walk looks away from it; now `content`, `width`,
+  `height`, `title` and `sapevent` are known and a misspelt attribute is
+  `unknown-property`.
 - **`cs_event-set_app_full_width` is a known frontend action.**
   abap2UI5/abap2UI5#2953 adds `SET_APP_FULL_WIDTH` (AppConfiguration
   setApplicationFullWidth, so an app in the launchpad can use the whole

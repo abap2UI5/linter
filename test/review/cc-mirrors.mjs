@@ -145,6 +145,26 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
       'a receiver that is no dependency: unreadable too');
   });
 
+  section('cc mirrors: HTMLFrame, as abap2UI5/abap2UI5#2955 declares it', () => {
+    const frame = CC_CONTROLS.HTMLFrame;
+    assert(!frame.base && !frame.obsolete
+      && Object.keys(frame.properties).join() === 'content,width,height,title'
+      && Object.keys(frame.events).join() === 'sapevent'
+      && Object.keys(frame.events.sapevent.parameters).join() === 'action,getdata,postdata',
+    'a Control with content, width, height, title and the event sapevent with action, getdata and postdata');
+    const xml = `<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc" xmlns:z2ui5="z2ui5.cc">
+  <Page>
+    <content>
+      <z2ui5:HTMLFrame content="{/HTML}" width="100%" height="40rem" title="Report" sapevent=".eB([\'SAPEVENT\', \'\${$parameters>/action}\'])"/>
+      <z2ui5:HTMLFrame content="{/HTML}" heigth="40rem"/>
+    </content>
+  </Page>
+</mvc:View>`;
+    const got = checkXmlSource(xml, opts).findings.map((x) => `${x.type}:${x.control}.${x.member}@${x.line}`);
+    assert(got.join(' ') === `unknown-property:z2ui5.cc.HTMLFrame.heigth@${lineOf(xml, 'heigth=')}`,
+      `the frame written right is silent, the misspelt height is reported (got ${got.join(' ') || 'none'})`);
+  });
+
   section('cc mirrors: the render gate creates each view, and still reports a wrong attribute on each', async () => {
     /* View creation stops at the first unknown setting, so each wrong
      * attribute gets a view of its own; one browser renders all four. */
