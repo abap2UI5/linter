@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **The snapshot is OpenUI5 1.154.0** (from 1.153.0): `data/properties.json`,
+  `data/icons.json` and the `@openui5/*` pins of `@abap2ui5/linter-render`
+  moved together (RELEASING.md step 1c), with `data/compat.json`'s
+  `ui5.snapshot` and the rules page stamp following. 17 controls are new
+  (`sap.m.NumericInputBase`, `sap.m.PopoverResize`,
+  `sap.ui.core.html.HTMLElement`, `sap.ui.core.html.TextContent`,
+  `sap.ui.table.plugins.ClientHierarchy` and twelve `sap.f` web-component
+  wrappers: `ListItemCustom`, `ListItemGroupBase` and ten `UserSettings*`)
+  and three enums (`sap.m.ObjectNumberDisplayMode`,
+  `sap.m.NumericInputStepModeType`, `sap.m.NumericInputValidationMode`);
+  the icon font is unchanged (707 names).
 - **`z2ui5.cc.HTMLFrame` is a mirrored companion control.**
   abap2UI5/abap2UI5#2955 adds HTMLFrame (an app's own HTML document in an
   iframe, its sapevent: links and forms handed back as the event
