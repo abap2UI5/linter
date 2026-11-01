@@ -10,6 +10,26 @@
   render gate with a module 404 and the property walk looks away from it;
   with it, the walk judges its `content`, `width`, `height`, `title` and
   the event like any other control's.
+- **The snapshot is OpenUI5 1.154.0** (from 1.153.0): `data/properties.json`,
+  `data/icons.json` and the `@openui5/*` pins of `@abap2ui5/linter-render`
+  moved together (RELEASING.md step 1c), with `data/compat.json`'s
+  `ui5.snapshot` and the rules page stamp following. 17 controls are new
+  (`sap.m.NumericInputBase`, `sap.m.PopoverResize`,
+  `sap.ui.core.html.HTMLElement`, `sap.ui.core.html.TextContent`,
+  `sap.ui.table.plugins.ClientHierarchy` and twelve `sap.f` web-component
+  wrappers: `ListItemCustom`, `ListItemGroupBase` and ten `UserSettings*`)
+  and three enums (`sap.m.ObjectNumberDisplayMode`,
+  `sap.m.NumericInputStepModeType`, `sap.m.NumericInputValidationMode`);
+  the icon font is unchanged (707 names).
+- **`z2ui5.cc.HTMLFrame` is a mirrored companion control.**
+  abap2UI5/abap2UI5#2955 adds HTMLFrame (an app's own HTML document in an
+  iframe, its sapevent: links and forms handed back as the event
+  `sapevent`), and the weekly drift gate and abap2UI5's `check_gates` went
+  red on it. Until it is in `lib/cc-controls.mjs`, a view naming
+  `<z2ui5:HTMLFrame>` fails creation in the render gate with a module 404
+  and the property walk looks away from it; now `content`, `width`,
+  `height`, `title` and `sapevent` are known and a misspelt attribute is
+  `unknown-property`.
 - **`cs_event-set_app_full_width` is a known frontend action.**
   abap2UI5/abap2UI5#2953 adds `SET_APP_FULL_WIDTH` (AppConfiguration
   setApplicationFullWidth, so an app in the launchpad can use the whole
