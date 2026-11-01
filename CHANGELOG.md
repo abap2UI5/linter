@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`HTMLFrame` is a mirrored companion control.** abap2UI5/abap2UI5#2955
+  adds `z2ui5.cc.HTMLFrame` (an app's own HTML document in an iframe, its
+  `sapevent:` links and forms fired as `sapevent` with `action`, `getdata`
+  and `postdata` - the stand-in for `cl_gui_html_viewer`). Until it is in
+  `CC_CONTROLS`, a view naming `<z2ui5:HTMLFrame>` fails creation in the
+  render gate with a module 404 and the property walk looks away from it;
+  with it, the walk judges its `content`, `width`, `height`, `title` and
+  the event like any other control's.
 - **The snapshot is OpenUI5 1.154.0** (from 1.153.0): `data/properties.json`,
   `data/icons.json` and the `@openui5/*` pins of `@abap2ui5/linter-render`
   moved together (RELEASING.md step 1c), with `data/compat.json`'s
