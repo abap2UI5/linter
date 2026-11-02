@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The retired utility classes are reported as moved to abap2UI5-ext.**
+  abap2UI5/abap2UI5#2978 removes `src/99/01` (`z2ui5_cl_util*`,
+  `z2ui5_cx_util_error`, `z2ui5_t_91`) from the core into
+  abap2UI5/abap2UI5-ext. They leave `FROZEN_OBJECTS` (which mirrors `src/99`
+  exactly) for a new `MOVED_OBJECTS`: `non-released-api` still reports an app
+  naming one, now as "no longer shipped with abap2UI5" with abap2UI5-ext as
+  the place it lives, and `z2ui5_t_91` is no longer taken for a framework
+  table.
 - **`HTMLFrame` is a mirrored companion control.** abap2UI5/abap2UI5#2955
   adds `z2ui5.cc.HTMLFrame` (an app's own HTML document in an iframe, its
   `sapevent:` links and forms fired as `sapevent` with `action`, `getdata`
