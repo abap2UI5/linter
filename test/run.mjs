@@ -3036,7 +3036,7 @@ section('non-released-api', async () => {
       .filter((x) => x.type === 'non-released-api').map((x) => x.value);
 
     for (const [name, area] of [
-      ['z2ui5_cl_util', 'src/99/01'],          // retired utility class
+      ['z2ui5_cl_util', 'abap2UI5-ext'],       // retired utility class, moved out of the core
       ['z2ui5_cl_pop_to_confirm', 'src/99/02'], // built-in popup, replaced by the addon
       ['z2ui5_cl_ajson', 'src/00/01'],          // vendored copy, renamed on every sync
       ['z2ui5_if_ajson', 'src/00/01'],          // …in a declaration, not only a call
@@ -3062,6 +3062,13 @@ section('non-released-api', async () => {
     assert(apiVerdict('z2ui5_if_exit')?.replacement === 'z2ui5_if_ui5_exit'
       && apiVerdict('z2ui5_if_ui5_exit') === null,
       'non-released-api: the exit interface reports under its old name and is silent under the new one');
+    // src/99/01 left the core for abap2UI5-ext: still reported, as moved -
+    // not as frozen legacy that ships, and the table not as a framework table
+    for (const name of ['z2ui5_cl_util', 'z2ui5_cx_util_error', 'z2ui5_t_91']) {
+      const v = apiVerdict(name);
+      assert(v?.area === 'abap2UI5-ext' && v.moved === true && v.frozen === false,
+        `non-released-api: ${name} is reported as moved to abap2UI5-ext`);
+    }
     // an app\'s own z2ui5_-prefixed class matches no framework family
     assert(!named.includes('z2ui5_cl_demo_app_042'),
       'non-released-api: a name outside every framework prefix family is somebody else\'s class');
