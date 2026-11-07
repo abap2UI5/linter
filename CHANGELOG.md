@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`FileUploader` mirrors `maximumFileSize` and `fileSizeExceed`.**
+  abap2UI5/abap2UI5#2985 adds a size limit to `z2ui5.cc.FileUploader` (in
+  megabytes, 0 = no limit) and the event a file over it fires, with
+  `fileName` and `fileSize`. Until they are in `CC_CONTROLS`, a view that
+  sets the property or wires the event is reported as `unknown-property`
+  although the framework has both.
 - **The retired utility classes are reported as moved to abap2UI5-ext.**
   abap2UI5/abap2UI5#2978 removes `src/99/01` (`z2ui5_cl_util*`,
   `z2ui5_cx_util_error`, `z2ui5_t_91`) from the core into
