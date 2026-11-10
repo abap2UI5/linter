@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **`unknown-binding-path` keeps checking a table that is cleared with
+  `VALUE #( )`.** A class that empties its bound table and refills it (a
+  search: `mt_rows = VALUE #( ).` and a loop) had that empty constructor read
+  as the table's seed, so the table had no row shape and no relative field of
+  its template was checked. An empty constructor seeds nothing now. Measured
+  by renaming every relative template path in the three sample corpora:
+  1,842 of 2,604 were caught before (71%), 2,036 now (78%); no new finding
+  on the unchanged corpora.
 - **New rule `close-only-roundtrip`** (warning, fixable): an event whose
   branch in main( ) does nothing but `popup_destroy( )` or
   `popover_destroy( )` is a whole roundtrip to close a slot the frontend

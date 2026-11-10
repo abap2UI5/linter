@@ -160,4 +160,22 @@ export default async function ({ section, assert, checkAbapSource }) {
     const why = dialog('      WHEN `CANCEL`.\n        " through the backend on purpose\n        client->popup_destroy( ).\n\n      WHEN OTHERS.\n\n');
     assert(of(why, 'close-only-roundtrip').length === 0, 'a branch with a comment is the author\'s decision - not judged');
   });
+
+  // ------------------------------------------------ 5. unknown-binding-path behind a cleared table
+
+  section('unknown-binding-path: VALUE #( ) that clears the table keeps the row shape', () => {
+    /* samples app 053: a search empties the bound table and refills it in a
+     * loop. The empty constructor was read as the table's seed, the table
+     * came out empty, and no relative field of the template was checked. */
+    const src = frame({
+      main: '    t_rows = VALUE #( ( name = `a` ) ).\n    t_rows = VALUE #( ).\n',
+      attrs: '            )->a( n = `press` v = client->_event( `X` )\n',
+    }).replace('    DATA mt_rows TYPE string_table.\n',
+      '    TYPES: BEGIN OF ty_s_row, name TYPE string, END OF ty_s_row.\n    DATA t_rows TYPE STANDARD TABLE OF ty_s_row WITH EMPTY KEY.\n')
+      .replace('        )->end( ).\n', '          )->ele( `List` )->a( n = `items` v = client->_bind( t_rows )\n'
+        + '            )->tag( `StandardListItem` )->a( n = `title` v = `{NAMEX}`\n        )->end( ).\n');
+    const hits = of(src, 'unknown-binding-path').map((x) => x.value);
+    assert(hits.includes('NAMEX'), `the typo under the cleared table is reported (${hits.join()})`);
+    assert(of(src.replace('{NAMEX}', '{NAME}'), 'unknown-binding-path').length === 0, 'and the right name is not');
+  });
 }
