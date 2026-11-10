@@ -122,12 +122,12 @@ export default async function ({ section, assert, checkAbapSource }) {
   });
 
   section('close-only-roundtrip: a branch that only destroys the popup becomes the frontend close', () => {
-    const src = dialog('      WHEN `CANCEL`.\n        " only closes\n        client->popup_destroy( ).\n\n');
+    const src = dialog('      WHEN `CANCEL`.\n        client->popup_destroy( ).\n\n      WHEN OTHERS.\n\n');
     const hits = of(src, 'close-only-roundtrip');
     assert(hits.length === 1 && hits[0].value === 'CANCEL' && hits[0].member === 'popup', `the CANCEL branch, not SAVE (${hits.map((h) => h.value)})`);
     const out = fixed(src);
     assert(out.includes('v = client->follow_up_action( val = client->cs_event-popup_close )'), 'the raise became the frontend action');
-    assert(!/WHEN `CANCEL`/.test(out) && out.includes("        client->popup_destroy( ).\n\n    ENDCASE."), 'the branch is gone, the CASE closes up');
+    assert(!/WHEN `CANCEL`/.test(out) && out.includes("        client->popup_destroy( ).\n\n      WHEN OTHERS."), 'the branch is gone, the CASE closes up');
     assert(of(out, 'close-only-roundtrip').length === 0 && of(out, 'handler-without-event').length === 0, 'and nothing is left to report');
   });
 
@@ -154,5 +154,10 @@ export default async function ({ section, assert, checkAbapSource }) {
     });
     const hits = of(lone, 'close-only-roundtrip');
     assert(hits.length === 1 && !hits[0].fixes, 'the only WHEN of the CASE is reported without a fix');
+    const two = dialog('      WHEN `CANCEL`.\n        client->popup_destroy( ).\n\n');
+    assert(of(two, 'close-only-roundtrip').length === 1 && !of(two, 'close-only-roundtrip')[0].fixes,
+      'a CASE that would keep one WHEN is reported without a fix - abaplint short_case');
+    const why = dialog('      WHEN `CANCEL`.\n        " through the backend on purpose\n        client->popup_destroy( ).\n\n      WHEN OTHERS.\n\n');
+    assert(of(why, 'close-only-roundtrip').length === 0, 'a branch with a comment is the author\'s decision - not judged');
   });
 }
