@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **New rule `close-only-roundtrip`** (warning, fixable): an event whose
+  branch in main( ) does nothing but `popup_destroy( )` or
+  `popover_destroy( )` is a whole roundtrip to close a slot the frontend
+  closes by itself. `--fix` rewrites every plain `_event( … )` that raises it
+  to `follow_up_action( val = client->cs_event-popup_close )` (or
+  `popover_close`) and deletes the branch. A branch with any other statement,
+  a raise with arguments and an event raised from the frontend are left
+  alone. 23 branches in the three sample corpora.
 - **`ui5-internal-access` reads the private fields a client expression
   walks.** An event argument or frontend-action argument such as
   `$event.oSource.sId`, `$event.mParameters` or `….oParent` reads UI5 state

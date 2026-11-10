@@ -5,7 +5,8 @@
  * `bind-path-flag` (`_bind( val = x path = abap_true )` where
  * `_bind_path( x )` says the same) and `handler-without-event` reading the
  * third t_arg of CROSS_APP_NAV_GET_LINKS as a raised event (samples-stack
- * app 026). See test/review/README.md for the harness.
+ * app 026), plus `close-only-roundtrip`: an event whose branch only closes
+ * the popup or popover. See test/review/README.md for the harness.
  */
 import { applyFixes } from '../../lib/fix.mjs';
 
@@ -105,5 +106,53 @@ export default async function ({ section, assert, checkAbapSource }) {
     });
     const found = of(src, 'handler-without-event').map((x) => x.value);
     assert(found.length === 0, `LINKS_READ is raised by the getLinks answer (${found.join(', ')})`);
+  });
+
+  // ------------------------------------------------ 4. close-only-roundtrip
+
+  const dialog = (cancelBranch, raise = 'client->_event( `CANCEL` )') => frame({
+    attrs: `            )->a( n = \`press\` v = ${raise}\n`,
+    main: '    CASE client->get_event( ).\n'
+      + '      WHEN `SAVE`.\n'
+      + '        mv_text = `saved`.\n'
+      + '        client->popup_destroy( ).\n\n'
+      + cancelBranch
+      + '    ENDCASE.\n'
+      + '    DATA(save) = client->_event( `SAVE` ).\n',
+  });
+
+  section('close-only-roundtrip: a branch that only destroys the popup becomes the frontend close', () => {
+    const src = dialog('      WHEN `CANCEL`.\n        " only closes\n        client->popup_destroy( ).\n\n');
+    const hits = of(src, 'close-only-roundtrip');
+    assert(hits.length === 1 && hits[0].value === 'CANCEL' && hits[0].member === 'popup', `the CANCEL branch, not SAVE (${hits.map((h) => h.value)})`);
+    const out = fixed(src);
+    assert(out.includes('v = client->follow_up_action( val = client->cs_event-popup_close )'), 'the raise became the frontend action');
+    assert(!/WHEN `CANCEL`/.test(out) && out.includes("        client->popup_destroy( ).\n\n    ENDCASE."), 'the branch is gone, the CASE closes up');
+    assert(of(out, 'close-only-roundtrip').length === 0 && of(out, 'handler-without-event').length === 0, 'and nothing is left to report');
+  });
+
+  section('close-only-roundtrip: the popover and the ELSEIF form', () => {
+    const src = frame({
+      attrs: '            )->a( n = `press` v = client->_event( `CLOSE_POPOVER` )\n',
+      main: '    IF client->check_on_event( `OPEN` ).\n      mv_text = `x`.\n'
+        + '    ELSEIF client->check_on_event( `CLOSE_POPOVER` ).\n      client->popover_destroy( ).\n    ENDIF.\n'
+        + '    DATA(o) = client->_event( `OPEN` ).\n',
+    });
+    const out = fixed(src);
+    assert(out.includes('client->follow_up_action( val = client->cs_event-popover_close )')
+      && !out.includes('CLOSE_POPOVER') && /mv_text = `x`\.\n    ENDIF\./.test(out), 'the ELSEIF branch is gone and the raise closes the popover');
+  });
+
+  section('close-only-roundtrip: backend work, event arguments and a lone WHEN keep the branch', () => {
+    assert(of(dialog('      WHEN `CANCEL`.\n        mv_text = ``.\n        client->popup_destroy( ).\n\n'), 'close-only-roundtrip').length === 0,
+      'a branch that also writes state is backend work');
+    assert(of(dialog('      WHEN `CANCEL`.\n        client->popup_destroy( ).\n\n', 'client->_event( val = `CANCEL` t_arg = VALUE #( ( `x` ) ) )'), 'close-only-roundtrip').length === 0,
+      'a raise that carries arguments is not swapped');
+    const lone = frame({
+      attrs: '            )->a( n = `press` v = client->_event( `CANCEL` )\n',
+      main: '    CASE client->get_event( ).\n      WHEN `CANCEL`.\n        client->popup_destroy( ).\n    ENDCASE.\n',
+    });
+    const hits = of(lone, 'close-only-roundtrip');
+    assert(hits.length === 1 && !hits[0].fixes, 'the only WHEN of the CASE is reported without a fix');
   });
 }
