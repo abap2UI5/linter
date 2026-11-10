@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **New rule `close-only-roundtrip`** (warning, fixable): an event whose
+  branch in main( ) does nothing but `popup_destroy( )` or
+  `popover_destroy( )` is a whole roundtrip to close a slot the frontend
+  closes by itself. `--fix` rewrites every plain `_event( … )` that raises it
+  to `follow_up_action( val = client->cs_event-popup_close )` (or
+  `popover_close`) and deletes the branch. A branch with any other statement,
+  a raise with arguments and an event raised from the frontend are left
+  alone. 23 branches in the three sample corpora.
+- **`ui5-internal-access` reads the private fields a client expression
+  walks.** An event argument or frontend-action argument such as
+  `$event.oSource.sId`, `$event.mParameters` or `….oParent` reads UI5 state
+  that is no API, and a release that renames the field breaks the wire with
+  nothing raised. Inside a literal that is a client expression (it names
+  `$event`, `$source`, `$parameters`, `$controller` or opens `${`), a property
+  read of a Hungarian-named field is reported; `--fix` writes the public
+  getter for the four the corpora use (`getSource()`, `getId()`,
+  `getParameters()`, `getParent()`). Measured on the corpora: 567 sites in
+  samples-controls, 22 in samples, every one fixed by the getter.
+- **New rule `bind-path-flag`** (warning, fixable): `_bind( val = x path =
+  abap_true )` with no third argument is `_bind_path( x )` spelled through a
+  flag, byte for byte the same call. `--fix` rewrites it, also inside a
+  string-template embed. A call that is the whole `v =` value stays with
+  `bind-path-as-value`. 42 sites in samples, 10 in samples-controls.
+- **`handler-without-event` knows the answer event of
+  `cross_app_nav_get_links`.** Its third t_arg names the backend event raised
+  once the launchpad's getLinks has answered; the WHEN for it was reported as
+  a handler nothing raises (samples-stack app 026).
 - **`FileUploader` mirrors `maximumFileSize` and `fileSizeExceed`.**
   abap2UI5/abap2UI5#2985 adds a size limit to `z2ui5.cc.FileUploader` (in
   megabytes, 0 = no limit) and the event a file over it fires, with
