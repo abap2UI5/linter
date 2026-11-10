@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **`unknown-binding-path` follows two more row contexts.** The column
+  templates of a `sap.ui.table` table (`Column.template`,
+  `rowActionTemplate`, `rowSettingsTemplate`) are judged against the rows of
+  the table's `rows` binding, and the fields under an element binding on a
+  row of a declared table (`binding="{/T_ROWS/3}"`) against that row type.
+  Both were opaque before, so a misspelled field there was never reported. A
+  TreeTable bound to a structure stays unjudged: its rows are the nodes.
+  Measured by renaming every relative template path in the three sample
+  corpora: 2,036 of 2,604 caught before (78 %), 2,305 now (89 %); no new
+  finding on the unchanged corpora.
 - **`binding-to-reference` reports object references only.**
   abap2UI5/abap2UI5#2986 lets `_bind( )`, `_bind_path( )` and `_bind_tab( )`
   take a data reference and bind what it points to, so `_bind( mr_rows )`
