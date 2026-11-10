@@ -2497,6 +2497,7 @@ section('popover-display-val', async () => {
     PUBLIC SECTION.
       INTERFACES z2ui5_if_app.
       DATA mt_data TYPE REF TO data.
+      DATA mo_app TYPE REF TO zcl_other_app.
       DATA t_rows TYPE STANDARD TABLE OF string WITH EMPTY KEY.
   ENDCLASS.
   CLASS zcl_r IMPLEMENTATION.
@@ -2504,10 +2505,11 @@ section('popover-display-val', async () => {
       view->ele( \`List\` )->a( n = \`items\` v = client->_bind( mt_data ) ).
       view->ele( \`List\` )->a( n = \`items\` v = client->_bind( mt_data->* ) ).
       view->ele( \`List\` )->a( n = \`items\` v = client->_bind( t_rows ) ).
+      view->ele( \`Text\` )->a( n = \`text\` v = client->_bind( mo_app ) ).
     ENDMETHOD.
   ENDCLASS.`);
-    assert(refs.filter((x) => x.type === 'binding-to-reference').length === 1,
-      'binding-to-reference: the undereferenced REF TO bind is reported, ref->* and a data attribute are not');
+    assert(refs.filter((x) => x.type === 'binding-to-reference').map((x) => x.member).join() === 'mo_app',
+      'binding-to-reference: the object reference is reported; a data reference (abap2UI5#2986), ref->* and a data attribute are not');
 
     const disabled = checkAbapSource(`CLASS zcl_d DEFINITION PUBLIC.
     PUBLIC SECTION.
@@ -4470,15 +4472,13 @@ section('fix (3)', async () => {
         'fix: redundant-init-display fork keeps the navigated arm as the IF');
     }
 
-    // --- binding-to-reference: dereference, REF TO data only ------------------
+    // --- binding-to-reference: object references only, never a fix ----------
     {
-      const src = 'DATA mt_data TYPE REF TO data.\nDATA mo_obj TYPE REF TO zcl_x.\n)->a( n = `items` v = client->_bind( mt_data )\n)->a( n = `x` v = client->_bind( val = mo_obj ) )';
+      const src = 'DATA mt_data TYPE REF TO data.\nDATA mo_obj TYPE REF TO zcl_x.\nDATA mr_rows TYPE REF TO ty_t_rows.\n'
+        + ')->a( n = `items` v = client->_bind( mt_data )\n)->a( n = `x` v = client->_bind( val = mo_obj ) )\n)->a( n = `y` v = client->_bind( mr_rows ) )';
       const found = one(src, 'binding-to-reference');
-      assert(found.length === 2, `binding-to-reference: both references reported (got ${found.length})`);
-      const data = found.find((x) => x.member === 'mt_data');
-      const obj = found.find((x) => x.member === 'mo_obj');
-      assert(data.fixes?.length === 1 && !obj?.fixes, 'fix: binding-to-reference dereferences REF TO data and nothing else');
-      assert(applyFixes(src, found).output.includes('client->_bind( mt_data->* )'), 'fix: binding-to-reference inserts ->*');
+      assert(found.map((x) => x.member).join() === 'mo_obj', `binding-to-reference: only the object reference (got ${found.map((x) => x.member).join()})`);
+      assert(!found[0].fixes, 'binding-to-reference carries no fix');
     }
 
     // --- unescaped-brace-in-style: every brace, backtick literals only --------

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`binding-to-reference` reports object references only.**
+  abap2UI5/abap2UI5#2986 lets `_bind( )`, `_bind_path( )` and `_bind_tab( )`
+  take a data reference and bind what it points to, so `_bind( mr_rows )`
+  with `mr_rows TYPE REF TO data` is correct now - samples app 061 binds a
+  table typed at runtime that way and was reported as an error. The rule
+  keeps the shape that is still wrong, a reference to a class or an
+  interface, and no longer offers the `->*` fix.
 - **`unknown-binding-path` keeps checking a table that is cleared with
   `VALUE #( )`.** A class that empties its bound table and refills it (a
   search: `mt_rows = VALUE #( ).` and a loop) had that empty constructor read

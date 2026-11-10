@@ -334,12 +334,11 @@ export default async function ({ section, assert, checkAbapSource }) {
 
   section('review rules: chained declarations are read by the binding rules', () => {
     const refs = frame({
-      defs: '    DATA: mr_a TYPE REF TO data, mr_b TYPE REF TO data.\n',
+      defs: '    DATA: mr_a TYPE REF TO zcl_a, mr_b TYPE REF TO zcl_b.\n',
       attrs: '            )->a( n = `tooltip` v = client->_bind( mr_b )\n',
     });
     const ref = of(refs, 'binding-to-reference');
     assert(ref.length === 1 && ref[0].member === 'mr_b', `the second reference of the chain is known (${ref.map((x) => x.member).join() || 'none'})`);
-    assert(/_bind\( mr_b->\* \)/.test(fixed(refs)), 'the fix dereferences it');
     const locals = frame({
       main: '    DATA: lv_a TYPE string, lv_b TYPE string.\n    lv_b = `x`.\n',
       attrs: '            )->a( n = `tooltip` v = client->_bind( lv_b )\n',
