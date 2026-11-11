@@ -19,6 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { RULES, SEVERITIES, RENDER_RULE, defaultSeverityOf } from '../lib/findings.mjs';
 import { RULE_DOCS, CATEGORIES } from '../lib/rule-docs.mjs';
+import { UNIT_RULES } from '../lib/rules/index.mjs';
 import { FIXABLE } from '../lib/fix.mjs';
 import zlib from 'zlib';
 import { checkAbapSource } from '../lib/index.mjs';
@@ -325,6 +326,14 @@ export function playgroundLinks() {
 const LIB = path.join(ROOT, 'lib');
 function emitSites() {
   const found = new Map();
+  /* A rule written as one unit (lib/rule.mjs) IS its file: the definition,
+   * the sentence, the card and the check are all there, at the line that
+   * names its id. */
+  for (const rule of UNIT_RULES) {
+    const file = `rules/${rule.id}.mjs`;
+    const lines = fs.readFileSync(path.join(LIB, file), 'utf8').split('\n');
+    found.set(rule.id, { file, line: lines.findIndex((l) => l.includes(`id: '${rule.id}'`)) + 1 });
+  }
   const files = fs.readdirSync(LIB).filter((f) => f.endsWith('.mjs')).sort();
   for (const pass of ['emit', 'mention']) {
     /* the fallback is the REGISTRY first: a module that merely names an id

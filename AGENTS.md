@@ -227,7 +227,40 @@ exact line):
 | `lib/findings.mjs` | the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments) — and the two findings about the directives themselves, emitted from `applyDirectives` because that is the only place that knows what a directive did: `unknown-directive-rule` (an id not in `RULES`, a warning, with the `caseMatch( )` did-you-mean and a fix that rewrites the id; `render-error` gets its own sentence, since a directive can never address a render failure) and `unused-directive` (a directive that suppressed nothing — per id for a list, as a whole for a bare one; ESLint's `--report-unused-disable-directives`, a hint, with a deleting fix on the line forms). An id whose rule did not RUN on the source (off or excluded in `rules`, an unasked opt-in, a property-walk rule under `properties: false` — `WALK_ONLY_RULES` in `properties.mjs`, gated against the emit sites — and any rule a class that builds no view, or one on the frozen builder, is not judged by — `SOURCE_RULES` in `abap-rules.mjs`, gated the same way, plus `VIEWLESS_APP_RULE` for an app class, `notRunBut( )` in `check.mjs`) is unjudged, never `unused-directive`. Both go through `applyRules` and the directives like any other id, with one asymmetry: a BARE directive cannot waive its own finding, `" abap2ui5lint-disable unused-directive` may. Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters, the GitHub workflow-command annotations, and the terminal rendering of `RULE_DOCS` behind `--explain` (`ruleIndex`, `formatExplain`, `formatRuleIndex`, `explainFooter`). The CLI only parses flags and picks one |
 
-**A new rule moves four places together** — forgetting one has happened:
+**A new rule is ONE file.** `lib/rules/<id>.mjs` exports a `defineRule( )`
+object (`lib/rule.mjs`): id, severity, category, scope, the card (`summary`,
+`detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
+and `check( context )`, plus one import line in `lib/rules/index.mjs`. Every
+registry reads it from there — `SEVERITY_BY_TYPE` and `describe( )` in
+`findings.mjs`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES`, the rule
+page's "Defined in" link — so there is nothing to keep in step by hand, and a
+definition that would fail a gate later (no card, a remedy equal to its
+example) throws at import with the rule's id. The check reads the SHARED
+model of the class, `context.model` (`lib/abap-model.mjs`: tokens with their
+source offsets, statements with the keyword folded, class parts and
+visibility sections, methods, attributes, locals) instead of scanning text
+with regular expressions of its own: case, comments, literals, chained
+declarations and statement ends are decided once, there, for every rule.
+`runRules( )` gives each finding its `type` (a rule file never writes one)
+and can time each rule (`timings`). A rule module imports leaf modules only
+(`rule.mjs`, `abap-model.mjs`, `abap.mjs`, `suggest.mjs`) — the registries
+import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
+gates that, the file-per-id layout and the registries. Step 4 below (a
+fixture and assertions) is still yours to write.
+
+Four rules are written this way so far (`boolc-instead-of-xsdbool`,
+`class-constructor-visibility`, `empty-catch-block`,
+`into-corresponding-inline-decl`), moved without changing a finding their
+sections assert. **The others are still in the old shape and move one at a
+time**: delete the emit block, the `SEVERITY_BY_TYPE` line, the `describe( )`
+case, the `RULE_DOCS` entry and the name in `FIXABLE`/`SOURCE_RULES`, write
+the file, run the suite. An id defined both ways throws at import. Two things
+the model does not do, so a rule that needs them stays where it is for now:
+it follows no builder chain and resolves no value (that is the
+reconstructor's, `lib/reconstruct.mjs`), and it records declarations, not
+writes.
+
+**A rule in the old shape moves four places together** — forgetting one has happened:
 
 1. the emit site in `lib/`,
 2. its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what

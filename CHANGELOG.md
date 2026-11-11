@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **A rule can be written as one file, against one shared reading of the
+  class.** `lib/rule.mjs` (`defineRule( )`, the `./rule` export) takes a
+  rule's registry entry, card, sentence and check as one object; severities,
+  `RULE_DOCS`, the fixable and opt-in lists and the rule page read it from
+  there. Its check gets `lib/abap-model.mjs` (`abapModel( )`, the
+  `./abap-model` export): tokens with their source offsets, statements,
+  class parts and visibility sections, methods, attributes and locals, read
+  once per source for every rule that asks - so the case of a keyword, a
+  keyword inside a literal, a chained declaration and the end of a statement
+  are decided in one place. The model also recovers where the old statement
+  splitter cannot: a chain with unbalanced parentheses costs its own
+  statement, not the rest of the class. Four rules are moved over
+  (`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
+  `empty-catch-block`, `into-corresponding-inline-decl`); the others follow
+  one at a time. No finding changes, with two corrections that come from
+  reading structure instead of text: `class_constructor` in the PUBLIC
+  SECTION of a second (local) class is no longer reported, and a component
+  named `boolc` (`ls_flags-boolc`) is not a call of the built-in.
 - **`ABAP2UI5LINT_NO_BROWSER=1` refuses Chromium.** With it set the render
   gate behaves as on a machine without a browser, also where one is
   installed: a default-on gate steps aside with its notice, an asked-for one

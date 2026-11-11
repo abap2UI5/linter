@@ -71,7 +71,8 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
       const src = fs.readFileSync(path.join(ROOT, 'lib', file), 'utf8');
       for (const m of src.matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'([^']+)'|import\(\s*'([^']+)'\s*\)/g)) {
         const spec = m[1] ?? m[2];
-        if (spec.startsWith('./')) visit(spec.slice(2));
+        // relative to the importing file: lib/rules/*.mjs import `../rule.mjs`
+        if (spec.startsWith('.')) visit(path.posix.normalize(path.posix.join(path.posix.dirname(file), spec)));
         else builtins.add(spec.replace(/^node:/, ''));
       }
     };

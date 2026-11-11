@@ -69,6 +69,12 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
       return rest.slice(0, rest.search(/^(?:export )?(?:async )?function |^(?:export )?const /m));
     };
     const emitted = new Set(names.flatMap((n) => [...body(n).matchAll(/type: '([a-z0-9-]+)'/g)].map((m) => m[1])));
+    /* The rules written as one unit (lib/rules/) are emitted through
+     * runRules( ) in checkAbapHygiene, not by a `type:` literal: every one
+     * of scope 'class' is a source rule by definition. */
+    const { UNIT_RULES } = await import('../../lib/rules/index.mjs');
+    assert(/runRules\(UNIT_RULES, 'class'/.test(body('checkAbapHygiene')), 'checkAbapHygiene runs the class-scoped unit rules');
+    for (const rule of UNIT_RULES) if (rule.scope === 'class') emitted.add(rule.id);
     assert(names.length === 4 && JSON.stringify([...emitted].sort()) === JSON.stringify([...SOURCE_RULES].sort()),
       `the set matches the emit sites of ${names.join(', ')} (missing: ${[...emitted].filter((id) => !SOURCE_RULES.has(id)).join(', ') || 'none'}; extra: ${[...SOURCE_RULES].filter((id) => !emitted.has(id)).join(', ') || 'none'})`);
   });

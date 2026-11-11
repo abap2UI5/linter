@@ -1669,3 +1669,126 @@ declare module "@abap2ui5/linter/false-positive" {
   }): { title: string; body: string; url: string };
 }
 
+declare module "@abap2ui5/linter/abap-model" {
+  /** One token of a class, with its offsets into the source. A literal's
+   *  `text` is the literal as written; `upper` is the text folded to upper
+   *  case ('' for a literal). */
+  export interface AbapToken {
+    kind: "word" | "literal" | "op" | "pragma";
+    text: string;
+    upper: string;
+    start: number;
+    end: number;
+  }
+  /** The tokens up to a period. `keyword` is the first word in upper case
+   *  ('' when the statement starts with something else), `chained` says
+   *  `KEYWORD: a, b.`, `end` is the offset after the period. */
+  export interface AbapStatement {
+    index: number;
+    tokens: AbapToken[];
+    keyword: string;
+    chained: boolean;
+    pragmas: string[];
+    start: number;
+    end: number;
+  }
+  export interface AbapDeclaration {
+    name: string;
+    kind: "data" | "class-data" | "constant" | "static" | "inline" | "field-symbol";
+    structure: boolean;
+    /** The type as written, lower case ('' for a structure or an inline declaration). */
+    type: string;
+    readOnly: boolean;
+    start: number;
+  }
+  export interface AbapAttribute extends AbapDeclaration {
+    visibility: "public" | "protected" | "private" | null;
+    class: string;
+  }
+  export interface AbapClassPart {
+    name: string;
+    part: "definition" | "implementation";
+    start: number;
+    end: number;
+    sections: Array<{ visibility: "public" | "protected" | "private"; start: number; end: number }>;
+    attributes: AbapAttribute[];
+  }
+  export interface AbapMethod {
+    /** The name without an interface prefix (`main`). */
+    name: string;
+    /** The name as written (`z2ui5_if_app~main`), lower case. */
+    fullName: string;
+    class: string;
+    start: number;
+    bodyStart: number;
+    end: number;
+    statements: AbapStatement[];
+    locals: AbapDeclaration[];
+  }
+  /** One reading of a class, shared by every rule that asks. */
+  export interface AbapModel {
+    readonly source: string;
+    /** Comments blanked. */
+    readonly src: string;
+    /** Comments and literal contents blanked. */
+    readonly code: string;
+    readonly tokens: AbapToken[];
+    readonly statements: AbapStatement[];
+    readonly classes: AbapClassPart[];
+    readonly methods: AbapMethod[];
+    readonly attributes: AbapAttribute[];
+    statementsOf(...keywords: string[]): AbapStatement[];
+    next(statement: AbapStatement): AbapStatement | null;
+    previous(statement: AbapStatement): AbapStatement | null;
+    methodAt(offset: number): AbapMethod | null;
+    classAt(offset: number): AbapClassPart | null;
+    sectionAt(offset: number): "public" | "protected" | "private" | null;
+    attribute(name: string): AbapAttribute | null;
+    text(span: { start: number; end: number }): string;
+  }
+  /** The model of `source` - read once, kept for the last few sources. */
+  export function abapModel(source: string): AbapModel;
+  /** One token list per element of a chained statement; the tokens behind
+   *  the keyword as the single element of any other. */
+  export function elementsOf(statement: AbapStatement): AbapToken[][];
+  /** The index of the first token, for every place the WORDS `words`
+   *  (upper case) stand one after another. */
+  export function findWords(tokens: AbapToken[], words: readonly string[]): Generator<number>;
+}
+
+declare module "@abap2ui5/linter/rule" {
+  import type { AbapModel } from "@abap2ui5/linter/abap-model";
+  export const SEVERITIES: readonly ["error", "warning", "hint"];
+  export const SCOPES: readonly ["class", "app"];
+  /** What a rule's check is handed. */
+  export interface RuleContext {
+    model: AbapModel;
+    source: string;
+    report(finding: Record<string, unknown>): void;
+    options?: Record<string, unknown>;
+    enabled?(id: string): boolean;
+  }
+  /** One rule, written in one place: registry entry, card, sentence, check. */
+  export interface RuleDefinition {
+    id: string;
+    severity: "error" | "warning" | "hint";
+    category: string;
+    scope: "class" | "app";
+    summary: string;
+    detail: string;
+    example: string;
+    remedy: string;
+    fixNote?: string;
+    optIn?: boolean;
+    message(finding: Record<string, any>): string;
+    check(context: RuleContext): void;
+  }
+  export type Rule = Readonly<RuleDefinition & { optIn: boolean; fixable: boolean }>;
+  /** Validate and freeze a definition; throws with the rule's id. */
+  export function defineRule(definition: RuleDefinition): Rule;
+  /** The card of a rule, in RULE_DOCS' shape. */
+  export function docOf(rule: Rule): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
+  export function runRules(rules: readonly Rule[], scope: "class" | "app", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+}
+

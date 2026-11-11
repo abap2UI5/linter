@@ -46,6 +46,14 @@
       "types": "./types.d.ts",
       "default": "./lib/abap-rules.mjs"
     },
+    "./abap-model": {
+      "types": "./types.d.ts",
+      "default": "./lib/abap-model.mjs"
+    },
+    "./rule": {
+      "types": "./types.d.ts",
+      "default": "./lib/rule.mjs"
+    },
     "./fix": {
       "types": "./types.d.ts",
       "default": "./lib/fix.mjs"
