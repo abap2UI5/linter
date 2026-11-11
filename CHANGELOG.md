@@ -379,6 +379,13 @@
   `timings` joins it) and runs them in the order a name is judged, for ABAP
   sources and view XML alike; `--timing` names them instead of `pass:icons`.
   154 of 173 rules are units now.
+- **The last five lifecycle rules are one file each** (`unconditional-popup-
+  display`, `display-after-nav-app-call`, `double-display-in-branch`,
+  `missing-view-display-on-navigated`, `missing-on-navigated-branch`);
+  `checkLifecycleDispatch( )` is gone, the display flow the first three
+  share is read once per source by `displayFlow( )` in `lib/lifecycle-
+  rules.mjs`, and `--timing` names them instead of `pass:lifecycle`. 159 of
+  173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
