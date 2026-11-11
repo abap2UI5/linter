@@ -62,7 +62,10 @@
   `enum-value-too-new`, `invalid-css-value`, `relative-asset-url`,
   `insecure-asset-url`, `unknown-binding-type`, `binding-type-too-new`):
   `checkValue( )` and `judgeModelType( )` stay in the walk as dispatchers
-  and run them in their old precedence. 96 of 173 now; `--timing`
+  and run them in their old precedence. And `malformed-xml` (scope
+  `'document'`, run before the walk) and `deprecated-after-target`, which
+  the rule that found a deprecation runs through the walk's
+  `reportAfterTarget( )` and is timed with. 98 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
