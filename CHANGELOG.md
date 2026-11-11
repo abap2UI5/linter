@@ -10,7 +10,10 @@
   `view-never-displayed` - and the five of the abapGit round-trip family,
   split out of the one function they shared (`source-line-too-long`,
   `trailing-whitespace`, `byte-order-mark`, `crlf-line-ending`,
-  `missing-final-newline`). 28 of 173 now. A rule of the new scope `'app'`
+  `missing-final-newline`), and the five guide rules out of the one
+  function they shared (`frontend-action-as-backend-event`,
+  `popup-display-xml`, `queue-last-without-no-busy`,
+  `nest-view-without-destroy`, `omit-initial-drops-false`). 33 of 173 now. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
   `lib/abap-helpers.mjs`. No finding, message or fix changed - measured on
