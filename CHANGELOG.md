@@ -36,7 +36,10 @@
   aggregation tag (`aggregation-in-aggregation`, `aggregation-too-new`,
   `unknown-aggregation`); `snapshotHint( )`, the second reading of "no such
   member" several messages share, moved to `lib/ui5-meta.mjs` with them.
-  59 of 173 now; `--timing`
+  And the five rules of a control tag's namespace and library
+  (`native-html-in-view`, `undeclared-namespace` - one rule for the control
+  and the aggregation tag -, `deprecated-library`, `sapui5-only-control`,
+  `unknown-control`), each with the table only it reads. 64 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
