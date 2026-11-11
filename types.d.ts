@@ -1840,6 +1840,8 @@ declare module "@abap2ui5/linter/rule" {
   /** Run ONE rule over a context: findings get its id as `type`, its time
    *  goes under `rule:<id>`, and what its check returns is returned. */
   export function runRule(rule: Rule, context: RuleContext & Record<string, unknown>, options?: { timings?: Map<string, number> | null }): unknown;
+  /** The longest source line abapGit imports (255). */
+  export const LINE_LIMIT: number;
   /** The first `n` characters of a value as text (default 80). */
   export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */

@@ -189,8 +189,8 @@ Each of these has been broken at least once. The number is its name — keep it.
     static half (`npm run test:static`) runs without a browser. An unmarked
     one fails it.
 11. **`lib/check.mjs` reaches no renderer, no worker and no entry point** — a
-    browser bundle imports it. **A rule module imports leaf modules only**
-    - nothing that leads back to a registry (`findings`, `rule-docs`, `fix`,
+    browser bundle imports it. **A rule module imports nothing that leads
+    back to a registry** (`findings`, `rule-docs`, `fix`,
     `abap-rules`); `test/review/rule-units.mjs` computes it over the import
     graph.
 12. **stdout is the report.** Progress, notes and prose beside a machine
