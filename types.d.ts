@@ -1514,7 +1514,7 @@ declare module "@abap2ui5/linter/icons" {
    */
   export function checkIcons(
     text: string,
-    opts?: { minUi5?: string; iconData?: IconData; xml?: boolean }
+    opts?: { minUi5?: string; iconData?: IconData; xml?: boolean; timings?: Map<string, number> | null }
   ): PropertyFinding[];
 }
 

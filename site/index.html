@@ -742,7 +742,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )
 " to downgrade the gate itself instead: rules: { 'render-error': 'warning' }</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L312"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L309"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="second-root" data-search="second-root a second element beside the document root — the split chain after a standalone factory( ) the builder's chain is one statement. a view written as a statement per subtree keeps its cursor only when the variable holds the node the next statement builds into — data(view) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = view ns = mvc … ). a standalone factory( ). leaves the variable holding the root, so the next view-&gt;tag( ) adds a sibling of the mvc:view instead of a child inside it, and the document ends up with two top-level elements. the render gate rejects that as native html content; the property gate now says why. reported on the second root, naming the first. a bare fragment of two controls is the same document and is reported too — a fragment with several roots needs a core:fragmentdefinition. error">
         <h3><a href="#second-root">second-root</a>
@@ -1013,7 +1013,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = |\{ path: '{ client-&gt;_bind( val 
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://source-code` )</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtr5owFP4rJ3zSZJS5lw_XRBKu1oxE0ShbssxFKhZsUlpSiui92X77UkSveBPGF9pznpdTOKe_Xi1BMmoNrZeYb1XJKYo5KRDZkdz6YBWyVLHJjmfeeg1XDEzw1A_80F8EsPz-PPPHMPUDbwbjFfZC3MTQRsA1vcZjg65DAH4Q4tXUG-M1vHwq2dctS7Ykz5vsxAs9iDmjQkP4c4lhhacQLt6glxzaCBxM6sLQRmzEQ4n-fDnDcxyE3s14jsNvi0nL8m9GmGh8M2q7je0Ibh7XinpKSt2HUUOP-da8joxW213J-J6qkZuQWEt17kH_nmgwhmgEbJdy2gMBI4h-MFpFIAqzzo5xdKGYp2-7pAGdMi6KCI5mXZAcZR2woVF5g5YMxVJR1K09NJj3rC4Gb8M5OctSdxGSO0LSBSxPJL8XN9sOuCY7_lD7JdR1XKL2bQoTmqaKaCYFqtg-pbroFHj8WFkmRSejbDNKwRJG912MIiNKv_PJUR3_7xHrDm3Y9RrFnR1w0Nn1lx60zoeOU1UVqj4jqVJn8PT05JxqSEui7uNoSVIa3drddLrtapL2IHoutZYiundjsQlcD2Wb7dBxdkwQdTYisLGACdAHCokUGhKpYIAGH7-AFPx8sbjMpe3Wg7dnRc7JudcYF1oxkbLEDGBTEw4ml6lv3xbWn9__AA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L165"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/icon-removed.mjs#L13"><code>lib/rules/icon-removed.mjs</code></a></p>
       </article>
       <article class="rule" id="icon-too-new" data-search="icon-too-new an icon that reached the font after your target version the same silence as unknown-icon, one release boundary later: the glyph exists today and did not exist on the release you target, so the control renders without an icon there and nowhere else. information arrived in 1.80 (use message-information) and clear-all in 1.86 (use eraser) — both shipped past a green ci and were found by a user on 1.71. the registry's floor is 1.71, so a name already present there is recorded as "at or before" and a target below 1.71 is never judged. warning">
         <h3><a href="#icon-too-new">icon-too-new</a>
@@ -1028,7 +1028,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = |\{ path: '{ client-&gt;_bind( val 
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://message-information` )   " in 1.71</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVT_j5owFP9XXvhJk1HmlmXTRDNOa0aiaJQtWeYiFQvXpLSklEPvsv3tSwE98RLGL7Tvfb68lvf49WIJklJrZD1HfK8KTlHESY7IgWTWOyuXhYpMdrpwt1u4YGCG557vBd7Kh_X3h4U3hbnnuwuYbrAb4CaGdgIu6S2eGnQVAvD8AG_m7hRv4flDwT7tWbwnWdZkZ27gQsQZFRqCn2sMGzyHYPUKrXNoJ7A_qwpDO7ETdyV6y_UCL7EfuFfjJQ6-rWYty78pYaLxTak9aWzHcPW4VNRTUuo-jBt6xPfm9cRouT8UjB-pGk9iEmmpzj3o3xINxhCNgD2hnPZAwBjCH4yWIYjcrNOnKKwp5unbE9KATikXeQhPZp2TDKUdsJFReYUWDEVSUdStPTKYt6wuBm_DOTnLQncR4htC3AUsTiS7FTfbDrgmB35Xex3qOi5RxzaFCU0TRTSTApXsmFCddwrcX1aaStHJKNqMQrCY0WMXI0-J0m98MlTF_3vEqkMbdrVGUWcHPOr08kkftc5GjlOWJSo_IqkSZzAcDp1TBWlJVH0crklCw2u7m063J5okPQgfCq2lCG_dWGQCl0PZZjtyHCZiqdLq-o0S7Cz4mjMRURigL-9BCiAwQJ8HoIlKqK6d6vG0J9X8HVmecXLuNf65VkwkLDZz2JSG_Vk9_O2fhvXn9z8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L174"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/icon-too-new.mjs#L17"><code>lib/rules/icon-too-new.mjs</code></a></p>
       </article>
       <article class="rule" id="member-deprecated" data-search="member-deprecated property or event already deprecated at your target version as control-deprecated, per member. the replacement is usually named in the deprecation text the finding quotes. warning">
         <h3><a href="#member-deprecated">member-deprecated</a>
@@ -1137,7 +1137,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = |\{ path: '{ client-&gt;_bind( val 
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `icon` v = `sap-icon://text-formatting` )</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtq5swFP4rwU8tzMg29qGFCt42ZUJrS-sGYx01tdEbyIvEWNs7tt8-ovbFXsj8YnLO83Ki5-Tnb0dgTpyx85ayvaoYgSnDJcQHXDgfnFJWKjXZ6SLYbsEVA2ZoHkZhHK4isP72sginYB5GwQJMNyiIUReDOwGu6S2aGnQTAiCMYrSZB1O0BW-fKvplT7M9LoouOwviAKSMEqFB_GONwAbNQby6Q9sc3AkUzZrC4E7sxFOJ4XK9QEsUxcHNeInir6tZz_Ivx1R0vpy4fmc7ATePa0UDJaUegklHT9nevE6U1PtDRdmRqImf4VRLdRmA4SPRYAzRCLg-YWQABJiA5DsldQJEadb8lCYtxTxD18cd6MyZKBNwMusSF5BbYGOjcodWFKZSEWjXHhvMe5aNwfpwhi-y0jZC9kDIbMDqjItHcbO1wDU-sKfa25DtuFgd-xQqNMkV1lQKWNNjTnRpFXj-WJxLYWVUfUYlaEbJ0cYoOVb6nU8Bm_h_j9h0aMdu1jC1dsCr5tdf-qp1Mfa8uq5h_RlKlXsfR6ORd24gPYmmj5M1zklya3fT6a6vcT4AyUultRTJoxtNTeB6KNdsx56nyVnPpeJYayryu1g7ga7fjNiRlgXDl0FnUWpFRU4zM2odAUWzdr7794Lz59c_" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/icons.mjs#L157"><code>lib/icons.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unknown-icon.mjs#L24"><code>lib/rules/unknown-icon.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-portable">
@@ -1158,7 +1158,7 @@ client-&gt;nest_view_display( val = view-&gt;stringify( ) id = `box` method_inse
             <pre><code>view-&gt;tag( `StepInput` ).
 view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/NAME}.startsWith('A') }` ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L193"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L190"><code>lib/findings.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-lifecycle">
@@ -2329,7 +2329,7 @@ ENDMETHOD.</code></pre></figure>
             <pre><code>client-&gt;follow_up_action( val = client-&gt;cs_event-set_focus t_arg = VALUE #( ( `x` ) ) ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVTRrppAEP2VCS8XkrqmbfqgiSZU15RG0Sht0tQGVli4myy7ZFlEb9N-e7OIXvEmlBdmZ845M7PM8PO3JUhOrbH1EvNQVZyimJMSkQMprHdWKSsVm-hs6e52cMXAHC883wu8tQ-bb5-X3gwWnu8uYbbFboBbH9oLuIZ3eGbQjQvA8wO8XbgzvIOXDxX7FLI0JEXRRudu4ELMGRUagh8bDFu8gGD9Cr3E0F5gf94UhvZiLx5K9FabJV5hP3BviVc4-LKed1L-zQkTbd6cDqZt2gncclwrspWU2oFJS495aF5HRuvwUDGeUDWZpiTWUp1tcO6JBmOIRmAwpZzaIGAC0XdG6whEaez8GEcXinmcwZS0oFPORRnB0dglKVDeAxsblVdoxVAsFUX92mODecvqY_AunJOzrHQfIb0jpH3A6kSKe3Fz7IFrcuAPtV9cfe0SlXQpTGiaKaKZFKhmSUZ12SvweFl5LkUvo-oyKsFSRpM-RpkTpd_kKVDj_2-LzYS27MZGce8EPOv8-kmftS7Gw2Fd16j-iKTKhu9Ho9Hw1EA6Es0cRxuS0eg27pelGUxTybmsw6oISWyu1YYj4Xe9ZFTPpKK2gw5nL7GfTk8OSmVclbZjxABgb4EiNXzddYWbdUtYWXBytsGcBtNSKyYylpq1ayvB_vyy691_hPXn1z8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L130"><code>lib/frontend-wires.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/frontend-wires.mjs#L134"><code>lib/frontend-wires.mjs</code></a></p>
       </article>
       <article class="rule" id="settable-property-via-action" data-search="settable-property-via-action a control_by_id set…( ) where the control has a bindable property of that name the project rule is prefer a bindable property over a frontend action: a two-way bound property keeps the state in the model, where it survives a view rebuild, a draft restore and the browser back button — a frontend action does not, and it also needs a round-trip to be re-applied. only properties are reported: an association (sap.uxap.objectpagelayout.selectedsection) and an aggregation cannot be data-bound at all, so driving those imperatively is the only way and is never flagged. a hint, not an error — an imperative call can still be the right answer when the sample's point is the imperative api itself. hint">
         <h3><a href="#settable-property-via-action">settable-property-via-action</a>
@@ -3582,7 +3582,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figu
 view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZRvr5owFMa_ygmvNBk127IXmmjC1ZqRKJord8kyF6lQsFlpSSmiLttnXwr4B2_CeEM5fX7nOcA5_fHbEiSl1si6hHynCk5RyEmOyJ5k1gcrl4UKze504Ww2cNXADM9dz_XdlQfrt5eFO4W56zkLmL5ix8dNDG0FXLc3eGrUVQjA9Xz8OnemeAOXTwX7smPxjmRZsztzfAdCzqjQ4H9fY3jFc_BXd2m9h7YCe7OqMLQVW_FUortcL_ASe75zM15i_-tq1rL8mxImGt-U2pPGdgw3j2tFPSWl7sO4wUO-M7cjo-VuXzAeUTWexCTUUp170H8EjcaAJoE9oZz2QMAYgm-MlgGI3KzTYxjUiLn69oQ0olPKRR7A0axzkqG0QzYyWe7SgqFQKoq6c4-M5j3VRfC2nJOzLHQXED8AcZewOJHsMbl57JBrsudPtdehrtclKmojTGiaKKKZFKhkUUJ13png-WOlqRSdRNEmCsFiRqMuIk-J0u98MlTF__uKVYc2dLVGYWcHHHR6_aUHrbPRYFCWJSo_I6mSwcfhcDg4VZJWiqqPgzVJaHBr960F5uAwlpwJbUcsN7Xagp60zZmg8CZ-CVkKe61kRpU-15yZEHuiSdKD4KXQWorgsUp9vjYFTrMDydmFRnfTelLtSTWKEcszTs69JmWuFRMJi81INgD2ZvU50D4_rD8__wE" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L240"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L237"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="unused-directive" data-search="unused-directive a abap2ui5lint-disable… directive that suppressed nothing the directive is in place, the rule it names never fired where it points - the code moved, the rule was tightened, or the id was never the one that reported. eslint's --report-unused-disable-directives, on by default here for the reason the baseline refuses a stale entry: a suppression that outlives its finding hides the next real one on that line. a directive naming several ids is judged per id, a bare directive (no id, every rule) by whether it waived anything at all - and a bare directive cannot excuse its own finding, or every dead catch-all would be self-satisfied; " abap2ui5lint-disable unused-directive, which names the rule on purpose, may. a hint: nothing is wrong with the code, only with what the file says about it. switch it off per repo with "unused-directive": false if a corpus keeps directives ahead of a rule it plans to enable. hint">
         <h3><a href="#unused-directive">unused-directive</a>
@@ -3600,7 +3600,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtr5owFP4rJ3zSZNRsyz5ooglXa0aiaK5syTIXqVCwWSlNKaLebL99KeAL3oTxhXLO83JKz-nPN0uQlFoj6xLynSo4RSEnOSJ7Iq0PVp4VKjTZ6cLZbOCKgRmeu57ruysP1t9eFu4U5q7nLGD6ih0fNzG0FXBNb_DUoKsQgOv5-HXuTPEGLp8K9mXH4h2RssnOHN-BkDMqNPg_1hhe8Rz81R1a59BWYG9WFYa2YiueSnSX6wVeYs93bsZL7H9dzVqWf1PCROObUnvS2I7h5nGtqKeyTPdh3NBDvjOvI6Plbl8wHlE1nsQk1Jk696D_SDQYQzQC9oRy2gMBYwi-M1oGIHKzTo9hUFPM07cnpAGdUi7yAI5mnROJ0g7YyKjcoQVDYaYo6tYeGcx7VheDt-GcnLNCdxHiB0LcBSxORD6Km88OuCZ7_lR7HeraLlFRm8KEpokimmUClSxKqM47BZ5_VppmopNRtBmFYDGjURcjT4nS73wkquL_3WLVoQ27WqOwswMOOr0e6UFrORoMyrJE5WeUqWTwcTgcDk4VpCVR9XGwJgkNbu2-tcBcHMaSM6HtiOWmVlvQk7Y5ExQK8VtkpbClyiRV-lzzzITYE02SHgQvhdaZCB6r1Gd5PWWcygPJ2YVGd9d6VO1JNYsRyyUn516jmWvFRMJiM5MNAXuz-iJoXyDWn1__AA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L245"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L242"><code>lib/findings.mjs</code></a></p>
       </article>
     </section>
   </main>

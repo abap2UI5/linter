@@ -374,6 +374,11 @@
   `memberSection`, `propertyDecl` and `withinUi5Floor` live in
   `lib/ui5-meta.mjs` now and are re-exported from `lib/properties.mjs` as
   before. 151 of 173 rules are units now.
+- **The three icon rules are one file each** (`unknown-icon`, `icon-removed`,
+  `icon-too-new`). `checkIcons( )` keeps its signature (an optional
+  `timings` joins it) and runs them in the order a name is judged, for ABAP
+  sources and view XML alike; `--timing` names them instead of `pass:icons`.
+  154 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
