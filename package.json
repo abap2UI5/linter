@@ -66,6 +66,10 @@
       "types": "./types.d.ts",
       "default": "./lib/baseline.mjs"
     },
+    "./false-positive": {
+      "types": "./types.d.ts",
+      "default": "./lib/false-positive.mjs"
+    },
     "./report": {
       "types": "./types.d.ts",
       "default": "./lib/report.mjs"

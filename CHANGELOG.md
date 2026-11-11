@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **A baseline entry can say it is a false positive, and the linter writes
+  the issue for it.** A baseline holds debt and misfires side by side, and a
+  misfire frozen in a consumer's baseline never reached this repository: its
+  issue list was empty while baselines in the addons carried false positives
+  as "workarounds". `abap2ui5lint-baseline.json` takes an optional block
+  beside `findings` - `"falsePositives": { "<finding-key>": "<why the code
+  is correct>" }` - validated like the rest of the file (a mark on a key
+  that is no entry is refused) and kept by `--update-baseline` for as long
+  as its entry lives. A run names the marked findings apart in its baseline
+  line (and as `baseline.falsePositives` in the JSON document), and
+  **`--report-false-positives`** prints one issue per marked key: the
+  sections of the false-positive template filled in - rule, the finding as
+  printed, the source around it, the reason, the versions - plus a link that
+  opens GitHub's form with them. Nothing is sent; the code leaves the
+  machine when a person opens the link. Library: `loadFalsePositives( )` in
+  `./baseline`, `falsePositiveIssue( )` in the new `./false-positive` export.
 - **`unknown-binding-path` keeps a row component whose type it cannot
   resolve.** `gname TYPE seqg3-gname` - a component typed by the component
   of a structure the class does not declare, the usual way to type a row

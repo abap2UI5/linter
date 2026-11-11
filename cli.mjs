@@ -78,6 +78,13 @@
  *                      the config, else in the current directory, is read
  *                      when it exists - the file --update-baseline writes
  *                      when nothing names one
+ *   --report-false-positives
+ *                      print, for every baseline entry marked in the
+ *                      baseline's "falsePositives" block (key -> why the code
+ *                      is correct), the issue to file against the linter:
+ *                      rule, finding, source around it, the reason, the
+ *                      versions - and a link that opens it prefilled. Sends
+ *                      nothing; exit 0. Needs a baseline
  *   --update-baseline  write/refresh that file from this run and exit 0: the
  *                      entries of the files under the paths walked are
  *                      replaced, every other file's are kept - including
@@ -247,7 +254,8 @@ import { snapshotVersion, withinUi5Floor } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
 import { applyFixes, MAX_FIX_PASSES } from './lib/fix.mjs';
 import { missingRenderDeps, renderFallback, renderDepsError, openRenderer, runtimeSnapshotMismatch, renderRuntimeUi5Version } from './lib/render.mjs';
-import { loadBaseline, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
+import { loadBaseline, loadFalsePositives, applyBaseline, updateBaseline as mergeBaseline, writeBaseline, baselineBase } from './lib/baseline.mjs';
+import { falsePositiveIssue } from './lib/false-positive.mjs';
 import { DEFAULT_CACHE_FILE, cacheContext, loadCache, saveCache, hashOf, cacheable } from './lib/cache.mjs';
 import { FORMATS, summarize, contextLine, formatStylish, formatJson, formatMarkdown, formatSarif, formatCheckstyle, formatJunit, githubAnnotations, runStats, createProgress, badgeEndpoint, ruleIndex, formatExplain, formatRuleIndex, explainFooter, terminalSafe } from './lib/report.mjs';
 import { RULES_PAGE } from './lib/rule-docs.mjs';
@@ -314,7 +322,7 @@ const defaultBaselineDir = (configFile) => (configFile ? path.dirname(configFile
 
 const USAGE ='usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136] [--distribution sapui5|openui5] '
   + '[--allow control[.member]] [--fail-on error|warning|hint|never] [--max-warnings <n>] [--format stylish|json|markdown|sarif|checkstyle|junit] '
-  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] '
+  + '[--fix] [--fix-dry-run] [--baseline <file>] [--update-baseline] [--report-false-positives] '
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
@@ -547,6 +555,7 @@ const paths = [];
 let configFlag = null;
 let noConfig = false;
 let updateBaseline = false;
+let reportFalsePositives = false; // --report-false-positives: print the issue for each marked baseline entry
 // --stdin: lint piped source instead of files (property gate only)
 let stdinMode = false;
 let stdinName = '<stdin>';
@@ -661,6 +670,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--stdin-filename') { stdinName = value(); stdinNamed = true; }
   else if (a === '--watch') watchMode = true;
   else if (a === '--update-baseline') updateBaseline = true;
+  else if (a === '--report-false-positives') { reportFalsePositives = true; opt.render = false; seen.add('render'); }
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
   else if (a === '--stats') opt.stats = true;
@@ -803,7 +813,8 @@ if (watchMode) {
   const clash = stdinMode ? '--stdin'
     : shot.out ? '--screenshot'
       : updateBaseline ? '--update-baseline'
-        : opt.fixDryRun ? '--fix-dry-run'
+        : reportFalsePositives ? '--report-false-positives'
+          : opt.fixDryRun ? '--fix-dry-run'
           : opt.fix ? '--fix'
             : opt.badge?.some((b) => b.kind === 'corpus') ? '--badge-corpus'
               : opt.badge?.length ? '--badge'
@@ -829,6 +840,19 @@ if (watchMode) {
  * config's "cache": true is the other way to switch the cache on. */
 if (noConfig && configFlag) die(`--no-config and --config ${configFlag} contradict each other - drop one of them`);
 if (stdinNamed && !stdinMode) die(`--stdin-filename has no effect without --stdin - it names the source piped to --stdin`);
+/* --report-false-positives prints issues, not a report: it is a mode that
+ * ends, refused beside the other modes and outputs that are one too. */
+if (reportFalsePositives) {
+  const clash = updateBaseline ? '--update-baseline'
+    : opt.fix ? '--fix'
+      : shot.out ? '--screenshot'
+        : opt.sarifOut ? '--sarif-out'
+          : opt.jsonOut ? '--json-out'
+            : opt.badge?.length ? '--badge'
+              : opt.format !== 'stylish' ? `--format ${opt.format}`
+                : null;
+  if (clash) die(`--report-false-positives cannot be combined with ${clash} - it prints the issue for each baseline entry marked as a false positive and nothing else`);
+}
 if (updateBaseline) {
   const clash = opt.sarifOut ? '--sarif-out'
     : opt.jsonOut ? '--json-out'
@@ -1223,7 +1247,11 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
       // was not collected (it builds no view any more) is dropped, not kept
       const map = mergeBaseline(previous, results, baselineBase(file), { scope: stdinMode ? [] : paths });
       // nothing is printed yet, so die( ) cuts nothing off here
-      try { writeBaseline(file, map); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
+      // a mark lives as long as its entry: the update keeps the reasons of
+      // the keys it keeps (writeBaseline drops the rest)
+      let marks = null;
+      if (previous) { try { marks = loadFalsePositives(file); } catch { marks = null; } }
+      try { writeBaseline(file, map, { falsePositives: marks }); } catch (e) { die(`could not write the baseline file ${file}: ${e.message}`); }
       const n = [...map.values()].reduce((s, c) => s + c, 0);
       /* The one line is the report of a stylish run. Beside a machine format it
        * is prose, and stdout is the document a caller parses - so it goes to
@@ -1241,13 +1269,21 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
     if (!opt.baseline) return null;
     if (!fs.existsSync(opt.baseline)) die(`baseline file not found: ${opt.baseline} (create it with --update-baseline)`);
     let map;
-    try { map = loadBaseline(opt.baseline); } catch (e) { die(e.message); }
-    const { suppressed, byRule, stale } = applyBaseline(results, map, baselineBase(opt.baseline), { scope: stdinMode ? [] : paths });
+    let marks;
+    try { map = loadBaseline(opt.baseline); marks = loadFalsePositives(opt.baseline); } catch (e) { die(e.message); }
+    const { suppressed, byRule, stale, falsePositives } = applyBaseline(results, map, baselineBase(opt.baseline), {
+      scope: stdinMode ? [] : paths, falsePositives: marks,
+    });
     const shown = shownPath(opt.baseline);
     return {
       stale,
-      stats: { suppressed, byRule, stale: stale.length, staleEntries: stale, file: shown },
+      falsePositives,
+      stats: { suppressed, byRule, stale: stale.length, staleEntries: stale, file: shown, falsePositives: falsePositives.length },
+      /* The marked ones are named apart: they are not debt of this
+       * repository but a rule that misfired, and the only way the rule gets
+       * fixed is that somebody is told. */
       note: `baseline: ${suppressed} finding(s) suppressed by ${shown}`
+        + (falsePositives.length ? `, ${falsePositives.length} of them marked as false positives - \`abap2ui5lint --report-false-positives\` prints the issue to file for each` : '')
         + (stale.length ? `, ${stale.length} STALE entr${stale.length === 1 ? 'y' : 'ies'} — the finding is gone, remove the entry or run --update-baseline` : ''),
     };
   };
@@ -1528,6 +1564,34 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
   // the baseline, over what the run found - see baselineStep above
   const baselined = baselineStep(results);
   if (baselined?.done) return 0;
+  /* --report-false-positives: the marked entries as issues, and nothing of
+   * the report. One issue per KEY - nine findings of one shape are one
+   * defect of the rule - built from the first finding the key suppressed. */
+  if (reportFalsePositives) {
+    if (!baselined) die('--report-false-positives needs a baseline - name one with --baseline, or mark entries in abap2ui5lint-baseline.json ("falsePositives": { "<finding-key>": "<why the code is correct>" })');
+    const byKey = new Map();
+    for (const m of baselined.falsePositives) {
+      if (!byKey.has(m.key)) byKey.set(m.key, { ...m, count: 0 });
+      byKey.get(m.key).count++;
+    }
+    if (!byKey.size) {
+      console.log(`no baseline entry in ${shownPath(opt.baseline)} is marked as a false positive - add "falsePositives": { "<finding-key>": "<why the code is correct>" } beside "findings"`);
+      return 0;
+    }
+    const sourceOf = { get: (file) => { try { return fs.readFileSync(file, 'utf8'); } catch { return null; } } };
+    for (const m of byKey.values()) {
+      const issue = falsePositiveIssue({
+        finding: m.finding, file: shownPath(m.file), reason: m.reason, source: sourceOf.get(m.file) ?? null,
+        version: ownVersion(), ui5: opt.minUi5, distribution: opt.distribution ?? null,
+      });
+      console.log(`# ${terminalSafe(issue.title)}${m.count > 1 ? `  (${m.count} findings)` : ''}\n`);
+      // per line: terminalSafe( ) folds a line break like any other control character
+      console.log(`${issue.body.split('\n').map(terminalSafe).join('\n')}\n`);
+      console.log(`file it: ${issue.url}\n`);
+    }
+    console.log(`${byKey.size} false positive(s) to report - open a link to file one; nothing has been sent`);
+    return 0;
+  }
   const baselineNote = baselined?.note ?? null;
   const baselineStale = baselined?.stale ?? [];
   const baselineStats = baselined?.stats ?? null;

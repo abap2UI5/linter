@@ -1214,8 +1214,20 @@ declare module "@abap2ui5/linter/baseline" {
     results: Array<{ file?: string; findings: PropertyFinding[] }>,
     baseline: Map<string, number>,
     baseDir?: string,
-    options?: { scope?: string[] }
-  ): { suppressed: number; byRule: Record<string, number>; stale: Array<{ key: string; count: number }> };
+    options?: { scope?: string[]; falsePositives?: Map<string, string> | null }
+  ): {
+    suppressed: number;
+    byRule: Record<string, number>;
+    stale: Array<{ key: string; count: number }>;
+    /** The suppressed findings of the entries `falsePositives` marks. */
+    falsePositives: Array<{ key: string; reason: string; file?: string; finding: PropertyFinding }>;
+  };
+
+  /** The entries a baseline file marks as false positives
+   *  (`"falsePositives": { "<key>": "<why the code is correct>" }`):
+   *  finding-key -> reason. Empty without the block; throws like
+   *  loadBaseline( ) on a mark that is no entry. */
+  export function loadFalsePositives(file: string): Map<string, string>;
 
   /** The file part of a baseline key. */
   export function keyFile(key: string): string;
@@ -1237,7 +1249,7 @@ declare module "@abap2ui5/linter/baseline" {
     baseDir?: string
   ): Map<string, number>;
 
-  export function writeBaseline(file: string, map: Map<string, number>): void;
+  export function writeBaseline(file: string, map: Map<string, number>, options?: { falsePositives?: Map<string, string> | null }): void;
 }
 
 declare module "@abap2ui5/linter/report" {
@@ -1636,3 +1648,24 @@ declare module "@abap2ui5/linter/project-index" {
    *  sorted and unique - the `ownObjects` option. Reads file names only. */
   export function ownObjectsOf(paths: readonly string[]): string[];
 }
+
+declare module "@abap2ui5/linter/false-positive" {
+  import type { PropertyFinding } from "@abap2ui5/linter/properties";
+  /** Where a false positive is reported. */
+  export const ISSUES_URL: string;
+  /** The lines around `line` (1-based) of `source`, '' when unknown. */
+  export function sourceExcerpt(source: string | null, line: number, context?: number): string;
+  /** The issue for one finding marked as a false positive: the sections of
+   *  the repository's false-positive template, filled in, and the link that
+   *  opens GitHub's form with them. Sends nothing. */
+  export function falsePositiveIssue(input: {
+    finding: PropertyFinding;
+    file?: string | null;
+    reason: string;
+    source?: string | null;
+    version?: string | null;
+    ui5?: string | null;
+    distribution?: string | null;
+  }): { title: string; body: string; url: string };
+}
+
