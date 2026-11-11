@@ -13,7 +13,11 @@
   `missing-final-newline`), and the five guide rules out of the one
   function they shared (`frontend-action-as-backend-event`,
   `popup-display-xml`, `queue-last-without-no-busy`,
-  `nest-view-without-destroy`, `omit-initial-drops-false`). 33 of 173 now. A rule of the new scope `'app'`
+  `nest-view-without-destroy`, `omit-initial-drops-false`), and three of
+  the lifecycle dispatch rules (`duplicate-for-iterator`,
+  `separate-lifecycle-ifs`, `redundant-init-display`) - what they share with
+  the rest of the dispatch pass is read once per source by
+  `dispatchFacts( )`. 36 of 173 now. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
   `lib/abap-helpers.mjs`. No finding, message or fix changed - measured on
