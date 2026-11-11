@@ -85,7 +85,12 @@ const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
 /* The server half of the message methods: `box_resolve` lower-cases a
  * message_box_display( type = … ) and looks it up in `ct_box_type`, the
  * MessageBox display methods - MESSAGE_BOX_TYPES mirrors that list, and
- * unknown-message-box-type reports a literal type outside it. */
+ * unknown-message-box-type reports a literal type outside it.
+ *
+ * The method lived in z2ui5_cl_ui5_frontend until abap2UI5#2988 moved what a
+ * message box shows into one class, z2ui5_cl_ui5_srv_message. The list itself
+ * did not change - but this script kept reading the old class, found no
+ * `ct_box_type` there, and reported all seven types as gone upstream. */
 const MESSAGE_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_srv_message.clas.abap';
 
 /* The frontend action JS lives embedded in the generated ABAP classes under
