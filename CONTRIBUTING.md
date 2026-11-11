@@ -14,7 +14,7 @@ npm test                          # node --test test/run.mjs - the whole suite a
 node --test-name-pattern=fix test/run.mjs   # just one section, while iterating
 ```
 
-`npm test` also gates the generated artefacts, so run `npm run generate-schema`
+`npm test` also gates the generated artefacts, so run `npm run generate-schema`,
 `npm run generate-rules-page` and `npm run generate-rule-map` after adding or rewording a rule, and
 `npm run generate-compat` after a version bump or a mirror sync
 (`-- --local <abap2UI5 checkout>`), and commit what they write. [AGENTS.md](AGENTS.md) is the contract — the commands, how a rule is added and
