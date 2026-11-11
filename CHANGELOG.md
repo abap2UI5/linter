@@ -399,6 +399,12 @@
   shows the defect, and a rule that decides (a repeated attribute, a close
   past the root) returns its verdict to the builder. 167 of 173 rules are
   units now.
+- **`obsolete-custom-control` and `frozen-view-builder` are one file each.**
+  The first is one rule for both places it was said - the frozen builder's
+  helper calls (scope `'class'`, so `SOURCE_RULES` derives it like every
+  class rule) and the tag the property walk meets;
+  `obsoleteCcHelperFindings( )` runs it as before. 169 of 173 rules are
+  units now.
 
 ## 0.9.0 - 2026-10-14
 

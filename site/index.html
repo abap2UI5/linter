@@ -742,7 +742,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )
 " to downgrade the gate itself instead: rules: { 'render-error': 'warning' }</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L296"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L294"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="second-root" data-search="second-root a second element beside the document root — the split chain after a standalone factory( ) the builder's chain is one statement. a view written as a statement per subtree keeps its cursor only when the variable holds the node the next statement builds into — data(view) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = view ns = mvc … ). a standalone factory( ). leaves the variable holding the root, so the next view-&gt;tag( ) adds a sibling of the mvc:view instead of a child inside it, and the document ends up with two top-level elements. the render gate rejects that as native html content; the property gate now says why. reported on the second root, naming the first. a bare fragment of two controls is the same document and is reported too — a fragment with several roots needs a core:fragmentdefinition. error">
         <h3><a href="#second-root">second-root</a>
@@ -1158,7 +1158,7 @@ client-&gt;nest_view_display( val = view-&gt;stringify( ) id = `box` method_inse
             <pre><code>view-&gt;tag( `StepInput` ).
 view-&gt;tag( `Text` )-&gt;a( n = `text` v = `{= ${/NAME}.startsWith('A') }` ).</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L177"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L175"><code>lib/findings.mjs</code></a></p>
       </article>
     </section>
     <section class="cat" id="cat-lifecycle">
@@ -1260,7 +1260,7 @@ view-&gt;page( )-&gt;button( text = `hi` ).</code></pre></figure>
 view-&gt;ele( `Page` )-&gt;tag( `Button` )-&gt;a( n = `text` v = `hi` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2XZDfToMwFMZf5YQrSIQLE29MRoJQIgljy6gXRgwrpRuNpRAobtNofAif0CcxjG5m3n5_zvfLeXo3JKmZcWu8UZF3g2AOFaR3SEFa48rom6Gjo-vHXprCKQMBCqMkwtEigeXDXRz5EEaJF4O_Qh5GWnMyCSc7Rf6YPkoAUYLRKvR8lMLb9cBvcr7JSdtqN_CwB1RwJhXgxyWCFQoBL_6ik-dkEiXBEczJZCb_IUbzZYzmKMHeeXiO8P0iuJj8rAmXerdmtqtnZ3DeOBGZr5ztLJjpOhX5vhb5KM7cDaGq6Q4mWA4AZAaoikEjSigGLkrWwc_XN8hGVVxuoWCi2YGqeA-CSwa8B1ox-sLKaWw8abst2TITLNstBqUaaYJi-5FrXfE1WJprgrTdsZKXvG8FOZj6QK86Lrd8M1LpAkqC6QWXrzM-nn8B" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/check.mjs#L332"><code>lib/check.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/frozen-view-builder.mjs#L12"><code>lib/rules/frozen-view-builder.mjs</code></a></p>
       </article>
       <article class="rule" id="get-viewname-removed" data-search="get-viewname-removed client-&gt;get( )-viewname — removed from ty_s_get the viewname component was removed from z2ui5_if_types=&gt;ty_s_get (it always carried an empty string), so the read no longer compiles — but nothing in a systemless pipeline says so before activation: abaplint has no signature knowledge of the framework interfaces, and the render gate never sees the class fail. the same blindness popover-display-val covers. error">
         <h3><a href="#get-viewname-removed">get-viewname-removed</a>
@@ -1490,7 +1490,7 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
                           t_arg = VALUE #( ( `TICK` ) ( `2000` ) ) )</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVTvr5owFP1XbvikyazuLfugiSQMa0amaJQtWcYiFQo2KYVAEX0v29--lB8-8b0wvlDuPefcc-ltf71ogsRUm2nPPj9kBafI5yRH5EhS7YOWJ0Xmq6y5MvZ7aDGwwEvLthxrY8P2-5eVZcLSso0VmDtsOLiJIVdAm95jU6GrEIBlO3i3NEy8h-engn0-sPBA0rTJLgzHAJ8zKiQ4P7cYdngJzuYVWueQK7C9qIwhV7jiwaK13q7wGtuOcSu8xs7XzaJT8m9MmGjqxnSkN2XncKvROhpkSSKHMG_oPj-o15nR8nAsGA9oNtdD4sskuw5geE9UGEVUAiOdcjoAAXPwfjBaeiBytY7PvldT1DMc6aQBXWIucg_Oap2TFMU9sJlSeYUWDPlJRlG_9kxh3rL6GLwL5-SaFLKPEN4Rwj5gcSHpvbj67IFLcuQP3utQX7skC7oUJiSNMiJZIlDJgojKvFfg8WfFcSJ6GUWXUQgWMhr0MfKYZPJNnRRV8f-2WE1ow67WyO-dgJOM2y09SZnOxuOyLFH5CSVZNP44nU7HlwrSkajm2NuSiHq3cVeTPtIliRp5h8U0a0e8cQXganDnc-5qrUdXe9dkQDm5rvce1BafJpPJ-92ETLD8RJvtrU_wSD_QMxVyAJ5jmd88GN7ctoDqDAcsTzm5DpoecpkxEbFQneWGgO1FfYF0Lx7tz-9_" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/abap-rules.mjs#L343"><code>lib/abap-rules.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/obsolete-custom-control.mjs#L75"><code>lib/rules/obsolete-custom-control.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-frontend-event" data-search="obsolete-frontend-event client-&gt;_event_client( ) — superseded by client-&gt;follow_up_action( ) the same call, with the same val / view / t_arg. since follow_up_action( ) gained a returning parameter it is the same call in the same position too: where its result is consumed — the view-attribute form v = client-&gt;_event_client( … ) — it takes the if result is supplied branch straight to mo_srv_event-&gt;get_event_client( ), which is _event_client( )'s entire body. one method now both schedules a frontend action and wires one, so the second name is a leftover. the one non-equivalence is follow_up_action( )'s case, which intercepts cs_event-set_nav_routing / set_push_state / set_app_state_active before that branch: those three are backend-side navigation options, not frontend handlers, so a view attribute wired to one of them never dispatched anyway. warning">
         <h3><a href="#obsolete-frontend-event">obsolete-frontend-event</a>
@@ -3582,7 +3582,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figu
 view-&gt;tag( `Button` )-&gt;a( n = `typ` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZRvr5owFMa_ygmvNBk127IXmmjC1ZqRKJord8kyF6lQsFlpSSmiLttnXwr4B2_CeEM5fX7nOcA5_fHbEiSl1si6hHynCk5RyEmOyJ5k1gcrl4UKze504Ww2cNXADM9dz_XdlQfrt5eFO4W56zkLmL5ix8dNDG0FXLc3eGrUVQjA9Xz8OnemeAOXTwX7smPxjmRZsztzfAdCzqjQ4H9fY3jFc_BXd2m9h7YCe7OqMLQVW_FUortcL_ASe75zM15i_-tq1rL8mxImGt-U2pPGdgw3j2tFPSWl7sO4wUO-M7cjo-VuXzAeUTWexCTUUp170H8EjcaAJoE9oZz2QMAYgm-MlgGI3KzTYxjUiLn69oQ0olPKRR7A0axzkqG0QzYyWe7SgqFQKoq6c4-M5j3VRfC2nJOzLHQXED8AcZewOJHsMbl57JBrsudPtdehrtclKmojTGiaKKKZFKhkUUJ13png-WOlqRSdRNEmCsFiRqMuIk-J0u98MlTF__uKVYc2dLVGYWcHHHR6_aUHrbPRYFCWJSo_I6mSwcfhcDg4VZJWiqqPgzVJaHBr960F5uAwlpwJbUcsN7Xagp60zZmg8CZ-CVkKe61kRpU-15yZEHuiSdKD4KXQWorgsUp9vjYFTrMDydmFRnfTelLtSTWKEcszTs69JmWuFRMJi81INgD2ZvU50D4_rD8__wE" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L224"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L222"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="unused-directive" data-search="unused-directive a abap2ui5lint-disable… directive that suppressed nothing the directive is in place, the rule it names never fired where it points - the code moved, the rule was tightened, or the id was never the one that reported. eslint's --report-unused-disable-directives, on by default here for the reason the baseline refuses a stale entry: a suppression that outlives its finding hides the next real one on that line. a directive naming several ids is judged per id, a bare directive (no id, every rule) by whether it waived anything at all - and a bare directive cannot excuse its own finding, or every dead catch-all would be self-satisfied; " abap2ui5lint-disable unused-directive, which names the rule on purpose, may. a hint: nothing is wrong with the code, only with what the file says about it. switch it off per repo with "unused-directive": false if a corpus keeps directives ahead of a rule it plans to enable. hint">
         <h3><a href="#unused-directive">unused-directive</a>
@@ -3600,7 +3600,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtr5owFP4rJ3zSZNRsyz5ooglXa0aiaK5syTIXqVCwWSlNKaLebL99KeAL3oTxhXLO83JKz-nPN0uQlFoj6xLynSo4RSEnOSJ7Iq0PVp4VKjTZ6cLZbOCKgRmeu57ruysP1t9eFu4U5q7nLGD6ih0fNzG0FXBNb_DUoKsQgOv5-HXuTPEGLp8K9mXH4h2RssnOHN-BkDMqNPg_1hhe8Rz81R1a59BWYG9WFYa2YiueSnSX6wVeYs93bsZL7H9dzVqWf1PCROObUnvS2I7h5nGtqKeyTPdh3NBDvjOvI6Plbl8wHlE1nsQk1Jk696D_SDQYQzQC9oRy2gMBYwi-M1oGIHKzTo9hUFPM07cnpAGdUi7yAI5mnROJ0g7YyKjcoQVDYaYo6tYeGcx7VheDt-GcnLNCdxHiB0LcBSxORD6Km88OuCZ7_lR7HeraLlFRm8KEpokimmUClSxKqM47BZ5_VppmopNRtBmFYDGjURcjT4nS73wkquL_3WLVoQ27WqOwswMOOr0e6UFrORoMyrJE5WeUqWTwcTgcDk4VpCVR9XGwJgkNbu2-tcBcHMaSM6HtiOWmVlvQk7Y5ExQK8VtkpbClyiRV-lzzzITYE02SHgQvhdaZCB6r1Gd5PWWcygPJ2YVGd9d6VO1JNYsRyyUn516jmWvFRMJiM5MNAXuz-iJoXyDWn1__AA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L229"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L227"><code>lib/findings.mjs</code></a></p>
       </article>
     </section>
   </main>
