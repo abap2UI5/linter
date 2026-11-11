@@ -15,11 +15,16 @@
   splitter cannot: a chain with unbalanced parentheses costs its own
   statement, not the rest of the class. Four rules are moved over
   (`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
-  `empty-catch-block`, `into-corresponding-inline-decl`); the others follow
-  one at a time. No finding changes, with two corrections that come from
-  reading structure instead of text: `class_constructor` in the PUBLIC
-  SECTION of a second (local) class is no longer reported, and a component
-  named `boolc` (`ls_flags-boolc`) is not a call of the built-in.
+  `empty-catch-block`, `into-corresponding-inline-decl`, `redundant-conv-i`);
+  the others follow one at a time. No finding changes, with three
+  corrections that come from reading structure instead of text:
+  `class_constructor` in the PUBLIC SECTION of a second (local) class is no
+  longer reported, a component named `boolc` (`ls_flags-boolc`) is not a call
+  of the built-in, and `redundant-conv-i` resolves its target where the
+  assignment stands - a local `TYPE string` that shares its name with an
+  integer attribute is no longer reported, and a `CONV i( )` into a
+  parameter or a multi-line assignment is. Its finding now points at the
+  assignment rather than at column 1 of its line.
 - **`ABAP2UI5LINT_NO_BROWSER=1` refuses Chromium.** With it set the render
   gate behaves as on a machine without a browser, also where one is
   installed: a default-on gate steps aside with its notice, an asked-for one

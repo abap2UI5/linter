@@ -161,6 +161,48 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     assert(chain && elementsOf(chain).length === 2 && elementsOf(chain)[1][0].text === 'rows', 'a chained statement has one element per name');
   });
 
+  section('abap model: signatures, and a name resolved where it is used', () => {
+    const src = `CLASS zcl_s DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    DATA count TYPE i.
+    DATA total TYPE i.
+    METHODS add
+      IMPORTING iv_step       TYPE i
+                VALUE(iv_big) TYPE int8 OPTIONAL
+                io_ref        TYPE REF TO zcl_s
+      RETURNING VALUE(rv_sum) TYPE i
+      RAISING   cx_static_check.
+    CLASS-METHODS: create RETURNING VALUE(ro_s) TYPE REF TO zcl_s, reset.
+ENDCLASS.
+CLASS zcl_s IMPLEMENTATION.
+  METHOD add.
+    DATA count TYPE string.
+    count = CONV i( iv_step ).
+    total = CONV i( iv_step ).
+    rv_sum = CONV i( iv_big ).
+  ENDMETHOD.
+  METHOD reset.
+    count = CONV i( '3' ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+    const m = abapModel(src);
+    const add = m.signature('ADD');
+    assert(add.params.map((p) => `${p.direction}:${p.name}:${p.type}${p.byValue ? ':value' : ''}`).join() === 'importing:iv_step:i,importing:iv_big:int8:value,importing:io_ref:ref to zcl_s,returning:rv_sum:i:value',
+      `every parameter with direction, type and VALUE( ) (${add.params.map((p) => `${p.direction}:${p.name}:${p.type}`).join()})`);
+    assert(m.signature('create').static && m.signature('create').params[0].type === 'ref to zcl_s' && m.signature('reset').params.length === 0
+      && m.signature('z2ui5_if_app~main') === null, 'a chained CLASS-METHODS declares each method; an interface method has no signature here');
+    const inAdd = src.indexOf('count = CONV');
+    const inReset = src.lastIndexOf('count = CONV');
+    assert(m.resolve('count', inAdd).origin === 'local' && m.resolve('count', inAdd).type === 'string', 'in add( ) the local hides the attribute');
+    assert(m.resolve('COUNT', inReset).origin === 'attribute' && m.resolve('count', inReset).type === 'i', 'in reset( ) the same name is the attribute');
+    assert(m.resolve('iv_step', inAdd).origin === 'parameter' && m.resolve('iv_step', inReset) === null && m.resolve('sy-subrc', inAdd) === null,
+      'a parameter exists in its own method only; an undeclared name resolves to nothing');
+    const hits = checkAbapSource(src, { render: false, allClasses: true }).findings.filter((x) => x.type === 'redundant-conv-i');
+    assert(hits.map((x) => `${x.member}@${x.line}`).join() === 'total@17,rv_sum@18,count@21',
+      `redundant-conv-i reads the scope: not the string local, the attribute and the returning parameter, and count where it IS the attribute (${hits.map((x) => `${x.member}@${x.line}`).join()})`);
+  });
+
   section('abap model: the case of a keyword changes nothing', () => {
     const shape = (text) => {
       const m = abapModel(text);

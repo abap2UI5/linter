@@ -1705,6 +1705,21 @@ declare module "@abap2ui5/linter/abap-model" {
     visibility: "public" | "protected" | "private" | null;
     class: string;
   }
+  export interface AbapParameter {
+    name: string;
+    direction: "importing" | "exporting" | "changing" | "returning";
+    byValue: boolean;
+    type: string;
+    start: number;
+  }
+  export interface AbapSignature {
+    name: string;
+    static: boolean;
+    params: AbapParameter[];
+    visibility: "public" | "protected" | "private" | null;
+    class: string;
+    start: number;
+  }
   export interface AbapClassPart {
     name: string;
     part: "definition" | "implementation";
@@ -1712,6 +1727,7 @@ declare module "@abap2ui5/linter/abap-model" {
     end: number;
     sections: Array<{ visibility: "public" | "protected" | "private"; start: number; end: number }>;
     attributes: AbapAttribute[];
+    signatures: AbapSignature[];
   }
   export interface AbapMethod {
     /** The name without an interface prefix (`main`). */
@@ -1744,6 +1760,12 @@ declare module "@abap2ui5/linter/abap-model" {
     classAt(offset: number): AbapClassPart | null;
     sectionAt(offset: number): "public" | "protected" | "private" | null;
     attribute(name: string): AbapAttribute | null;
+    /** The declared signature of a method (with or without an interface
+     *  prefix), null for one this source does not declare. */
+    signature(name: string): AbapSignature | null;
+    /** What `name` is at `offset`: a local of the method there, one of its
+     *  parameters, an attribute - in ABAP's order - or null. */
+    resolve(name: string, offset: number): (AbapDeclaration | AbapAttribute | (AbapParameter & { kind: "parameter" })) & { origin: "local" | "parameter" | "attribute" | "snippet" } | null;
     text(span: { start: number; end: number }): string;
   }
   /** The model of `source` - read once, kept for the last few sources. */

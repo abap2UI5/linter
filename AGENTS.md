@@ -248,10 +248,14 @@ import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
 gates that, the file-per-id layout and the registries. Step 4 below (a
 fixture and assertions) is still yours to write.
 
-Four rules are written this way so far (`boolc-instead-of-xsdbool`,
+Five rules are written this way so far (`boolc-instead-of-xsdbool`,
 `class-constructor-visibility`, `empty-catch-block`,
-`into-corresponding-inline-decl`), moved without changing a finding their
-sections assert. **The others are still in the old shape and move one at a
+`into-corresponding-inline-decl`, `redundant-conv-i`), moved without changing
+a finding their sections assert. `redundant-conv-i` is the one to read for
+what the model buys: it asks `model.resolve( name, offset )` - the local of
+the method, then its parameter, then the attribute, ABAP's own order - where
+the old scan kept one class-wide set of names typed `i` and reported an
+assignment to a local STRING that shared its name with an integer attribute. **The others are still in the old shape and move one at a
 time**: delete the emit block, the `SEVERITY_BY_TYPE` line, the `describe( )`
 case, the `RULE_DOCS` entry and the name in `FIXABLE`/`SOURCE_RULES`, write
 the file, run the suite. An id defined both ways throws at import. Two things
