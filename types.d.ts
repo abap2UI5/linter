@@ -114,6 +114,11 @@ declare module "@abap2ui5/linter" {
     depth: number;
     /** Documents the render gate actually loaded. */
     rendered: number;
+    /** Binding paths the property gate asked the derived model about. */
+    paths: number;
+    /** …and how many of them led into a type the class does not declare
+     *  (a DDIC structure, another class's type): not judged. */
+    pathsOpaque: number;
     /** Control name -> occurrences, e.g. { "sap.m.Button": 4 }. */
     types: Record<string, number>;
   }
@@ -651,6 +656,10 @@ declare module "@abap2ui5/linter/properties" {
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
       boundElement?: boolean;
+      /** Counted into, when given: `paths` - the binding paths asked about -
+       *  and `pathsOpaque` - those that led into a type the class does not
+       *  declare and were therefore not judged. */
+      tally?: { paths?: number; pathsOpaque?: number } | null;
     }
   ): PropertyFinding[];
 }
@@ -1364,6 +1373,9 @@ declare module "@abap2ui5/linter/report" {
     bindings: number;
     icons: number;
     depth: number;
+    /** Binding paths asked about, and those left unjudged (see ResultStats). */
+    paths: number;
+    pathsOpaque: number;
     rendered: number;
     renderSkipped: number;
     /** Control name -> occurrences. */

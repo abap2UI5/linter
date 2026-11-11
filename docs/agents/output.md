@@ -76,6 +76,13 @@ Rules that hold for all three:
 - **The numbers come from the walk the gate already did** (`profileTree` in
   properties.mjs, aggregated per result into `result.stats`). Nothing is
   re-parsed for the summary and nothing in it can fail a run.
+- **`not judged` is the same point, one level down.** A binding path into a
+  type the class does not declare (a DDIC structure, a type of another class)
+  is not judged - "unknown" is not "missing" - and a corpus whose tables are
+  all typed that way is clean because nothing was looked at. `checkNodes( )`
+  counts the paths it asks about and the ones it could not answer (`tally`:
+  `stats.paths`, `stats.pathsOpaque`), and the summary prints the line only
+  where something was left unjudged.
 - **`emptyViews` is the point, not a detail.** "7 classes produced none" is
   the only thing in a green report that can say the gate is not seeing the
   corpus. Never drop it to shorten the block.

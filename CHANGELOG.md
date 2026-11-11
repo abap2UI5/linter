@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The run summary says what it could not judge.** A binding path into a
+  type the class does not declare - a DDIC structure, a type of another
+  class - is not judged, and a run over classes that bind nothing else
+  reported no finding in the same words as a run in which every path was
+  right. The summary gets a `not judged` line ("3 of 41 binding paths, each
+  into a type the class does not declare"), printed only where there is
+  something to say; the counts are `paths` and `pathsOpaque` in each
+  result's `stats` and in the JSON document's.
 - **The mirrors of abap2UI5's closed sets are checked against a manifest
   abap2UI5 writes, on every test run.** `scripts/check-upstream.mjs` gains
   the seam between finding the sets and comparing them (`deriveUpstream( )`,

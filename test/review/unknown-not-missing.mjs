@@ -80,6 +80,23 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(paths(checkAbapSource(src, opts)).length === 0, 'nothing is known about the fields of seqg3, so nothing is said');
   });
 
+  section('run summary: the paths that could not be judged are counted, and said', async () => {
+    const src = listOf(['name TYPE string'], ['NAME'], 'DATA mt_locks TYPE ty_lock_rows.\n    DATA ms_void TYPE seqg3.')
+      .replace(")->ele( \`Table\`", ")->tag( \`Text\` )->a( n = \`text\` v = |\\{{ client->_bind_path( ms_void ) }/GNAME\\}|\n            )->ele( \`Table\`");
+    const r = checkAbapSource(src, opts);
+    assert(r.stats.paths >= 2 && r.stats.pathsOpaque === 1,
+      `one path leads into the void structure, the others were judged (paths ${r.stats.paths}, opaque ${r.stats.pathsOpaque})`);
+    assert(paths(r).length === 0, 'and it is not reported: unknown is not missing');
+    const known = checkAbapSource(listOf(['name TYPE string'], ['NAME']), opts);
+    assert(known.stats.paths >= 1 && known.stats.pathsOpaque === 0, 'a class that declares what it binds leaves nothing unjudged');
+    const { runStats, formatStylish, summarize } = await import('../../lib/report.mjs');
+    const text = (results) => formatStylish(results, summarize(results), { stats: runStats(results), color: false });
+    assert(runStats([r, known]).pathsOpaque === 1 && runStats([r, known]).paths === r.stats.paths + known.stats.paths, 'the run adds them up');
+    assert(/not judged\s+1 of \d+ binding paths, each into a type the class does not declare/.test(text([{ ...r, file: 'a.clas.abap' }, { ...known, file: 'b.clas.abap' }])),
+      'the summary carries the caveat');
+    assert(!/not judged/.test(text([{ ...known, file: 'b.clas.abap' }, { ...known, file: 'c.clas.abap' }])), 'and no such line where everything was judged');
+  });
+
   section('project-index: an object is read off its abapGit file name', () => {
     assert(objectNameOf('src/z2ui5_t_26.tabl.xml') === 'z2ui5_t_26', 'a table');
     assert(objectNameOf('src/Z2UI5_CL_X.clas.locals_imp.abap') === 'z2ui5_cl_x', 'a class include, case folded');
