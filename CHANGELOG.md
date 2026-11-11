@@ -412,6 +412,15 @@
 - **`portable-app` is one file**: the rule the linter runs (opt-in) over
   `checkPortable( )`, which stays public API of its own. 171 of 173 rules
   are units now.
+- **`unknown-directive-rule` and `unused-directive` are one file each**, of
+  the new scope `'directive'` (run once per directive by `applyDirectives(
+  )`, which hands them the known ids and the unused ones). **With them every
+  rule is a unit**: `RULES`, the severities, `describe( )`, `RULE_DOCS`,
+  `FIXABLE`, `OPT_IN` and `SOURCE_RULES` are read off `lib/rules/` alone,
+  the literal tables they used to be are gone, and AGENTS.md,
+  `docs/agents/rule-modules.md` and the module headers describe the one
+  shape. `RENDER_RULE` is defined in `lib/rule.mjs` and re-exported from
+  `./findings` as before. 173 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 

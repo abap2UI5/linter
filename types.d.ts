@@ -1809,7 +1809,7 @@ declare module "@abap2ui5/linter/abap-model" {
 declare module "@abap2ui5/linter/rule" {
   import type { AbapModel } from "@abap2ui5/linter/abap-model";
   export const SEVERITIES: readonly ["error", "warning", "hint"];
-  export const SCOPES: readonly ["class", "app", "node", "document", "tree"];
+  export const SCOPES: readonly ["class", "app", "node", "document", "tree", "directive"];
   /** What a rule's check is handed. */
   export interface RuleContext {
     model: AbapModel;
@@ -1827,8 +1827,9 @@ declare module "@abap2ui5/linter/rule" {
      *  place in checkAbapRules( ) by runRule( ); 'node': run once per view
      *  node at its own place in the property walk; 'document': run once per
      *  view document, after the walk; 'tree': run by the reconstructor while
-     *  it builds the view tree. */
-    scope: "class" | "app" | "node" | "document" | "tree";
+     *  it builds the view tree; 'directive': run once per abap2ui5lint-
+     *  directive of a source. */
+    scope: "class" | "app" | "node" | "document" | "tree" | "directive";
     summary: string;
     detail: string;
     example: string;
@@ -1848,9 +1849,12 @@ declare module "@abap2ui5/linter/rule" {
   export function runRule(rule: Rule, context: RuleContext & Record<string, unknown>, options?: { timings?: Map<string, number> | null }): unknown;
   /** The longest source line abapGit imports (255). */
   export const LINE_LIMIT: number;
+  /** The id render-gate failures are reported under (re-exported by
+   *  "@abap2ui5/linter/findings"); not a rule a directive can name. */
+  export const RENDER_RULE: "render-error";
   /** The first `n` characters of a value as text (default 80). */
   export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
-  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node" | "document" | "tree", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node" | "document" | "tree" | "directive", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
 }
 

@@ -139,10 +139,12 @@ binding-value readers `lib/binding-paths.mjs`),
 `'document'` once per view document after the walk (its root; what the tree
 declares, uses and links is read once by `documentFacts( )` in
 `lib/view-document.mjs`), `'tree'` by the reconstructor while it builds the
-view tree (`lib/reconstruct.mjs`). An `'app'`, `'node'`, `'document'` or
-`'tree'` rule is called with `runRule( )` at that place.
+view tree (`lib/reconstruct.mjs`), `'directive'` once per `abap2ui5lint-`
+directive of a source (`applyDirectives( )`). An `'app'`, `'node'`,
+`'document'`, `'tree'` or `'directive'` rule is called with `runRule( )` at
+that place.
 
-Then, for every rule, old shape or new:
+Then, for every rule:
 
 1. a fixture in `test/fixtures/` and assertions — a regression test goes into
    `test/review/<topic>.mjs`, not into `test/run.mjs`; import the checks from
@@ -152,11 +154,12 @@ Then, for every rule, old shape or new:
    can see anything at all (`docs/agents/roadmap.md`, the last three paragraphs);
 4. a `CHANGELOG.md` entry under *Unreleased*.
 
-Most rules are still in the **old shape** — an emit block in a module, a line
-in `SEVERITY_BY_TYPE`, a `describe( )` case, a `RULE_DOCS` entry, and their
-names in `FIXABLE`/`SOURCE_RULES`. They move to a file one at a time, without
-changing a finding; an id defined both ways throws at import. Working on one
-in place is fine: `docs/agents/rule-modules.md` has the four places.
+Every rule is in this shape - there is no other place a rule is defined, and
+an id defined twice throws at import. What several rules share lives in a
+reader module (`lib/abap-helpers.mjs`, `lib/ui5-meta.mjs`,
+`lib/binding-paths.mjs`, `lib/view-document.mjs`, `lib/wire-readers.mjs`, the
+fact readers of `lib/lifecycle-rules.mjs` and `lib/chain-layout.mjs`), which a
+rule file may import as long as it reaches no registry.
 
 ## Rules to carry
 
