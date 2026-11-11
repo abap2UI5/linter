@@ -39,7 +39,16 @@
   And the five rules of a control tag's namespace and library
   (`native-html-in-view`, `undeclared-namespace` - one rule for the control
   and the aggregation tag -, `deprecated-library`, `sapui5-only-control`,
-  `unknown-control`), each with the table only it reads. 64 of 173 now; `--timing`
+  `unknown-control`), each with the table only it reads. And thirteen rules
+  of the attribute loop (`uncurated-formatter`, `invalid-expression-binding`,
+  `binding-on-association`, `bound-aggregation-without-template`,
+  `association-unknown-id`, `unknown-model`, `json-literal-in-attribute`,
+  `date-type-without-source`, `member-deprecated`,
+  `validating-setter-out-of-range`, `enum-bound-to-initial-field`,
+  `json-bind-on-scalar-property`, `html-content-not-markup`), run once per
+  attribute with the attribute, its value and its member; the pure readers
+  of a binding value they share with the walk moved out of `checkNodes( )`
+  to the internal `lib/binding-paths.mjs`. 77 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to

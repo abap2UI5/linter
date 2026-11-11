@@ -116,7 +116,8 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
       const text = fs.readFileSync(path.join(LIB, 'rules', file), 'utf8');
       const cyclic = [...reaches(`rules/${file}`)].filter((dep) => REGISTRIES.has(dep));
       assert(!cyclic.length, `${file} reaches no registry - the registries import the rules (reaches ${cyclic.join(', ') || 'none'})`);
-      assert(!/type: '/.test(text), `${file} reports without a type: runRules( ) gives the finding the rule's id`);
+      // a rule-id-shaped type: a card may quote a binding info's `type: 'sap.ui.model.type.Date'`
+      assert(!/\btype: '[a-z][a-z0-9]*(?:-[a-z0-9]+)+'/.test(text), `${file} reports without a type: runRules( ) gives the finding the rule's id`);
     }
     for (const leaf of ['rule.mjs', 'abap-model.mjs', 'abap-helpers.mjs']) {
       const deps = [...reaches(leaf)].filter((dep) => REGISTRIES.has(dep));

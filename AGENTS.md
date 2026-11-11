@@ -134,7 +134,8 @@ for every class (`context.model`, `lib/abap-model.mjs`: tokens, statements,
 sections, methods, attributes, `resolve( name, offset )` - rather than regular
 expressions of its own), `'app'` at its place in `checkAbapRules( )`, `'node'`
 once per view node inside the property walk (the node, its control and
-metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`),
+metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`,
+binding-value readers `lib/binding-paths.mjs`),
 `'document'` once per view document after the walk (its root; what the tree
 declares, uses and links is read once by `documentFacts( )` in
 `lib/view-document.mjs`). An `'app'`, `'node'` or `'document'` rule is called
