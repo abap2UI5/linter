@@ -124,6 +124,19 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     }
   });
 
+  section('rule units: a rule written as a unit is reported from its file only', () => {
+    /* A unit's file is meant to be the whole rule. A second emit site left
+     * behind in a pass (too-many-children had one in the aggregation-tag
+     * branch) reports the same id from code the file does not show. */
+    const strays = [];
+    const walkDir = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'rules' ? [] : walkDir(path.join(dir, e.name))) : [path.join(dir, e.name)]));
+    for (const file of walkDir(LIB).filter((n) => n.endsWith('.mjs'))) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const rule of UNIT_RULES) if (text.includes(`type: '${rule.id}'`)) strays.push(`${rule.id} in ${path.relative(LIB, file)}`);
+    }
+    assert(!strays.length, `no unit rule is also emitted by a pass (${strays.join(', ') || 'none'})`);
+  });
+
   section('rule units: every message can be written for any finding', () => {
     /* A message is only written when a finding of its rule is reported, so a
      * name it uses and does not import (a helper findings.mjs used to hold)
