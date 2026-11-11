@@ -85,7 +85,7 @@ export default function ({ section, assert, FIX, tempDir }) {
     fs.mkdirSync(path.join(checkout, 'app', 'webapp', 'model'), { recursive: true });
     fs.writeFileSync(path.join(checkout, 'app', 'webapp', 'model', 'formatter.js'), 'return {\n    somethingElse() {},\n};\n');
     const r = run('check-upstream.mjs', ['--local', checkout]);
-    assert(r.code === 0 && /all mirrors in sync/.test(r.out) && r.out.includes(MANIFEST_PATH),
+    assert(r.code === 0 && /all mirrors in sync/.test(r.out) && r.out.includes(at),
       `the checkout's manifest is what is compared, its sources are not read (exit ${r.code})`);
     const bare = run('check-upstream.mjs', ['--local', tempDir('old-checkout')]);
     assert(bare.code === 2 && /not there/.test(bare.err) && /#3001/.test(bare.err),
