@@ -409,6 +409,9 @@
   (a follow_up_action custom_js, a <script> or inline handler in markup, a
   literal on an event, a javascript: URL), run by the wire dispatcher and
   the property walk. 170 of 173 rules are units now.
+- **`portable-app` is one file**: the rule the linter runs (opt-in) over
+  `checkPortable( )`, which stays public API of its own. 171 of 173 rules
+  are units now.
 
 ## 0.9.0 - 2026-10-14
 
