@@ -353,6 +353,14 @@
   attribute and popover rules, `ui5-internal-access` with both of its
   halves, among others); the top-level readers they share moved to
   `lib/abap-helpers.mjs`. 127 of 173 rules are units now.
+- **The event and row-literal rules of `abap-rules.mjs` are one file each.**
+  `event-without-handler` (both of its call sites), `event-name-case-
+  mismatch`, `event-arg-unresolved`, `event-arg-single-row-table`,
+  `trailing-empty-event-arg`, `event-arg-out-of-range`, `enum-field-unset-
+  on-insert` and `absent-boolean-overrides-default`. The facts two or more
+  of them share are read once per source by `backendEventCalls( )` and
+  `rowLiteralFacts( )` in `lib/abap-helpers.mjs`. 135 of 173 rules are units
+  now.
 
 ## 0.9.0 - 2026-10-14
 
