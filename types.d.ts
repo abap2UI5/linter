@@ -1809,7 +1809,7 @@ declare module "@abap2ui5/linter/abap-model" {
 declare module "@abap2ui5/linter/rule" {
   import type { AbapModel } from "@abap2ui5/linter/abap-model";
   export const SEVERITIES: readonly ["error", "warning", "hint"];
-  export const SCOPES: readonly ["class", "app", "node"];
+  export const SCOPES: readonly ["class", "app", "node", "document"];
   /** What a rule's check is handed. */
   export interface RuleContext {
     model: AbapModel;
@@ -1825,8 +1825,9 @@ declare module "@abap2ui5/linter/rule" {
     category: string;
     /** 'class': run for every class by runRules( ); 'app': run at its own
      *  place in checkAbapRules( ) by runRule( ); 'node': run once per view
-     *  node at its own place in the property walk. */
-    scope: "class" | "app" | "node";
+     *  node at its own place in the property walk; 'document': run once per
+     *  view document, after the walk. */
+    scope: "class" | "app" | "node" | "document";
     summary: string;
     detail: string;
     example: string;
@@ -1849,6 +1850,6 @@ declare module "@abap2ui5/linter/rule" {
   /** The first `n` characters of a value as text (default 80). */
   export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
-  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node" | "document", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
 }
 

@@ -27,7 +27,12 @@
   `bound-aggregation-over-size-limit`, `duplicate-aggregation`,
   `missing-accessibility`, `picker-value-without-format`,
   `too-many-children`). The metadata readers they share with the walk moved
-  to `lib/ui5-meta.mjs`, an internal module. 52 of 173 now; `--timing`
+  to `lib/ui5-meta.mjs`, an internal module. And the four rules that read
+  the whole view document, as rules of the new scope `'document'`, run once
+  per document after the walk (`second-root`, `unused-namespace-declaration`,
+  `undefined-css-class`, `external-link-without-target`); what the tree
+  declares, uses and links is read once per root by `documentFacts( )` in
+  the internal `lib/view-document.mjs`. 56 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to

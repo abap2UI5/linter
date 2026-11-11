@@ -134,8 +134,11 @@ for every class (`context.model`, `lib/abap-model.mjs`: tokens, statements,
 sections, methods, attributes, `resolve( name, offset )` - rather than regular
 expressions of its own), `'app'` at its place in `checkAbapRules( )`, `'node'`
 once per view node inside the property walk (the node, its control and
-metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`).
-An `'app'` or `'node'` rule is called with `runRule( )` at that place.
+metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`),
+`'document'` once per view document after the walk (its root; what the tree
+declares, uses and links is read once by `documentFacts( )` in
+`lib/view-document.mjs`). An `'app'`, `'node'` or `'document'` rule is called
+with `runRule( )` at that place.
 
 Then, for every rule, old shape or new:
 

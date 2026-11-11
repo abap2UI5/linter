@@ -362,7 +362,7 @@ ENDCLASS.
     /* the rules of scope 'node' (lib/rules/) are run by the walk and nowhere
      * else - they report without a `type:` literal, runRule( ) gives it */
     const { UNIT_RULES } = await import('../../lib/rules/index.mjs');
-    for (const rule of UNIT_RULES) if (rule.scope === 'node') walk.add(rule.id);
+    for (const rule of UNIT_RULES) if (rule.scope === 'node' || rule.scope === 'document') walk.add(rule.id);
     const elsewhere = new Set(fs.readdirSync(lib).filter((n) => n.endsWith('.mjs') && !['properties.mjs', 'findings.mjs', 'rule-docs.mjs'].includes(n))
       .flatMap((n) => [...emitted(n)]));
     const expected = [...walk].filter((id) => !elsewhere.has(id)).sort();

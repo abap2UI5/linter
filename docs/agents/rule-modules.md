@@ -53,12 +53,16 @@ import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
 gates that, the file-per-id layout and the registries. Step 4 below (a
 fixture and assertions) is still yours to write.
 
-Fifty-two rules are written this way (`docs/agents/rule-map.md` lists
+Fifty-six rules are written this way (`docs/agents/rule-map.md` lists
 them): the hygiene, round-trip and guide families, three lifecycle rules,
 sixteen rules of the property walk (scope `'node'`: `checkNodes( )` runs
 each at its place, once per node, with the node, its control and metadata,
 the control it sits in and the floor; the readers they share with the walk
-are `lib/ui5-meta.mjs`), `non-released-api` (scope `'class'`, run for every
+are `lib/ui5-meta.mjs`), four rules of scope `'document'` (`second-root`,
+`unused-namespace-declaration`, `undefined-css-class`,
+`external-link-without-target`: once per view document after the walk,
+reading what the tree declares, uses and links from `documentFacts( )` in
+`lib/view-document.mjs`), `non-released-api` (scope `'class'`, run for every
 class by `checkAbapHygiene( )`), and twelve rules of scope `'app'` that
 `checkAbapRules( )` runs at their own place with `runRule( )` - each was a
 function of its own there and needed the context that place has (the
