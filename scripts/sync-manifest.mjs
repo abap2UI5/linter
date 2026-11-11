@@ -4,7 +4,7 @@
  * linter mirrors.
  *
  * abap2UI5 generates `.github/shared/linter-manifest.json` from its own
- * sources (its generate-linter-manifest.mjs; the shape is deriveUpstream( )
+ * sources (its generate-linter-manifest.mjs; the shape is MANIFEST_KEYS
  * in scripts/check-upstream.mjs). The copy here, data/abap2ui5-manifest.json,
  * is the abap2UI5 state the hand-maintained mirrors in lib/ are in step with:
  * `npm test` runs `check-upstream --manifest` over it, so a mirror edited

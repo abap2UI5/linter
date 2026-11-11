@@ -40,22 +40,28 @@
  * break live, and a property added to a companion control makes every view
  * that uses it fail view CREATION here - not a property finding a downstream
  * deviation can carry, but a dead view (that is exactly how MultiInputExt's
- * TokenKeyCell arrived). This script compares the mirrors against the current upstream
- * sources and exits 1 on any drift — the scheduled workflow turns that into
- * an issue instead of waiting for a user to hit it.
+ * TokenKeyCell arrived). This script compares the mirrors against what
+ * upstream says the sets are and exits 1 on any drift — the scheduled
+ * workflow turns that into an issue instead of waiting for a user to hit it.
  *
- *   node scripts/check-upstream.mjs                    fetch from GitHub main
- *   node scripts/check-upstream.mjs --local <dir>      read an abap2UI5 checkout
- *   node scripts/check-upstream.mjs --manifest <file>  read the manifest abap2UI5
- *                                                      writes of these sets (its
- *                                                      .github/shared/linter-manifest.json)
- *                                                      instead of finding them in
- *                                                      its sources
- *   node scripts/check-upstream.mjs [--local <dir>] --emit-manifest
- *                                                      print the sets the parsers
- *                                                      find, as that manifest
+ * WHAT UPSTREAM SAYS is its manifest, `.github/shared/linter-manifest.json`:
+ * abap2UI5 reads the sets out of its own sources (its
+ * generate-linter-manifest.mjs) and its gates keep the file equal to them.
+ * This script used to find the sets itself, with a regular-expression parser
+ * per set over abap2UI5's generated classes - about three hundred lines that
+ * knew upstream's file layout from the outside and went blind each time it
+ * moved (the action JS split into one class per group; `ct_box_type` moved
+ * into the message service). Those parsers live in abap2UI5 now, next to the
+ * sources they read; nothing here parses abap2UI5.
  *
- * Exit codes: 0 in sync, 1 drift, 2 sources unreachable.
+ *   node scripts/check-upstream.mjs                    abap2UI5 main's manifest (network)
+ *   node scripts/check-upstream.mjs --local <dir>      the manifest of an abap2UI5 checkout
+ *                                                      (what its check:mirrors runs)
+ *   node scripts/check-upstream.mjs --manifest <file>  a manifest file (npm test: the
+ *                                                      vendored data/abap2ui5-manifest.json)
+ *
+ * Exit codes: 0 in sync, 1 drift, 2 no readable manifest (unreachable, missing
+ * - a checkout from before abap2UI5 wrote one - or of another shape).
  */
 import fs from 'fs';
 import path from 'path';
@@ -73,194 +79,12 @@ import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-ap
 import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
-/* The manifest abap2UI5 writes of the sets mirrored here - see deriveUpstream( ). */
+/* The manifest abap2UI5 writes of the sets mirrored here - see MANIFEST_KEYS. */
 const MANIFEST_PATH = '.github/shared/linter-manifest.json';
-const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
-const FORMATTER_PATH = 'app/webapp/model/formatter.js';
-/* The clipboard module arrived after the formatter one; an upstream that does
- * not ship it yet reads as an empty export set, so the mirror reports as
- * drift (correctly - the harness then knows a module upstream does not have)
- * rather than as unreachable sources. */
-const CLIPBOARD_PATH = 'app/webapp/model/clipboard.js';
-/* The released client interface. Its `cs_event` constant names EVERY event an
- * app may hand to _event_client( ) / follow_up_action( ) — the dispatch-table
- * names, the ones the server remaps (FRONTEND_EVENT_ALIASES) and the ones the
- * server consumes itself (SERVER_EVENTS). The latter two are in no frontend
- * source, so until this file was read they were the one part of the mirror
- * nothing gated: HASH_REPLACE and HASH_ATTACH_CHANGED arrived upstream and
- * `follow_up_action( val = \`HASH_REPLACE\` )` was an unknown-frontend-action
- * on correct code. */
-const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
-
-/* The server half of the message methods: `box_resolve` lower-cases a
- * message_box_display( type = … ) and looks it up in `ct_box_type`, the
- * MessageBox display methods - MESSAGE_BOX_TYPES mirrors that list, and
- * unknown-message-box-type reports a literal type outside it.
- *
- * The method lived in z2ui5_cl_ui5_frontend until abap2UI5#2988 moved what a
- * message box shows into one class, z2ui5_cl_ui5_srv_message. The list itself
- * did not change - but this script kept reading the old class, found no
- * `ct_box_type` there, and reported all seven types as gone upstream. */
-const MESSAGE_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_srv_message.clas.abap';
-
-/* The frontend action JS lives embedded in the generated ABAP classes under
- * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
- * has since split it per action group — GLOBAL_TARGETS, CSS_PROPERTIES and
- * BINDING_METHODS moved to z2ui5_cl_ui5f_ctrlcall_js, the shortcut sets to
- * z2ui5_cl_ui5f_shortcut_js — which left this script reading a file that no
- * longer defines any of them, and every frontend-actions mirror unchecked.
- *
- * So the whole family is read and concatenated rather than one named file:
- * WHICH class holds a given closed set is upstream's business, and the next
- * split must not blind the gate again. The parsers below each look for their
- * own `const NAME =`, so one blob is what they want. */
-/* The companion controls the render harness mirrors. Plain ES modules, one
- * per control, each a `Control.extend` with a `metadata: { properties: {…} }`
- * object literal - so the property NAMES parse out of the source directly. */
+/* Where two of the sets live upstream - named in the messages only, so a
+ * reader knows which file a drift is about. */
 const CC_DIR = 'app/webapp/cc';
-const CC_FILE_RE = /^app\/webapp\/cc\/(\w+)\.js$/;
-/* The frozen builder's companion-control helpers - one method per control,
- * each a `_generic( name = … ns = \`z2ui5\` )`. Read for the helper NAME that
- * writes each obsolete control, which obsolete-custom-control matches in a
- * class that reconstructs no view. */
 const XML_VIEW_CC_PATH = 'src/99/z2ui5_cl_xml_view_cc.clas.abap';
-
-const ACTION_DIR = 'src/01/03';
-const ACTION_FILE_RE = /^z2ui5_cl_ui5f_\w+_js\.clas\.abap$/;
-
-/** The embedded-JS classes, repo-relative, from a full file list. */
-function actionPathsOf(paths) {
-  return paths
-    .filter((p) => p.startsWith(`${ACTION_DIR}/`) && ACTION_FILE_RE.test(p.slice(ACTION_DIR.length + 1)))
-    .sort();
-}
-
-/** The abapGit file name of an object -> the object name, or null for
- *  anything that is not one (a `package.devc.xml`, a test include, a sidecar
- *  of an object its own `.clas.abap`/`.intf.abap` already names). */
-export function objectNameOf(file) {
-  if (file.includes('.testclasses.')) return null;
-  const m = file.match(/^(z2ui5_\w+)\.(?:clas|intf)\.abap$/)
-    || file.match(/^(z2ui5_\w+)\.(?:tabl|dtel|doma|ddls|enqu)\.xml$/);
-  return m ? m[1].toLowerCase() : null;
-}
-
-/** Every abap2UI5 object under `src/`, as `package path -> [object names]`.
- *  `paths` is the repository-relative file list. */
-export function objectsByPackage(paths) {
-  const out = {};
-  for (const p of paths) {
-    if (!p.startsWith('src/')) continue;
-    const at = p.lastIndexOf('/');
-    const name = objectNameOf(p.slice(at + 1));
-    if (!name) continue;
-    (out[p.slice(0, at)] ??= []).push(name);
-  }
-  return out;
-}
-
-/** Export surface of the curated formatter module: the top-level method
- *  names of its returned object literal (4-space indent, `Name(args) {`). */
-export function parseFormatterExports(src) {
-  return [...src.matchAll(/^    (\w+)\((?:[^)]*)\)?\s*\{?/gm)]
-    .map((m) => m[1])
-    .filter((n) => !['function', 'if', 'for', 'while', 'return', 'switch'].includes(n));
-}
-
-/** The JS the ABAP class embeds: every backtick literal's content, joined —
- *  the class is one string concatenation with `&& |\n| &&` line glue, so the
- *  literals ARE the JS lines. */
-export function embeddedJs(abapSrc) {
-  return [...abapSrc.matchAll(/`((?:[^`]|``)*)`/g)]
-    .map((m) => m[1].replace(/``/g, '`'))
-    .join('\n');
-}
-
-/** The wire values of `z2ui5_if_client=>cs_event`: every `VALUE \`NAME\`` (or
- *  `'NAME'`) between `BEGIN OF cs_event` and its `END OF`, de-duplicated —
- *  the obsolete spellings share a value with their successors (hash_set and
- *  set_push_state are both SET_PUSH_STATE), and the value is what travels.
- *  Comment lines (`"…`) are dropped first: the run's labels quote the
- *  members by name, never by value, but a value in a comment must not count. */
-export function parseClientEvents(intfSrc) {
-  const m = intfSrc.match(/BEGIN OF cs_event\b([\s\S]*?)\bEND OF cs_event\b/i);
-  if (!m) return [];
-  const code = m[1].split('\n').map((line) => line.replace(/^\s*".*$/, '')).join('\n');
-  return [...new Set([...code.matchAll(/\bVALUE\s+(?:`([^`]+)`|'([^']+)')/gi)].map((x) => x[1] ?? x[2]))];
-}
-
-/** The property names a companion control declares: the keys of the
- *  `metadata: { properties: { … } }` object literal. Nested `{ type: … }`
- *  values are skipped by taking only the keys at depth 1 of that region. */
-export function parseCcProperties(src) {
-  const at = src.search(/properties\s*:\s*\{/);
-  if (at === -1) return [];
-  return objectKeys(braceRegion(src, src.indexOf('{', at)));
-}
-
-/* The keys at depth 1 of an object literal's body. */
-function objectKeys(body) {
-  const out = [];
-  let depth = 0;
-  // a `//` comment can carry `word:` pairs that are not keys
-  const code = body.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-  const re = /([A-Za-z_$][\w$]*)\s*:|[{}]/g;
-  let m;
-  while ((m = re.exec(code)) !== null) {
-    if (m[0] === '{') depth++;
-    else if (m[0] === '}') depth--;
-    else if (depth === 0) out.push(m[1]);
-  }
-  return out;
-}
-
-/** The event names a companion control declares: the keys of
- *  `metadata: { events: { … } }`, read inside the metadata literal (the word
- *  is common enough elsewhere in a control's source). An event the mirror
- *  lacks fails view CREATION exactly as a missing property does. */
-export function parseCcEvents(src) {
-  const at = src.search(/metadata\s*:\s*\{/);
-  if (at === -1) return [];
-  const metadata = braceRegion(src, src.indexOf('{', at));
-  const events = metadata.search(/\bevents\s*:\s*\{/);
-  return events === -1 ? [] : objectKeys(braceRegion(metadata, metadata.indexOf('{', events)));
-}
-
-/** The module a companion control extends - `sap/m/Input` for InputExt,
- *  `sap/ui/core/Control` for most: the dependency of its `sap.ui.define`
- *  that the `<param>.extend("z2ui5.cc.…"` call names. It is what the control
- *  INHERITS, so it decides every attribute a view may write on it beyond its
- *  own. null when the source does not have that shape. */
-export function parseCcBase(src) {
-  const define = src.indexOf('sap.ui.define(');
-  const open = define === -1 ? -1 : src.indexOf('[', define);
-  const close = open === -1 ? -1 : src.indexOf(']', open);
-  const paramsOpen = close === -1 ? -1 : src.indexOf('(', close);
-  const paramsClose = paramsOpen === -1 ? -1 : src.indexOf(')', paramsOpen);
-  if (paramsClose === -1) return null;
-  const deps = [...src.slice(open + 1, close).matchAll(/["']([^"']*)["']/g)].map((m) => m[1]);
-  const params = src.slice(paramsOpen + 1, paramsClose).split(',').map((p) => p.trim()).filter(Boolean);
-  for (let at = src.indexOf('.extend(', paramsClose); at !== -1; at = src.indexOf('.extend(', at + 1)) {
-    let start = at;
-    while (start > 0 && /[\w$]/.test(src[start - 1])) start--;
-    let arg = at + '.extend('.length;
-    while (arg < src.length && /\s/.test(src[arg])) arg++;
-    if (!src.startsWith('z2ui5.cc.', arg + 1) || (src[arg] !== '"' && src[arg] !== "'")) continue;
-    const i = params.indexOf(src.slice(start, at));
-    return i === -1 ? null : deps[i] ?? null;
-  }
-  return null;
-}
-
-/** A companion control's `// OBSOLETE: …` header -> the text after the
- *  colon, or null for a control that carries none. abap2UI5 writes one line
- *  per control (`// OBSOLETE: replaced by the frontend event
- *  cs_event-start_timer - kept for backward compatibility.`). */
-export function parseObsoleteHeader(src) {
-  const m = String(src).match(/^[ \t]*\/\/[ \t]*OBSOLETE:[ \t]*(.+)$/m);
-  return m ? m[1].trim() : null;
-}
-
 /** The API names an OBSOLETE header points at: every snake_case identifier
  *  in it (`cs_event-start_timer` -> cs_event, start_timer; `client->hash_set( )`
  *  -> hash_set; `client.get().s_device / s_ui5` -> s_device, s_ui5). The
@@ -270,242 +94,28 @@ export function replacementNames(text) {
   return [...new Set([...String(text).matchAll(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g)].map((m) => m[0]))];
 }
 
-/** z2ui5_cl_xml_view_cc: helper method (lower case) -> the control name its
- *  `_generic( )` writes in the z2ui5 namespace. */
-export function parseCcHelpers(abapSrc) {
-  const out = {};
-  for (const m of String(abapSrc).matchAll(/^\s*METHOD\s+(\w+)\s*\.([\s\S]*?)^\s*ENDMETHOD\s*\./gim)) {
-    const call = m[2].match(/_generic\s*\(([\s\S]*?)\)/i);
-    if (!call) continue;
-    const name = call[1].match(/\bname\s*=\s*`(\w+)`/i);
-    const ns = call[1].match(/\bns\s*=\s*`(\w+)`/i);
-    if (name && ns && ns[1].toLowerCase() === 'z2ui5') out[m[1].toLowerCase()] = name[1];
-  }
-  return out;
-}
-
-/** Body of the balanced { … } starting at src[open] === '{'. The region holds
- *  object literals and arrow functions only — no braces inside strings. */
-function braceRegion(src, open) {
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) return src.slice(open + 1, i);
-  }
-  return src.slice(open + 1);
-}
-
-/** GLOBAL_TARGETS of the embedded FrontendAction JS: name -> [methods].
- *  Entries span one line (MESSAGE_TOAST) or many (MESSAGE_BOX), so the map
- *  is parsed brace-aware from the reconstructed JS, not line by line. */
-export function parseGlobalTargets(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const out = {};
-  const at = js.indexOf('const GLOBAL_TARGETS = {');
-  if (at === -1) return out;
-  const body = braceRegion(js, js.indexOf('{', at));
-  const entryRe = /([A-Z][A-Z0-9_]*)\s*:\s*\{/g;
-  let m;
-  while ((m = entryRe.exec(body)) !== null) {
-    const open = body.indexOf('{', m.index + m[0].length - 1);
-    const entry = braceRegion(body, open);
-    const methodsAt = entry.search(/methods\s*:\s*\{/);
-    if (methodsAt !== -1) {
-      const methods = braceRegion(entry, entry.indexOf('{', methodsAt));
-      // a `//` comment documenting the payload shape ("{ CODE: { digits: n } }")
-      // carries `word:` pairs that are not methods - drop the comments first
-      // (`://` of a URL is not a comment start)
-      const code = methods.replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-      out[m[1]] = [...code.matchAll(/(\w+)\s*:/g)].map((x) => x[1]);
-    }
-    entryRe.lastIndex = open + entry.length + 2; // never match inside the entry
-  }
-  return out;
-}
-
-/** The CSS_PROPERTIES array literal of FrontendAction.js: the quoted entries
- *  between `const CSS_PROPERTIES = [` and its closing bracket. */
-export function parseCssProperties(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const CSS_PROPERTIES = [');
-  if (at === -1) return [];
-  const end = js.indexOf('];', at);
-  if (end === -1) return [];
-  return [...js.slice(at, end).matchAll(/["'`]([a-z-]+)["'`]/g)].map((m) => m[1]);
-}
-
-/** One of FrontendAction.js's two CONTROL_BY_ID deny arrays, by name — the
- *  quoted entries between `const <name> = [` and its closing bracket. An
- *  entry may carry a trailing `//` comment, which is stripped first. */
-export function parseDenyList(abapSrc, name) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf(`const ${name} = [`);
-  if (at === -1) return [];
-  const end = js.indexOf('];', at);
-  if (end === -1) return [];
-  const body = js.slice(at, end).replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-  return [...body.matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
-}
-
-/** The BINDING_CALL method map of FrontendAction.js: the function-valued
- *  entries of `const BINDING_METHODS = { … }`. Every one of them takes the
- *  binding as its first parameter, which is what the parse keys on — an
- *  indent change upstream must not silently empty this list. */
-export function parseBindingMethods(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const BINDING_METHODS = {');
-  if (at === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', at));
-  // shorthand-method DEFINITIONS only (`filter(binding, …) {`) — a helper
-  // CALLED with the binding (`buildFilterGroups(binding, path);`) is not an
-  // entry, and the `) {` tail is what tells the two apart
-  return [...body.matchAll(/(\w+)\s*\(\s*binding\b[^)]*\)\s*\{/g)].map((m) => m[1]);
-}
-
-/** The top-level dispatch table: the keys of `const handlers = { … }`. */
-export function parseHandlers(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  /* EVERY `const handlers = { … }`, not the first: upstream split the dispatch
-   * table per action group (browser, ctrlcall, launchpd, shortcut, variants,
-   * viewops each declare one), so reading a single table reports the other
-   * five groups' events as removed upstream. */
-  const out = [];
-  const needle = 'const handlers = {';
-  for (let at = js.indexOf(needle); at !== -1; at = js.indexOf(needle, at + needle.length)) {
-    const body = braceRegion(js, js.indexOf('{', at));
-    out.push(...[...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]));
-  }
-  return [...new Set(out)];
-}
-
-/** A `const NAME = new Set([ … ])` / `const NAME = [ … ]` of quoted strings. */
-export function parseStringList(abapSrc, name) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf(`const ${name} = `);
-  if (at === -1) return [];
-  const end = js.indexOf(']', at);
-  if (end === -1) return [];
-  return [...js.slice(at, end).matchAll(/["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
-}
-
-/** URLHELPER's `actions` map keys, scoped to evUrlHelper so an `actions`
- *  variable elsewhere never leaks in. */
-export function parseUrlHelperActions(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const fn = js.indexOf('function evUrlHelper');
-  if (fn === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', fn));
-  const at = body.indexOf('actions = {');
-  if (at === -1) return [];
-  const map = braceRegion(body, body.indexOf('{', at));
-  return [...map.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
-}
-
-/** CONTROL_METHODS with its arg kinds: name -> [kinds]. The two mirrors that
- *  derive from it (id-arg methods, object-payload methods) are compared
- *  against THIS parse, so a kind change upstream surfaces here. */
-export function parseControlMethodKinds(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const CONTROL_METHODS = {');
-  if (at === -1) return {};
-  const body = braceRegion(js, js.indexOf('{', at));
-  const out = {};
-  for (const m of body.matchAll(/^\s*(\w+)\s*:\s*\[([^\]]*)\]/gm)) {
-    out[m[1]] = [...m[2].matchAll(/["'`]([^"'`]+)["'`]/g)].map((x) => x[1]);
-  }
-  return out;
-}
-
-/** URL_POLICIES: the built-in policy names setAsyncURLHandler may be given.
- *  An object of `NAME: () => …` entries, so the KEYS are the closed set. */
-export function parseUrlPolicies(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const URL_POLICIES = {');
-  if (at === -1) return [];
-  const body = braceRegion(js, js.indexOf('{', at));
-  return [...body.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((m) => m[1]);
-}
-
-/** MESSAGE_BOX_TYPES: the `ct_box_type = VALUE #( ( `show` ) … )` list the
- *  server checks a box type against. [] when the list is not found - which
- *  the report then shows as every type gone upstream. */
-export function parseBoxTypes(abapSrc) {
-  const at = abapSrc.search(/\bct_box_type\s*=\s*VALUE\s+#\s*\(/i);
-  if (at === -1) return [];
-  const open = abapSrc.indexOf('(', abapSrc.indexOf('#', at));
-  let depth = 0;
-  let end = open;
-  for (; end < abapSrc.length; end++) {
-    if (abapSrc[end] === '(') depth++;
-    else if (abapSrc[end] === ')' && --depth === 0) break;
-  }
-  return [...abapSrc.slice(open + 1, end).matchAll(/\(\s*[`']([a-z]+)[`']\s*\)/gi)].map((m) => m[1]);
-}
-
-/** SHORTCUT_ALIASES: alias -> canonical spelling. */
-export function parseShortcutAliases(abapSrc) {
-  const js = embeddedJs(abapSrc);
-  const at = js.indexOf('const SHORTCUT_ALIASES = {');
-  if (at === -1) return {};
-  const body = braceRegion(js, js.indexOf('{', at));
-  const out = {};
-  for (const m of body.matchAll(/(\w+)\s*:\s*["'`]([^"'`]*)["'`]/g)) out[m[1]] = m[2];
-  return out;
-}
-
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
 /* The version of the manifest shape below. Raised when a key changes its
  * meaning or goes away - a new key is not a new version. */
 export const MANIFEST_SCHEMA = 1;
 
-/**
- * Everything this script reads out of abap2UI5, as ONE plain object - the
- * closed sets the mirrors in lib/ are copies of.
+/* The manifest is an object of these keys - the sets abap2UI5 writes down for
+ * this script (its .github/scripts/generate-linter-manifest.mjs):
  *
- * It is the seam between two jobs that used to be one function: finding the
- * sets in upstream's sources (the parsers above, which know where upstream
- * keeps what and break when it moves a file) and comparing them with the
- * mirrors (the rest of main( )). With the seam, the first job has a second
- * possible owner: abap2UI5 itself can WRITE this object - it knows its own
- * layout, and a split of a module is then its change to make in its own
- * generator, not a silent blind spot here - and `--manifest <file>` reads
- * what it wrote instead of parsing. `--emit-manifest` prints what the
- * parsers derive, which is how the two are held equal while both exist.
- *
- * Every list is in source order; a set a parser does not find is empty (or
- * `{}`), and main( ) decides which of those are fatal.
+ *   formatters, clipboardCallbacks   app/webapp/model/{formatter,clipboard}.js
+ *   messageBoxTypes                  ct_box_type of z2ui5_cl_ui5_srv_message
+ *   clientEvents                     z2ui5_if_client=>cs_event
+ *   companionControls                app/webapp/cc/*.js: name -> { properties,
+ *                                    events, base, obsolete }
+ *   frozenBuilderHelpers             z2ui5_cl_xml_view_cc: helper -> control
+ *   objects                          package -> the abapGit objects in it
+ *   globalTargets, cssProperties, controlMethodDenyExact,
+ *   controlMethodDenyPrefixes, bindingMethods, frontendEvents,
+ *   filterOperators, viewSlots, shortcutModifiers, shortcutAliases,
+ *   urlHelperActions, controlMethodKinds, urlPolicies
+ *                                    app/webapp/core/actions/*.js
  */
-export function deriveUpstream({ formatterSrc, clipboardSrc = '', clientIntfSrc, messageClassSrc, actionSrc, ccSrc = {}, xmlViewCcSrc = null, srcPaths = [] }) {
-  return {
-    schema: MANIFEST_SCHEMA,
-    formatters: parseFormatterExports(formatterSrc),
-    clipboardCallbacks: parseFormatterExports(clipboardSrc),
-    messageBoxTypes: parseBoxTypes(messageClassSrc),
-    clientEvents: parseClientEvents(clientIntfSrc),
-    companionControls: Object.fromEntries(Object.keys(ccSrc).sort().map((name) => [name, {
-      properties: parseCcProperties(ccSrc[name]),
-      events: parseCcEvents(ccSrc[name]),
-      base: parseCcBase(ccSrc[name]),
-      obsolete: parseObsoleteHeader(ccSrc[name]),
-    }])),
-    frozenBuilderHelpers: xmlViewCcSrc === null ? null : parseCcHelpers(xmlViewCcSrc),
-    objects: objectsByPackage(srcPaths),
-    globalTargets: parseGlobalTargets(actionSrc),
-    cssProperties: parseCssProperties(actionSrc),
-    controlMethodDenyExact: parseDenyList(actionSrc, 'CONTROL_METHOD_DENY_EXACT'),
-    controlMethodDenyPrefixes: parseDenyList(actionSrc, 'CONTROL_METHOD_DENY_PREFIXES'),
-    bindingMethods: parseBindingMethods(actionSrc),
-    frontendEvents: parseHandlers(actionSrc),
-    filterOperators: parseStringList(actionSrc, 'FILTER_OPERATORS'),
-    viewSlots: parseStringList(actionSrc, 'SHORTCUT_SLOTS'),
-    shortcutModifiers: parseStringList(actionSrc, 'SHORTCUT_MODIFIERS'),
-    shortcutAliases: parseShortcutAliases(actionSrc),
-    urlHelperActions: parseUrlHelperActions(actionSrc),
-    controlMethodKinds: parseControlMethodKinds(actionSrc),
-    urlPolicies: parseUrlPolicies(actionSrc),
-  };
-}
 
 /* The keys a manifest must carry, with the JSON type of each: what
  * `--manifest` checks before it compares anything, so a file of another
@@ -567,151 +177,48 @@ async function fetchRetrying(url, init = {}) {
   }
 }
 
-/** A token is used wherever the environment offers one, purely for the rate
- *  limit — every URL here is public. Unauthenticated, a shared Actions runner
- *  shares 60 requests an hour with every other job on that IP, and this script
- *  makes one request per mirrored file. */
-const authHeaders = () => {
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-  return token ? { authorization: `Bearer ${token}` } : {};
-};
-
-/** Raw file content. Deliberately UNauthenticated: raw.githubusercontent.com
- *  serves public files without a token and rejects some tokens outright, so
- *  the header would trade one failure mode for another. */
-async function fetchText(url) {
-  return (await fetchRetrying(url)).text();
-}
-
-/** The repository's file list. Over the network that is the git tree API
- *  (one request for the whole repo). */
-async function fetchTree(url) {
-  const body = await (await fetchRetrying(url, { headers: authHeaders() })).json();
-  if (body.truncated) throw new Error(`${url}: the tree came back truncated`);
-  return (body.tree || []).filter((e) => e.type === 'blob').map((e) => e.path);
-}
-
-/** The same list from a checkout: every file under `dir`, repo-relative. */
-function walkFiles(dir, base = '') {
-  const out = [];
-  for (const e of fs.readdirSync(path.join(dir, base), { withFileTypes: true })) {
-    if (e.name === '.git' || e.name === 'node_modules') continue;
-    const rel = base ? `${base}/${e.name}` : e.name;
-    if (e.isDirectory()) out.push(...walkFiles(dir, rel));
-    else out.push(rel);
-  }
-  return out;
-}
-
 const invokedDirectly = process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
-  const localAt = process.argv.indexOf('--local');
-  const LOCAL = localAt !== -1 ? process.argv[localAt + 1] : null;
-  if (localAt !== -1 && !LOCAL) {
-    console.error('check-upstream: --local needs the path of an abap2UI5 checkout');
+  const valueOf = (flag) => {
+    const at = process.argv.indexOf(flag);
+    if (at === -1) return null;
+    const v = process.argv[at + 1];
+    if (!v || v.startsWith('--')) {
+      console.error(`check-upstream: ${flag} needs a path`);
+      process.exit(2);
+    }
+    return v;
+  };
+  const LOCAL = valueOf('--local');
+  const MANIFEST = valueOf('--manifest');
+  if (LOCAL && MANIFEST) {
+    console.error('check-upstream: --manifest and --local are two answers to one question - name one');
     process.exit(2);
   }
-  /* --manifest <file>: compare against the manifest abap2UI5 writes
-   * (deriveUpstream's shape) instead of finding the sets in its sources.
-   * --emit-manifest: print what the parsers derive, as that same JSON, and
-   * stop - the reference a generated manifest is held equal to. */
-  const manifestAt = process.argv.indexOf('--manifest');
-  const MANIFEST = manifestAt !== -1 ? process.argv[manifestAt + 1] : null;
-  if (manifestAt !== -1 && (!MANIFEST || MANIFEST.startsWith('--'))) {
-    console.error('check-upstream: --manifest needs the path of a linter manifest (abap2UI5: .github/shared/linter-manifest.json)');
-    process.exit(2);
-  }
-  const EMIT = process.argv.includes('--emit-manifest');
-  if (MANIFEST && (LOCAL || EMIT)) {
-    console.error(`check-upstream: --manifest reads a finished manifest - it cannot be combined with ${LOCAL ? '--local' : '--emit-manifest'}`);
+  if (process.argv.includes('--emit-manifest')) {
+    console.error('check-upstream: --emit-manifest is gone with the parsers - abap2UI5 writes the manifest itself (npm run linter-manifest there)');
     process.exit(2);
   }
 
-  let formatterSrc;
-  let clipboardSrc = '';
-  let clientIntfSrc;
-  let actionSrc;
-  let actionPaths = [];
-  let srcPaths;
-  let xmlViewCcSrc = null;
-  let messageClassSrc;
-  // EVERY companion control upstream ships, not only the mirrored ones: the
-  // OBSOLETE comparison has to see a newly marked control this file lacks
-  const ccSrc = {};
-  let up = null;
-  if (MANIFEST) {
-    try {
-      up = readManifest(fs.readFileSync(MANIFEST, 'utf8'));
-    } catch (e) {
-      console.error(`check-upstream: cannot read the manifest ${MANIFEST} — ${e.message}`);
-      process.exit(2);
-    }
-  }
-  /* Without --local and without --manifest: upstream's main. When it
-   * publishes a manifest, that is read - abap2UI5 found the sets in its own
-   * sources, with a generator its own gates keep true - and nothing is
-   * parsed here. An upstream that has none yet is parsed as before. A
-   * manifest that is there but unreadable is exit 2, never a silent fall
-   * back onto the parsers it was written to replace. */
-  if (!up && !LOCAL && !EMIT) {
-    try {
-      const res = await fetch(`${RAW}/${MANIFEST_PATH}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (res.ok) {
-        up = readManifest(await res.text());
-        console.log(`check-upstream: reading abap2UI5's own manifest (${MANIFEST_PATH})`);
-      } else if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      console.error(`check-upstream: cannot read ${RAW}/${MANIFEST_PATH} — ${e.message}`);
-      process.exit(2);
-    }
-  }
-  if (!up) try {
-    if (LOCAL) {
-      formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
-      if (fs.existsSync(path.join(LOCAL, CLIPBOARD_PATH))) clipboardSrc = fs.readFileSync(path.join(LOCAL, CLIPBOARD_PATH), 'utf8');
-      clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
-      messageClassSrc = fs.readFileSync(path.join(LOCAL, MESSAGE_CLASS_PATH), 'utf8');
-      srcPaths = walkFiles(LOCAL);
-      actionPaths = actionPathsOf(srcPaths);
-      actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
-      for (const p of srcPaths) {
-        const cc = p.match(CC_FILE_RE);
-        if (cc) ccSrc[cc[1]] = fs.readFileSync(path.join(LOCAL, p), 'utf8');
-      }
-      if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = fs.readFileSync(path.join(LOCAL, XML_VIEW_CC_PATH), 'utf8');
-    } else {
-      [formatterSrc, clientIntfSrc, messageClassSrc, srcPaths] = await Promise.all([
-        fetchText(`${RAW}/${FORMATTER_PATH}`),
-        fetchText(`${RAW}/${CLIENT_INTF_PATH}`),
-        fetchText(`${RAW}/${MESSAGE_CLASS_PATH}`),
-        fetchTree(TREE),
-      ]);
-      actionPaths = actionPathsOf(srcPaths);
-      actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
-      const names = srcPaths.map((p) => p.match(CC_FILE_RE)?.[1]).filter(Boolean);
-      const sources = await Promise.all(names.map((n) => fetchText(`${RAW}/${CC_DIR}/${n}.js`)));
-      names.forEach((n, i) => { ccSrc[n] = sources[i]; });
-      if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = await fetchText(`${RAW}/${XML_VIEW_CC_PATH}`);
-      if (srcPaths.includes(CLIPBOARD_PATH)) clipboardSrc = await fetchText(`${RAW}/${CLIPBOARD_PATH}`);
-    }
+  /* The one source of the comparison: a manifest - named, in a checkout, or
+   * on upstream's main. */
+  const where = MANIFEST ?? (LOCAL ? path.join(LOCAL, MANIFEST_PATH) : `${RAW}/${MANIFEST_PATH}`);
+  let up;
+  try {
+    const text = MANIFEST || LOCAL
+      ? fs.readFileSync(where, 'utf8')
+      : await (await fetchRetrying(where)).text();
+    up = readManifest(text);
   } catch (e) {
-    console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
-    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / MESSAGE_CLASS_PATH / ACTION_DIR here)`);
+    const missing = e.code === 'ENOENT' || /HTTP 404/.test(e.message);
+    console.error(`check-upstream: cannot read the manifest ${where} — ${missing ? 'not there' : e.message}`);
+    if (missing && !MANIFEST) {
+      console.error('(abap2UI5 writes it from #3001 on - a checkout or a branch from before that has none to compare with)');
+    }
     process.exit(2);
   }
-  if (!up && !actionPaths.length) {
-    console.error(`check-upstream: no ${ACTION_DIR}/${ACTION_FILE_RE.source} classes found — the embedded-JS layout changed, update ACTION_DIR/ACTION_FILE_RE`);
-    process.exit(2);
-  }
-  up ??= deriveUpstream({ formatterSrc, clipboardSrc, clientIntfSrc, messageClassSrc, actionSrc, ccSrc, xmlViewCcSrc, srcPaths });
-  if (EMIT) {
-    console.log(JSON.stringify(up, null, 2));
-    process.exit(0);
-  }
-  /* A set that cannot be found is not a drift: with sources it means the
-   * embedding moved (fix the parser), with a manifest that its writer lost
-   * the set (fix the generator). Either way exit 2, and say which. */
-  const fixHint = (parser) => (MANIFEST ? 'the manifest carries none - its generator lost the set' : `the embedding changed, update ${parser}`);
+  if (!MANIFEST) console.log(`check-upstream: reading abap2UI5's manifest (${where})`);
+  const fixHint = () => "the manifest carries none - its generator lost the set (abap2UI5's generate-linter-manifest.mjs)";
 
   let drift = 0;
   const report = (what, ours, theirs) => {
@@ -899,7 +406,7 @@ if (invokedDirectly) {
 
   const upstreamTargets = up.globalTargets;
   if (!Object.keys(upstreamTargets).length) {
-    console.error(`check-upstream: could not find GLOBAL_TARGETS in the frontendaction class — ${fixHint('parseGlobalTargets')}`);
+    console.error(`check-upstream: could not find GLOBAL_TARGETS in the frontendaction class — ${fixHint()}`);
     process.exit(2);
   }
   report('CONTROL_GLOBAL targets (lib/frontend-actions.mjs)', Object.keys(GLOBAL_TARGETS), Object.keys(upstreamTargets));
@@ -918,7 +425,7 @@ if (invokedDirectly) {
   ]) {
     const theirs = what === 'CONTROL_METHOD_DENY_EXACT' ? up.controlMethodDenyExact : up.controlMethodDenyPrefixes;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find ${what} in the frontendaction class — ${fixHint('parseDenyList')}`);
+      console.error(`check-upstream: could not find ${what} in the frontendaction class — ${fixHint()}`);
       process.exit(2);
     }
     report(`CONTROL_BY_ID ${what} (lib/frontend-actions.mjs)`, ours, theirs);
@@ -934,7 +441,7 @@ if (invokedDirectly) {
   {
     const theirs = up.bindingMethods;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find BINDING_METHODS in the frontendaction class — ${fixHint('parseBindingMethods')}`);
+      console.error(`check-upstream: could not find BINDING_METHODS in the frontendaction class — ${fixHint()}`);
       process.exit(2);
     }
     report('BINDING_CALL methods (lib/frontend-actions.mjs)', [...BINDING_METHODS], theirs);
@@ -945,7 +452,7 @@ if (invokedDirectly) {
   {
     const theirs = up.frontendEvents;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find the handlers dispatch table — ${fixHint('parseHandlers')}`);
+      console.error(`check-upstream: could not find the handlers dispatch table — ${fixHint()}`);
       process.exit(2);
     }
     report('frontend action dispatch table (lib/frontend-actions.mjs)', [...FRONTEND_EVENTS], theirs);
@@ -965,7 +472,7 @@ if (invokedDirectly) {
   {
     const theirs = up.clientEvents;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find BEGIN OF cs_event in z2ui5_if_client — ${MANIFEST ? fixHint('') : 'the interface changed, update parseClientEvents'}`);
+      console.error(`check-upstream: could not find BEGIN OF cs_event in z2ui5_if_client — ${fixHint()}`);
       process.exit(2);
     }
     const what = 'client interface events, z2ui5_if_client=>cs_event (lib/frontend-actions.mjs)';
@@ -984,7 +491,7 @@ if (invokedDirectly) {
   {
     const theirs = up.filterOperators;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find FILTER_OPERATORS — ${fixHint('parseStringList')}`);
+      console.error(`check-upstream: could not find FILTER_OPERATORS — ${fixHint()}`);
       process.exit(2);
     }
     report('BINDING_CALL filter operators (lib/frontend-actions.mjs)', [...FILTER_OPERATORS], theirs);
@@ -1004,7 +511,7 @@ if (invokedDirectly) {
   {
     const theirs = up.urlHelperActions;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find evUrlHelper's actions map — ${fixHint('parseUrlHelperActions')}`);
+      console.error(`check-upstream: could not find evUrlHelper's actions map — ${fixHint()}`);
       process.exit(2);
     }
     report('URLHELPER actions (lib/frontend-actions.mjs)', [...URLHELPER_ACTIONS], theirs);
@@ -1012,7 +519,7 @@ if (invokedDirectly) {
   {
     const kinds = up.controlMethodKinds;
     if (!Object.keys(kinds).length) {
-      console.error(`check-upstream: could not find CONTROL_METHODS — ${fixHint('parseControlMethodKinds')}`);
+      console.error(`check-upstream: could not find CONTROL_METHODS — ${fixHint()}`);
       process.exit(2);
     }
     // `pageId` resolves a control id exactly as `controlId` does and only
@@ -1039,7 +546,7 @@ if (invokedDirectly) {
   {
     const theirs = up.urlPolicies;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find URL_POLICIES — ${fixHint('parseUrlPolicies')}`);
+      console.error(`check-upstream: could not find URL_POLICIES — ${fixHint()}`);
       process.exit(2);
     }
     report('setAsyncURLHandler policies (lib/frontend-actions.mjs)', [...URL_POLICIES], theirs);

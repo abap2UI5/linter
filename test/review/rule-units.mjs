@@ -101,19 +101,56 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     const files = fs.readdirSync(path.join(LIB, 'rules')).filter((n) => n.endsWith('.mjs') && n !== 'index.mjs').sort();
     assert(JSON.stringify(files) === JSON.stringify(UNIT_RULES.map((r) => `${r.id}.mjs`).sort()),
       `lib/rules holds exactly the listed rules (files: ${files.join(', ')})`);
-    const LEAVES = new Set(['../rule.mjs', '../abap-model.mjs', '../abap.mjs', '../suggest.mjs']);
+    /* A rule may import any module that does not lead back to a registry:
+     * findings, rule-docs and fix import the rules (and abap-rules runs
+     * them), so reaching one of those from a rule is a cycle. Computed over
+     * the static import graph, not kept as a list. */
+    const REGISTRIES = new Set(['findings.mjs', 'rule-docs.mjs', 'fix.mjs', 'abap-rules.mjs', 'rules/index.mjs']);
+    const importsOf = (rel) => [...fs.readFileSync(path.join(LIB, rel), 'utf8').matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'(\.[^']+)'/g)]
+      .map((m) => path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1])));
+    const reaches = (rel, seen = new Set()) => {
+      for (const dep of importsOf(rel)) if (!seen.has(dep)) { seen.add(dep); reaches(dep, seen); }
+      return seen;
+    };
     for (const file of files) {
       const text = fs.readFileSync(path.join(LIB, 'rules', file), 'utf8');
-      const imports = [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-      const cyclic = imports.filter((spec) => !LEAVES.has(spec));
-      assert(!cyclic.length, `${file} imports leaf modules only - the registries import the rules (got ${cyclic.join(', ') || 'none'})`);
-      assert(!/type: '/.test(text), `${file} reports without a type: runRules( ) gives the finding the rule's id`);
+      const cyclic = [...reaches(`rules/${file}`)].filter((dep) => REGISTRIES.has(dep));
+      assert(!cyclic.length, `${file} reaches no registry - the registries import the rules (reaches ${cyclic.join(', ') || 'none'})`);
+      // a rule-id-shaped type: a card may quote a binding info's `type: 'sap.ui.model.type.Date'`
+      assert(!/\btype: '[a-z][a-z0-9]*(?:-[a-z0-9]+)+'/.test(text), `${file} reports without a type: runRules( ) gives the finding the rule's id`);
     }
-    for (const leaf of ['rule.mjs', 'abap-model.mjs']) {
-      const text = fs.readFileSync(path.join(LIB, leaf), 'utf8');
-      const imports = [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-      assert(imports.every((spec) => spec === './abap.mjs'), `lib/${leaf} is a leaf itself (imports ${imports.join(', ') || 'nothing'})`);
+    for (const leaf of ['rule.mjs', 'abap-model.mjs', 'abap-helpers.mjs']) {
+      const deps = [...reaches(leaf)].filter((dep) => REGISTRIES.has(dep));
+      assert(!deps.length, `lib/${leaf} reaches no registry (reaches ${deps.join(', ') || 'none'})`);
     }
+  });
+
+  section('rule units: a rule written as a unit is reported from its file only', () => {
+    /* A unit's file is meant to be the whole rule. A second emit site left
+     * behind in a pass (too-many-children had one in the aggregation-tag
+     * branch) reports the same id from code the file does not show. */
+    const strays = [];
+    const walkDir = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'rules' ? [] : walkDir(path.join(dir, e.name))) : [path.join(dir, e.name)]));
+    for (const file of walkDir(LIB).filter((n) => n.endsWith('.mjs'))) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const rule of UNIT_RULES) if (text.includes(`type: '${rule.id}'`)) strays.push(`${rule.id} in ${path.relative(LIB, file)}`);
+    }
+    assert(!strays.length, `no unit rule is also emitted by a pass (${strays.join(', ') || 'none'})`);
+  });
+
+  section('rule units: every message can be written for any finding', () => {
+    /* A message is only written when a finding of its rule is reported, so a
+     * name it uses and does not import (a helper findings.mjs used to hold)
+     * stays hidden until some run hits it. Every one is called here with a
+     * finding whose every field is a string. */
+    const stub = new Proxy({}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : k === 'fixes' ? undefined : 'x') });
+    const threw = [];
+    for (const rule of UNIT_RULES) {
+      try {
+        if (typeof rule.message(stub) !== 'string') threw.push(`${rule.id}: not a string`);
+      } catch (e) { threw.push(`${rule.id}: ${e.message}`); }
+    }
+    assert(!threw.length, `each unit rule's message is a string for a stub finding (${threw.join('; ') || 'all'})`);
   });
 
   section('rule units: runRules gives the id, honours scope and opt-in, and times each rule', () => {
@@ -123,7 +160,7 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     const timings = new Map();
     runRules(rules, 'class', { report: (x) => seen.push(x) }, { timings });
     assert(seen.map((x) => x.type).join() === 'a-rule', `only the class-scoped rule that is not opt-in ran (${seen.map((x) => x.type).join()})`);
-    assert(timings.has('a-rule') && !timings.has('b-rule') && timings.get('a-rule') >= 0, 'the time is recorded per rule that ran');
+    assert(timings.has('rule:a-rule') && !timings.has('rule:b-rule') && timings.get('rule:a-rule') >= 0, 'the time is recorded per rule that ran, under rule:<id>');
     runRules(rules, 'class', { report: (x) => seen.push(x), enabled: (id) => id === 'c-rule' });
     assert(seen.map((x) => x.type).join() === 'a-rule,a-rule,c-rule', 'an opt-in rule runs when the run enables it');
   });

@@ -74,6 +74,10 @@ declare module "@abap2ui5/linter" {
      *  inherits from its superclass apart from the client's. checkFiles
      *  builds it over the files it is handed when none is given. */
     classIndex?: ClassIndex | null;
+    /** Measure where the check spends its time: the result carries
+     *  `timings` (label -> ms; `rule:<id>`, `pass:<name>`, `reconstruct`,
+     *  `properties`, `abap-model`, `portable`). Default false. */
+    timing?: boolean;
     /** The objects the linted repository defines, lower case - ownObjectsOf( )
      *  of `@abap2ui5/linter/project-index`, read off the abapGit file names.
      *  `non-released-api` is silent on them. checkFiles builds it from the
@@ -152,6 +156,8 @@ declare module "@abap2ui5/linter" {
     /** Rule id -> findings produced for this source BEFORE the rules block,
      *  directives or a baseline suppressed anything. */
     ruleHits?: Record<string, number>;
+    /** With `timing`: where this source's check spent its time, label -> ms. */
+    timings?: Record<string, number>;
   }
 
   /** What a screenshot run is steered by — the theme and viewport a picture
@@ -656,6 +662,9 @@ declare module "@abap2ui5/linter/properties" {
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
       boundElement?: boolean;
+      /** Filled in when given: `rule:<id>` -> ms for the rules of scope
+       *  'node' the walk runs (lib/timing.mjs). */
+      timings?: Map<string, number> | null;
       /** Counted into, when given: `paths` - the binding paths asked about -
        *  and `pathsOpaque` - those that led into a type the class does not
        *  declare and were therefore not judged. */
@@ -783,7 +792,7 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  by under `allClasses`: the abapGit round-trip family, the activation and
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
-  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null }): PropertyFinding[];
+  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null; timings?: Map<string, number> | null }): PropertyFinding[];
   /** The rule ids checkSourceRules( ) can emit. */
   export const SOURCE_RULES: ReadonlySet<string>;
 
@@ -840,6 +849,9 @@ declare module "@abap2ui5/linter/abap-rules" {
       /** The repository's own objects (ownObjectsOf) - never reported by
        *  `non-released-api`. */
       ownObjects?: readonly string[] | null;
+      /** Filled in when given: `rule:<id>` and `pass:<name>` -> ms
+       *  (lib/timing.mjs). */
+      timings?: Map<string, number> | null;
       /** The metadata snapshot - without it the rules that need UI5
        *  knowledge stay silent. */
       data?: unknown;
@@ -1386,9 +1398,13 @@ declare module "@abap2ui5/linter/report" {
      *  block, directives and baseline suppressed anything — a fully
      *  baselined corpus still says which rules fired on it. */
     ruleHits: Map<string, number>;
+    /** The results' `timings`, added up (empty without `timing`). */
+    timings: Map<string, number>;
   }
 
   export function runStats(results: CheckResult[]): RunStats;
+  /** The `slowest` line of --timing: the top entries with their share. */
+  export function slowest(timings: Map<string, number>, top?: number): string;
 
   /** `a 12, b 7, +3 more` — the head of a count map, longest first. */
   export function topOf(map: Map<string, number>, limit?: number): string;
@@ -1793,7 +1809,7 @@ declare module "@abap2ui5/linter/abap-model" {
 declare module "@abap2ui5/linter/rule" {
   import type { AbapModel } from "@abap2ui5/linter/abap-model";
   export const SEVERITIES: readonly ["error", "warning", "hint"];
-  export const SCOPES: readonly ["class", "app"];
+  export const SCOPES: readonly ["class", "app", "node", "document"];
   /** What a rule's check is handed. */
   export interface RuleContext {
     model: AbapModel;
@@ -1807,7 +1823,11 @@ declare module "@abap2ui5/linter/rule" {
     id: string;
     severity: "error" | "warning" | "hint";
     category: string;
-    scope: "class" | "app";
+    /** 'class': run for every class by runRules( ); 'app': run at its own
+     *  place in checkAbapRules( ) by runRule( ); 'node': run once per view
+     *  node at its own place in the property walk; 'document': run once per
+     *  view document, after the walk. */
+    scope: "class" | "app" | "node" | "document";
     summary: string;
     detail: string;
     example: string;
@@ -1822,7 +1842,14 @@ declare module "@abap2ui5/linter/rule" {
   export function defineRule(definition: RuleDefinition): Rule;
   /** The card of a rule, in RULE_DOCS' shape. */
   export function docOf(rule: Rule): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** Run ONE rule over a context: findings get its id as `type`, its time
+   *  goes under `rule:<id>`, and what its check returns is returned. */
+  export function runRule(rule: Rule, context: RuleContext & Record<string, unknown>, options?: { timings?: Map<string, number> | null }): unknown;
+  /** The longest source line abapGit imports (255). */
+  export const LINE_LIMIT: number;
+  /** The first `n` characters of a value as text (default 80). */
+  export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
-  export function runRules(rules: readonly Rule[], scope: "class" | "app", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node" | "document", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
 }
 

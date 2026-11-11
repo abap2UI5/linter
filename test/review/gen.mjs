@@ -10,7 +10,6 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { pinnedVersion } from '../../scripts/generate-icons.mjs';
-import { parseClientEvents } from '../../scripts/check-upstream.mjs';
 import { FRONTEND_EVENTS, FRONTEND_EVENT_ALIASES, SERVER_EVENTS } from '../../lib/frontend-actions.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -242,30 +241,13 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(hit[0]?.line === 2, `and at its own line - blanking keeps every offset (got line ${hit[0]?.line})`);
   });
 
-  section('check-upstream: the client interface gate reads cs_event, and the mirror accepts every constant in it', () => {
-    const synthetic = `INTERFACE zif_x PUBLIC.
-  CONSTANTS:
-    BEGIN OF cs_event,
-      " a comment quoting a value: VALUE \`NOT_AN_EVENT\`
-      popup_close    TYPE string VALUE \`POPUP_CLOSE\`,
-      hash_set       TYPE string VALUE \`SET_PUSH_STATE\`,
-      hash_replace   TYPE string VALUE \`HASH_REPLACE\`,
-      set_push_state TYPE string VALUE \`SET_PUSH_STATE\`,
-      legacy         TYPE string VALUE 'OLD_QUOTED',
-    END OF cs_event.
-  CONSTANTS:
-    BEGIN OF cs_view,
-      main TYPE string VALUE \`MAIN\`,
-    END OF cs_view.
-ENDINTERFACE.`;
-    const parsed = parseClientEvents(synthetic);
-    assert(parsed.join() === 'POPUP_CLOSE,SET_PUSH_STATE,HASH_REPLACE,OLD_QUOTED',
-      `the values between BEGIN OF and END OF cs_event, both quote forms, de-duplicated, comments and cs_view excluded (got ${parsed.join(', ')})`);
-    assert(parseClientEvents('INTERFACE zif_y PUBLIC. ENDINTERFACE.').length === 0, 'no cs_event block, no values');
-
-    const upstream = parseClientEvents(fs.readFileSync(f('cs_event.intf.abap'), 'utf8'));
+  section('check-upstream: every cs_event constant abap2UI5 publishes is accepted by the mirror', () => {
+    /* The values come out of abap2UI5's manifest (`clientEvents`, read from
+     * z2ui5_if_client by its generator); the vendored copy is the state the
+     * mirror is in step with. */
+    const upstream = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'abap2ui5-manifest.json'), 'utf8')).clientEvents;
     assert(upstream.length >= 30 && upstream.includes('HASH_REPLACE') && upstream.includes('HASH_ATTACH_CHANGED'),
-      `the fixture is the real block (${upstream.length} values, hash events present)`);
+      `the manifest carries the real block (${upstream.length} values, hash events present)`);
     const accepted = new Set([...FRONTEND_EVENTS, ...FRONTEND_EVENT_ALIASES, ...SERVER_EVENTS]);
     const missing = upstream.filter((v) => !accepted.has(v));
     assert(missing.length === 0, `every cs_event value is accepted by one of the three lists (missing: ${missing.join(', ') || 'none'})`);

@@ -2,6 +2,95 @@
 
 ## Unreleased
 
+- **Twelve more rules are one file each.** `abap-date-formatter-mismatch`,
+  `bind-path-as-value`, `bind-path-flag`, `close-only-roundtrip`,
+  `escape-sequence-in-backtick`, `event-arg-js-callback`,
+  `lifecycle-is-initial`, `manual-init-flag`, `non-released-api`,
+  `unconverted-abap-boolean`, `unescaped-text-in-attribute`,
+  `view-never-displayed` - and the five of the abapGit round-trip family,
+  split out of the one function they shared (`source-line-too-long`,
+  `trailing-whitespace`, `byte-order-mark`, `crlf-line-ending`,
+  `missing-final-newline`), and the five guide rules out of the one
+  function they shared (`frontend-action-as-backend-event`,
+  `popup-display-xml`, `queue-last-without-no-busy`,
+  `nest-view-without-destroy`, `omit-initial-drops-false`), and three of
+  the lifecycle dispatch rules (`duplicate-for-iterator`,
+  `separate-lifecycle-ifs`, `redundant-init-display`) - what they share with
+  the rest of the dispatch pass is read once per source by
+  `dispatchFacts( )`. And sixteen rules of the property walk, as rules of
+  the new scope `'node'`: the walk stays ONE walk and runs each at its
+  place, once per view node, with what it knows there (`control-too-new`,
+  `control-deprecated`, `invalid-aggregation-child`, `toolbar-control-in-bar`,
+  `duplicate-id`, `event-on-disabled-control`, `unknown-source-property`,
+  `missing-required-aggregation`, `editable-control-without-binding`,
+  `column-cell-count-mismatch`, `rows-hidden-by-visible`,
+  `bound-aggregation-over-size-limit`, `duplicate-aggregation`,
+  `missing-accessibility`, `picker-value-without-format`,
+  `too-many-children`). The metadata readers they share with the walk moved
+  to `lib/ui5-meta.mjs`, an internal module. And the four rules that read
+  the whole view document, as rules of the new scope `'document'`, run once
+  per document after the walk (`second-root`, `unused-namespace-declaration`,
+  `undefined-css-class`, `external-link-without-target`); what the tree
+  declares, uses and links is read once per root by `documentFacts( )` in
+  the internal `lib/view-document.mjs`. And the three rules of the
+  aggregation tag (`aggregation-in-aggregation`, `aggregation-too-new`,
+  `unknown-aggregation`); `snapshotHint( )`, the second reading of "no such
+  member" several messages share, moved to `lib/ui5-meta.mjs` with them.
+  And the five rules of a control tag's namespace and library
+  (`native-html-in-view`, `undeclared-namespace` - one rule for the control
+  and the aggregation tag -, `deprecated-library`, `sapui5-only-control`,
+  `unknown-control`), each with the table only it reads. And thirteen rules
+  of the attribute loop (`uncurated-formatter`, `invalid-expression-binding`,
+  `binding-on-association`, `bound-aggregation-without-template`,
+  `association-unknown-id`, `unknown-model`, `json-literal-in-attribute`,
+  `date-type-without-source`, `member-deprecated`,
+  `validating-setter-out-of-range`, `enum-bound-to-initial-field`,
+  `json-bind-on-scalar-property`, `html-content-not-markup`), run once per
+  attribute with the attribute, its value and its member; the pure readers
+  of a binding value they share with the walk moved out of `checkNodes( )`
+  to the internal `lib/binding-paths.mjs`. And the twelve whose places in
+  the loop were tied together: `member-too-new` (one rule for a written and
+  a dropped attribute; it returns whether it reported, which the walk's
+  too-new set reads), `unknown-property`, `binding-for-event`,
+  `event-for-property`, `collection-bound-to-property`,
+  `binding-type-mismatch`, `unknown-binding-path`,
+  `relative-aggregation-without-context`,
+  `relative-binding-without-context`, `unresolved-attribute-value`,
+  `event-parameter-too-new` and `unknown-event-parameter` (judged only when
+  the parameter is not too new, as before). And the seven rules of a
+  property's value and a binding's model type (`invalid-property-value`,
+  `enum-value-too-new`, `invalid-css-value`, `relative-asset-url`,
+  `insecure-asset-url`, `unknown-binding-type`, `binding-type-too-new`):
+  `checkValue( )` and `judgeModelType( )` stay in the walk as dispatchers
+  and run them in their old precedence. And `malformed-xml` (scope
+  `'document'`, run before the walk) and `deprecated-after-target`, which
+  the rule that found a deprecation runs through the walk's
+  `reportAfterTarget( )` and is timed with. 98 of 173 now; `--timing`
+  names each of them. A rule of the new scope `'app'`
+  runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
+  export) with the context that place has; the readers they share moved to
+  `lib/abap-helpers.mjs`. No finding, message or fix changed - measured on
+  the fixtures and on samples-controls, samples-stack, samples and abap2UI5.
+- **`--timing` says where a run spends its time.** A `slowest` line in the
+  run summary and `stats.timings` in the JSON document: each rule written as
+  one unit on its own (`rule:<id>`), the rules that still share a function by
+  the pass they run in (`pass:<name>`), the reconstruction, the property gate,
+  and the rest of the ABAP rules as one entry so the parts add up. On
+  samples-controls: `pass:abap-rules (other)` 36 %, `reconstruct` 31 %,
+  `properties` 12 % - the inline ABAP rules are where moving rules into units
+  will also make the cost visible. Library: the `timing` option and
+  `result.timings`. A timed run skips the cache.
+- **`check-upstream` parses abap2UI5 no more - it reads the manifest
+  abap2UI5 writes.** With abap2UI5/abap2UI5#3001 merged, abap2UI5 publishes
+  `.github/shared/linter-manifest.json` from its own sources and gates it. The
+  script reads that file: on `main` by default, in a checkout with
+  `--local <dir>` (what abap2UI5's `check:mirrors` runs), or a named one with
+  `--manifest`. The regular-expression parsers it carried per set - about
+  three hundred lines that knew abap2UI5's layout from the outside and went
+  blind when it moved - are removed, together with `--emit-manifest`; they
+  live in abap2UI5's generator now. A checkout from before #3001 has no
+  manifest and is exit 2 ("could not read"), which abap2UI5's gate reports
+  as skipped, not failed.
 - **The run summary says what it could not judge.** A binding path into a
   type the class does not declare - a DDIC structure, a type of another
   class - is not judged, and a run over classes that bind nothing else

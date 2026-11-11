@@ -135,17 +135,20 @@ The direction is turned round:
   generated from its real sources by its `generate-linter-manifest.mjs` and
   gated there (`check:linter-manifest`), so a set that moves fails the pull
   request that moves it.
-- **The shape is `deriveUpstream( )`** in `scripts/check-upstream.mjs`
-  (`MANIFEST_SCHEMA`; `readManifest( )` validates it). That function is the
-  seam: finding the sets and comparing them with the mirrors used to be one
-  body, and are two now.
-- **`check-upstream` reads the manifest**: `--manifest <file>` explicitly, and
-  by itself in the default (network) mode when abap2UI5's `main` publishes
-  one — the weekly `upstream-sync.yml` needs no change for the switch. Where
-  there is none it parses as before; `--local <checkout>` always parses (it is
-  what abap2UI5's `check:mirrors` runs against a working tree), and
-  `--emit-manifest` prints what the parsers find, the reference the generated
-  file was held equal to when it was introduced (every set, 2026-11-11).
+- **The shape is `MANIFEST_KEYS`** in `scripts/check-upstream.mjs`
+  (`MANIFEST_SCHEMA`; `readManifest( )` validates it, and a file of another
+  shape is exit 2, never a list of false drifts).
+- **`check-upstream` reads nothing but manifests**: abap2UI5 `main`'s by
+  default (the weekly `upstream-sync.yml`), a checkout's with `--local <dir>`
+  (`<dir>/.github/shared/linter-manifest.json` — what abap2UI5's
+  `check:mirrors` runs against its working tree, where `check:linter-manifest`
+  keeps that file equal to the sources), a named file with `--manifest`. The
+  regular-expression parsers it carried for every set were removed once
+  abap2UI5 published the file (2026-11-11, abap2UI5/abap2UI5#3001); they live
+  in abap2UI5's generator now, with their test cases, next to the sources they
+  read. The generated manifest was compared with what they derived from the
+  same tree before they went: equal for every set. A checkout from before
+  #3001 has no manifest and is exit 2.
 - **The copy here is `data/abap2ui5-manifest.json`** (`npm run sync-manifest`),
   and `npm test` runs `check-upstream --manifest` over it: mirrors and
   manifest are compared offline on every run, where the only comparison used
@@ -169,8 +172,7 @@ What is still written by hand, because it carries more than the set:
 and server-event lists, `VIEW_SLOTS` (its order is the one messages print),
 `lib/cc-controls.mjs` (property types, the replacement an obsolete control
 names) and `lib/released-api.mjs`. Those are held to the manifest by the test
-above. The parsers stay until abap2UI5's `check:mirrors` runs on the manifest
-too.
+above.
 
 ## `data/portable-v1.json` — vendored from abap2UI5/protocol, never hand-edited
 

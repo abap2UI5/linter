@@ -129,10 +129,17 @@ baseline. Details: `docs/agents/scope.md`.
 `detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
 and `check( context )` — plus one import line in `lib/rules/index.mjs`.
 Severities, `describe( )`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES` and
-the rule page read it from there. Its check reads `context.model`
-(`lib/abap-model.mjs`: tokens with source offsets, statements, class parts and
-sections, methods with locals, attributes, signatures, `resolve( name, offset )`)
-rather than scanning text with regular expressions of its own.
+the rule page read it from there. The scope says where it runs: `'class'`
+for every class (`context.model`, `lib/abap-model.mjs`: tokens, statements,
+sections, methods, attributes, `resolve( name, offset )` - rather than regular
+expressions of its own), `'app'` at its place in `checkAbapRules( )`, `'node'`
+once per view node inside the property walk (the node, its control and
+metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`,
+binding-value readers `lib/binding-paths.mjs`),
+`'document'` once per view document after the walk (its root; what the tree
+declares, uses and links is read once by `documentFacts( )` in
+`lib/view-document.mjs`). An `'app'`, `'node'` or `'document'` rule is called
+with `runRule( )` at that place.
 
 Then, for every rule, old shape or new:
 
@@ -189,8 +196,10 @@ Each of these has been broken at least once. The number is its name — keep it.
     static half (`npm run test:static`) runs without a browser. An unmarked
     one fails it.
 11. **`lib/check.mjs` reaches no renderer, no worker and no entry point** — a
-    browser bundle imports it. **A rule module imports leaf modules only**
-    (`rule.mjs`, `abap-model.mjs`, `abap.mjs`, `suggest.mjs`).
+    browser bundle imports it. **A rule module imports nothing that leads
+    back to a registry** (`findings`, `rule-docs`, `fix`,
+    `abap-rules`); `test/review/rule-units.mjs` computes it over the import
+    graph.
 12. **stdout is the report.** Progress, notes and prose beside a machine
     format go to stderr; the run summary's `emptyViews` is never dropped.
 13. **The mirrors of abap2UI5's closed sets (`lib/frontend-actions.mjs`,

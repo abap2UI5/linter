@@ -1,7 +1,7 @@
 /*
- * The manifest of the sets the linter mirrors from abap2UI5 - the seam in
- * scripts/check-upstream.mjs (deriveUpstream / readManifest / --manifest /
- * --emit-manifest) and the vendored copy (data/abap2ui5-manifest.json,
+ * The manifest of the sets the linter mirrors from abap2UI5 - what
+ * scripts/check-upstream.mjs reads (readManifest; --manifest, --local, main)
+ * and the vendored copy (data/abap2ui5-manifest.json,
  * scripts/sync-manifest.mjs).
  *
  * The first section is the one that matters day to day: the hand-maintained
@@ -13,7 +13,7 @@
 import cp from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { deriveUpstream, readManifest, MANIFEST_SCHEMA } from '../../scripts/check-upstream.mjs';
+import { readManifest, MANIFEST_SCHEMA } from '../../scripts/check-upstream.mjs';
 import { changedKeys, VENDORED_MANIFEST, MANIFEST_PATH } from '../../scripts/sync-manifest.mjs';
 import { buildSets, SETS_FILE, KEYS } from '../../scripts/generate-sets.mjs';
 import { UPSTREAM_SETS } from '../../lib/abap2ui5-sets.mjs';
@@ -76,23 +76,25 @@ export default function ({ section, assert, FIX, tempDir }) {
     assert(m.objects['src/02']?.includes('z2ui5_if_client') && Object.keys(m.globalTargets).length > 5, 'the object layout and the global targets are there');
   });
 
-  section('upstream manifest: deriveUpstream is the parsers, as one object', () => {
-    const carrier = (js) => js.split('\n').map((l) => `    js = js && \`${l.replace(/`/g, '``')}\` && |\\n|.`).join('\n');
-    const up = deriveUpstream({
-      formatterSrc: 'return {\n    DateCreateObject(s) {\n      return 1;\n    },\n    other() {\n    },\n};',
-      clientIntfSrc: 'CONSTANTS:\n  BEGIN OF cs_event,\n    popup_close TYPE string VALUE `POPUP_CLOSE`,\n  END OF cs_event.',
-      // where ct_box_type lives now: the message service, not z2ui5_cl_ui5_frontend
-      messageClassSrc: 'METHOD box_resolve.\n  ct_box_type = VALUE #( ( `show` )\n    ( `alert` ) ).\nENDMETHOD.',
-      actionSrc: carrier('const GLOBAL_TARGETS = {\n  POPUP: { methods: { setWithinArea: 1 } },\n};\nconst FILTER_OPERATORS = new Set(["EQ", "BT"]);\nconst handlers = {\n  OPEN_NEW_TAB: evOpen,\n};'),
-      ccSrc: { Dirty: 'sap.ui.define(["sap/ui/core/Control"], (Control) => {\n  return Control.extend("z2ui5.cc.Dirty", { metadata: { properties: { isDirty: {} }, events: { change: {} } } });\n});' },
-      srcPaths: ['src/02/z2ui5_if_client.intf.abap', 'src/01/02/z2ui5_cl_ui5_handler.clas.abap', 'src/01/02/z2ui5_cl_ui5_handler.clas.testclasses.abap', 'README.md'],
-    });
-    assert(up.schema === MANIFEST_SCHEMA && up.formatters.join() === 'DateCreateObject,other' && up.clientEvents.join() === 'POPUP_CLOSE', 'formatters and client events');
-    assert(up.messageBoxTypes.join() === 'show,alert', `the box types are read out of whichever class holds ct_box_type (${up.messageBoxTypes.join()})`);
-    assert(JSON.stringify(up.globalTargets) === '{"POPUP":["setWithinArea"]}' && up.filterOperators.join() === 'EQ,BT' && up.frontendEvents.join() === 'OPEN_NEW_TAB', 'the action sets, out of the embedded carrier');
-    assert(JSON.stringify(up.companionControls) === '{"Dirty":{"properties":["isDirty"],"events":["change"],"base":"sap/ui/core/Control","obsolete":null}}', 'a companion control');
-    assert(JSON.stringify(up.objects) === '{"src/02":["z2ui5_if_client"],"src/01/02":["z2ui5_cl_ui5_handler"]}' && up.frozenBuilderHelpers === null, 'objects by package; no frozen builder in this tree');
-    assert(readManifest(JSON.stringify(up)).formatters.length === 2, 'what it derives is a manifest readManifest accepts');
+  section('upstream manifest: --local reads the manifest of an abap2UI5 checkout, and nothing else', () => {
+    const checkout = tempDir('local-checkout');
+    const at = path.join(checkout, MANIFEST_PATH);
+    fs.mkdirSync(path.dirname(at), { recursive: true });
+    fs.copyFileSync(VENDORED_MANIFEST, at);
+    // sources that would contradict it, if anything still parsed them
+    fs.mkdirSync(path.join(checkout, 'app', 'webapp', 'model'), { recursive: true });
+    fs.writeFileSync(path.join(checkout, 'app', 'webapp', 'model', 'formatter.js'), 'return {\n    somethingElse() {},\n};\n');
+    const r = run('check-upstream.mjs', ['--local', checkout]);
+    assert(r.code === 0 && /all mirrors in sync/.test(r.out) && r.out.includes(MANIFEST_PATH),
+      `the checkout's manifest is what is compared, its sources are not read (exit ${r.code})`);
+    const bare = run('check-upstream.mjs', ['--local', tempDir('old-checkout')]);
+    assert(bare.code === 2 && /not there/.test(bare.err) && /#3001/.test(bare.err),
+      `a checkout from before the manifest is exit 2 and says why (exit ${bare.code})`);
+    const emit = run('check-upstream.mjs', ['--emit-manifest']);
+    assert(emit.code === 2 && /abap2UI5 writes the manifest itself/.test(emit.err), '--emit-manifest is refused with the reason');
+    const src = fs.readFileSync(path.join(ROOT, 'scripts', 'check-upstream.mjs'), 'utf8');
+    assert(!/export function parse[A-Z]/.test(src) && !/embeddedJs|walkFiles|fetchTree/.test(src),
+      'and nothing in the script parses abap2UI5 any more - its generator does');
   });
 
   section('upstream manifest: a file of another shape is refused before anything is compared', () => {
@@ -111,7 +113,7 @@ export default function ({ section, assert, FIX, tempDir }) {
     const gone = run('check-upstream.mjs', ['--manifest', path.join(tempDir('no-manifest'), 'nope.json')]);
     assert(gone.code === 2 && /cannot read the manifest/.test(gone.err), 'a file that is not there is exit 2');
     const both = run('check-upstream.mjs', ['--manifest', VENDORED_MANIFEST, '--local', '.']);
-    assert(both.code === 2 && /cannot be combined with --local/.test(both.err), '--manifest and --local are two answers to one question');
+    assert(both.code === 2 && /two answers to one question/.test(both.err), '--manifest and --local are two answers to one question');
   });
 
   section('upstream manifest: a set that moved upstream is drift, an emptied one is the generator\'s fault', () => {
@@ -123,7 +125,7 @@ export default function ({ section, assert, FIX, tempDir }) {
       `both directions are reported, exit 1 (exit ${r.code})`);
     const empty = run('check-upstream.mjs', ['--manifest', written({ ...m, bindingMethods: [] }, 'empty-manifest')]);
     assert(empty.code === 2 && /the manifest carries none - its generator lost the set/.test(empty.err),
-      `an empty required set is exit 2 and names the generator, not this script's parser (exit ${empty.code}: ${empty.err.trim().slice(0, 120)})`);
+      `an empty required set is exit 2 and names the generator (exit ${empty.code}: ${empty.err.trim().slice(0, 120)})`);
   });
 
   section('upstream manifest: sync-manifest copies abap2UI5\'s file, and --check says what differs', () => {
