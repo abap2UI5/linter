@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **`check-upstream` parses abap2UI5 no more - it reads the manifest
+  abap2UI5 writes.** With abap2UI5/abap2UI5#3001 merged, abap2UI5 publishes
+  `.github/shared/linter-manifest.json` from its own sources and gates it. The
+  script reads that file: on `main` by default, in a checkout with
+  `--local <dir>` (what abap2UI5's `check:mirrors` runs), or a named one with
+  `--manifest`. The regular-expression parsers it carried per set - about
+  three hundred lines that knew abap2UI5's layout from the outside and went
+  blind when it moved - are removed, together with `--emit-manifest`; they
+  live in abap2UI5's generator now. A checkout from before #3001 has no
+  manifest and is exit 2 ("could not read"), which abap2UI5's gate reports
+  as skipped, not failed.
 - **The run summary says what it could not judge.** A binding path into a
   type the class does not declare - a DDIC structure, a type of another
   class - is not judged, and a run over classes that bind nothing else

@@ -39,10 +39,9 @@ jobs:
           node-version: 22
       - name: Compare the mirrors against upstream main
         id: check
-        # The token is for the RATE LIMIT, not for access: every URL the script
-        # reads is public, but the git tree API unauthenticated shares 60
-        # requests an hour with every other job on the runner's IP - and this
-        # step is what then reported "the knowledge files drifted".
+        # The script reads ONE file, abap2UI5 main's manifest of the mirrored
+        # sets (.github/shared/linter-manifest.json) over raw.githubusercontent;
+        # the token stays for the version step below, which uses the API.
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |

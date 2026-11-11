@@ -4072,41 +4072,11 @@ section.browser('sarif, baseline and cli', async () => {
     fs.rmSync(dir, { recursive: true, force: true });
 });
 
-// ------------------------------------------------- upstream mirror parsers ----
+// --------------------------------------------------------- upstream mirror ----
 section('upstream', async () => {
-    const { embeddedJs, parseGlobalTargets, parseFormatterExports } = await import('../scripts/check-upstream.mjs');
-    const abap = 'x = `const GLOBAL_TARGETS = {` && |\\n| &&\n'
-      + '`  ONE_LINER: { get: () => X, methods: { show: ["string"] } },` && |\\n| &&\n'
-      + '`  MULTI: {` && |\\n| && `    get: () => Y,` && |\\n| && `    methods: {` && |\\n| &&\n'
-      + '`      a: ["int"],` && |\\n| && `      b: [],` && |\\n| && `    },` && |\\n| && `  },` && |\\n| && `};`.';
-    const targets = parseGlobalTargets(abap);
-    assert(targets.ONE_LINER?.join() === 'show' && targets.MULTI?.join() === 'a,b',
-      `upstream: GLOBAL_TARGETS parses one-line and multi-line entries (got ${JSON.stringify(targets)})`);
-    assert(embeddedJs('a = `line1` && |\\n| && `line2`.').includes('line1\nline2'),
-      'upstream: the embedded JS is reassembled from the backtick literals');
-    assert(parseFormatterExports('  return {\n    DateCreateObject(s) {\n      return s;\n    },\n    expandInlineIcons(text) {},\n  };').join() === 'DateCreateObject,expandInlineIcons',
-      'upstream: the formatter export surface parses');
-
-    // the companion-control mirror: the fourth knowledge file, gated since
-    // MultiInputExt's TokenKeyCell / TokenTextCells arrived and every view
-    // naming them failed view CREATION rather than a property check
-    const { parseCcProperties } = await import('../scripts/check-upstream.mjs');
-    const ccSrc = `return Control.extend('z2ui5.cc.X', {
-        metadata: {
-          properties: {
-            MultiInputId: { type: 'string' },
-            // a comment carrying a fake: pair
-            checkInit: { type: 'boolean', defaultValue: false },
-            TokenTextCells: { type: 'string', defaultValue: '' },
-          },
-          events: { change: { allowPreventDefault: true, parameters: {} } },
-        },
-      });`;
-    assert(parseCcProperties(ccSrc).join() === 'MultiInputId,checkInit,TokenTextCells',
-      `upstream: a companion control's property names parse, nested types and comments skipped (got ${parseCcProperties(ccSrc).join()})`);
-    assert(parseCcProperties('return Control.extend("x", { metadata: {} });').length === 0,
-      'upstream: a control with no properties block parses as none rather than throwing');
-
+    /* The parsers that found these sets in abap2UI5's sources moved to
+     * abap2UI5 with the manifest (its generate-linter-manifest.mjs, tested
+     * there); what is left here is the mirror's own half. */
     const { CC_CONTROLS, ccMirrorScript } = await import('../lib/cc-controls.mjs');
     const script = ccMirrorScript();
     assert(Object.keys(CC_CONTROLS).every((n) => script.includes(`'z2ui5/cc/${n}'`)),

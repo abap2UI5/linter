@@ -13,7 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CC_CONTROLS, OBSOLETE_CC_CONTROLS, OBSOLETE_CC_HELPERS, ccMirrorScript } from '../../lib/cc-controls.mjs';
-import { parseObsoleteHeader, replacementNames, parseCcHelpers } from '../../scripts/check-upstream.mjs';
+import { replacementNames } from '../../scripts/check-upstream.mjs';
 
 const RULE = 'obsolete-custom-control';
 
@@ -138,18 +138,11 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
       'the harness boots a mirror of every obsolete control');
   });
 
-  section('obsolete-custom-control: check-upstream reads the headers and the helper class', () => {
-    const timer = `sap.ui.define(["sap/ui/core/Control"], (Control) => {
-  "use strict";
-
-  // OBSOLETE: replaced by the frontend event cs_event-start_timer - kept for backward compatibility.
-  return Control.extend("z2ui5.cc.Timer", {});
-});`;
-    const header = parseObsoleteHeader(timer);
-    assert(header === 'replaced by the frontend event cs_event-start_timer - kept for backward compatibility.',
-      `the header text after the colon (got ${header})`);
-    assert(parseObsoleteHeader('// Invisible control that reads the browser storage\nreturn Control.extend("z2ui5.cc.Storage", {});') === null,
-      'a live control has no header');
+  section('obsolete-custom-control: the replacement names every API the upstream header points at', () => {
+    /* The header itself is read by abap2UI5 (its manifest carries it per
+     * control, `companionControls.<name>.obsolete`); what check-upstream does
+     * with it is name the APIs it points at and ask the mirror for each. */
+    const header = 'replaced by the frontend event cs_event-start_timer - kept for backward compatibility.';
     assert(replacementNames(header).join() === 'cs_event,start_timer', `the API names a header points at (got ${replacementNames(header).join()})`);
     assert(replacementNames('replaced by client.get().s_device / s_ui5 - kept').join() === 's_device,s_ui5', 'Info\'s two structures');
     assert(replacementNames('handled by the framework now (client->hash_set( ), client->app_state_set_active( ))').join() === 'hash_set,app_state_set_active',
@@ -157,26 +150,14 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
     for (const [name, o] of Object.entries(OBSOLETE_CC_CONTROLS)) {
       assert(o.replacement.includes('client->'), `${name}: the replacement is spelled as a call on the client`);
     }
-    const helpers = parseCcHelpers(`CLASS z2ui5_cl_xml_view_cc IMPLEMENTATION.
-  METHOD timer.
-    result = mo_view.
-    mo_view->_generic( name   = \`Timer\`
-                       ns     = \`z2ui5\`
-                       t_prop = VALUE #( ( n = \`delayMS\` v = delayms ) ) ).
-  ENDMETHOD.
-  METHOD lp_title.
-    result = mo_view.
-    mo_view->_generic(
-        name   = \`LPTitle\`
-        ns     = \`z2ui5\` ).
-  ENDMETHOD.
-  METHOD demo_output.
-    mo_view->_generic( ns   = \`html\`
-                       name = \`style\` ).
-  ENDMETHOD.
-ENDCLASS.`);
-    assert(JSON.stringify(helpers) === '{"timer":"Timer","lp_title":"LPTitle"}',
-      `helper -> control, the z2ui5 namespace only, either argument order and layout (got ${JSON.stringify(helpers)})`);
+    const manifest = JSON.parse(fs.readFileSync(f('../../data/abap2ui5-manifest.json'), 'utf8'));
+    for (const [name, o] of Object.entries(OBSOLETE_CC_CONTROLS)) {
+      if (o.removedAfter) continue;
+      const theirs = manifest.companionControls[name]?.obsolete;
+      assert(theirs && replacementNames(theirs).every((t) => o.replacement.includes(t)),
+        `${name}: marked obsolete in the vendored manifest, and the replacement here names what its header names`);
+      assert(manifest.frozenBuilderHelpers?.[o.helper] === name, `${name}: written by the frozen builder's ${o.helper}( ), as the manifest records`);
+    }
   });
 
   section('obsolete-custom-control: the render gate creates the view and leaves the message to the rule', async () => {

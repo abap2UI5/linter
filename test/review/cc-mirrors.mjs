@@ -9,13 +9,12 @@
  * z2ui5.cc namespace. Fixtures: test/fixtures/ccmirrors.clas.abap (the three
  * written right - silent in both gates) and ccmirrors.view.xml (each written
  * wrong once, beside an unmirrored z2ui5.cc control and the neighbours written
- * right). check-upstream's readers for the events and the base class are
+ * right). abap2UI5's manifest generator reads the events and the base class -
  * pinned here too. See test/review/README.md for the harness.
  */
 import fs from 'fs';
 import path from 'path';
 import { CC_CONTROLS, CC_METADATA, ccMirrorScript } from '../../lib/cc-controls.mjs';
-import { parseCcEvents, parseCcBase } from '../../scripts/check-upstream.mjs';
 
 /* One wrong attribute per control, as a replacement in the builder fixture:
  * the case slip the did-you-mean catches, a letter off that it does not. */
@@ -110,39 +109,6 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
      * z2ui5.cc control nobody mirrored keeps no verdict, whatever it carries */
     const unmirrored = good.replace('n = `InputExt` ns = `z2ui5`', 'n = `ScanField` ns = `z2ui5`');
     assert(checkAbapSource(unmirrored, opts).findings.length === 0, 'an unmirrored z2ui5.cc control is still looked away from');
-  });
-
-  section('cc mirrors: check-upstream reads the events and the base class of a companion control', () => {
-    const arrow = `sap.ui.define(
-  ["sap/m/Input", "sap/m/InputRenderer", "z2ui5/core/Lib"],
-  (Input, InputRenderer, Lib) => {
-    // this.events: { fake: 1 } in a comment is no metadata
-    return Input.extend("z2ui5.cc.InputExt", {
-      metadata: {
-        properties: { inputMode: { type: "string", defaultValue: "" } },
-        events: {
-          // a comment carrying a fake: pair
-          change: { allowPreventDefault: true, parameters: {} },
-          remove: { parameters: { item: { type: "object" } } },
-        },
-      },
-      renderer: InputRenderer,
-    });
-  },
-);`;
-    assert(parseCcBase(arrow) === 'sap/m/Input', `the dependency the .extend( ) receiver names (got ${parseCcBase(arrow)})`);
-    assert(parseCcEvents(arrow).join() === 'change,remove',
-      `the keys of metadata.events, nested parameters and comments skipped (got ${parseCcEvents(arrow).join()})`);
-    const classic = `sap.ui.define(['sap/ui/core/Control', 'z2ui5/core/Lib'], function (Control, Lib) {
-  var Helper = Lib.extend('z2ui5.core.Helper', {});
-  return Control.extend('z2ui5.cc.Plain', { metadata: { properties: { a: { type: 'string' } } } });
-});`;
-    assert(parseCcBase(classic) === 'sap/ui/core/Control' && parseCcEvents(classic).length === 0,
-      'the function form, a helper class extended on the way, and no events block');
-    assert(parseCcBase('return Control.extend("z2ui5.cc.X", {});') === null,
-      'no sap.ui.define: unreadable, reported as drift rather than guessed');
-    assert(parseCcBase(`sap.ui.define(["sap/ui/core/Control"], (Control) => Base.extend("z2ui5.cc.X", {}));`) === null,
-      'a receiver that is no dependency: unreadable too');
   });
 
   section('cc mirrors: HTMLFrame, as abap2UI5/abap2UI5#2955 declares it', () => {
