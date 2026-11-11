@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`check-upstream` reads the message box types from the class that holds
+  them now.** abap2UI5/abap2UI5#2988 moved `box_resolve` and its
+  `ct_box_type` list from `z2ui5_cl_ui5_frontend` to
+  `z2ui5_cl_ui5_srv_message`. The script kept reading the old class, found no
+  list and reported all seven `MESSAGE_BOX_TYPES` as gone upstream - which
+  turned abap2UI5's `check_gates` red on every pull request and on `main`.
+  The mirror itself was right and is unchanged.
 - **`unknown-binding-path` follows two more row contexts.** The column
   templates of a `sap.ui.table` table (`Column.template`,
   `rowActionTemplate`, `rowSettingsTemplate`) are judged against the rows of

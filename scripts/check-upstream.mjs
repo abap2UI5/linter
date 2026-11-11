@@ -11,7 +11,7 @@
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
- *                             <- src/01/02/z2ui5_cl_ui5_frontend.clas.abap
+ *                             <- src/01/02/z2ui5_cl_ui5_srv_message.clas.abap
  *                                (ct_box_type: the message box types the
  *                                server accepts - MESSAGE_BOX_TYPES)
  *                             <- src/02/z2ui5_if_client.intf.abap (cs_event:
@@ -85,8 +85,13 @@ const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
 /* The server half of the message methods: `box_resolve` lower-cases a
  * message_box_display( type = … ) and looks it up in `ct_box_type`, the
  * MessageBox display methods - MESSAGE_BOX_TYPES mirrors that list, and
- * unknown-message-box-type reports a literal type outside it. */
-const FRONTEND_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_frontend.clas.abap';
+ * unknown-message-box-type reports a literal type outside it.
+ *
+ * The method lived in z2ui5_cl_ui5_frontend until abap2UI5#2988 moved what a
+ * message box shows into one class, z2ui5_cl_ui5_srv_message. The list itself
+ * did not change - but this script kept reading the old class, found no
+ * `ct_box_type` there, and reported all seven types as gone upstream. */
+const MESSAGE_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_srv_message.clas.abap';
 
 /* The frontend action JS lives embedded in the generated ABAP classes under
  * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
@@ -526,7 +531,7 @@ if (invokedDirectly) {
   let actionPaths = [];
   let srcPaths;
   let xmlViewCcSrc = null;
-  let frontendClassSrc;
+  let messageClassSrc;
   // EVERY companion control upstream ships, not only the mirrored ones: the
   // OBSOLETE comparison has to see a newly marked control this file lacks
   const ccSrc = {};
@@ -535,7 +540,7 @@ if (invokedDirectly) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
       if (fs.existsSync(path.join(LOCAL, CLIPBOARD_PATH))) clipboardSrc = fs.readFileSync(path.join(LOCAL, CLIPBOARD_PATH), 'utf8');
       clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
-      frontendClassSrc = fs.readFileSync(path.join(LOCAL, FRONTEND_CLASS_PATH), 'utf8');
+      messageClassSrc = fs.readFileSync(path.join(LOCAL, MESSAGE_CLASS_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
@@ -545,10 +550,10 @@ if (invokedDirectly) {
       }
       if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = fs.readFileSync(path.join(LOCAL, XML_VIEW_CC_PATH), 'utf8');
     } else {
-      [formatterSrc, clientIntfSrc, frontendClassSrc, srcPaths] = await Promise.all([
+      [formatterSrc, clientIntfSrc, messageClassSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
         fetchText(`${RAW}/${CLIENT_INTF_PATH}`),
-        fetchText(`${RAW}/${FRONTEND_CLASS_PATH}`),
+        fetchText(`${RAW}/${MESSAGE_CLASS_PATH}`),
         fetchTree(TREE),
       ]);
       actionPaths = actionPathsOf(srcPaths);
@@ -561,7 +566,7 @@ if (invokedDirectly) {
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
-    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / FRONTEND_CLASS_PATH / ACTION_DIR here)`);
+    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / MESSAGE_CLASS_PATH / ACTION_DIR here)`);
     process.exit(2);
   }
   if (!actionPaths.length) {
@@ -585,7 +590,7 @@ if (invokedDirectly) {
 
   report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
   report('clipboard callbacks (lib/formatters.mjs)', [...CLIPBOARD_CALLBACKS], parseFormatterExports(clipboardSrc));
-  report('message box types (lib/frontend-actions.mjs)', [...MESSAGE_BOX_TYPES], parseBoxTypes(frontendClassSrc));
+  report('message box types (lib/frontend-actions.mjs)', [...MESSAGE_BOX_TYPES], parseBoxTypes(messageClassSrc));
 
   /* The companion-control mirrors the render harness boots with and the
    * property walk judges. A property upstream added and this file lacks is
