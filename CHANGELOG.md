@@ -392,6 +392,13 @@
   `multiLineChains( )` in `lib/chain-layout.mjs`, and both run per chain in
   the old order; layout findings still bypass the collapse of repeats. 162
   of 173 rules are units now.
+- **The five rules the reconstructor finds while it builds the view tree are
+  one file each**, of the new scope `'tree'` (`duplicate-property`, `excess-
+  shut`, `attribute-without-element`, `display-root-mismatch`, `chain-
+  unbalanced-parens`): `lib/reconstruct.mjs` runs each at the call that
+  shows the defect, and a rule that decides (a repeated attribute, a close
+  past the root) returns its verdict to the builder. 167 of 173 rules are
+  units now.
 
 ## 0.9.0 - 2026-10-14
 

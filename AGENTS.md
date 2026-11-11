@@ -138,8 +138,9 @@ metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`,
 binding-value readers `lib/binding-paths.mjs`),
 `'document'` once per view document after the walk (its root; what the tree
 declares, uses and links is read once by `documentFacts( )` in
-`lib/view-document.mjs`). An `'app'`, `'node'` or `'document'` rule is called
-with `runRule( )` at that place.
+`lib/view-document.mjs`), `'tree'` by the reconstructor while it builds the
+view tree (`lib/reconstruct.mjs`). An `'app'`, `'node'`, `'document'` or
+`'tree'` rule is called with `runRule( )` at that place.
 
 Then, for every rule, old shape or new:
 
