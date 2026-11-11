@@ -57,7 +57,12 @@
   `relative-aggregation-without-context`,
   `relative-binding-without-context`, `unresolved-attribute-value`,
   `event-parameter-too-new` and `unknown-event-parameter` (judged only when
-  the parameter is not too new, as before). 89 of 173 now; `--timing`
+  the parameter is not too new, as before). And the seven rules of a
+  property's value and a binding's model type (`invalid-property-value`,
+  `enum-value-too-new`, `invalid-css-value`, `relative-asset-url`,
+  `insecure-asset-url`, `unknown-binding-type`, `binding-type-too-new`):
+  `checkValue( )` and `judgeModelType( )` stay in the walk as dispatchers
+  and run them in their old precedence. 96 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
