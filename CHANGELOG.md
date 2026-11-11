@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **`unknown-binding-path` judges four more places a row template binds.**
+  A path on a member newer than the floor (`member-too-new` used to end the
+  attribute there, so `initials` on an `AvatarGroupItem` was never checked);
+  an attribute that names an aggregation (`tooltip="{NAME}"`, and the path of
+  a nested `items="{T_ITEMS}"` against the row it sits in); the template of a
+  table declared inside its structure (`t_item TYPE STANDARD TABLE OF …` as
+  a field, which had no row type); and the template under
+  `client->_bind_tab( )`, which reads like `_bind( )` now instead of as an
+  unresolved expression. A member that is too new has its values judged
+  like any other from here on; `enum-value-too-new` is not said a second
+  time on it. Measured as before: 2,305 of 2,604 renamed paths caught (89 %),
+  2,444 now (94 %); no new finding on the unchanged corpora. What is left is
+  mostly SAPUI5-only libraries the snapshot has no metadata for.
+- `check-upstream` reads the message box types from
+  `z2ui5_cl_ui5_srv_message`, where abap2UI5 moved them.
+
 - **`unknown-binding-path` follows two more row contexts.** The column
   templates of a `sap.ui.table` table (`Column.template`,
   `rowActionTemplate`, `rowSettingsTemplate`) are judged against the rows of
