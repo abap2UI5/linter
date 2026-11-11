@@ -48,7 +48,16 @@
   `json-bind-on-scalar-property`, `html-content-not-markup`), run once per
   attribute with the attribute, its value and its member; the pure readers
   of a binding value they share with the walk moved out of `checkNodes( )`
-  to the internal `lib/binding-paths.mjs`. 77 of 173 now; `--timing`
+  to the internal `lib/binding-paths.mjs`. And the twelve whose places in
+  the loop were tied together: `member-too-new` (one rule for a written and
+  a dropped attribute; it returns whether it reported, which the walk's
+  too-new set reads), `unknown-property`, `binding-for-event`,
+  `event-for-property`, `collection-bound-to-property`,
+  `binding-type-mismatch`, `unknown-binding-path`,
+  `relative-aggregation-without-context`,
+  `relative-binding-without-context`, `unresolved-attribute-value`,
+  `event-parameter-too-new` and `unknown-event-parameter` (judged only when
+  the parameter is not too new, as before). 89 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
