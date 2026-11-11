@@ -75,7 +75,7 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
     const { UNIT_RULES } = await import('../../lib/rules/index.mjs');
     assert(/runRules\(UNIT_RULES, 'class'/.test(body('checkAbapHygiene')), 'checkAbapHygiene runs the class-scoped unit rules');
     for (const rule of UNIT_RULES) if (rule.scope === 'class') emitted.add(rule.id);
-    assert(names.length === 4 && JSON.stringify([...emitted].sort()) === JSON.stringify([...SOURCE_RULES].sort()),
+    assert(names.length === 3 && JSON.stringify([...emitted].sort()) === JSON.stringify([...SOURCE_RULES].sort()),
       `the set matches the emit sites of ${names.join(', ')} (missing: ${[...emitted].filter((id) => !SOURCE_RULES.has(id)).join(', ') || 'none'}; extra: ${[...SOURCE_RULES].filter((id) => !emitted.has(id)).join(', ') || 'none'})`);
   });
 

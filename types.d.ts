@@ -1820,6 +1820,8 @@ declare module "@abap2ui5/linter/rule" {
     id: string;
     severity: "error" | "warning" | "hint";
     category: string;
+    /** 'class': run for every class by runRules( ); 'app': run at its own
+     *  place in checkAbapRules( ) by runRule( ). */
     scope: "class" | "app";
     summary: string;
     detail: string;
@@ -1835,6 +1837,11 @@ declare module "@abap2ui5/linter/rule" {
   export function defineRule(definition: RuleDefinition): Rule;
   /** The card of a rule, in RULE_DOCS' shape. */
   export function docOf(rule: Rule): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** Run ONE rule over a context: findings get its id as `type`, its time
+   *  goes under `rule:<id>`, and what its check returns is returned. */
+  export function runRule(rule: Rule, context: RuleContext & Record<string, unknown>, options?: { timings?: Map<string, number> | null }): unknown;
+  /** The first `n` characters of a value as text (default 80). */
+  export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
   export function runRules(rules: readonly Rule[], scope: "class" | "app", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
 }

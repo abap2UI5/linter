@@ -53,9 +53,18 @@ import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
 gates that, the file-per-id layout and the registries. Step 4 below (a
 fixture and assertions) is still yours to write.
 
-Eleven rules are written this way so far - the whole hygiene family that
-`checkAbapHygiene( )` used to hold, which is now nothing but the call that
-runs them (`docs/agents/rule-map.md` lists them). Five read the model
+Twenty-three rules are written this way (`docs/agents/rule-map.md` lists
+them): the hygiene family, `non-released-api` (scope `'class'`, run for every
+class by `checkAbapHygiene( )`), and twelve rules of scope `'app'` that
+`checkAbapRules( )` runs at their own place with `runRule( )` - each was a
+function of its own there and needed the context that place has (the
+dialect, the view metadata, what the frontend-wire pass found). Their shared
+readers moved to `lib/abap-helpers.mjs`, which reaches no registry. What is
+left in the old shape is rules that share ONE function with others - the
+property walk (`checkNodes( )`), the frontend-wire pass, the lifecycle
+dispatch, the guide rules, the round-trip family, the event-argument rules
+and the inline blocks of `checkAbapRules( )`; moving one of those means
+splitting a shared loop, rule by rule. Five read the model
 (`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
 `empty-catch-block`, `into-corresponding-inline-decl`, `redundant-conv-i`);
 the other six were LIFTED: their scan moved into the file as it was, over

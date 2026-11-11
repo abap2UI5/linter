@@ -101,18 +101,26 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     const files = fs.readdirSync(path.join(LIB, 'rules')).filter((n) => n.endsWith('.mjs') && n !== 'index.mjs').sort();
     assert(JSON.stringify(files) === JSON.stringify(UNIT_RULES.map((r) => `${r.id}.mjs`).sort()),
       `lib/rules holds exactly the listed rules (files: ${files.join(', ')})`);
-    const LEAVES = new Set(['../rule.mjs', '../abap-model.mjs', '../abap.mjs', '../suggest.mjs']);
+    /* A rule may import any module that does not lead back to a registry:
+     * findings, rule-docs and fix import the rules (and abap-rules runs
+     * them), so reaching one of those from a rule is a cycle. Computed over
+     * the static import graph, not kept as a list. */
+    const REGISTRIES = new Set(['findings.mjs', 'rule-docs.mjs', 'fix.mjs', 'abap-rules.mjs', 'rules/index.mjs']);
+    const importsOf = (rel) => [...fs.readFileSync(path.join(LIB, rel), 'utf8').matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'(\.[^']+)'/g)]
+      .map((m) => path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1])));
+    const reaches = (rel, seen = new Set()) => {
+      for (const dep of importsOf(rel)) if (!seen.has(dep)) { seen.add(dep); reaches(dep, seen); }
+      return seen;
+    };
     for (const file of files) {
       const text = fs.readFileSync(path.join(LIB, 'rules', file), 'utf8');
-      const imports = [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-      const cyclic = imports.filter((spec) => !LEAVES.has(spec));
-      assert(!cyclic.length, `${file} imports leaf modules only - the registries import the rules (got ${cyclic.join(', ') || 'none'})`);
+      const cyclic = [...reaches(`rules/${file}`)].filter((dep) => REGISTRIES.has(dep));
+      assert(!cyclic.length, `${file} reaches no registry - the registries import the rules (reaches ${cyclic.join(', ') || 'none'})`);
       assert(!/type: '/.test(text), `${file} reports without a type: runRules( ) gives the finding the rule's id`);
     }
-    for (const leaf of ['rule.mjs', 'abap-model.mjs']) {
-      const text = fs.readFileSync(path.join(LIB, leaf), 'utf8');
-      const imports = [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-      assert(imports.every((spec) => spec === './abap.mjs'), `lib/${leaf} is a leaf itself (imports ${imports.join(', ') || 'nothing'})`);
+    for (const leaf of ['rule.mjs', 'abap-model.mjs', 'abap-helpers.mjs']) {
+      const deps = [...reaches(leaf)].filter((dep) => REGISTRIES.has(dep));
+      assert(!deps.length, `lib/${leaf} reaches no registry (reaches ${deps.join(', ') || 'none'})`);
     }
   });
 

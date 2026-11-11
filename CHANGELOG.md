@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Twelve more rules are one file each.** `abap-date-formatter-mismatch`,
+  `bind-path-as-value`, `bind-path-flag`, `close-only-roundtrip`,
+  `escape-sequence-in-backtick`, `event-arg-js-callback`,
+  `lifecycle-is-initial`, `manual-init-flag`, `non-released-api`,
+  `unconverted-abap-boolean`, `unescaped-text-in-attribute`,
+  `view-never-displayed` - 23 of 173 now. A rule of the new scope `'app'`
+  runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
+  export) with the context that place has; the readers they share moved to
+  `lib/abap-helpers.mjs`. No finding, message or fix changed - measured on
+  the fixtures and on samples-controls, samples-stack, samples and abap2UI5.
 - **`--timing` says where a run spends its time.** A `slowest` line in the
   run summary and `stats.timings` in the JSON document: each rule written as
   one unit on its own (`rule:<id>`), the rules that still share a function by

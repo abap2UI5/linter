@@ -190,7 +190,9 @@ Each of these has been broken at least once. The number is its name — keep it.
     one fails it.
 11. **`lib/check.mjs` reaches no renderer, no worker and no entry point** — a
     browser bundle imports it. **A rule module imports leaf modules only**
-    (`rule.mjs`, `abap-model.mjs`, `abap.mjs`, `suggest.mjs`).
+    - nothing that leads back to a registry (`findings`, `rule-docs`, `fix`,
+    `abap-rules`); `test/review/rule-units.mjs` computes it over the import
+    graph.
 12. **stdout is the report.** Progress, notes and prose beside a machine
     format go to stderr; the run summary's `emptyViews` is never dropped.
 13. **The mirrors of abap2UI5's closed sets (`lib/frontend-actions.mjs`,
