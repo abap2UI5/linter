@@ -11,7 +11,7 @@
  *   lib/frontend-actions.mjs  <- src/01/03/z2ui5_cl_ui5f_*_js.clas.abap
  *                                (GLOBAL_TARGETS, CSS_PROPERTIES and the two
  *                                CONTROL_BY_ID deny lists in the embedded JS)
- *                             <- src/01/02/z2ui5_cl_ui5_frontend.clas.abap
+ *                             <- src/01/02/z2ui5_cl_ui5_srv_message.clas.abap
  *                                (ct_box_type: the message box types the
  *                                server accepts - MESSAGE_BOX_TYPES)
  *                             <- src/02/z2ui5_if_client.intf.abap (cs_event:
@@ -95,14 +95,13 @@ const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
 /* The server half of the message methods: `box_resolve` lower-cases a
  * message_box_display( type = … ) and looks it up in `ct_box_type`, the
  * MessageBox display methods - MESSAGE_BOX_TYPES mirrors that list, and
- * unknown-message-box-type reports a literal type outside it. */
-const FRONTEND_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_frontend.clas.abap';
-/* …where `ct_box_type` used to be. Upstream moved box_resolve( ) and the
- * list into the message service, and this script went on reading the old
- * class: it found no list, so all seven types were reported as "gone
- * upstream" - the mirror was right and the reader was blind. Read from the
- * message service first, the old class for a checkout from before the move. */
-const BOX_TYPE_PATHS = ['src/01/02/z2ui5_cl_ui5_srv_message.clas.abap', FRONTEND_CLASS_PATH];
+ * unknown-message-box-type reports a literal type outside it.
+ *
+ * The method lived in z2ui5_cl_ui5_frontend until abap2UI5#2988 moved what a
+ * message box shows into one class, z2ui5_cl_ui5_srv_message. The list itself
+ * did not change - but this script kept reading the old class, found no
+ * `ct_box_type` there, and reported all seven types as gone upstream. */
+const MESSAGE_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_srv_message.clas.abap';
 
 /* The frontend action JS lives embedded in the generated ABAP classes under
  * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
@@ -477,12 +476,12 @@ export const MANIFEST_SCHEMA = 1;
  * Every list is in source order; a set a parser does not find is empty (or
  * `{}`), and main( ) decides which of those are fatal.
  */
-export function deriveUpstream({ formatterSrc, clipboardSrc = '', clientIntfSrc, frontendClassSrc, actionSrc, ccSrc = {}, xmlViewCcSrc = null, srcPaths = [] }) {
+export function deriveUpstream({ formatterSrc, clipboardSrc = '', clientIntfSrc, messageClassSrc, actionSrc, ccSrc = {}, xmlViewCcSrc = null, srcPaths = [] }) {
   return {
     schema: MANIFEST_SCHEMA,
     formatters: parseFormatterExports(formatterSrc),
     clipboardCallbacks: parseFormatterExports(clipboardSrc),
-    messageBoxTypes: parseBoxTypes(frontendClassSrc),
+    messageBoxTypes: parseBoxTypes(messageClassSrc),
     clientEvents: parseClientEvents(clientIntfSrc),
     companionControls: Object.fromEntries(Object.keys(ccSrc).sort().map((name) => [name, {
       properties: parseCcProperties(ccSrc[name]),
@@ -635,7 +634,7 @@ if (invokedDirectly) {
   let actionPaths = [];
   let srcPaths;
   let xmlViewCcSrc = null;
-  let frontendClassSrc;
+  let messageClassSrc;
   // EVERY companion control upstream ships, not only the mirrored ones: the
   // OBSOLETE comparison has to see a newly marked control this file lacks
   const ccSrc = {};
@@ -671,8 +670,7 @@ if (invokedDirectly) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
       if (fs.existsSync(path.join(LOCAL, CLIPBOARD_PATH))) clipboardSrc = fs.readFileSync(path.join(LOCAL, CLIPBOARD_PATH), 'utf8');
       clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
-      frontendClassSrc = BOX_TYPE_PATHS.filter((p) => fs.existsSync(path.join(LOCAL, p)))
-        .map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
+      messageClassSrc = fs.readFileSync(path.join(LOCAL, MESSAGE_CLASS_PATH), 'utf8');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
@@ -682,13 +680,12 @@ if (invokedDirectly) {
       }
       if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = fs.readFileSync(path.join(LOCAL, XML_VIEW_CC_PATH), 'utf8');
     } else {
-      [formatterSrc, clientIntfSrc, srcPaths] = await Promise.all([
+      [formatterSrc, clientIntfSrc, messageClassSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
         fetchText(`${RAW}/${CLIENT_INTF_PATH}`),
+        fetchText(`${RAW}/${MESSAGE_CLASS_PATH}`),
         fetchTree(TREE),
       ]);
-      frontendClassSrc = (await Promise.all(BOX_TYPE_PATHS.filter((p) => srcPaths.includes(p))
-        .map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
       const names = srcPaths.map((p) => p.match(CC_FILE_RE)?.[1]).filter(Boolean);
@@ -699,14 +696,14 @@ if (invokedDirectly) {
     }
   } catch (e) {
     console.error(`check-upstream: cannot read the upstream sources — ${e.message}`);
-    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / FRONTEND_CLASS_PATH / ACTION_DIR here)`);
+    console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / MESSAGE_CLASS_PATH / ACTION_DIR here)`);
     process.exit(2);
   }
   if (!up && !actionPaths.length) {
     console.error(`check-upstream: no ${ACTION_DIR}/${ACTION_FILE_RE.source} classes found — the embedded-JS layout changed, update ACTION_DIR/ACTION_FILE_RE`);
     process.exit(2);
   }
-  up ??= deriveUpstream({ formatterSrc, clipboardSrc, clientIntfSrc, frontendClassSrc, actionSrc, ccSrc, xmlViewCcSrc, srcPaths });
+  up ??= deriveUpstream({ formatterSrc, clipboardSrc, clientIntfSrc, messageClassSrc, actionSrc, ccSrc, xmlViewCcSrc, srcPaths });
   if (EMIT) {
     console.log(JSON.stringify(up, null, 2));
     process.exit(0);

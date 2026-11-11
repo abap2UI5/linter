@@ -25,12 +25,6 @@
   operators, the control-method argument kinds, …) and are no longer typed
   in: `lib/abap2ui5-sets.mjs` is generated from the manifest and the exports
   take their values from it, unchanged in content and order.
-- **`check-upstream` reads the message box types where they are.**
-  abap2UI5 moved `ct_box_type` from `z2ui5_cl_ui5_frontend` into
-  `z2ui5_cl_ui5_srv_message`; the script went on reading the old class,
-  found no list and reported all seven types as gone upstream. The mirror
-  was right - the reader was blind, which is the case the manifest above
-  exists to end.
 - **A rule can be written as one file, against one shared reading of the
   class.** `lib/rule.mjs` (`defineRule( )`, the `./rule` export) takes a
   rule's registry entry, card, sentence and check as one object; severities,
@@ -95,6 +89,26 @@
   file names (`lib/project-index.mjs`, the `./project-index` export and the
   `ownObjects` option) and are never reported; a framework object the
   repository merely references still is.
+- **`unknown-binding-path` judges four more places a row template binds.**
+  A path on a member newer than the floor (`member-too-new` used to end the
+  attribute there, so `initials` on an `AvatarGroupItem` was never checked);
+  an attribute that names an aggregation (`tooltip="{NAME}"`, and the path of
+  a nested `items="{T_ITEMS}"` against the row it sits in); the template of a
+  table declared inside its structure (`t_item TYPE STANDARD TABLE OF …` as
+  a field, which had no row type); and the template under
+  `client->_bind_tab( )`, which reads like `_bind( )` now instead of as an
+  unresolved expression. A member that is too new has its values judged
+  like any other from here on; `enum-value-too-new` is not said a second
+  time on it. Measured as before: 2,305 of 2,604 renamed paths caught (89 %),
+  2,444 now (94 %); no new finding on the unchanged corpora. What is left is
+  mostly SAPUI5-only libraries the snapshot has no metadata for.
+- **`check-upstream` reads the message box types from the class that holds
+  them now.** abap2UI5/abap2UI5#2988 moved `box_resolve` and its
+  `ct_box_type` list from `z2ui5_cl_ui5_frontend` to
+  `z2ui5_cl_ui5_srv_message`. The script kept reading the old class, found no
+  list and reported all seven `MESSAGE_BOX_TYPES` as gone upstream - which
+  turned abap2UI5's `check_gates` red on every pull request and on `main`.
+  The mirror itself was right and is unchanged.
 - **`unknown-binding-path` follows two more row contexts.** The column
   templates of a `sap.ui.table` table (`Column.template`,
   `rowActionTemplate`, `rowSettingsTemplate`) are judged against the rows of

@@ -82,7 +82,7 @@ export default function ({ section, assert, FIX, tempDir }) {
       formatterSrc: 'return {\n    DateCreateObject(s) {\n      return 1;\n    },\n    other() {\n    },\n};',
       clientIntfSrc: 'CONSTANTS:\n  BEGIN OF cs_event,\n    popup_close TYPE string VALUE `POPUP_CLOSE`,\n  END OF cs_event.',
       // where ct_box_type lives now: the message service, not z2ui5_cl_ui5_frontend
-      frontendClassSrc: 'METHOD box_resolve.\n  ct_box_type = VALUE #( ( `show` )\n    ( `alert` ) ).\nENDMETHOD.',
+      messageClassSrc: 'METHOD box_resolve.\n  ct_box_type = VALUE #( ( `show` )\n    ( `alert` ) ).\nENDMETHOD.',
       actionSrc: carrier('const GLOBAL_TARGETS = {\n  POPUP: { methods: { setWithinArea: 1 } },\n};\nconst FILTER_OPERATORS = new Set(["EQ", "BT"]);\nconst handlers = {\n  OPEN_NEW_TAB: evOpen,\n};'),
       ccSrc: { Dirty: 'sap.ui.define(["sap/ui/core/Control"], (Control) => {\n  return Control.extend("z2ui5.cc.Dirty", { metadata: { properties: { isDirty: {} }, events: { change: {} } } });\n});' },
       srcPaths: ['src/02/z2ui5_if_client.intf.abap', 'src/01/02/z2ui5_cl_ui5_handler.clas.abap', 'src/01/02/z2ui5_cl_ui5_handler.clas.testclasses.abap', 'README.md'],

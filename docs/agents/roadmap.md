@@ -652,7 +652,7 @@ something by a fixture and, for the one with a corpus history, by injection.
 
 | Origin | Rule |
 | --- | --- |
-| the server's own closed set: `box_resolve` lower-cases a box type and falls back to `show( )` on a miss | `unknown-message-box-type` + `MESSAGE_BOX_TYPES` / `MESSAGE_TYPE_LETTERS` in `lib/frontend-actions.mjs`, gated by `check-upstream` against `ct_box_type` in `z2ui5_cl_ui5_frontend` |
+| the server's own closed set: `box_resolve` lower-cases a box type and falls back to `show( )` on a miss | `unknown-message-box-type` + `MESSAGE_BOX_TYPES` / `MESSAGE_TYPE_LETTERS` in `lib/frontend-actions.mjs`, gated by `check-upstream` against `ct_box_type` in `z2ui5_cl_ui5_srv_message` (in `z2ui5_cl_ui5_frontend` until abap2UI5#2988) |
 | `_bind_path( )` / `_bind( path = abap_true )` return the path WITHOUT braces, and the reconstructor (correctly) rebuilds the attribute as that text — so no view-side rule could see it | `bind-path-as-value`, read off the call; `t =` and `template:with path` are exempt |
 | `sap.ui.core.HTML`'s own property doc: "the content must be enclosed in tags, pure text is not supported" (`new jQuery(content)` reads it as a selector) | `html-content-not-markup` |
 | abap2UI5's `ui5-check` CSP entry ("a rule would flag `on*=` attributes and `<script` in a `core:HTML` `content`, and `javascript:` in any URL-typed property") | two more view shapes of `raw-javascript-to-frontend`, which already had the `<script>` one |
