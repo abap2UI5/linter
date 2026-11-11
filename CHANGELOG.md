@@ -12,6 +12,11 @@
   copy the mirrors are in step with ships as `data/abap2ui5-manifest.json`
   (`npm run sync-manifest`), and `npm test` holds them to it offline - the
   comparison used to exist only weekly, over the network.
+  Thirteen of the mirrors are nothing but their list (the curated
+  formatters, the CSS properties, the denied control methods, the filter
+  operators, the control-method argument kinds, …) and are no longer typed
+  in: `lib/abap2ui5-sets.mjs` is generated from the manifest and the exports
+  take their values from it, unchanged in content and order.
 - **`check-upstream` reads the message box types where they are.**
   abap2UI5 moved `ct_box_type` from `z2ui5_cl_ui5_frontend` into
   `z2ui5_cl_ui5_srv_message`; the script went on reading the old class,

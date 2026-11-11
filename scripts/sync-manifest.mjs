@@ -26,6 +26,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readManifest } from './check-upstream.mjs';
+import { buildSets, SETS_FILE } from './generate-sets.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const MANIFEST_PATH = '.github/shared/linter-manifest.json';
@@ -74,6 +75,8 @@ if (invokedDirectly) {
     process.exit(1);
   }
   fs.writeFileSync(VENDORED_MANIFEST, text);
+  // the sets that are taken as they are follow at once (scripts/generate-sets.mjs)
+  fs.writeFileSync(SETS_FILE, buildSets(text));
   console.log(`sync-manifest: wrote ${rel}${changed.length ? ` (changed: ${changed.join(', ')})` : ''}`);
   console.log('  now run: node scripts/check-upstream.mjs --manifest data/abap2ui5-manifest.json');
 }

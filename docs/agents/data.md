@@ -153,13 +153,24 @@ The direction is turned round:
   therefore one move in two files — refresh the copy, then make the mirrors
   agree; the test names every set that does not.
 
-What is NOT done: the mirrors are still written by hand. They carry more than
-the sets (the reason a method is denied, the release a target needs, the
-replacement an obsolete control names), so they cannot simply be generated
-from the manifest; a mirror that is nothing but its set (`CURATED_FORMATTERS`,
-`VIEW_SLOTS`, `FILTER_OPERATORS`) can read it from `data/` instead, and that
-is the next step. The parsers stay until abap2UI5's `check:mirrors` runs on
-the manifest too.
+- **A mirror that is nothing but its set is not typed in any more.**
+  `scripts/generate-sets.mjs` turns thirteen of the manifest's lists into
+  `lib/abap2ui5-sets.mjs` (`UPSTREAM_SETS`; `sync-manifest` rewrites it with
+  the copy), and the exports take their value from it: `CURATED_FORMATTERS`,
+  `CLIPBOARD_CALLBACKS`, `MESSAGE_BOX_TYPES`, `CSS_PROPERTIES`, the two
+  `CONTROL_METHOD_DENY_*` lists, `BINDING_METHODS`, `FILTER_OPERATORS`,
+  `SHORTCUT_MODIFIERS`, `SHORTCUT_ALIASES`, `URLHELPER_ACTIONS`,
+  `URL_POLICIES`, `CONTROL_METHOD_KINDS`. For those an upstream change is
+  `npm run sync-manifest` and nothing else. A module, not a read of the JSON:
+  `lib/check.mjs` is imported where there is no file system.
+
+What is still written by hand, because it carries more than the set:
+`GLOBAL_TARGETS` (the release each needs), `FRONTEND_EVENTS` with the alias
+and server-event lists, `VIEW_SLOTS` (its order is the one messages print),
+`lib/cc-controls.mjs` (property types, the replacement an obsolete control
+names) and `lib/released-api.mjs`. Those are held to the manifest by the test
+above. The parsers stay until abap2UI5's `check:mirrors` runs on the manifest
+too.
 
 ## `data/portable-v1.json` — vendored from abap2UI5/protocol, never hand-edited
 

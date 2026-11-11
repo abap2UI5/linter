@@ -124,6 +124,7 @@
     "generate-rule-map": "node scripts/generate-rule-map.mjs",
     "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
     "sync-manifest": "node scripts/sync-manifest.mjs",
+    "generate-sets": "node scripts/generate-sets.mjs",
     "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {

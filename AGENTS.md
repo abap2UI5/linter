@@ -156,7 +156,7 @@ Each of these has been broken at least once. The number is its name — keep it.
 
 1. **Never hand-edit a generated or vendored file**: `data/properties.json`,
    `data/icons.json`, `data/compat.json`, `data/abap2ui5lint.schema.json`,
-   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `site/index.html`,
+   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`, `site/index.html`,
    `docs/agents/rule-map.md`, the README's dependents block. Each has a
    generator or a sync script in `scripts/`; `npm test` fails while one is stale.
 2. **ABAP is case-insensitive outside literals and comments, and so is every

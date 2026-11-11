@@ -15,6 +15,10 @@ import fs from 'fs';
 import path from 'path';
 import { deriveUpstream, readManifest, MANIFEST_SCHEMA } from '../../scripts/check-upstream.mjs';
 import { changedKeys, VENDORED_MANIFEST, MANIFEST_PATH } from '../../scripts/sync-manifest.mjs';
+import { buildSets, SETS_FILE, KEYS } from '../../scripts/generate-sets.mjs';
+import { UPSTREAM_SETS } from '../../lib/abap2ui5-sets.mjs';
+import * as actions from '../../lib/frontend-actions.mjs';
+import { CURATED_FORMATTERS, CLIPBOARD_CALLBACKS } from '../../lib/formatters.mjs';
 
 export default function ({ section, assert, FIX, tempDir }) {
   const ROOT = path.join(FIX, '..', '..');
@@ -35,6 +39,30 @@ export default function ({ section, assert, FIX, tempDir }) {
     assert(r.code === 0 && /all mirrors in sync/.test(r.out),
       `the mirrors and data/abap2ui5-manifest.json agree - edit one, edit the other (exit ${r.code}${drift ? `: ${drift}` : ''}${r.err ? `: ${r.err.trim()}` : ''})`);
     assert((r.out.match(/^ok /gm) ?? []).length > 60, 'and that is a comparison of every mirrored set, not of a few');
+  });
+
+  section('upstream manifest: the sets taken as they are come out of the manifest, not out of a keyboard', () => {
+    assert(fs.readFileSync(SETS_FILE, 'utf8') === buildSets(), 'lib/abap2ui5-sets.mjs is in sync with the vendored manifest (npm run generate-sets)');
+    const m = vendored();
+    assert(JSON.stringify(Object.keys(UPSTREAM_SETS)) === JSON.stringify(KEYS) && KEYS.every((k) => JSON.stringify(UPSTREAM_SETS[k]) === JSON.stringify(m[k])),
+      'the module holds exactly the generated keys, each as the manifest has it');
+    const mirrors = {
+      formatters: CURATED_FORMATTERS, clipboardCallbacks: CLIPBOARD_CALLBACKS, messageBoxTypes: actions.MESSAGE_BOX_TYPES,
+      cssProperties: actions.CSS_PROPERTIES, controlMethodDenyExact: actions.CONTROL_METHOD_DENY_EXACT,
+      controlMethodDenyPrefixes: actions.CONTROL_METHOD_DENY_PREFIXES, bindingMethods: actions.BINDING_METHODS,
+      filterOperators: actions.FILTER_OPERATORS, shortcutModifiers: actions.SHORTCUT_MODIFIERS, shortcutAliases: actions.SHORTCUT_ALIASES,
+      urlHelperActions: actions.URLHELPER_ACTIONS, urlPolicies: actions.URL_POLICIES, controlMethodKinds: actions.CONTROL_METHOD_KINDS,
+    };
+    assert(JSON.stringify(Object.keys(mirrors).sort()) === JSON.stringify([...KEYS].sort()), 'every generated key has its mirror named here');
+    for (const key of KEYS) {
+      assert(JSON.stringify(mirrors[key]) === JSON.stringify(m[key]), `${key}: the exported mirror is the manifest's list, in its order`);
+      assert(mirrors[key] !== UPSTREAM_SETS[key], `${key}: the mirror is a copy - a consumer that sorts it does not reorder the source`);
+    }
+    const text = buildSets(JSON.stringify({ ...m, urlPolicies: [...m.urlPolicies, 'NEW_POLICY'] }));
+    assert(text.includes('"NEW_POLICY"') && text !== buildSets(), 'a set that grows upstream grows here by regenerating, with no edit of a mirror');
+    let msg = '';
+    try { buildSets(JSON.stringify({ ...m, formatters: undefined })); } catch (e) { msg = e.message; }
+    assert(/has no 'formatters'/.test(msg), `a manifest without one of the sets is refused (${msg || 'accepted'})`);
   });
 
   section('upstream manifest: the vendored copy is a manifest, and names the sets it has to', () => {
