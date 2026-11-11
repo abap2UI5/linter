@@ -165,7 +165,7 @@ export default async function ({ section, assert, f, tempDir, checkAbapSource, c
       `the frame written right is silent, the misspelt height is reported (got ${got.join(' ') || 'none'})`);
   });
 
-  section('cc mirrors: the render gate creates each view, and still reports a wrong attribute on each', async () => {
+  section.browser('cc mirrors: the render gate creates each view, and still reports a wrong attribute on each', async () => {
     /* View creation stops at the first unknown setting, so each wrong
      * attribute gets a view of its own; one browser renders all four. */
     const dir = tempDir('cc-mirrors-');

@@ -147,22 +147,26 @@ Action is a user, but never appears in this list.
 
 ```sh
 npm ci
+npm run test:static               # everything that needs no browser - runs right after npm ci
 npx playwright install chromium   # the render runtime is an npm workspace here
 node cli.mjs test/fixtures --no-render   # the CLI, from the checkout, over its own fixtures
 node cli.mjs ../your-app/src             # or over a sibling app (this checkout has no src/)
 npm test
 ```
 
-`AGENTS.md` carries the conventions and what every gate checks;
-`CONTRIBUTING.md` and `RELEASING.md` the rest of the workflow.
+`AGENTS.md` carries the commands and the rules a change has to keep, and
+points into `docs/agents/` for the rest (scope, the rule map, the history of
+the rules, data, consumers); `CONTRIBUTING.md` and `RELEASING.md` have the
+workflow.
 
-Four artefacts are generated and gated by `npm test`, so a stale one fails the
+Five artefacts are generated and gated by `npm test`, so a stale one fails the
 build:
 
 ```sh
 npm run generate-metadata    # data/properties.json, from the @openui5 sources
 npm run generate-schema      # data/abap2ui5lint.schema.json — editor completion
 npm run generate-rules-page  # site/index.html — the published rule reference
+npm run generate-rule-map    # docs/agents/rule-map.md — every rule and the file it is defined in
 npm run generate-compat      # data/compat.json — which abap2UI5 releases this linter line understands (the ./compat export)
 ```
 
@@ -175,13 +179,17 @@ npm run generate-icons       # data/icons.json — the SAP icon-font snapshot
 npm run generate-dependents  # the "Used by" list above, from GitHub's dependents page
 ```
 
-One file is vendored from another repository rather than generated, and is
-refreshed by hand when the protocol moves (`npm test` pins its hash, the
-weekly upstream-sync workflow reports drift):
+Two files are vendored from another repository rather than generated:
 
 ```sh
 npm run sync-portable-profile   # data/portable-v1.json — abap2UI5/protocol's portable profile (-- --local <checkout> to read a clone)
+npm run sync-manifest           # data/abap2ui5-manifest.json — abap2UI5's manifest of the closed sets mirrored in lib/ (-- --local <checkout>)
 ```
+
+The profile is refreshed by hand when the protocol moves (`npm test` pins its
+hash, the weekly upstream-sync workflow reports drift). The manifest is what
+the hand-maintained mirrors are held to: `npm test` compares them with it on
+every run, so refreshing it and updating the mirrors is one change.
 
 `site/` holds that generated rule reference (published to
 https://abap2ui5.github.io/linter/), not documentation about this repository.

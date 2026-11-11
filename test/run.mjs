@@ -83,7 +83,7 @@ export const assert = (cond, msg) => {
 
 /** One section of the suite: isolated, ordered, and failing with every one of
  *  its assertions rather than with the first. */
-export const section = (name, body) => test(name, async () => {
+const runSection = (name, body, options = {}) => test(name, options, async () => {
   bucket = [];
   try {
     await body();
@@ -94,6 +94,26 @@ export const section = (name, body) => test(name, async () => {
       `${failures.length} assertion(s) failed:\n  - ${failures.join('\n  - ')}`);
   }
 });
+export const section = (name, body) => runSection(name, body);
+
+/* THE STATIC HALF (`npm run test:static`, test/static.mjs). Most of this
+ * suite asks questions a browser has no part in - what a rule reports, what
+ * the reconstructor rebuilds, what the CLI prints - and it used to be
+ * unreachable without `npx playwright install chromium`, because the first
+ * statement of the file renders. Under ABAP2UI5LINT_TEST_STATIC=1:
+ *
+ *   - a section written `section.browser( )` is SKIPPED (and reported as
+ *     skipped, never as passed),
+ *   - a check that does not say `render` runs without the render gate
+ *     (test/observe.mjs), so the fixtures loaded at the top of this file load,
+ *   - and Chromium is refused outright (ABAP2UI5LINT_NO_BROWSER, lib/render.mjs,
+ *     inherited by every spawned CLI): a section that needs the browser and
+ *     is not marked FAILS there. That is what keeps the marking true - CI runs
+ *     both halves, so a new render test that forgets `.browser` is red.
+ *
+ * `npm test` is unchanged: every section runs, marked or not. */
+export const STATIC = process.env.ABAP2UI5LINT_TEST_STATIC === '1';
+section.browser = (name, body) => runSection(name, body, STATIC ? { skip: 'needs the render gate - npm test runs it' } : {});
 
 /* Temp directories, cleaned up centrally.
  *
@@ -158,7 +178,7 @@ section('barefragment', async () => {
 });
 
 const broken = by('broken.clas.abap');
-section('broken', async () => {
+section.browser('broken', async () => {
   assert(broken.renderErrors.length > 0, 'broken: render gate reports errors');
   assert(broken.renderErrors.some((e) => /textt|NoSuchControl/i.test(e)),
     `broken: error names the defect (${(broken.renderErrors[0] || '').slice(0, 80)})`);
@@ -3404,7 +3424,7 @@ section('xmlns (5)', async () => {
 // ------------------------------------------- rules['render-error'] ----
 // the render gate's pseudo-rule: waive or downgrade render failures per file
 // instead of switching the gate off wholesale
-section('render-error', async () => {
+section.browser('render-error', async () => {
     const waived = (await checkFiles([f('broken.clas.abap')], { rules: { 'render-error': { exclude: ['broken'] } } }))[0];
     assert(waived.renderErrors.length === 0 && waived.notes.some((n) => /waived by rules\['render-error'\]/.test(n)),
       'render-error: an exclude waives the render failures of a matching file, saying so in a note');
@@ -3504,7 +3524,7 @@ section('render deps', async () => {
 // checkFiles/screenshotFiles accept an ALREADY-OPEN renderer and then never
 // close it - the contract a long-lived consumer (mcp-server) keeps one warm
 // Chromium on, instead of paying a cold start per validate_view call
-section('shared renderer', async () => {
+section.browser('shared renderer', async () => {
     const { openRenderer } = await import('../lib/render.mjs');
     const files = [f('good.clas.abap'), f('broken.clas.abap')];
     const independent = await checkFiles(files, {});
@@ -3869,7 +3889,7 @@ section('xmlns (6)', async () => {
  */
 const enumKeySrc = fs.readFileSync(f('enumkey.clas.abap'), 'utf8');
 const enumKeyRendered = await checkFiles([f('enumkey.clas.abap')]);
-section('enum key vs value', async () => {
+section.browser('enum key vs value', async () => {
     const { applyFixes } = await import('../lib/fix.mjs');
     const values = (src, minUi5 = '1.71') => checkAbapSource(src, { render: false, minUi5 })
       .findings.filter((x) => x.type === 'invalid-property-value');
@@ -3933,7 +3953,7 @@ section('enum key vs value', async () => {
 });
 
 // ------------------------------------------------ sarif + baseline + cli ----
-section('sarif, baseline and cli', async () => {
+section.browser('sarif, baseline and cli', async () => {
     const cp = await import('node:child_process');
     const os = await import('node:os');
     const CLI = path.join(FIX, '..', '..', 'cli.mjs');
@@ -5741,55 +5761,46 @@ section('rules page', async () => {
  */
 section('AGENTS.md', async () => {
     const ROOT = path.join(FIX, '..', '..');
-    const agents = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8');
+    const core = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8');
     const { RULES } = await import('../lib/findings.mjs');
 
-    /* Every rule id appears somewhere in it. The emit-site table is what an
-     * agent greps to find where a finding comes from, and a rule missing from it
-     * is a rule that table quietly denies exists. */
-    const absent = RULES.filter((id) => !agents.includes(`\`${id}\``));
-    assert(!absent.length,
-      `AGENTS: every rule id appears in the emit-site taxonomy (missing: ${absent.join(', ') || 'none'})`);
+    /* AGENTS.md is read at the start of every session, so its size is paid on
+     * every task. It was 156 kB - a 43 kB table of rule ids per module, cells
+     * of several thousand characters, and 62 kB of rule history - and a file
+     * that size is read badly or not at all. The parts are in docs/agents/
+     * now, read when the task comes up, and this is what keeps the core from
+     * growing back: new knowledge goes into the file the table names. */
+    const AGENTS_BUDGET = 20_000;
+    assert(Buffer.byteLength(core) <= AGENTS_BUDGET,
+      `AGENTS: the core file stays within its budget (${Buffer.byteLength(core)} of ${AGENTS_BUDGET} bytes) - put detail into docs/agents/, a pointer here`);
+    const longest = Math.max(...core.split('\n').map((l) => l.length));
+    assert(longest <= 400, `AGENTS: no line is a paragraph in a table cell (longest: ${longest} characters)`);
 
-    /* …in the ROW of the file that actually emits it. The table's whole use is
-     * "grep the id to find the exact line", so a rule listed under the wrong
-     * file is worse than one listed nowhere: it sends the reader somewhere.
-     * Derived from `type: '<id>'` in the sources, which is how every rule
-     * reports, rather than from a second list here. */
-    const libDir = path.join(ROOT, 'lib');
-    const rows = Object.fromEntries(agents.split('\n')
-      .filter((l) => /^\| `lib\/[\w-]+\.mjs` \|/.test(l))
-      .map((l) => [l.match(/^\| `lib\/([\w-]+\.mjs)`/)[1], l]));
-    const misfiled = [];
-    for (const file of fs.readdirSync(libDir).filter((n) => n.endsWith('.mjs'))) {
-      const text = fs.readFileSync(path.join(libDir, file), 'utf8');
-      for (const id of RULES) {
-        if (!new RegExp(`type: '${id}'`).test(text)) continue;
-        // a rule may legitimately be emitted from two files (the two halves of
-        // raw-javascript-to-frontend); it needs a row that names it, not all of them
-        const named = Object.entries(rows).some(([f, row]) => f === file && row.includes(`\`${id}\``));
-        const namedAnywhere = Object.values(rows).some((row) => row.includes(`\`${id}\``));
-        if (!named && !namedAnywhere) misfiled.push(`${id} emits in lib/${file}`);
-        else if (!named && !rows[file]) misfiled.push(`lib/${file} has no row (emits ${id})`);
-      }
-    }
-    assert(!misfiled.length,
-      `AGENTS: the taxonomy sends a reader to the file that emits the rule (${[...new Set(misfiled)].slice(0, 6).join('; ') || 'all correct'})`);
+    /* Every part is reachable from the core, and every pointer leads somewhere. */
+    const dir = path.join(ROOT, 'docs', 'agents');
+    const parts = fs.readdirSync(dir).filter((n) => n.endsWith('.md')).sort();
+    const named = [...new Set([...core.matchAll(/`docs\/agents\/([\w-]+\.md)`/g)].map((m) => m[1]))].sort();
+    assert(parts.every((n) => named.includes(n)),
+      `AGENTS: every file in docs/agents/ is named in the core's table (unnamed: ${parts.filter((n) => !named.includes(n)).join(', ') || 'none'})`);
+    assert(named.every((n) => parts.includes(n)),
+      `AGENTS: every docs/agents/ file the core names exists (missing: ${named.filter((n) => !parts.includes(n)).join(', ') || 'none'})`);
+    // the content gates below read the core and its parts as one document
+    const agents = [core, ...parts.map((n) => fs.readFileSync(path.join(dir, n), 'utf8'))].join('\n');
 
-    // …and nothing in the table that is not a rule (a rename leaves the old name
-    // behind, which reads exactly like a rule nobody can find the emit site for)
-    // `render-error` and `open-levels` are real ids the registry deliberately
-    // does not carry; `view-gates` is the consumer's gate script, named in the
-    // same row as the rules it neutralises
-    const KNOWN_NON_RULES = new Set(['render-error', 'frozen-view-builder', 'open-levels', 'chain-house-layout', 'view-gates']);
-    const tableRow = agents.split('\n').filter((l) => l.startsWith('| `lib/'));
-    const named = [...new Set(tableRow.join('\n').match(/`[a-z][a-z0-9-]+`/g) ?? [])]
-      .map((t) => t.slice(1, -1))
-      .filter((t) => t.includes('-') && !t.endsWith('.mjs'));
-    const ghosts = named.filter((t) => !RULES.includes(t) && !KNOWN_NON_RULES.has(t)
-      && !/^(escape|note|opt|per|too|abap2ui5lint)/.test(t));
-    assert(!ghosts.length,
-      `AGENTS: the taxonomy names no rule that does not exist (ghosts: ${ghosts.join(', ') || 'none'})`);
+    /* Which rule is defined where used to be a hand-written table here, with
+     * three assertions to keep it true: every id listed, in the row of the
+     * file that emits it, and no id that is not a rule. It is GENERATED now
+     * (scripts/generate-rule-map.mjs, from the registry and the emit sites),
+     * so the one assertion is that the committed map is the generated one. */
+    const { buildRuleMap, RULE_MAP_FILE } = await import('../scripts/generate-rule-map.mjs');
+    const map = buildRuleMap();
+    assert(fs.readFileSync(RULE_MAP_FILE, 'utf8') === map,
+      'AGENTS: docs/agents/rule-map.md is in sync (npm run generate-rule-map)');
+    const rows = map.split('\n').filter((l) => /^\| `[a-z]/.test(l));
+    assert(rows.length === RULES.length && RULES.every((id) => rows.some((l) => l.startsWith(`| \`${id}\` |`))),
+      `AGENTS: the map has one row per rule (${rows.length} rows, ${RULES.length} rules)`);
+    assert(rows.every((l) => fs.existsSync(path.join(ROOT, l.match(/`(lib\/[\w/.-]+)` \|$/)?.[1] ?? 'nope'))),
+      'AGENTS: every row names a file that exists');
 
     /* The quoted snapshot numbers, read off the snapshot. They were 988 controls
      * and 219 enums against an artefact holding 973 and 235 - retyped once and
@@ -6570,7 +6581,7 @@ section('rule docs', async () => {
  * is blank), and that a class whose reconstruction is incomplete is refused
  * rather than photographed wrong.
  * ------------------------------------------------------------------------- */
-section('screenshot', async () => {
+section.browser('screenshot', async () => {
     const { screenshotFiles, mockModelFor } = await import('../lib/index.mjs');
     const shots = await screenshotFiles([f('good.clas.abap')], { width: 400, height: 300 });
     assert(shots.length === 1 && Buffer.isBuffer(shots[0].png),

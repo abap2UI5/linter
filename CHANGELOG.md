@@ -2,6 +2,93 @@
 
 ## Unreleased
 
+- **The run summary says what it could not judge.** A binding path into a
+  type the class does not declare - a DDIC structure, a type of another
+  class - is not judged, and a run over classes that bind nothing else
+  reported no finding in the same words as a run in which every path was
+  right. The summary gets a `not judged` line ("3 of 41 binding paths, each
+  into a type the class does not declare"), printed only where there is
+  something to say; the counts are `paths` and `pathsOpaque` in each
+  result's `stats` and in the JSON document's.
+- **The mirrors of abap2UI5's closed sets are checked against a manifest
+  abap2UI5 writes, on every test run.** `scripts/check-upstream.mjs` gains
+  the seam between finding the sets and comparing them (`deriveUpstream( )`,
+  `readManifest( )`, `MANIFEST_SCHEMA`): `--manifest <file>` compares the
+  mirrors with a finished manifest, `--emit-manifest` prints what the
+  parsers find, and the default mode reads abap2UI5's own
+  `.github/shared/linter-manifest.json` once its `main` publishes one. The
+  copy the mirrors are in step with ships as `data/abap2ui5-manifest.json`
+  (`npm run sync-manifest`), and `npm test` holds them to it offline - the
+  comparison used to exist only weekly, over the network.
+  Thirteen of the mirrors are nothing but their list (the curated
+  formatters, the CSS properties, the denied control methods, the filter
+  operators, the control-method argument kinds, …) and are no longer typed
+  in: `lib/abap2ui5-sets.mjs` is generated from the manifest and the exports
+  take their values from it, unchanged in content and order.
+- **A rule can be written as one file, against one shared reading of the
+  class.** `lib/rule.mjs` (`defineRule( )`, the `./rule` export) takes a
+  rule's registry entry, card, sentence and check as one object; severities,
+  `RULE_DOCS`, the fixable and opt-in lists and the rule page read it from
+  there. Its check gets `lib/abap-model.mjs` (`abapModel( )`, the
+  `./abap-model` export): tokens with their source offsets, statements,
+  class parts and visibility sections, methods, attributes and locals, read
+  once per source for every rule that asks - so the case of a keyword, a
+  keyword inside a literal, a chained declaration and the end of a statement
+  are decided in one place. The model also recovers where the old statement
+  splitter cannot: a chain with unbalanced parentheses costs its own
+  statement, not the rest of the class. The hygiene family is moved over,
+  eleven rules: five read the model (`boolc-instead-of-xsdbool`,
+  `class-constructor-visibility`, `empty-catch-block`,
+  `into-corresponding-inline-decl`, `redundant-conv-i`), six were lifted
+  into a file of their own with their scan as it was; the other families
+  follow one at a time. No finding changes, with three
+  corrections that come from reading structure instead of text:
+  `class_constructor` in the PUBLIC SECTION of a second (local) class is no
+  longer reported, a component named `boolc` (`ls_flags-boolc`) is not a call
+  of the built-in, and `redundant-conv-i` resolves its target where the
+  assignment stands - a local `TYPE string` that shares its name with an
+  integer attribute is no longer reported, and a `CONV i( )` into a
+  parameter or a multi-line assignment is. Its finding now points at the
+  assignment rather than at column 1 of its line.
+- **`ABAP2UI5LINT_NO_BROWSER=1` refuses Chromium.** With it set the render
+  gate behaves as on a machine without a browser, also where one is
+  installed: a default-on gate steps aside with its notice, an asked-for one
+  is the usual tool error. For this repository's own suite (`npm run
+  test:static` - every section that needs no browser, after a bare `npm
+  ci`), and for anyone who has to prove a run starts none.
+- **A baseline entry can say it is a false positive, and the linter writes
+  the issue for it.** A baseline holds debt and misfires side by side, and a
+  misfire frozen in a consumer's baseline never reached this repository: its
+  issue list was empty while baselines in the addons carried false positives
+  as "workarounds". `abap2ui5lint-baseline.json` takes an optional block
+  beside `findings` - `"falsePositives": { "<finding-key>": "<why the code
+  is correct>" }` - validated like the rest of the file (a mark on a key
+  that is no entry is refused) and kept by `--update-baseline` for as long
+  as its entry lives. A run names the marked findings apart in its baseline
+  line (and as `baseline.falsePositives` in the JSON document), and
+  **`--report-false-positives`** prints one issue per marked key: the
+  sections of the false-positive template filled in - rule, the finding as
+  printed, the source around it, the reason, the versions - plus a link that
+  opens GitHub's form with them. Nothing is sent; the code leaves the
+  machine when a person opens the link. Library: `loadFalsePositives( )` in
+  `./baseline`, `falsePositiveIssue( )` in the new `./false-positive` export.
+- **`unknown-binding-path` keeps a row component whose type it cannot
+  resolve.** `gname TYPE seqg3-gname` - a component typed by the component
+  of a structure the class does not declare, the usual way to type a row
+  after a DDIC structure - matched no field at all, so the component was
+  dropped from the row and every binding to it was reported as "the rows
+  have no such field" (lock-manager: nine warnings on `{GNAME}` …
+  `{GCLIENT}`). The component is declared by name; only its type is unknown.
+  It stays in the row now, and a name the row really does not declare is
+  still reported.
+- **`non-released-api` asks whose an object is before it reads the name.**
+  A `z2ui5_t_<n>` was the framework's table because of its name, also in the
+  repository that ships `z2ui5_t_<n>.tabl.xml` itself (the addons number
+  their tables in that family; admin-cockpit: 23 warnings on its own nine
+  tables). The objects under the linted paths are read off their abapGit
+  file names (`lib/project-index.mjs`, the `./project-index` export and the
+  `ownObjects` option) and are never reported; a framework object the
+  repository merely references still is.
 - **`unknown-binding-path` judges four more places a row template binds.**
   A path on a member newer than the floor (`member-too-new` used to end the
   attribute there, so `initials` on an `AvatarGroupItem` was never checked);

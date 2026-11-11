@@ -29,7 +29,7 @@ export default function ({ section, assert }) {
     const figure = Number(quoted?.[1]);
 
     const elsewhere = [];
-    for (const name of ['AGENTS.md', 'RELEASING.md', '.github/workflows/release.yml']) {
+    for (const name of ['docs/agents/render-package.md', 'RELEASING.md', '.github/workflows/release.yml']) {
       const text = fs.readFileSync(path.join(ROOT, name), 'utf8');
       const sizes = [...text.matchAll(/~(\d+) kB/g)].map((m) => Number(m[1]));
       if (!sizes.length || sizes.some((n) => n !== figure)) elsewhere.push(`${name}: ${sizes.join('/') || 'no figure'}`);

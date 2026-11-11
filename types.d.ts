@@ -74,6 +74,11 @@ declare module "@abap2ui5/linter" {
      *  inherits from its superclass apart from the client's. checkFiles
      *  builds it over the files it is handed when none is given. */
     classIndex?: ClassIndex | null;
+    /** The objects the linted repository defines, lower case - ownObjectsOf( )
+     *  of `@abap2ui5/linter/project-index`, read off the abapGit file names.
+     *  `non-released-api` is silent on them. checkFiles builds it from the
+     *  files it is handed when none is given. */
+    ownObjects?: readonly string[] | null;
     /** The portable profile the opt-in `portable-app` rule judges against,
      *  as an object of data/portable-v1.json's shape - for a host that cannot
      *  hand the linter a path. Absent, the vendored copy is read, and only
@@ -109,6 +114,11 @@ declare module "@abap2ui5/linter" {
     depth: number;
     /** Documents the render gate actually loaded. */
     rendered: number;
+    /** Binding paths the property gate asked the derived model about. */
+    paths: number;
+    /** …and how many of them led into a type the class does not declare
+     *  (a DDIC structure, another class's type): not judged. */
+    pathsOpaque: number;
     /** Control name -> occurrences, e.g. { "sap.m.Button": 4 }. */
     types: Record<string, number>;
   }
@@ -646,6 +656,10 @@ declare module "@abap2ui5/linter/properties" {
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
       boundElement?: boolean;
+      /** Counted into, when given: `paths` - the binding paths asked about -
+       *  and `pathsOpaque` - those that led into a type the class does not
+       *  declare and were therefore not judged. */
+      tally?: { paths?: number; pathsOpaque?: number } | null;
     }
   ): PropertyFinding[];
 }
@@ -769,7 +783,7 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  by under `allClasses`: the abapGit round-trip family, the activation and
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
-  export function checkSourceRules(source: string): PropertyFinding[];
+  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null }): PropertyFinding[];
   /** The rule ids checkSourceRules( ) can emit. */
   export const SOURCE_RULES: ReadonlySet<string>;
 
@@ -823,6 +837,9 @@ declare module "@abap2ui5/linter/abap-rules" {
       /** The other linted classes (classIndexOf) - a superclass's
        *  `cs_event` is resolved in it. */
       classIndex?: import("@abap2ui5/linter").ClassIndex | null;
+      /** The repository's own objects (ownObjectsOf) - never reported by
+       *  `non-released-api`. */
+      ownObjects?: readonly string[] | null;
       /** The metadata snapshot - without it the rules that need UI5
        *  knowledge stay silent. */
       data?: unknown;
@@ -1206,8 +1223,20 @@ declare module "@abap2ui5/linter/baseline" {
     results: Array<{ file?: string; findings: PropertyFinding[] }>,
     baseline: Map<string, number>,
     baseDir?: string,
-    options?: { scope?: string[] }
-  ): { suppressed: number; byRule: Record<string, number>; stale: Array<{ key: string; count: number }> };
+    options?: { scope?: string[]; falsePositives?: Map<string, string> | null }
+  ): {
+    suppressed: number;
+    byRule: Record<string, number>;
+    stale: Array<{ key: string; count: number }>;
+    /** The suppressed findings of the entries `falsePositives` marks. */
+    falsePositives: Array<{ key: string; reason: string; file?: string; finding: PropertyFinding }>;
+  };
+
+  /** The entries a baseline file marks as false positives
+   *  (`"falsePositives": { "<key>": "<why the code is correct>" }`):
+   *  finding-key -> reason. Empty without the block; throws like
+   *  loadBaseline( ) on a mark that is no entry. */
+  export function loadFalsePositives(file: string): Map<string, string>;
 
   /** The file part of a baseline key. */
   export function keyFile(key: string): string;
@@ -1229,7 +1258,7 @@ declare module "@abap2ui5/linter/baseline" {
     baseDir?: string
   ): Map<string, number>;
 
-  export function writeBaseline(file: string, map: Map<string, number>): void;
+  export function writeBaseline(file: string, map: Map<string, number>, options?: { falsePositives?: Map<string, string> | null }): void;
 }
 
 declare module "@abap2ui5/linter/report" {
@@ -1344,6 +1373,9 @@ declare module "@abap2ui5/linter/report" {
     bindings: number;
     icons: number;
     depth: number;
+    /** Binding paths asked about, and those left unjudged (see ResultStats). */
+    paths: number;
+    pathsOpaque: number;
     rendered: number;
     renderSkipped: number;
     /** Control name -> occurrences. */
@@ -1618,3 +1650,179 @@ declare module "@abap2ui5/linter/compat" {
   const compat: Compat;
   export default compat;
 }
+
+declare module "@abap2ui5/linter/project-index" {
+  /** The object an abapGit file belongs to, lower case
+   *  (`src/z2ui5_t_26.tabl.xml` -> `z2ui5_t_26`), or null for a file that is
+   *  no object's. */
+  export function objectNameOf(file: string): string | null;
+  /** Every object defined under `paths` (files or directories), lower case,
+   *  sorted and unique - the `ownObjects` option. Reads file names only. */
+  export function ownObjectsOf(paths: readonly string[]): string[];
+}
+
+declare module "@abap2ui5/linter/false-positive" {
+  import type { PropertyFinding } from "@abap2ui5/linter/properties";
+  /** Where a false positive is reported. */
+  export const ISSUES_URL: string;
+  /** The lines around `line` (1-based) of `source`, '' when unknown. */
+  export function sourceExcerpt(source: string | null, line: number, context?: number): string;
+  /** The issue for one finding marked as a false positive: the sections of
+   *  the repository's false-positive template, filled in, and the link that
+   *  opens GitHub's form with them. Sends nothing. */
+  export function falsePositiveIssue(input: {
+    finding: PropertyFinding;
+    file?: string | null;
+    reason: string;
+    source?: string | null;
+    version?: string | null;
+    ui5?: string | null;
+    distribution?: string | null;
+  }): { title: string; body: string; url: string };
+}
+
+declare module "@abap2ui5/linter/abap-model" {
+  /** One token of a class, with its offsets into the source. A literal's
+   *  `text` is the literal as written; `upper` is the text folded to upper
+   *  case ('' for a literal). */
+  export interface AbapToken {
+    kind: "word" | "literal" | "op" | "pragma";
+    text: string;
+    upper: string;
+    start: number;
+    end: number;
+  }
+  /** The tokens up to a period. `keyword` is the first word in upper case
+   *  ('' when the statement starts with something else), `chained` says
+   *  `KEYWORD: a, b.`, `end` is the offset after the period. */
+  export interface AbapStatement {
+    index: number;
+    tokens: AbapToken[];
+    keyword: string;
+    chained: boolean;
+    pragmas: string[];
+    start: number;
+    end: number;
+  }
+  export interface AbapDeclaration {
+    name: string;
+    kind: "data" | "class-data" | "constant" | "static" | "inline" | "field-symbol";
+    structure: boolean;
+    /** The type as written, lower case ('' for a structure or an inline declaration). */
+    type: string;
+    readOnly: boolean;
+    start: number;
+  }
+  export interface AbapAttribute extends AbapDeclaration {
+    visibility: "public" | "protected" | "private" | null;
+    class: string;
+  }
+  export interface AbapParameter {
+    name: string;
+    direction: "importing" | "exporting" | "changing" | "returning";
+    byValue: boolean;
+    type: string;
+    start: number;
+  }
+  export interface AbapSignature {
+    name: string;
+    static: boolean;
+    params: AbapParameter[];
+    visibility: "public" | "protected" | "private" | null;
+    class: string;
+    start: number;
+  }
+  export interface AbapClassPart {
+    name: string;
+    part: "definition" | "implementation";
+    start: number;
+    end: number;
+    sections: Array<{ visibility: "public" | "protected" | "private"; start: number; end: number }>;
+    attributes: AbapAttribute[];
+    signatures: AbapSignature[];
+  }
+  export interface AbapMethod {
+    /** The name without an interface prefix (`main`). */
+    name: string;
+    /** The name as written (`z2ui5_if_app~main`), lower case. */
+    fullName: string;
+    class: string;
+    start: number;
+    bodyStart: number;
+    end: number;
+    statements: AbapStatement[];
+    locals: AbapDeclaration[];
+  }
+  /** One reading of a class, shared by every rule that asks. */
+  export interface AbapModel {
+    readonly source: string;
+    /** Comments blanked. */
+    readonly src: string;
+    /** Comments and literal contents blanked. */
+    readonly code: string;
+    readonly tokens: AbapToken[];
+    readonly statements: AbapStatement[];
+    readonly classes: AbapClassPart[];
+    readonly methods: AbapMethod[];
+    readonly attributes: AbapAttribute[];
+    statementsOf(...keywords: string[]): AbapStatement[];
+    next(statement: AbapStatement): AbapStatement | null;
+    previous(statement: AbapStatement): AbapStatement | null;
+    methodAt(offset: number): AbapMethod | null;
+    classAt(offset: number): AbapClassPart | null;
+    sectionAt(offset: number): "public" | "protected" | "private" | null;
+    attribute(name: string): AbapAttribute | null;
+    /** The declared signature of a method (with or without an interface
+     *  prefix), null for one this source does not declare. */
+    signature(name: string): AbapSignature | null;
+    /** What `name` is at `offset`: a local of the method there, one of its
+     *  parameters, an attribute - in ABAP's order - or null. */
+    resolve(name: string, offset: number): (AbapDeclaration | AbapAttribute | (AbapParameter & { kind: "parameter" })) & { origin: "local" | "parameter" | "attribute" | "snippet" } | null;
+    text(span: { start: number; end: number }): string;
+  }
+  /** The model of `source` - read once, kept for the last few sources. */
+  export function abapModel(source: string): AbapModel;
+  /** One token list per element of a chained statement; the tokens behind
+   *  the keyword as the single element of any other. */
+  export function elementsOf(statement: AbapStatement): AbapToken[][];
+  /** The index of the first token, for every place the WORDS `words`
+   *  (upper case) stand one after another. */
+  export function findWords(tokens: AbapToken[], words: readonly string[]): Generator<number>;
+}
+
+declare module "@abap2ui5/linter/rule" {
+  import type { AbapModel } from "@abap2ui5/linter/abap-model";
+  export const SEVERITIES: readonly ["error", "warning", "hint"];
+  export const SCOPES: readonly ["class", "app"];
+  /** What a rule's check is handed. */
+  export interface RuleContext {
+    model: AbapModel;
+    source: string;
+    report(finding: Record<string, unknown>): void;
+    options?: Record<string, unknown>;
+    enabled?(id: string): boolean;
+  }
+  /** One rule, written in one place: registry entry, card, sentence, check. */
+  export interface RuleDefinition {
+    id: string;
+    severity: "error" | "warning" | "hint";
+    category: string;
+    scope: "class" | "app";
+    summary: string;
+    detail: string;
+    example: string;
+    remedy: string;
+    fixNote?: string;
+    optIn?: boolean;
+    message(finding: Record<string, any>): string;
+    check(context: RuleContext): void;
+  }
+  export type Rule = Readonly<RuleDefinition & { optIn: boolean; fixable: boolean }>;
+  /** Validate and freeze a definition; throws with the rule's id. */
+  export function defineRule(definition: RuleDefinition): Rule;
+  /** The card of a rule, in RULE_DOCS' shape. */
+  export function docOf(rule: Rule): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
+  export function runRules(rules: readonly Rule[], scope: "class" | "app", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+}
+

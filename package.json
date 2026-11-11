@@ -46,6 +46,14 @@
       "types": "./types.d.ts",
       "default": "./lib/abap-rules.mjs"
     },
+    "./abap-model": {
+      "types": "./types.d.ts",
+      "default": "./lib/abap-model.mjs"
+    },
+    "./rule": {
+      "types": "./types.d.ts",
+      "default": "./lib/rule.mjs"
+    },
     "./fix": {
       "types": "./types.d.ts",
       "default": "./lib/fix.mjs"
@@ -66,6 +74,10 @@
       "types": "./types.d.ts",
       "default": "./lib/baseline.mjs"
     },
+    "./false-positive": {
+      "types": "./types.d.ts",
+      "default": "./lib/false-positive.mjs"
+    },
     "./report": {
       "types": "./types.d.ts",
       "default": "./lib/report.mjs"
@@ -82,6 +94,10 @@
       "types": "./types.d.ts",
       "default": "./lib/portable.mjs"
     },
+    "./project-index": {
+      "types": "./types.d.ts",
+      "default": "./lib/project-index.mjs"
+    },
     "./schema": "./data/abap2ui5lint.schema.json",
     "./compat": "./data/compat.json"
   },
@@ -97,6 +113,7 @@
   "scripts": {
     "check": "npm test && node experimental/github-app/dryrun.mjs test/fixtures",
     "test": "node --test test/run.mjs",
+    "test:static": "node test/static.mjs",
     "generate-metadata": "node scripts/generate-metadata.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "check-upstream": "node scripts/check-upstream.mjs",
@@ -104,7 +121,10 @@
     "generate-compat": "node scripts/generate-compat.mjs",
     "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs",
+    "generate-rule-map": "node scripts/generate-rule-map.mjs",
     "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
+    "sync-manifest": "node scripts/sync-manifest.mjs",
+    "generate-sets": "node scripts/generate-sets.mjs",
     "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {

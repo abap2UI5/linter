@@ -97,7 +97,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
    * (`"ignore": ["/src/99/"]`) therefore dropped the frozen package from
    * `abap2ui5lint` and not from `abap2ui5lint src`, where its 17 classes
    * came back with 86 findings and exit 1. */
-  section('round 2026-09-29b: ignore and the render-error exclude match a relative run as they match an absolute one', () => {
+  section.browser('round 2026-09-29b: ignore and the render-error exclude match a relative run as they match an absolute one', () => {
     const dir = tempDir('a2l-forms-');
     fs.mkdirSync(path.join(dir, 'src', '99'), { recursive: true });
     fs.copyFileSync(f('broken.clas.abap'), path.join(dir, 'src', 'zcl_broken.clas.abap'));
@@ -141,7 +141,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
    * upgraded runtime then replayed the old runtime's render errors. The
    * runtime's UI5 version is part of the context now - for a run that
    * renders; a property-only run does not care which runtime is installed. */
-  section('round 2026-09-29b: a render-runtime upgrade misses the cache, a property-only run keeps it', async () => {
+  section.browser('round 2026-09-29b: a render-runtime upgrade misses the cache, a property-only run keeps it', async () => {
     const { cacheContext } = await import('../../lib/cache.mjs');
     const at = (runtime, render) => cacheContext({ version: '1', snapshot: '1.152.0', runtime, options: { render } });
     assert(at('1.151.0', true) !== at('1.152.0', true), 'the render runtime\'s UI5 release is part of the context of a rendering run');
@@ -268,7 +268,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkXmlSourc
    * (exit 2, "Unexpected token '﻿'") and the `<class>.mock.json` the
    * screenshot picks up by convention (the picture silently came back with
    * empty tables and the parse error beside it). */
-  section('round 2026-09-29b: a byte-order mark in a screenshot model or a mock file is not an error', async () => {
+  section.browser('round 2026-09-29b: a byte-order mark in a screenshot model or a mock file is not an error', async () => {
     const { mockModelFor } = await import('../../lib/index.mjs');
     const dir = tempDir('a2l-bommodel-');
     const app = path.join(dir, 'zcl_app.clas.abap');
@@ -505,7 +505,7 @@ ENDCLASS.
    * the same window from the other side and failed on a loaded machine.)
    * The watchers now exist before the first run, and what they see while it
    * runs is one more run after it. */
-  section('round 2026-09-29b: --watch sees a file saved while its first run is still rendering', async () => {
+  section.browser('round 2026-09-29b: --watch sees a file saved while its first run is still rendering', async () => {
     const dir = tempDir('a2l-watchfirst-');
     fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
     fs.copyFileSync(f('viewbuilder.clas.abap'), path.join(dir, 'viewbuilder.clas.abap'));

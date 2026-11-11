@@ -76,7 +76,7 @@ installed it keeps a working render gate across the linter upgrade.
 
 ## Which number
 
-The package stays in `0.x` (AGENTS.md, *Release model*), where npm's caret
+The package stays in `0.x` (`docs/agents/release.md`), where npm's caret
 treats the MINOR as the breaking digit: `^0.8.3` takes 0.8.9 and never
 0.9.0. So the choice is about what a consumer has to do, not about how much
 changed:

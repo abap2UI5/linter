@@ -122,7 +122,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(missingRenderDeps(req.resolve).length === 0, 'and nothing is reported missing');
   });
 
-  section('round 2026-09-29: a linter outside the project finds the project\'s runtime, and renders under pnpm', () => {
+  section.browser('round 2026-09-29: a linter outside the project finds the project\'s runtime, and renders under pnpm', () => {
     const t = pnpmTree();
     const r = t.cli(['good.clas.abap', '--render', '--no-config', '--no-progress']);
     assert(r.signal === null, `the run ends on its own - it used to hang on a runtime whose libraries were not served (${r.signal})`);
@@ -136,7 +136,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(renderErrors > 0, `the broken fixture fails view creation there (${renderErrors} render errors)`);
   });
 
-  section('round 2026-09-29: a runtime of another UI5 release than the snapshot is said out loud', () => {
+  section.browser('round 2026-09-29: a runtime of another UI5 release than the snapshot is said out loud', () => {
     assert(runtimeSnapshotMismatch('1.152.0', '1.152.3') === null, 'a patch release is the same API');
     assert(runtimeSnapshotMismatch('1.152.0', null) === null, 'no runtime, nothing to say');
     assert(/serves OpenUI5 1\.151\.0.*snapshot is 1\.152\.0/.test(runtimeSnapshotMismatch('1.152.0', '1.151.0') ?? ''),
@@ -149,7 +149,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(!/serves OpenUI5/.test(quiet.err), 'and not when the render gate is off');
   });
 
-  section('round 2026-09-29: a browser that will not start is a clean tool error, or a fallback', () => {
+  section.browser('round 2026-09-29: a browser that will not start is a clean tool error, or a fallback', () => {
     const t = pnpmTree({
       playwright: 'exports.chromium = { launch: async () => { throw new Error("browserType.launch: Executable doesn\'t exist at /nowhere/chrome\\n\u2554\u2550\u2550\u2557\\n\u2551 Looks like Playwright was just installed \u2551"); } };',
     });
@@ -171,7 +171,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
       `openRenderer rejects and leaves nothing running behind it (${lib.signal ?? lib.out.trim()} ${lib.err.slice(0, 200)})`);
   });
 
-  section('round 2026-09-29: the render gate\'s waits are bounded', () => {
+  section.browser('round 2026-09-29: the render gate\'s waits are bounded', () => {
     const t = pnpmTree();
     const boot = t.node(`const r = await import(${JSON.stringify(t.renderUrl)});
       try { await r.openRenderer({ bootTimeout: 1 }); console.log('opened'); } catch (e) { console.log(e.code); console.log(e.message); }`);
