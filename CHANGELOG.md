@@ -42,10 +42,12 @@
   keyword inside a literal, a chained declaration and the end of a statement
   are decided in one place. The model also recovers where the old statement
   splitter cannot: a chain with unbalanced parentheses costs its own
-  statement, not the rest of the class. Four rules are moved over
-  (`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
-  `empty-catch-block`, `into-corresponding-inline-decl`, `redundant-conv-i`);
-  the others follow one at a time. No finding changes, with three
+  statement, not the rest of the class. The hygiene family is moved over,
+  eleven rules: five read the model (`boolc-instead-of-xsdbool`,
+  `class-constructor-visibility`, `empty-catch-block`,
+  `into-corresponding-inline-decl`, `redundant-conv-i`), six were lifted
+  into a file of their own with their scan as it was; the other families
+  follow one at a time. No finding changes, with three
   corrections that come from reading structure instead of text:
   `class_constructor` in the PUBLIC SECTION of a second (local) class is no
   longer reported, a component named `boolc` (`ls_flags-boolc`) is not a call

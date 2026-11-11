@@ -53,10 +53,15 @@ import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
 gates that, the file-per-id layout and the registries. Step 4 below (a
 fixture and assertions) is still yours to write.
 
-Five rules are written this way so far (`boolc-instead-of-xsdbool`,
-`class-constructor-visibility`, `empty-catch-block`,
-`into-corresponding-inline-decl`, `redundant-conv-i`), moved without changing
-a finding their sections assert. `redundant-conv-i` is the one to read for
+Eleven rules are written this way so far - the whole hygiene family that
+`checkAbapHygiene( )` used to hold, which is now nothing but the call that
+runs them (`docs/agents/rule-map.md` lists them). Five read the model
+(`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
+`empty-catch-block`, `into-corresponding-inline-decl`, `redundant-conv-i`);
+the other six were LIFTED: their scan moved into the file as it was, over
+`model.src` / `model.code`, so the rule is in one place first and reads the
+model when somebody next works on it. Both moves changed no finding their
+sections assert. `redundant-conv-i` is the one to read for
 what the model buys: it asks `model.resolve( name, offset )` - the local of
 the method, then its parameter, then the attribute, ABAP's own order - where
 the old scan kept one class-wide set of names typed `i` and reported an
