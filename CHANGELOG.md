@@ -347,6 +347,12 @@
   `non-released-api` would have reported every app that calls it, since
   the names fall under the internal `z2ui5_*_ui5_*` prefixes. The provider
   classes in `src/01/05` stay internal and are still reported.
+- **Twenty-nine inline rules of `checkAbapRules( )` are one file each**, of
+  scope `'app'`, run at the place their block stood (the obsolete-API
+  family, the binding-target rules, the message-box, style-brace, public-
+  attribute and popover rules, `ui5-internal-access` with both of its
+  halves, among others); the top-level readers they share moved to
+  `lib/abap-helpers.mjs`. 127 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
