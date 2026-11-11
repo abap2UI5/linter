@@ -3889,7 +3889,7 @@ section('xmlns (6)', async () => {
  */
 const enumKeySrc = fs.readFileSync(f('enumkey.clas.abap'), 'utf8');
 const enumKeyRendered = await checkFiles([f('enumkey.clas.abap')]);
-section.browser('enum key vs value', async () => {
+section('enum key vs value', async () => {
     const { applyFixes } = await import('../lib/fix.mjs');
     const values = (src, minUi5 = '1.71') => checkAbapSource(src, { render: false, minUi5 })
       .findings.filter((x) => x.type === 'invalid-property-value');
@@ -3938,10 +3938,13 @@ section.browser('enum key vs value', async () => {
     assert(!tooNew('1.71').length,
       'enum key: …and is silent once the floor reaches it');
 
-    /* First-hand, in a browser: the key form renders, the value form does not.
-     * The render gate turns UI5's future mode on around view creation, which
-     * is what makes parseValue( ) returning undefined an error rather than a
-     * line in a log nobody reads. */
+});
+
+/* First-hand, in a browser: the key form renders, the value form does not.
+ * The render gate turns UI5's future mode on around view creation, which is
+ * what makes parseValue( ) returning undefined an error rather than a line in
+ * a log nobody reads. Its own section, so the static half keeps the rest. */
+section.browser('enum key vs value: UI5 takes the key and refuses the value', async () => {
     assert(!enumKeyRendered[0].renderErrors.length,
       `enum key: the fixture RENDERS - UI5 takes the key (${enumKeyRendered[0].renderErrors[0] || ''})`);
     const dir = tempDir('abap2ui5lint-enumkey-');
@@ -3953,7 +3956,7 @@ section.browser('enum key vs value', async () => {
 });
 
 // ------------------------------------------------ sarif + baseline + cli ----
-section.browser('sarif, baseline and cli', async () => {
+section('sarif, baseline and cli', async () => {
     const cp = await import('node:child_process');
     const os = await import('node:os');
     const CLI = path.join(FIX, '..', '..', 'cli.mjs');
@@ -4017,13 +4020,7 @@ section.browser('sarif, baseline and cli', async () => {
     assert(runErr([good, '--no-render', '--no-config', '--distribution', 'OpenUI5']).code !== 2,
       'cli: --distribution stays case-insensitive');
 
-    /* --- --render, the promise that the gate ran -----------------------------
-     * The unit tests above decide the fallback; what this pins is that the flag
-     * REACHES that decision - an unknown option exits 2 with "unknown option",
-     * which would make the whole promise unwritable. The runtime is installed
-     * here, so the run itself is an ordinary one. */
-    assert(runErr([good, '--no-config', '--render']).code !== 2,
-      'cli: --render is a known flag, so a job can demand the render gate');
+    /* --render itself starts a browser - its own section below. */
     assert(/--render/.test(runErr([good, '--no-config', '--nonsense']).err),
       'cli: the usage line offers --render next to --no-render');
 
@@ -4034,8 +4031,10 @@ section.browser('sarif, baseline and cli', async () => {
       assert(r.code === 2 && /--render-pages takes a positive integer/.test(r.err),
         `cli: --render-pages '${bad}' is refused instead of silently meaning 4 (exit ${r.code})`);
     }
-    assert(runErr([good, '--no-render', '--no-config', '--render-pages', '2']).code !== 2,
-      'cli: --render-pages 2 is accepted');
+    // `--render-pages` asks for the gate; only a LATER --no-render wins over it
+    // (the comment at its parsing) - in that order the run needs no browser
+    assert(runErr([good, '--no-config', '--render-pages', '2', '--no-render']).code === 0,
+      'cli: --render-pages 2 is accepted, and a later --no-render still wins');
 
     // --- baseline -------------------------------------------------------------
     const dir = tempDir('a2ui5base-');
@@ -4070,6 +4069,19 @@ section.browser('sarif, baseline and cli', async () => {
       && fs.readFileSync(target, 'utf8') === before,
       'fix: --fix-dry-run reports without writing (the env variable keeps working too)');
     fs.rmSync(dir, { recursive: true, force: true });
+});
+
+/* --- --render, the promise that the gate ran -------------------------------
+ * The unit tests above decide the fallback; what this pins is that the flag
+ * REACHES that decision - an unknown option exits 2 with "unknown option",
+ * which would make the whole promise unwritable. The runtime is installed
+ * here, so the run itself is an ordinary one - and starts a browser, which
+ * is why it is a section of its own. */
+section.browser('cli: --render demands the render gate', async () => {
+    const cp = await import('node:child_process');
+    const CLI = path.join(FIX, '..', '..', 'cli.mjs');
+    const r = cp.spawnSync('node', [CLI, f('good.clas.abap'), '--no-config', '--render'], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', GITHUB_ACTIONS: '' } });
+    assert(r.status !== 2, `cli: --render is a known flag, so a job can demand the render gate (exit ${r.status}: ${(r.stderr || '').split('\n')[0]})`);
 });
 
 // --------------------------------------------------------- upstream mirror ----
