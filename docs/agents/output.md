@@ -86,7 +86,7 @@ Rules that hold for all three:
 - **`--timing` accounts, it does not benchmark.** It adds a `slowest` line
   (and `stats.timings` to the JSON document): every rule written as one unit
   under `rule:<id>`, the rules that still share a function under the pass
-  they run in (`pass:chain-layout`), and what
+  they run in, and what
   `checkAbapRules( )` does outside every named pass as ONE entry,
   `pass:abap-rules (other)` - so the parts add up to the whole and a rule that
   has no entry of its own is visibly inside one, not free. The model of the

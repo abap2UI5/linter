@@ -386,6 +386,12 @@
   share is read once per source by `displayFlow( )` in `lib/lifecycle-
   rules.mjs`, and `--timing` names them instead of `pass:lifecycle`. 159 of
   173 rules are units now.
+- **The three chain-layout rules are one file each** (`chain-element-per-
+  line`, `chain-indentation`, `chain-house-layout`, still opt-in). The
+  multi-line chains the first two judge are read once per source by
+  `multiLineChains( )` in `lib/chain-layout.mjs`, and both run per chain in
+  the old order; layout findings still bypass the collapse of repeats. 162
+  of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
