@@ -129,10 +129,13 @@ baseline. Details: `docs/agents/scope.md`.
 `detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
 and `check( context )` — plus one import line in `lib/rules/index.mjs`.
 Severities, `describe( )`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES` and
-the rule page read it from there. Its check reads `context.model`
-(`lib/abap-model.mjs`: tokens with source offsets, statements, class parts and
-sections, methods with locals, attributes, signatures, `resolve( name, offset )`)
-rather than scanning text with regular expressions of its own.
+the rule page read it from there. The scope says where it runs: `'class'`
+for every class (`context.model`, `lib/abap-model.mjs`: tokens, statements,
+sections, methods, attributes, `resolve( name, offset )` - rather than regular
+expressions of its own), `'app'` at its place in `checkAbapRules( )`, `'node'`
+once per view node inside the property walk (the node, its control and
+metadata, the control it sits in; metadata readers are `lib/ui5-meta.mjs`).
+An `'app'` or `'node'` rule is called with `runRule( )` at that place.
 
 Then, for every rule, old shape or new:
 

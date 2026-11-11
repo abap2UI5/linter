@@ -662,6 +662,9 @@ declare module "@abap2ui5/linter/properties" {
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
       boundElement?: boolean;
+      /** Filled in when given: `rule:<id>` -> ms for the rules of scope
+       *  'node' the walk runs (lib/timing.mjs). */
+      timings?: Map<string, number> | null;
       /** Counted into, when given: `paths` - the binding paths asked about -
        *  and `pathsOpaque` - those that led into a type the class does not
        *  declare and were therefore not judged. */
@@ -1806,7 +1809,7 @@ declare module "@abap2ui5/linter/abap-model" {
 declare module "@abap2ui5/linter/rule" {
   import type { AbapModel } from "@abap2ui5/linter/abap-model";
   export const SEVERITIES: readonly ["error", "warning", "hint"];
-  export const SCOPES: readonly ["class", "app"];
+  export const SCOPES: readonly ["class", "app", "node"];
   /** What a rule's check is handed. */
   export interface RuleContext {
     model: AbapModel;
@@ -1821,8 +1824,9 @@ declare module "@abap2ui5/linter/rule" {
     severity: "error" | "warning" | "hint";
     category: string;
     /** 'class': run for every class by runRules( ); 'app': run at its own
-     *  place in checkAbapRules( ) by runRule( ). */
-    scope: "class" | "app";
+     *  place in checkAbapRules( ) by runRule( ); 'node': run once per view
+     *  node at its own place in the property walk. */
+    scope: "class" | "app" | "node";
     summary: string;
     detail: string;
     example: string;
@@ -1845,6 +1849,6 @@ declare module "@abap2ui5/linter/rule" {
   /** The first `n` characters of a value as text (default 80). */
   export function short(value: unknown, n?: number): string;
   /** Run the rules of one scope; `timings` adds up the wall time per rule id. */
-  export function runRules(rules: readonly Rule[], scope: "class" | "app", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
+  export function runRules(rules: readonly Rule[], scope: "class" | "app" | "node", context: RuleContext, options?: { timings?: Map<string, number> | null }): void;
 }
 

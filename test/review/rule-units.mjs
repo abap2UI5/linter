@@ -124,6 +124,21 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     }
   });
 
+  section('rule units: every message can be written for any finding', () => {
+    /* A message is only written when a finding of its rule is reported, so a
+     * name it uses and does not import (a helper findings.mjs used to hold)
+     * stays hidden until some run hits it. Every one is called here with a
+     * finding whose every field is a string. */
+    const stub = new Proxy({}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : k === 'fixes' ? undefined : 'x') });
+    const threw = [];
+    for (const rule of UNIT_RULES) {
+      try {
+        if (typeof rule.message(stub) !== 'string') threw.push(`${rule.id}: not a string`);
+      } catch (e) { threw.push(`${rule.id}: ${e.message}`); }
+    }
+    assert(!threw.length, `each unit rule's message is a string for a stub finding (${threw.join('; ') || 'all'})`);
+  });
+
   section('rule units: runRules gives the id, honours scope and opt-in, and times each rule', () => {
     const seen = [];
     const mk = (id, extra = {}) => defineRule({ ...VALID, id, check: ({ report }) => report({ offset: 1 }), ...extra });

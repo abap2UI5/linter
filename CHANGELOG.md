@@ -17,7 +17,18 @@
   the lifecycle dispatch rules (`duplicate-for-iterator`,
   `separate-lifecycle-ifs`, `redundant-init-display`) - what they share with
   the rest of the dispatch pass is read once per source by
-  `dispatchFacts( )`. 36 of 173 now. A rule of the new scope `'app'`
+  `dispatchFacts( )`. And sixteen rules of the property walk, as rules of
+  the new scope `'node'`: the walk stays ONE walk and runs each at its
+  place, once per view node, with what it knows there (`control-too-new`,
+  `control-deprecated`, `invalid-aggregation-child`, `toolbar-control-in-bar`,
+  `duplicate-id`, `event-on-disabled-control`, `unknown-source-property`,
+  `missing-required-aggregation`, `editable-control-without-binding`,
+  `column-cell-count-mismatch`, `rows-hidden-by-visible`,
+  `bound-aggregation-over-size-limit`, `duplicate-aggregation`,
+  `missing-accessibility`, `picker-value-without-format`,
+  `too-many-children`). The metadata readers they share with the walk moved
+  to `lib/ui5-meta.mjs`, an internal module. 52 of 173 now; `--timing`
+  names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to
   `lib/abap-helpers.mjs`. No finding, message or fix changed - measured on
