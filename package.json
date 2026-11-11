@@ -82,6 +82,10 @@
       "types": "./types.d.ts",
       "default": "./lib/portable.mjs"
     },
+    "./project-index": {
+      "types": "./types.d.ts",
+      "default": "./lib/project-index.mjs"
+    },
     "./schema": "./data/abap2ui5lint.schema.json",
     "./compat": "./data/compat.json"
   },

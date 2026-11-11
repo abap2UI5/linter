@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **`unknown-binding-path` keeps a row component whose type it cannot
+  resolve.** `gname TYPE seqg3-gname` - a component typed by the component
+  of a structure the class does not declare, the usual way to type a row
+  after a DDIC structure - matched no field at all, so the component was
+  dropped from the row and every binding to it was reported as "the rows
+  have no such field" (lock-manager: nine warnings on `{GNAME}` …
+  `{GCLIENT}`). The component is declared by name; only its type is unknown.
+  It stays in the row now, and a name the row really does not declare is
+  still reported.
+- **`non-released-api` asks whose an object is before it reads the name.**
+  A `z2ui5_t_<n>` was the framework's table because of its name, also in the
+  repository that ships `z2ui5_t_<n>.tabl.xml` itself (the addons number
+  their tables in that family; admin-cockpit: 23 warnings on its own nine
+  tables). The objects under the linted paths are read off their abapGit
+  file names (`lib/project-index.mjs`, the `./project-index` export and the
+  `ownObjects` option) and are never reported; a framework object the
+  repository merely references still is.
 - **`unknown-binding-path` follows two more row contexts.** The column
   templates of a `sap.ui.table` table (`Column.template`,
   `rowActionTemplate`, `rowSettingsTemplate`) are judged against the rows of

@@ -74,6 +74,11 @@ declare module "@abap2ui5/linter" {
      *  inherits from its superclass apart from the client's. checkFiles
      *  builds it over the files it is handed when none is given. */
     classIndex?: ClassIndex | null;
+    /** The objects the linted repository defines, lower case - ownObjectsOf( )
+     *  of `@abap2ui5/linter/project-index`, read off the abapGit file names.
+     *  `non-released-api` is silent on them. checkFiles builds it from the
+     *  files it is handed when none is given. */
+    ownObjects?: readonly string[] | null;
     /** The portable profile the opt-in `portable-app` rule judges against,
      *  as an object of data/portable-v1.json's shape - for a host that cannot
      *  hand the linter a path. Absent, the vendored copy is read, and only
@@ -769,7 +774,7 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  by under `allClasses`: the abapGit round-trip family, the activation and
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
-  export function checkSourceRules(source: string): PropertyFinding[];
+  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null }): PropertyFinding[];
   /** The rule ids checkSourceRules( ) can emit. */
   export const SOURCE_RULES: ReadonlySet<string>;
 
@@ -823,6 +828,9 @@ declare module "@abap2ui5/linter/abap-rules" {
       /** The other linted classes (classIndexOf) - a superclass's
        *  `cs_event` is resolved in it. */
       classIndex?: import("@abap2ui5/linter").ClassIndex | null;
+      /** The repository's own objects (ownObjectsOf) - never reported by
+       *  `non-released-api`. */
+      ownObjects?: readonly string[] | null;
       /** The metadata snapshot - without it the rules that need UI5
        *  knowledge stay silent. */
       data?: unknown;
@@ -1617,4 +1625,14 @@ declare module "@abap2ui5/linter/compat" {
   }
   const compat: Compat;
   export default compat;
+}
+
+declare module "@abap2ui5/linter/project-index" {
+  /** The object an abapGit file belongs to, lower case
+   *  (`src/z2ui5_t_26.tabl.xml` -> `z2ui5_t_26`), or null for a file that is
+   *  no object's. */
+  export function objectNameOf(file: string): string | null;
+  /** Every object defined under `paths` (files or directories), lower case,
+   *  sorted and unique - the `ownObjects` option. Reads file names only. */
+  export function ownObjectsOf(paths: readonly string[]): string[];
 }

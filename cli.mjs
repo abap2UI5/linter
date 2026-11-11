@@ -241,6 +241,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { checkFiles, collectFiles, screenshotFiles, checkAbapSource, checkXmlSource, isXmlSource } from './lib/index.mjs';
 import { classIndexOf, classIndexDeps } from './lib/guide-rules.mjs';
+import { ownObjectsOf, objectNameOf } from './lib/project-index.mjs';
 import { findConfig, loadConfig, applyConfig, CONFIG_NAMES } from './lib/config.mjs';
 import { snapshotVersion, withinUi5Floor } from './lib/properties.mjs';
 import { SEVERITIES, severityRank, severityOf } from './lib/findings.mjs';
@@ -1302,6 +1303,15 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
    * the run's own sources (as they are at that moment) plus these. */
   const indexExtra = indexOnlySources(indexPaths, files, opt, stdinMode ? null : paths);
   const indexOver = (abapSources) => classIndexOf([...abapSources, ...indexExtra]);
+  /* The objects the repository defines (lib/project-index.mjs) - every
+   * abapGit object under the configured paths, tables and interfaces
+   * included, plus whatever this run was handed by name. Read off file
+   * names, so the walk opens nothing. */
+  opt.ownObjects = [...new Set([
+    ...ownObjectsOf(indexPaths.filter((p) => fs.existsSync(p))),
+    ...files.map(objectNameOf).filter(Boolean),
+    ...(stdinMode && stdinName ? [objectNameOf(stdinName)].filter(Boolean) : []),
+  ])].sort();
 
   /* --fix is a pass of its own: the property gate alone (a fix never depends on
    * the render result), rewrite, then the normal run reports what is left -
