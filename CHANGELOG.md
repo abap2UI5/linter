@@ -32,7 +32,11 @@
   per document after the walk (`second-root`, `unused-namespace-declaration`,
   `undefined-css-class`, `external-link-without-target`); what the tree
   declares, uses and links is read once per root by `documentFacts( )` in
-  the internal `lib/view-document.mjs`. 56 of 173 now; `--timing`
+  the internal `lib/view-document.mjs`. And the three rules of the
+  aggregation tag (`aggregation-in-aggregation`, `aggregation-too-new`,
+  `unknown-aggregation`); `snapshotHint( )`, the second reading of "no such
+  member" several messages share, moved to `lib/ui5-meta.mjs` with them.
+  59 of 173 now; `--timing`
   names each of them. A rule of the new scope `'app'`
   runs at its own place in `checkAbapRules( )` (`runRule( )`, the `./rule`
   export) with the context that place has; the readers they share moved to

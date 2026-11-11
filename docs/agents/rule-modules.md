@@ -53,9 +53,9 @@ import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
 gates that, the file-per-id layout and the registries. Step 4 below (a
 fixture and assertions) is still yours to write.
 
-Fifty-six rules are written this way (`docs/agents/rule-map.md` lists
+Fifty-nine rules are written this way (`docs/agents/rule-map.md` lists
 them): the hygiene, round-trip and guide families, three lifecycle rules,
-sixteen rules of the property walk (scope `'node'`: `checkNodes( )` runs
+nineteen rules of the property walk (scope `'node'`: `checkNodes( )` runs
 each at its place, once per node, with the node, its control and metadata,
 the control it sits in and the floor; the readers they share with the walk
 are `lib/ui5-meta.mjs`), four rules of scope `'document'` (`second-root`,
