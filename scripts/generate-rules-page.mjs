@@ -324,7 +324,7 @@ export function playgroundLinks() {
  * on the right line.
  */
 const LIB = path.join(ROOT, 'lib');
-function emitSites() {
+export function emitSites() {
   const found = new Map();
   /* A rule written as one unit (lib/rule.mjs) IS its file: the definition,
    * the sentence, the card and the check are all there, at the line that

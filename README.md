@@ -154,16 +154,19 @@ node cli.mjs ../your-app/src             # or over a sibling app (this checkout 
 npm test
 ```
 
-`AGENTS.md` carries the conventions and what every gate checks;
-`CONTRIBUTING.md` and `RELEASING.md` the rest of the workflow.
+`AGENTS.md` carries the commands and the rules a change has to keep, and
+points into `docs/agents/` for the rest (scope, the rule map, the history of
+the rules, data, consumers); `CONTRIBUTING.md` and `RELEASING.md` have the
+workflow.
 
-Four artefacts are generated and gated by `npm test`, so a stale one fails the
+Five artefacts are generated and gated by `npm test`, so a stale one fails the
 build:
 
 ```sh
 npm run generate-metadata    # data/properties.json, from the @openui5 sources
 npm run generate-schema      # data/abap2ui5lint.schema.json — editor completion
 npm run generate-rules-page  # site/index.html — the published rule reference
+npm run generate-rule-map    # docs/agents/rule-map.md — every rule and the file it is defined in
 npm run generate-compat      # data/compat.json — which abap2UI5 releases this linter line understands (the ./compat export)
 ```
 
