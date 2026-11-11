@@ -347,6 +347,80 @@
   `non-released-api` would have reported every app that calls it, since
   the names fall under the internal `z2ui5_*_ui5_*` prefixes. The provider
   classes in `src/01/05` stay internal and are still reported.
+- **Twenty-nine inline rules of `checkAbapRules( )` are one file each**, of
+  scope `'app'`, run at the place their block stood (the obsolete-API
+  family, the binding-target rules, the message-box, style-brace, public-
+  attribute and popover rules, `ui5-internal-access` with both of its
+  halves, among others); the top-level readers they share moved to
+  `lib/abap-helpers.mjs`. 127 of 173 rules are units now.
+- **The event and row-literal rules of `abap-rules.mjs` are one file each.**
+  `event-without-handler` (both of its call sites), `event-name-case-
+  mismatch`, `event-arg-unresolved`, `event-arg-single-row-table`,
+  `trailing-empty-event-arg`, `event-arg-out-of-range`, `enum-field-unset-
+  on-insert` and `absent-boolean-overrides-default`. The facts two or more
+  of them share are read once per source by `backendEventCalls( )` and
+  `rowLiteralFacts( )` in `lib/abap-helpers.mjs`. 135 of 173 rules are units
+  now.
+- **The sixteen frontend-wire rules are one file each** (`unknown-frontend-
+  action`, `unknown-view-slot`, `literal-view-slot`, `frontend-action-
+  unknown-id`, `invalid-action-payload`, `filter-groups-not-arrays`,
+  `invalid-frontend-action`, `invalid-keyboard-shortcut`, `settable-
+  property-via-action`, `denied-control-method`, `invalid-aggregation-item`,
+  `frontend-action-too-new`, `control-call-arg-count`, `control-call-arg-
+  kind`, `control-state-lost-on-rebuild`, `navigation-lost-on-rebuild`).
+  `checkFrontendWires( )` reads the wires and runs them in the order their
+  verdicts depend on; the readers they share are in `lib/wire-readers.mjs`.
+  `--timing` names them one by one instead of `pass:frontend-wires`.
+  `memberSection`, `propertyDecl` and `withinUi5Floor` live in
+  `lib/ui5-meta.mjs` now and are re-exported from `lib/properties.mjs` as
+  before. 151 of 173 rules are units now.
+- **The three icon rules are one file each** (`unknown-icon`, `icon-removed`,
+  `icon-too-new`). `checkIcons( )` keeps its signature (an optional
+  `timings` joins it) and runs them in the order a name is judged, for ABAP
+  sources and view XML alike; `--timing` names them instead of `pass:icons`.
+  154 of 173 rules are units now.
+- **The last five lifecycle rules are one file each** (`unconditional-popup-
+  display`, `display-after-nav-app-call`, `double-display-in-branch`,
+  `missing-view-display-on-navigated`, `missing-on-navigated-branch`);
+  `checkLifecycleDispatch( )` is gone, the display flow the first three
+  share is read once per source by `displayFlow( )` in `lib/lifecycle-
+  rules.mjs`, and `--timing` names them instead of `pass:lifecycle`. 159 of
+  173 rules are units now.
+- **The three chain-layout rules are one file each** (`chain-element-per-
+  line`, `chain-indentation`, `chain-house-layout`, still opt-in). The
+  multi-line chains the first two judge are read once per source by
+  `multiLineChains( )` in `lib/chain-layout.mjs`, and both run per chain in
+  the old order; layout findings still bypass the collapse of repeats. 162
+  of 173 rules are units now.
+- **The five rules the reconstructor finds while it builds the view tree are
+  one file each**, of the new scope `'tree'` (`duplicate-property`, `excess-
+  shut`, `attribute-without-element`, `display-root-mismatch`, `chain-
+  unbalanced-parens`): `lib/reconstruct.mjs` runs each at the call that
+  shows the defect, and a rule that decides (a repeated attribute, a close
+  past the root) returns its verdict to the builder. 167 of 173 rules are
+  units now.
+- **`obsolete-custom-control` and `frozen-view-builder` are one file each.**
+  The first is one rule for both places it was said - the frozen builder's
+  helper calls (scope `'class'`, so `SOURCE_RULES` derives it like every
+  class rule) and the tag the property walk meets;
+  `obsoleteCcHelperFindings( )` runs it as before. 169 of 173 rules are
+  units now.
+- **`raw-javascript-to-frontend` is one file**, one rule for its five shapes
+  (a follow_up_action custom_js, a <script> or inline handler in markup, a
+  literal on an event, a javascript: URL), run by the wire dispatcher and
+  the property walk. 170 of 173 rules are units now.
+- **`portable-app` is one file**: the rule the linter runs (opt-in) over
+  `checkPortable( )`, which stays public API of its own. 171 of 173 rules
+  are units now.
+- **`unknown-directive-rule` and `unused-directive` are one file each**, of
+  the new scope `'directive'` (run once per directive by `applyDirectives(
+  )`, which hands them the known ids and the unused ones). **With them every
+  rule is a unit**: `RULES`, the severities, `describe( )`, `RULE_DOCS`,
+  `FIXABLE`, `OPT_IN` and `SOURCE_RULES` are read off `lib/rules/` alone,
+  the literal tables they used to be are gone, and AGENTS.md,
+  `docs/agents/rule-modules.md` and the module headers describe the one
+  shape. `RENDER_RULE` is defined in `lib/rule.mjs` and re-exported from
+  `./findings` as before. 173 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 

@@ -29,7 +29,7 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource }) 
       `every label is one of the known kinds (${labels.filter((k) => !/^(reconstruct|properties|portable|abap-model|rule:|pass:)/.test(k)).join(', ') || 'all'})`);
     const classRules = UNIT_RULES.filter((u) => u.scope === 'class').map((u) => `rule:${u.id}`);
     assert(classRules.every((k) => k in r.timings), 'each class-scoped unit rule has its own entry');
-    assert(['reconstruct', 'abap-model', 'pass:lifecycle', 'pass:frontend-wires'].every((k) => k in r.timings),
+    assert(['reconstruct', 'abap-model', 'rule:missing-on-navigated-branch', 'rule:control-state-lost-on-rebuild'].every((k) => k in r.timings),
       'the reconstruction, the model and the separable passes have theirs');
     assert(!('abap-rules' in r.timings) && Object.values(r.timings).every((ms) => typeof ms === 'number' && ms >= 0),
       'the total of checkAbapRules( ) is split, never reported beside its parts');

@@ -84,12 +84,12 @@ Rules that hold for all three:
   `stats.paths`, `stats.pathsOpaque`), and the summary prints the line only
   where something was left unjudged.
 - **`--timing` accounts, it does not benchmark.** It adds a `slowest` line
-  (and `stats.timings` to the JSON document): every rule written as one unit
-  under `rule:<id>`, the rules that still share a function under the pass
-  they run in (`pass:frontend-wires`, `pass:lifecycle`, …), and what
-  `checkAbapRules( )` does outside every named pass as ONE entry,
-  `pass:abap-rules (other)` - so the parts add up to the whole and a rule that
-  has no entry of its own is visibly inside one, not free. The model of the
+  (and `stats.timings` to the JSON document): every rule under `rule:<id>`
+  (a few the property walk runs untimed stay inside `properties`), and what
+  `checkAbapRules( )` does around its rules - reading the class, its wires,
+  its chains - as ONE entry, `pass:abap-rules (other)` - so the parts add up
+  to the whole and a rule that has no entry of its own is visibly inside one,
+  not free. The model of the
   class (`abap-model`) is built under its own entry, or the first rule to
   touch it would pay for it. A timed run skips the cache (a replayed verdict
   took no time). `lib/timing.mjs`; a new pass is one `timed( )` around its

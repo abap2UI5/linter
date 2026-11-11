@@ -6,12 +6,13 @@ The notes behind the modules: what each one emits or provides and the decisions 
 
 A finding's `type` **is its rule id** — printed at the end of every reported
 line, keyed in the config's `rules` block, nameable in a source directive and
-offered by the JSON schema. The registry is `SEVERITY_BY_TYPE` in
-`lib/findings.mjs` (exported as `RULES`); a type missing from it is not a
-known rule and the config will refuse it. Emit sites (grep the id to find the
-exact line):
+offered by the JSON schema. Every rule is one file under `lib/rules/`
+(`rule-map.md` lists them); the registries in `lib/findings.mjs` (`RULES`, the
+severities) are read off those files, and a type no file defines is not a
+known rule - the config refuses it. The table says which module RUNS each
+rule and why it is run there:
 
-| Emitting file | Finding types |
+| Run by | Finding types |
 | --- | --- |
 | `lib/properties.mjs` | `unknown-control`, `control-too-new`, `control-deprecated`, `deprecated-after-target` (the deprecation HORIZON: a deprecation that takes effect after the target and up to `deprecatedAt` — the option's whole effect, so with it unset the rule cannot fire; emitted beside `control-deprecated` and `member-deprecated` and for native markup, with the replacement the deprecation's `{@link}` names and whether the target has it — `replacementOf( )`; never fixed, since the replacement may not exist on the target), `native-html-in-view` (an element in the XHTML or SVG namespace, deprecated in an XMLView since 1.120 and logged there as a `[FUTURE FATAL]` — once per island of markup, on its outermost element; below a 1.120 target it is `deprecated-after-target` under a horizon and silent without one), `sapui5-only-control` (an error with `--distribution openui5`, a hint with no `distribution` configured, silent with `sapui5`), `deprecated-library` (the five libraries SAP deprecated WHOLE, which is the one thing here that cannot come from the snapshot: a library nobody should write any more is not in what the harvest reads, so a `sap.ui.commons` view was invisible rather than merely unjudged — and it stands the rule above it down, because a tag that has to be rewritten does not also need advice on the distribution it is kept under), `unknown-property`, `member-too-new`, `member-deprecated`, `event-parameter-too-new`, `unknown-event-parameter`, `invalid-property-value`, `unknown-aggregation`, `aggregation-in-aggregation`, `too-many-children`, `invalid-aggregation-child`, `duplicate-aggregation`, `missing-required-aggregation`, `duplicate-id`, `undeclared-namespace`, `invalid-expression-binding`, `binding-for-event`, `event-for-property`, `unknown-binding-path`, `collection-bound-to-property`, `binding-type-mismatch`, `enum-bound-to-initial-field` (the root-field twin of `enum-field-unset-on-insert`: an enum-typed property bound to an attribute the start path gives no value — no literal seed, no declared `VALUE`, no other write — so the first display ships `""` and the app terminates; judged only for a document the first display shows, against prepareAbap's `initModel`/`initialFields`, see **The start path** below), `json-bind-on-scalar-property`, `uncurated-formatter` (list: `lib/formatters.mjs`), `binding-on-association`, `unknown-model`, `event-on-disabled-control`, `raw-javascript-to-frontend` (view half - a `<script>` tag, an inline `on…=` handler in markup, a `javascript:` URL in a URI-typed property, classes only; the `follow_up_action` half emits in `abap-rules.mjs`), `missing-accessibility`, `aggregation-too-new` (the aggregation-TAG half of `member-too-new`, split off because UI5 resolves an unknown tag as a control class and the 404 kills the view), `toolbar-control-in-bar`, `relative-aggregation-without-context` (the aggregation counterpart of `relative-binding-without-context`), `json-literal-in-attribute`, `picker-value-without-format`, `relative-asset-url`, `date-type-without-source`, `enum-value-too-new`, `validating-setter-out-of-range` (the harvested `setterMin`: a property whose own setter refuses the ABAP initial 0), `unresolved-attribute-value` (an enum-typed attribute the reconstructor had to drop, so the one check that would have decided it went with the value; a `COND #( )`/`SWITCH #( )` with an `ELSE` whose every branch resolves is not dropped from the judgement - the reconstructor records its values as `branchValues` and `checkValue( )` judges each one like a literal), `insecure-asset-url` (the `http://` sibling of `relative-asset-url` in the same `checkValue` site — an error where the browser LOADS the URI, a per-finding `hint` where it navigates: `href` and the ObjectHeader's `titleHref`/`introHref`), `invalid-css-value` (a literal on a CSS-typed property - `CSSSize`, `AbsoluteCSSSize`, `CSSSizeShortHand`, `CSSColor`, `Percentage` - that the type's own regex refuses, judged in `checkValue( )` against the snapshot's `typePatterns`: the XML parser only logs it, the setter throws, the view is never created; a guessed value is not judged), `unknown-binding-type` and `binding-type-too-new` (a model type named by a binding info's `type:` or a `core:require` module path, against the snapshot's `modelTypes` — no such class, or newer than the floor; the require half is judged at the require, so an alias is never reported twice), `html-content-not-markup` (a `sap.ui.core.HTML` `content` that does not open with a tag: `new jQuery(content)` reads it as a SELECTOR - nothing renders, or the selector throws; the fix wraps plain text in a `<span>`, as entities in raw XML), plus the DOCUMENT-level pass `checkDocument( )` that runs once after the walk: `unused-namespace-declaration` (the mirror of `undeclared-namespace`, reading tag prefixes AND attribute prefixes — `core:require`, `app:type` — with a deleting `--fix` attached in `findings.mjs` only when the `a( )` call has its line to itself; it stands down in `check.mjs` (`standDownUnusedNamespaces( )`, exported on `./check`) where the reconstruction is known incomplete — `unplacedTokens > 0`, or a prefix the class writes in more builder literals than its documents carry, the RETURNING-helper shape of abap2UI5's `z2ui5_cl_ui5_app_start` — and a directive for it is then unjudged, `stoodDown` on `applyDirectives( )`), `association-unknown-id` (the other half of `binding-on-association`: a plain id no control of the document carries, judged against the document's literal ids and only when every id in it is one), `column-cell-count-mismatch` (a `sap.m.Table` whose row template has a different number of cells than the table has columns — mapped by index, nothing logged), `rows-hidden-by-visible` (a bound `items` of a non-growing `sap.m.ListBase` — no binding-info `length` — whose row template carries a binding-valued `visible`, in a class that raises no size limit — `sizeLimitRaised( )`, read by `check.mjs` off the source, null for a raw view: the hidden rows count against the JSONModel's 100, so the list stops short of its data; the narrow successor of the size-limit rule dropped in 0.3, see its CHANGELOG), `bound-aggregation-over-size-limit` (the third **opt-in** rule, `OPT_IN`: the general rule dropped in 0.3, back for an app's own code - a bound `items` of a non-growing `sap.m.ListBase`, a `Select` or a `ComboBoxBase` without a binding-info `length`, whose table the class is SEEN to seed past 100 rows: `seededRowCounts( )` in `check.mjs` reads the one literal seed's rows or the APPENDs of literal `DO n TIMES` loops, a lower bound, and only for a table nothing else may shorten; computed and handed to `checkNodes` as `seededRows` only when the rules block asks and the class raises no size limit. Opt-in because the port corpus it was measured on caps at 100 in the originals too), `bound-aggregation-without-template` (a bound aggregation with no child to clone — `bindAggregation` throws and the view never loads), `unknown-source-property` (the `$source>/name` twin of `unknown-event-parameter`, recorded by the reconstructor as `sourceParams`), `editable-control-without-binding` (an input whose value property is neither bound nor read back by an event — a hint, judged per family through `INPUT_FAMILIES`), `undefined-css-class` (a `class` token neither under a UI5 prefix in `lib/css-classes.mjs` nor defined by a `<style>` block the same document carries; a document whose stylesheet is unresolved is not judged), `external-link-without-target` (an absolute `href` with no `target` on the same element, prefixed pairs judged against their own `…Target`), `second-root` (a second element at the document's top level — the split chain after a standalone `factory( ).`, which the render gate rejected and the property gate never named), `malformed-xml` (a raw view that is not well-formed — a mismatched, unclosed or stray closing tag, a duplicate attribute — recorded by `parseXml( )` as `root.malformed` beside the lenient tree it keeps building, and reported by `checkNodes( )` so a consumer assembling the pipeline gets it too; `UNWRAPPABLE` on the rules page, since no builder class can write one), plus `obsolete-custom-control` (the view half: a tag whose prefix is BOUND to `z2ui5.cc` naming one of the eight companion controls abap2UI5 marks `// OBSOLETE:` — builder tag and raw XML alike, judged by the namespace and never by the prefix, so `sap.m.Title`/`core:Title` stay silent; emitted before the walk decides what to do with a foreign-namespace tag at all). The walk looks away from a foreign namespace with one exception: a companion control `lib/cc-controls.mjs` MIRRORS is judged like any UI5 control - its metadata layered over the snapshot by `withCompanionControls( )`, the real base class as its parent - so every rule above applies to it; a z2ui5.cc control nobody mirrored is still looked away from |
 | `lib/chain-layout.mjs` | `chain-indentation`, `chain-element-per-line` — emitted through `checkAbapRules`, so every consumer that calls it gets them. Plus `chain-house-layout`, the first of the two **opt-in** rules (`OPT_IN` in `lib/findings.mjs`; the other is `portable-app`): `checkAbapRules` does not even run it unless the `rules` block asks, because its fixes span a whole chain and defer any other rule's fix inside it to a second pass (which `--fix` makes by itself since it runs to a fixed point, `MAX_FIX_PASSES` in `lib/fix.mjs`). The house-layout fix moves a segment's continuation lines with it, except a line that starts with a comment: a `*` is a comment in column 1 only, and a `"` comment's indent is the author's |
@@ -36,7 +37,7 @@ exact line):
 object (`lib/rule.mjs`): id, severity, category, scope, the card (`summary`,
 `detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
 and `check( context )`, plus one import line in `lib/rules/index.mjs`. Every
-registry reads it from there — `SEVERITY_BY_TYPE` and `describe( )` in
+registry reads it from there — `RULES`, the severities and `describe( )` in
 `findings.mjs`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES`, the rule
 page's "Defined in" link — so there is nothing to keep in step by hand, and a
 definition that would fail a gate later (no card, a remedy equal to its
@@ -47,77 +48,51 @@ visibility sections, methods, attributes, locals) instead of scanning text
 with regular expressions of its own: case, comments, literals, chained
 declarations and statement ends are decided once, there, for every rule.
 `runRules( )` gives each finding its `type` (a rule file never writes one)
-and can time each rule (`timings`). A rule module imports leaf modules only
-(`rule.mjs`, `abap-model.mjs`, `abap.mjs`, `suggest.mjs`) — the registries
-import the rules, so anything else is a cycle; `test/review/rule-units.mjs`
-gates that, the file-per-id layout and the registries. Step 4 below (a
-fixture and assertions) is still yours to write.
+and can time each rule (`timings`). A rule module imports nothing that
+reaches a registry (`findings`, `rule-docs`, `fix`, `abap-rules`,
+`rules/index`) — the registries import the rules, so that would be a cycle;
+`test/review/rule-units.mjs` gates that over the import graph, the
+file-per-id layout and the registries. A fixture and its assertions are
+still yours to write.
 
-Ninety-eight rules are written this way (`docs/agents/rule-map.md` lists
-them): the hygiene, round-trip and guide families, three lifecycle rules,
-fifty-seven rules of the property walk (scope `'node'`: `checkNodes( )` runs
-each at its place, once per node, with the node, its control and metadata,
-the control it sits in and the floor - an attribute rule also the
-attribute, its value and its member; the readers they share with the walk
-are `lib/ui5-meta.mjs` and `lib/binding-paths.mjs`), five rules of scope `'document'` (`malformed-xml`, `second-root`,
-`unused-namespace-declaration`, `undefined-css-class`,
-`external-link-without-target`: once per view document after the walk,
-reading what the tree declares, uses and links from `documentFacts( )` in
-`lib/view-document.mjs`), `non-released-api` (scope `'class'`, run for every
-class by `checkAbapHygiene( )`), and twelve rules of scope `'app'` that
-`checkAbapRules( )` runs at their own place with `runRule( )` - each was a
-function of its own there and needed the context that place has (the
-dialect, the view metadata, what the frontend-wire pass found). Their shared
-readers moved to `lib/abap-helpers.mjs`, which reaches no registry. What is
-left in the old shape is rules that share ONE function with others - the
-attribute loop of the property walk (23 rules decided per attribute from one
-member lookup), the walk's namespace and aggregation-tag branches, the frontend-wire pass, five rules of the
-lifecycle dispatch (two blocks that decide several rules from one walk;
-their shared facts are `dispatchFacts( )` already), the event-argument rules
-and the inline blocks of `checkAbapRules( )`; moving one of those means
-splitting a shared loop, rule by rule. Five read the model
-(`boolc-instead-of-xsdbool`, `class-constructor-visibility`,
-`empty-catch-block`, `into-corresponding-inline-decl`, `redundant-conv-i`);
-the other six were LIFTED: their scan moved into the file as it was, over
-`model.src` / `model.code`, so the rule is in one place first and reads the
-model when somebody next works on it. Both moves changed no finding their
-sections assert. `redundant-conv-i` is the one to read for
-what the model buys: it asks `model.resolve( name, offset )` - the local of
-the method, then its parameter, then the attribute, ABAP's own order - where
-the old scan kept one class-wide set of names typed `i` and reported an
-assignment to a local STRING that shared its name with an integer attribute. **The others are still in the old shape and move one at a
-time**: delete the emit block, the `SEVERITY_BY_TYPE` line, the `describe( )`
-case, the `RULE_DOCS` entry and the name in `FIXABLE`/`SOURCE_RULES`, write
-the file, run the suite. An id defined both ways throws at import. Two things
-the model does not do, so a rule that needs them stays where it is for now:
-it follows no builder chain and resolves no value (that is the
+One hundred and seventy-three rules are written this way, and each
+scope says where its rules run: `'class'` for every class (`runRules( )` in
+`checkAbapHygiene( )`), `'app'` at its place in `checkAbapRules( )` - or in
+the dispatcher that reads what it judges (`checkFrontendWires( )` reads the
+wires, `checkIcons( )` the icon names, `multiLineChains( )` the chains) -
+`'node'` inside the property walk, `'document'` once per view document,
+`'tree'` in the reconstructor, `'directive'` in `applyDirectives( )`. Where a
+loop used to decide several rules at once, the loop stayed as the dispatcher
+and runs them in the order their verdicts depend on: a rule that decides
+returns true, which is what each `continue` used to say. What two or more
+rules share is read once per source by a fact reader (`dispatchFacts( )`,
+`displayFlow( )`, `backendEventCalls( )`, `rowLiteralFacts( )`,
+`documentFacts( )`, `multiLineChains( )`) in a module that reaches no registry.
+
+Five rules read the model (`boolc-instead-of-xsdbool`,
+`class-constructor-visibility`, `empty-catch-block`,
+`into-corresponding-inline-decl`, `redundant-conv-i`); the others were
+LIFTED: their scan moved into the file as it was, so each rule is in one
+place first and reads the model when somebody next works on it. No move
+changed a finding: each was measured on the fixtures and four corpora before
+and after. `redundant-conv-i` is the one to read for what the model buys: it
+asks `model.resolve( name, offset )` - the local of the method, then its
+parameter, then the attribute, ABAP's own order - where the old scan kept one
+class-wide set of names typed `i` and reported an assignment to a local
+STRING that shared its name with an integer attribute. Two things the model
+does not do: it follows no builder chain and resolves no value (that is the
 reconstructor's, `lib/reconstruct.mjs`), and it records declarations, not
 writes.
 
-**A rule in the old shape moves four places together** — forgetting one has happened:
+The README does not document the rules — it links the generated page — so the
+card in the rule's file is the only place its prose is written, and `npm test`
+gates it against the registry.
 
-1. the emit site in `lib/`,
-2. its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what
-   registers it as a rule id,
-3. an entry in `RULE_DOCS` (`lib/rule-docs.mjs`) — category, summary, detail,
-   and the `example`/`remedy` **pair**: the shortest source that triggers the
-   rule, and the same source fixed. Both are gated; a remedy equal to its
-   example fails too. Published as the `./rule-docs` export, so this prose is
-   also what an agent reads through mcp-server's `validate_view` instead of
-   being sent to a website — and what every report links at, `ruleUrl( )` for
-   the card and `ruleExampleUrl( )` for the pair,
-4. a fixture in `test/fixtures/` + assertions in `test/run.mjs`.
-
-There used to be a fifth: a row in the README's finding-type table. The README
-no longer documents the rules — it links the generated page — so `RULE_DOCS` is
-now the only place the prose is written, and `npm test` gates it against the
-registry. One place fewer to forget.
-
-Step 4 is no longer on trust: the **rule-coverage gate** at the end of
+The fixture is not on trust either: the **rule-coverage gate** at the end of
 `test/run.mjs` asserts that every id in `RULES` actually fired somewhere in the
 suite, from what the checks produced (`test/observe.mjs` records it) rather
-than from what the test source appears to mention. A rule registered in step 2
-with no source that triggers it fails `npm test`. It is what found
+than from what the test source appears to mention. A rule with no source that
+triggers it fails `npm test`. It is what found
 `escaped-brace-in-backtick`, which had shipped with no test of any kind and
 which nothing was in a position to notice.
 
