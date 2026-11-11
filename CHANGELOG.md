@@ -361,6 +361,19 @@
   of them share are read once per source by `backendEventCalls( )` and
   `rowLiteralFacts( )` in `lib/abap-helpers.mjs`. 135 of 173 rules are units
   now.
+- **The sixteen frontend-wire rules are one file each** (`unknown-frontend-
+  action`, `unknown-view-slot`, `literal-view-slot`, `frontend-action-
+  unknown-id`, `invalid-action-payload`, `filter-groups-not-arrays`,
+  `invalid-frontend-action`, `invalid-keyboard-shortcut`, `settable-
+  property-via-action`, `denied-control-method`, `invalid-aggregation-item`,
+  `frontend-action-too-new`, `control-call-arg-count`, `control-call-arg-
+  kind`, `control-state-lost-on-rebuild`, `navigation-lost-on-rebuild`).
+  `checkFrontendWires( )` reads the wires and runs them in the order their
+  verdicts depend on; the readers they share are in `lib/wire-readers.mjs`.
+  `--timing` names them one by one instead of `pass:frontend-wires`.
+  `memberSection`, `propertyDecl` and `withinUi5Floor` live in
+  `lib/ui5-meta.mjs` now and are re-exported from `lib/properties.mjs` as
+  before. 151 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
