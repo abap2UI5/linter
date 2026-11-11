@@ -176,13 +176,17 @@ npm run generate-icons       # data/icons.json — the SAP icon-font snapshot
 npm run generate-dependents  # the "Used by" list above, from GitHub's dependents page
 ```
 
-One file is vendored from another repository rather than generated, and is
-refreshed by hand when the protocol moves (`npm test` pins its hash, the
-weekly upstream-sync workflow reports drift):
+Two files are vendored from another repository rather than generated:
 
 ```sh
 npm run sync-portable-profile   # data/portable-v1.json — abap2UI5/protocol's portable profile (-- --local <checkout> to read a clone)
+npm run sync-manifest           # data/abap2ui5-manifest.json — abap2UI5's manifest of the closed sets mirrored in lib/ (-- --local <checkout>)
 ```
+
+The profile is refreshed by hand when the protocol moves (`npm test` pins its
+hash, the weekly upstream-sync workflow reports drift). The manifest is what
+the hand-maintained mirrors are held to: `npm test` compares them with it on
+every run, so refreshing it and updating the mirrors is one change.
 
 `site/` holds that generated rule reference (published to
 https://abap2ui5.github.io/linter/), not documentation about this repository.

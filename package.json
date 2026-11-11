@@ -122,6 +122,7 @@
     "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs",
     "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
+    "sync-manifest": "node scripts/sync-manifest.mjs",
     "sync-peer-range": "node scripts/peer-range.mjs"
   },
   "repository": {

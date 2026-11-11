@@ -46,6 +46,14 @@
  *
  *   node scripts/check-upstream.mjs                    fetch from GitHub main
  *   node scripts/check-upstream.mjs --local <dir>      read an abap2UI5 checkout
+ *   node scripts/check-upstream.mjs --manifest <file>  read the manifest abap2UI5
+ *                                                      writes of these sets (its
+ *                                                      .github/shared/linter-manifest.json)
+ *                                                      instead of finding them in
+ *                                                      its sources
+ *   node scripts/check-upstream.mjs [--local <dir>] --emit-manifest
+ *                                                      print the sets the parsers
+ *                                                      find, as that manifest
  *
  * Exit codes: 0 in sync, 1 drift, 2 sources unreachable.
  */
@@ -65,6 +73,8 @@ import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-ap
 import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
+/* The manifest abap2UI5 writes of the sets mirrored here - see deriveUpstream( ). */
+const MANIFEST_PATH = '.github/shared/linter-manifest.json';
 const TREE = 'https://api.github.com/repos/abap2UI5/abap2UI5/git/trees/main?recursive=1';
 const FORMATTER_PATH = 'app/webapp/model/formatter.js';
 /* The clipboard module arrived after the formatter one; an upstream that does
@@ -87,6 +97,12 @@ const CLIENT_INTF_PATH = 'src/02/z2ui5_if_client.intf.abap';
  * MessageBox display methods - MESSAGE_BOX_TYPES mirrors that list, and
  * unknown-message-box-type reports a literal type outside it. */
 const FRONTEND_CLASS_PATH = 'src/01/02/z2ui5_cl_ui5_frontend.clas.abap';
+/* …where `ct_box_type` used to be. Upstream moved box_resolve( ) and the
+ * list into the message service, and this script went on reading the old
+ * class: it found no list, so all seven types were reported as "gone
+ * upstream" - the mirror was right and the reader was blind. Read from the
+ * message service first, the old class for a checkout from before the move. */
+const BOX_TYPE_PATHS = ['src/01/02/z2ui5_cl_ui5_srv_message.clas.abap', FRONTEND_CLASS_PATH];
 
 /* The frontend action JS lives embedded in the generated ABAP classes under
  * src/01/03. It used to be ONE class (z2ui5_cl_ui5f_frontact_js) and upstream
@@ -440,6 +456,84 @@ export function parseShortcutAliases(abapSrc) {
 
 const setDiff = (a, b) => a.filter((x) => !b.includes(x));
 
+/* The version of the manifest shape below. Raised when a key changes its
+ * meaning or goes away - a new key is not a new version. */
+export const MANIFEST_SCHEMA = 1;
+
+/**
+ * Everything this script reads out of abap2UI5, as ONE plain object - the
+ * closed sets the mirrors in lib/ are copies of.
+ *
+ * It is the seam between two jobs that used to be one function: finding the
+ * sets in upstream's sources (the parsers above, which know where upstream
+ * keeps what and break when it moves a file) and comparing them with the
+ * mirrors (the rest of main( )). With the seam, the first job has a second
+ * possible owner: abap2UI5 itself can WRITE this object - it knows its own
+ * layout, and a split of a module is then its change to make in its own
+ * generator, not a silent blind spot here - and `--manifest <file>` reads
+ * what it wrote instead of parsing. `--emit-manifest` prints what the
+ * parsers derive, which is how the two are held equal while both exist.
+ *
+ * Every list is in source order; a set a parser does not find is empty (or
+ * `{}`), and main( ) decides which of those are fatal.
+ */
+export function deriveUpstream({ formatterSrc, clipboardSrc = '', clientIntfSrc, frontendClassSrc, actionSrc, ccSrc = {}, xmlViewCcSrc = null, srcPaths = [] }) {
+  return {
+    schema: MANIFEST_SCHEMA,
+    formatters: parseFormatterExports(formatterSrc),
+    clipboardCallbacks: parseFormatterExports(clipboardSrc),
+    messageBoxTypes: parseBoxTypes(frontendClassSrc),
+    clientEvents: parseClientEvents(clientIntfSrc),
+    companionControls: Object.fromEntries(Object.keys(ccSrc).sort().map((name) => [name, {
+      properties: parseCcProperties(ccSrc[name]),
+      events: parseCcEvents(ccSrc[name]),
+      base: parseCcBase(ccSrc[name]),
+      obsolete: parseObsoleteHeader(ccSrc[name]),
+    }])),
+    frozenBuilderHelpers: xmlViewCcSrc === null ? null : parseCcHelpers(xmlViewCcSrc),
+    objects: objectsByPackage(srcPaths),
+    globalTargets: parseGlobalTargets(actionSrc),
+    cssProperties: parseCssProperties(actionSrc),
+    controlMethodDenyExact: parseDenyList(actionSrc, 'CONTROL_METHOD_DENY_EXACT'),
+    controlMethodDenyPrefixes: parseDenyList(actionSrc, 'CONTROL_METHOD_DENY_PREFIXES'),
+    bindingMethods: parseBindingMethods(actionSrc),
+    frontendEvents: parseHandlers(actionSrc),
+    filterOperators: parseStringList(actionSrc, 'FILTER_OPERATORS'),
+    viewSlots: parseStringList(actionSrc, 'SHORTCUT_SLOTS'),
+    shortcutModifiers: parseStringList(actionSrc, 'SHORTCUT_MODIFIERS'),
+    shortcutAliases: parseShortcutAliases(actionSrc),
+    urlHelperActions: parseUrlHelperActions(actionSrc),
+    controlMethodKinds: parseControlMethodKinds(actionSrc),
+    urlPolicies: parseUrlPolicies(actionSrc),
+  };
+}
+
+/* The keys a manifest must carry, with the JSON type of each: what
+ * `--manifest` checks before it compares anything, so a file of another
+ * shape is exit 2 ("could not read") and never a list of false drifts. */
+const MANIFEST_KEYS = {
+  formatters: 'array', clipboardCallbacks: 'array', messageBoxTypes: 'array', clientEvents: 'array',
+  companionControls: 'object', objects: 'object', globalTargets: 'object', cssProperties: 'array',
+  controlMethodDenyExact: 'array', controlMethodDenyPrefixes: 'array', bindingMethods: 'array',
+  frontendEvents: 'array', filterOperators: 'array', viewSlots: 'array', shortcutModifiers: 'array',
+  shortcutAliases: 'object', urlHelperActions: 'array', controlMethodKinds: 'object', urlPolicies: 'array',
+};
+
+/** Parse and validate a manifest (text). Throws with what is wrong. */
+export function readManifest(text) {
+  let m;
+  try { m = JSON.parse(String(text).replace(/^\uFEFF/, '')); } catch (e) { throw new Error(`not JSON - ${e.message}`); }
+  if (typeof m !== 'object' || m === null || Array.isArray(m)) throw new Error('expected a JSON object');
+  if (m.schema !== MANIFEST_SCHEMA) throw new Error(`schema ${JSON.stringify(m.schema)} - this linter reads schema ${MANIFEST_SCHEMA}`);
+  for (const [key, type] of Object.entries(MANIFEST_KEYS)) {
+    const v = m[key];
+    const ok = type === 'array' ? Array.isArray(v) : typeof v === 'object' && v !== null && !Array.isArray(v);
+    if (!ok) throw new Error(`'${key}' must be ${type === 'array' ? 'an array' : 'an object'}`);
+  }
+  if (m.frozenBuilderHelpers === undefined) m.frozenBuilderHelpers = null;
+  return m;
+}
+
 /*
  * Every network read goes through this: a timeout and a bounded retry.
  *
@@ -518,6 +612,21 @@ if (invokedDirectly) {
     console.error('check-upstream: --local needs the path of an abap2UI5 checkout');
     process.exit(2);
   }
+  /* --manifest <file>: compare against the manifest abap2UI5 writes
+   * (deriveUpstream's shape) instead of finding the sets in its sources.
+   * --emit-manifest: print what the parsers derive, as that same JSON, and
+   * stop - the reference a generated manifest is held equal to. */
+  const manifestAt = process.argv.indexOf('--manifest');
+  const MANIFEST = manifestAt !== -1 ? process.argv[manifestAt + 1] : null;
+  if (manifestAt !== -1 && (!MANIFEST || MANIFEST.startsWith('--'))) {
+    console.error('check-upstream: --manifest needs the path of a linter manifest (abap2UI5: .github/shared/linter-manifest.json)');
+    process.exit(2);
+  }
+  const EMIT = process.argv.includes('--emit-manifest');
+  if (MANIFEST && (LOCAL || EMIT)) {
+    console.error(`check-upstream: --manifest reads a finished manifest - it cannot be combined with ${LOCAL ? '--local' : '--emit-manifest'}`);
+    process.exit(2);
+  }
 
   let formatterSrc;
   let clipboardSrc = '';
@@ -530,12 +639,40 @@ if (invokedDirectly) {
   // EVERY companion control upstream ships, not only the mirrored ones: the
   // OBSOLETE comparison has to see a newly marked control this file lacks
   const ccSrc = {};
-  try {
+  let up = null;
+  if (MANIFEST) {
+    try {
+      up = readManifest(fs.readFileSync(MANIFEST, 'utf8'));
+    } catch (e) {
+      console.error(`check-upstream: cannot read the manifest ${MANIFEST} — ${e.message}`);
+      process.exit(2);
+    }
+  }
+  /* Without --local and without --manifest: upstream's main. When it
+   * publishes a manifest, that is read - abap2UI5 found the sets in its own
+   * sources, with a generator its own gates keep true - and nothing is
+   * parsed here. An upstream that has none yet is parsed as before. A
+   * manifest that is there but unreadable is exit 2, never a silent fall
+   * back onto the parsers it was written to replace. */
+  if (!up && !LOCAL && !EMIT) {
+    try {
+      const res = await fetch(`${RAW}/${MANIFEST_PATH}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (res.ok) {
+        up = readManifest(await res.text());
+        console.log(`check-upstream: reading abap2UI5's own manifest (${MANIFEST_PATH})`);
+      } else if (res.status !== 404) throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      console.error(`check-upstream: cannot read ${RAW}/${MANIFEST_PATH} — ${e.message}`);
+      process.exit(2);
+    }
+  }
+  if (!up) try {
     if (LOCAL) {
       formatterSrc = fs.readFileSync(path.join(LOCAL, FORMATTER_PATH), 'utf8');
       if (fs.existsSync(path.join(LOCAL, CLIPBOARD_PATH))) clipboardSrc = fs.readFileSync(path.join(LOCAL, CLIPBOARD_PATH), 'utf8');
       clientIntfSrc = fs.readFileSync(path.join(LOCAL, CLIENT_INTF_PATH), 'utf8');
-      frontendClassSrc = fs.readFileSync(path.join(LOCAL, FRONTEND_CLASS_PATH), 'utf8');
+      frontendClassSrc = BOX_TYPE_PATHS.filter((p) => fs.existsSync(path.join(LOCAL, p)))
+        .map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
       srcPaths = walkFiles(LOCAL);
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = actionPaths.map((p) => fs.readFileSync(path.join(LOCAL, p), 'utf8')).join('\n');
@@ -545,12 +682,13 @@ if (invokedDirectly) {
       }
       if (srcPaths.includes(XML_VIEW_CC_PATH)) xmlViewCcSrc = fs.readFileSync(path.join(LOCAL, XML_VIEW_CC_PATH), 'utf8');
     } else {
-      [formatterSrc, clientIntfSrc, frontendClassSrc, srcPaths] = await Promise.all([
+      [formatterSrc, clientIntfSrc, srcPaths] = await Promise.all([
         fetchText(`${RAW}/${FORMATTER_PATH}`),
         fetchText(`${RAW}/${CLIENT_INTF_PATH}`),
-        fetchText(`${RAW}/${FRONTEND_CLASS_PATH}`),
         fetchTree(TREE),
       ]);
+      frontendClassSrc = (await Promise.all(BOX_TYPE_PATHS.filter((p) => srcPaths.includes(p))
+        .map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
       actionPaths = actionPathsOf(srcPaths);
       actionSrc = (await Promise.all(actionPaths.map((p) => fetchText(`${RAW}/${p}`)))).join('\n');
       const names = srcPaths.map((p) => p.match(CC_FILE_RE)?.[1]).filter(Boolean);
@@ -564,10 +702,19 @@ if (invokedDirectly) {
     console.error(`(if a file moved upstream, update FORMATTER_PATH / CLIENT_INTF_PATH / FRONTEND_CLASS_PATH / ACTION_DIR here)`);
     process.exit(2);
   }
-  if (!actionPaths.length) {
+  if (!up && !actionPaths.length) {
     console.error(`check-upstream: no ${ACTION_DIR}/${ACTION_FILE_RE.source} classes found — the embedded-JS layout changed, update ACTION_DIR/ACTION_FILE_RE`);
     process.exit(2);
   }
+  up ??= deriveUpstream({ formatterSrc, clipboardSrc, clientIntfSrc, frontendClassSrc, actionSrc, ccSrc, xmlViewCcSrc, srcPaths });
+  if (EMIT) {
+    console.log(JSON.stringify(up, null, 2));
+    process.exit(0);
+  }
+  /* A set that cannot be found is not a drift: with sources it means the
+   * embedding moved (fix the parser), with a manifest that its writer lost
+   * the set (fix the generator). Either way exit 2, and say which. */
+  const fixHint = (parser) => (MANIFEST ? 'the manifest carries none - its generator lost the set' : `the embedding changed, update ${parser}`);
 
   let drift = 0;
   const report = (what, ours, theirs) => {
@@ -583,9 +730,9 @@ if (invokedDirectly) {
     for (const n of staleHere) console.log(`  - '${n}' is gone upstream — stale here (broken code passes until it is removed)`);
   };
 
-  report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], parseFormatterExports(formatterSrc));
-  report('clipboard callbacks (lib/formatters.mjs)', [...CLIPBOARD_CALLBACKS], parseFormatterExports(clipboardSrc));
-  report('message box types (lib/frontend-actions.mjs)', [...MESSAGE_BOX_TYPES], parseBoxTypes(frontendClassSrc));
+  report('curated formatters (lib/formatters.mjs)', [...CURATED_FORMATTERS], up.formatters);
+  report('clipboard callbacks (lib/formatters.mjs)', [...CLIPBOARD_CALLBACKS], up.clipboardCallbacks);
+  report('message box types (lib/frontend-actions.mjs)', [...MESSAGE_BOX_TYPES], up.messageBoxTypes);
 
   /* The companion-control mirrors the render harness boots with and the
    * property walk judges. A property upstream added and this file lacks is
@@ -605,7 +752,7 @@ if (invokedDirectly) {
      * gone - one that comes back is the drift, and nothing is compared. */
     const removedAfter = CC_CONTROLS[name].obsolete?.removedAfter;
     if (removedAfter) {
-      if (ccSrc[name]) {
+      if (up.companionControls[name]) {
         drift++;
         console.log(`DRIFT companion control ${name} (lib/cc-controls.mjs):`);
         console.log(`  ! ${CC_DIR}/${name}.js is back upstream — recorded here as removed after ${removedAfter} (drop removedAfter and mirror it again)`);
@@ -614,7 +761,7 @@ if (invokedDirectly) {
       }
       continue;
     }
-    if (!ccSrc[name]) {
+    if (!up.companionControls[name]) {
       drift++;
       console.log(`DRIFT companion control ${name} (lib/cc-controls.mjs):`);
       console.log(`  ! ${CC_DIR}/${name}.js is gone upstream — the mirror has no source any more`);
@@ -624,8 +771,8 @@ if (invokedDirectly) {
     report(`companion control ${name} (lib/cc-controls.mjs)`,
       [...Object.keys(mirror.properties), ...Object.keys(mirror.events).map((e) => `event ${e}`),
         `extends ${mirror.base || 'sap/ui/core/Control'}`],
-      [...parseCcProperties(ccSrc[name]), ...parseCcEvents(ccSrc[name]).map((e) => `event ${e}`),
-        `extends ${parseCcBase(ccSrc[name]) ?? '(unreadable - the sap.ui.define / .extend shape changed)'}`]);
+      [...up.companionControls[name].properties, ...up.companionControls[name].events.map((e) => `event ${e}`),
+        `extends ${up.companionControls[name].base ?? '(unreadable - the sap.ui.define / .extend shape changed)'}`]);
   }
 
   /* …and whether every companion control upstream ships is mirrored at all:
@@ -637,9 +784,9 @@ if (invokedDirectly) {
    * gone is reported by the loop. */
   {
     const what = 'companion controls mirrored at all (lib/cc-controls.mjs)';
-    const unmirrored = setDiff(Object.keys(ccSrc), Object.keys(CC_CONTROLS));
+    const unmirrored = setDiff(Object.keys(up.companionControls), Object.keys(CC_CONTROLS));
     if (!unmirrored.length) {
-      console.log(`ok    ${what}: every one of the ${Object.keys(ccSrc).length} in ${CC_DIR}`);
+      console.log(`ok    ${what}: every one of the ${Object.keys(up.companionControls).length} in ${CC_DIR}`);
     } else {
       drift++;
       console.log(`DRIFT ${what}:`);
@@ -657,8 +804,8 @@ if (invokedDirectly) {
    * whether the frozen builder's helper that writes it is still the one
    * checkObsoleteCcHelpers( ) matches. */
   {
-    const headers = Object.fromEntries(Object.entries(ccSrc)
-      .map(([n, src]) => [n, parseObsoleteHeader(src)]).filter(([, h]) => h));
+    const headers = Object.fromEntries(Object.entries(up.companionControls)
+      .map(([n, cc]) => [n, cc.obsolete]).filter(([, h]) => h));
     /* Not through report( ): its two sentences are written for an ACCEPTED
      * set, and this one is a set of things the rule REPORTS - a name missing
      * here lets obsolete code pass, a stale one reports correct code. */
@@ -685,12 +832,12 @@ if (invokedDirectly) {
         console.log(`  ! the header reads "${header}" — the replacement here does not name ${missing.join(', ')}`);
       }
     }
-    if (!xmlViewCcSrc) {
+    if (!up.frozenBuilderHelpers) {
       drift++;
       console.log('DRIFT frozen-builder companion helpers (lib/cc-controls.mjs):');
       console.log(`  ! ${XML_VIEW_CC_PATH} is gone upstream — the helper names obsolete-custom-control matches have no source any more`);
     } else {
-      const helpers = parseCcHelpers(xmlViewCcSrc);
+      const helpers = up.frozenBuilderHelpers;
       const obsolete = new Set(Object.keys(OBSOLETE_CC_CONTROLS));
       const what = 'frozen-builder helpers writing an obsolete control (lib/cc-controls.mjs)';
       const ours = Object.entries(OBSOLETE_CC_CONTROLS).map(([n, o]) => `${o.helper}>${n}`);
@@ -717,7 +864,7 @@ if (invokedDirectly) {
    * (one that does not is silently allowed, which is how a rule stops
    * seeing the layer it was written for). */
   {
-    const packages = objectsByPackage(srcPaths);
+    const packages = up.objects;
     const inPackages = Object.entries(packages);
     if (!inPackages.length) {
       console.error('check-upstream: no abapGit objects found under src/ — the layout changed, update objectNameOf/objectsByPackage');
@@ -753,16 +900,16 @@ if (invokedDirectly) {
     }
   }
 
-  const upstreamTargets = parseGlobalTargets(actionSrc);
+  const upstreamTargets = up.globalTargets;
   if (!Object.keys(upstreamTargets).length) {
-    console.error('check-upstream: could not find GLOBAL_TARGETS in the frontendaction class — the embedding changed, update parseGlobalTargets');
+    console.error(`check-upstream: could not find GLOBAL_TARGETS in the frontendaction class — ${fixHint('parseGlobalTargets')}`);
     process.exit(2);
   }
   report('CONTROL_GLOBAL targets (lib/frontend-actions.mjs)', Object.keys(GLOBAL_TARGETS), Object.keys(upstreamTargets));
   // the css pseudo-method's property allowlist is a second closed set in the
   // same file - a property the frontend dropped silently is exactly what the
   // linter is here to catch, so the mirror must not drift either
-  const upstreamCss = parseCssProperties(actionSrc);
+  const upstreamCss = up.cssProperties;
   if (upstreamCss.length) report('CONTROL_BY_ID css properties (lib/frontend-actions.mjs)', CSS_PROPERTIES, upstreamCss);
   /* The CONTROL_BY_ID denylist is the third closed set in the same file. It
    * drifts in BOTH directions with consequences: a method that became denied
@@ -772,9 +919,9 @@ if (invokedDirectly) {
     ['CONTROL_METHOD_DENY_EXACT', CONTROL_METHOD_DENY_EXACT],
     ['CONTROL_METHOD_DENY_PREFIXES', CONTROL_METHOD_DENY_PREFIXES],
   ]) {
-    const theirs = parseDenyList(actionSrc, what);
+    const theirs = what === 'CONTROL_METHOD_DENY_EXACT' ? up.controlMethodDenyExact : up.controlMethodDenyPrefixes;
     if (!theirs.length) {
-      console.error(`check-upstream: could not find ${what} in the frontendaction class — the embedding changed, update parseDenyList`);
+      console.error(`check-upstream: could not find ${what} in the frontendaction class — ${fixHint('parseDenyList')}`);
       process.exit(2);
     }
     report(`CONTROL_BY_ID ${what} (lib/frontend-actions.mjs)`, ours, theirs);
@@ -788,9 +935,9 @@ if (invokedDirectly) {
    * it was the one mirror check-upstream did NOT compare, which is exactly
    * how a mirror rots. */
   {
-    const theirs = parseBindingMethods(actionSrc);
+    const theirs = up.bindingMethods;
     if (!theirs.length) {
-      console.error('check-upstream: could not find BINDING_METHODS in the frontendaction class — the embedding changed, update parseBindingMethods');
+      console.error(`check-upstream: could not find BINDING_METHODS in the frontendaction class — ${fixHint('parseBindingMethods')}`);
       process.exit(2);
     }
     report('BINDING_CALL methods (lib/frontend-actions.mjs)', [...BINDING_METHODS], theirs);
@@ -799,9 +946,9 @@ if (invokedDirectly) {
    * here the moment it was added, so none of them can rot the way
    * BINDING_METHODS almost did. */
   {
-    const theirs = parseHandlers(actionSrc);
+    const theirs = up.frontendEvents;
     if (!theirs.length) {
-      console.error('check-upstream: could not find the handlers dispatch table — the embedding changed, update parseHandlers');
+      console.error(`check-upstream: could not find the handlers dispatch table — ${fixHint('parseHandlers')}`);
       process.exit(2);
     }
     report('frontend action dispatch table (lib/frontend-actions.mjs)', [...FRONTEND_EVENTS], theirs);
@@ -819,9 +966,9 @@ if (invokedDirectly) {
    * that stopped meaning anything. The dispatch-table names are not judged
    * the second way — the table is gated above, against its own source. */
   {
-    const theirs = parseClientEvents(clientIntfSrc);
+    const theirs = up.clientEvents;
     if (!theirs.length) {
-      console.error('check-upstream: could not find BEGIN OF cs_event in z2ui5_if_client — the interface changed, update parseClientEvents');
+      console.error(`check-upstream: could not find BEGIN OF cs_event in z2ui5_if_client — ${MANIFEST ? fixHint('') : 'the interface changed, update parseClientEvents'}`);
       process.exit(2);
     }
     const what = 'client interface events, z2ui5_if_client=>cs_event (lib/frontend-actions.mjs)';
@@ -838,19 +985,19 @@ if (invokedDirectly) {
     }
   }
   {
-    const theirs = parseStringList(actionSrc, 'FILTER_OPERATORS');
+    const theirs = up.filterOperators;
     if (!theirs.length) {
-      console.error('check-upstream: could not find FILTER_OPERATORS — the embedding changed, update parseStringList');
+      console.error(`check-upstream: could not find FILTER_OPERATORS — ${fixHint('parseStringList')}`);
       process.exit(2);
     }
     report('BINDING_CALL filter operators (lib/frontend-actions.mjs)', [...FILTER_OPERATORS], theirs);
   }
   {
-    const theirs = parseStringList(actionSrc, 'SHORTCUT_SLOTS');
+    const theirs = up.viewSlots;
     if (theirs.length) report('view slots (lib/frontend-actions.mjs)', [...VIEW_SLOTS], theirs);
-    const mods = parseStringList(actionSrc, 'SHORTCUT_MODIFIERS');
+    const mods = up.shortcutModifiers;
     if (mods.length) report('shortcut modifiers (lib/frontend-actions.mjs)', [...SHORTCUT_MODIFIERS], mods);
-    const aliases = parseShortcutAliases(actionSrc);
+    const aliases = up.shortcutAliases;
     if (Object.keys(aliases).length) {
       report('shortcut aliases (lib/frontend-actions.mjs)',
         Object.entries(SHORTCUT_ALIASES).map(([k, v]) => `${k}>${v}`),
@@ -858,17 +1005,17 @@ if (invokedDirectly) {
     }
   }
   {
-    const theirs = parseUrlHelperActions(actionSrc);
+    const theirs = up.urlHelperActions;
     if (!theirs.length) {
-      console.error('check-upstream: could not find evUrlHelper\'s actions map — the embedding changed, update parseUrlHelperActions');
+      console.error(`check-upstream: could not find evUrlHelper's actions map — ${fixHint('parseUrlHelperActions')}`);
       process.exit(2);
     }
     report('URLHELPER actions (lib/frontend-actions.mjs)', [...URLHELPER_ACTIONS], theirs);
   }
   {
-    const kinds = parseControlMethodKinds(actionSrc);
+    const kinds = up.controlMethodKinds;
     if (!Object.keys(kinds).length) {
-      console.error('check-upstream: could not find CONTROL_METHODS — the embedding changed, update parseControlMethodKinds');
+      console.error(`check-upstream: could not find CONTROL_METHODS — ${fixHint('parseControlMethodKinds')}`);
       process.exit(2);
     }
     // `pageId` resolves a control id exactly as `controlId` does and only
@@ -893,9 +1040,9 @@ if (invokedDirectly) {
     }
   }
   {
-    const theirs = parseUrlPolicies(actionSrc);
+    const theirs = up.urlPolicies;
     if (!theirs.length) {
-      console.error('check-upstream: could not find URL_POLICIES — the embedding changed, update parseUrlPolicies');
+      console.error(`check-upstream: could not find URL_POLICIES — ${fixHint('parseUrlPolicies')}`);
       process.exit(2);
     }
     report('setAsyncURLHandler policies (lib/frontend-actions.mjs)', [...URL_POLICIES], theirs);

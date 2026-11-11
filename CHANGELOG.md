@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **The mirrors of abap2UI5's closed sets are checked against a manifest
+  abap2UI5 writes, on every test run.** `scripts/check-upstream.mjs` gains
+  the seam between finding the sets and comparing them (`deriveUpstream( )`,
+  `readManifest( )`, `MANIFEST_SCHEMA`): `--manifest <file>` compares the
+  mirrors with a finished manifest, `--emit-manifest` prints what the
+  parsers find, and the default mode reads abap2UI5's own
+  `.github/shared/linter-manifest.json` once its `main` publishes one. The
+  copy the mirrors are in step with ships as `data/abap2ui5-manifest.json`
+  (`npm run sync-manifest`), and `npm test` holds them to it offline - the
+  comparison used to exist only weekly, over the network.
+- **`check-upstream` reads the message box types where they are.**
+  abap2UI5 moved `ct_box_type` from `z2ui5_cl_ui5_frontend` into
+  `z2ui5_cl_ui5_srv_message`; the script went on reading the old class,
+  found no list and reported all seven types as gone upstream. The mirror
+  was right - the reader was blind, which is the case the manifest above
+  exists to end.
 - **A rule can be written as one file, against one shared reading of the
   class.** `lib/rule.mjs` (`defineRule( )`, the `./rule` export) takes a
   rule's registry entry, card, sentence and check as one object; severities,

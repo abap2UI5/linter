@@ -29,6 +29,9 @@ npm run generate-rules-page       # ditto: site/index.html, the published refere
 npm run sync-portable-profile     # data/portable-v1.json - abap2UI5/protocol's portable
                                   # profile, copied verbatim (-- --local <protocol checkout>,
                                   # -- --check compares only); npm test pins its hash
+npm run sync-manifest             # data/abap2ui5-manifest.json - abap2UI5's own manifest of
+                                  # the sets mirrored in lib/ (-- --local <abap2UI5 checkout>,
+                                  # -- --check compares only); npm test holds the mirrors to it
 npm run generate-compat           # data/compat.json - after a version bump, or with
                                   # -- --local <abap2UI5 checkout> after a mirror sync
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 81
@@ -1413,6 +1416,50 @@ rule starts to assume a newer client API (say which rule in the CHANGELOG),
 and `framework.mirrored` is read off an abap2UI5 checkout with
 `-- --local <dir>` after a mirror sync and otherwise kept as committed, so an
 offline regeneration cannot forget it.
+
+## `data/abap2ui5-manifest.json` — abap2UI5's manifest of the mirrored sets
+
+The four hand-maintained knowledge files (`lib/formatters.mjs`,
+`lib/frontend-actions.mjs`, `lib/released-api.mjs`, `lib/cc-controls.mjs`)
+mirror closed sets abap2UI5 defines. For a long time this repository FOUND
+those sets by parsing abap2UI5 from the outside (`scripts/check-upstream.mjs`,
+regular expressions over its generated `src/01/03` classes), which put the
+knowledge of abap2UI5's layout on the wrong side: a module split there
+blinded the parsers here, and when `ct_box_type` moved from
+`z2ui5_cl_ui5_frontend` to `z2ui5_cl_ui5_srv_message` the script reported all
+seven message box types as "gone upstream" while the mirror was right.
+
+The direction is turned round:
+
+- **abap2UI5 writes the sets down itself** — `.github/shared/linter-manifest.json`,
+  generated from its real sources by its `generate-linter-manifest.mjs` and
+  gated there (`check:linter-manifest`), so a set that moves fails the pull
+  request that moves it.
+- **The shape is `deriveUpstream( )`** in `scripts/check-upstream.mjs`
+  (`MANIFEST_SCHEMA`; `readManifest( )` validates it). That function is the
+  seam: finding the sets and comparing them with the mirrors used to be one
+  body, and are two now.
+- **`check-upstream` reads the manifest**: `--manifest <file>` explicitly, and
+  by itself in the default (network) mode when abap2UI5's `main` publishes
+  one — the weekly `upstream-sync.yml` needs no change for the switch. Where
+  there is none it parses as before; `--local <checkout>` always parses (it is
+  what abap2UI5's `check:mirrors` runs against a working tree), and
+  `--emit-manifest` prints what the parsers find, the reference the generated
+  file was held equal to when it was introduced (every set, 2026-11-11).
+- **The copy here is `data/abap2ui5-manifest.json`** (`npm run sync-manifest`),
+  and `npm test` runs `check-upstream --manifest` over it: mirrors and
+  manifest are compared offline on every run, where the only comparison used
+  to be weekly and over the network. Updating for an upstream change is
+  therefore one move in two files — refresh the copy, then make the mirrors
+  agree; the test names every set that does not.
+
+What is NOT done: the mirrors are still written by hand. They carry more than
+the sets (the reason a method is denied, the release a target needs, the
+replacement an obsolete control names), so they cannot simply be generated
+from the manifest; a mirror that is nothing but its set (`CURATED_FORMATTERS`,
+`VIEW_SLOTS`, `FILTER_OPERATORS`) can read it from `data/` instead, and that
+is the next step. The parsers stay until abap2UI5's `check:mirrors` runs on
+the manifest too.
 
 ## `data/portable-v1.json` — vendored from abap2UI5/protocol, never hand-edited
 
