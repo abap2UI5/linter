@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **`--timing` says where a run spends its time.** A `slowest` line in the
+  run summary and `stats.timings` in the JSON document: each rule written as
+  one unit on its own (`rule:<id>`), the rules that still share a function by
+  the pass they run in (`pass:<name>`), the reconstruction, the property gate,
+  and the rest of the ABAP rules as one entry so the parts add up. On
+  samples-controls: `pass:abap-rules (other)` 36 %, `reconstruct` 31 %,
+  `properties` 12 % - the inline ABAP rules are where moving rules into units
+  will also make the cost visible. Library: the `timing` option and
+  `result.timings`. A timed run skips the cache.
 - **`check-upstream` parses abap2UI5 no more - it reads the manifest
   abap2UI5 writes.** With abap2UI5/abap2UI5#3001 merged, abap2UI5 publishes
   `.github/shared/linter-manifest.json` from its own sources and gates it. The

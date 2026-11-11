@@ -74,6 +74,10 @@ declare module "@abap2ui5/linter" {
      *  inherits from its superclass apart from the client's. checkFiles
      *  builds it over the files it is handed when none is given. */
     classIndex?: ClassIndex | null;
+    /** Measure where the check spends its time: the result carries
+     *  `timings` (label -> ms; `rule:<id>`, `pass:<name>`, `reconstruct`,
+     *  `properties`, `abap-model`, `portable`). Default false. */
+    timing?: boolean;
     /** The objects the linted repository defines, lower case - ownObjectsOf( )
      *  of `@abap2ui5/linter/project-index`, read off the abapGit file names.
      *  `non-released-api` is silent on them. checkFiles builds it from the
@@ -152,6 +156,8 @@ declare module "@abap2ui5/linter" {
     /** Rule id -> findings produced for this source BEFORE the rules block,
      *  directives or a baseline suppressed anything. */
     ruleHits?: Record<string, number>;
+    /** With `timing`: where this source's check spent its time, label -> ms. */
+    timings?: Record<string, number>;
   }
 
   /** What a screenshot run is steered by — the theme and viewport a picture
@@ -783,7 +789,7 @@ declare module "@abap2ui5/linter/abap-rules" {
    *  by under `allClasses`: the abapGit round-trip family, the activation and
    *  hygiene rules, the released-API check, and the frozen builder's
    *  obsolete companion-control helpers. */
-  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null }): PropertyFinding[];
+  export function checkSourceRules(source: string, opts?: { ownObjects?: readonly string[] | null; timings?: Map<string, number> | null }): PropertyFinding[];
   /** The rule ids checkSourceRules( ) can emit. */
   export const SOURCE_RULES: ReadonlySet<string>;
 
@@ -840,6 +846,9 @@ declare module "@abap2ui5/linter/abap-rules" {
       /** The repository's own objects (ownObjectsOf) - never reported by
        *  `non-released-api`. */
       ownObjects?: readonly string[] | null;
+      /** Filled in when given: `rule:<id>` and `pass:<name>` -> ms
+       *  (lib/timing.mjs). */
+      timings?: Map<string, number> | null;
       /** The metadata snapshot - without it the rules that need UI5
        *  knowledge stay silent. */
       data?: unknown;
@@ -1386,9 +1395,13 @@ declare module "@abap2ui5/linter/report" {
      *  block, directives and baseline suppressed anything — a fully
      *  baselined corpus still says which rules fired on it. */
     ruleHits: Map<string, number>;
+    /** The results' `timings`, added up (empty without `timing`). */
+    timings: Map<string, number>;
   }
 
   export function runStats(results: CheckResult[]): RunStats;
+  /** The `slowest` line of --timing: the top entries with their share. */
+  export function slowest(timings: Map<string, number>, top?: number): string;
 
   /** `a 12, b 7, +3 more` — the head of a count map, longest first. */
   export function topOf(map: Map<string, number>, limit?: number): string;

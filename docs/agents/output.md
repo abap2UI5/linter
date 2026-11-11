@@ -83,6 +83,17 @@ Rules that hold for all three:
   counts the paths it asks about and the ones it could not answer (`tally`:
   `stats.paths`, `stats.pathsOpaque`), and the summary prints the line only
   where something was left unjudged.
+- **`--timing` accounts, it does not benchmark.** It adds a `slowest` line
+  (and `stats.timings` to the JSON document): every rule written as one unit
+  under `rule:<id>`, the rules that still share a function under the pass
+  they run in (`pass:frontend-wires`, `pass:lifecycle`, …), and what
+  `checkAbapRules( )` does outside every named pass as ONE entry,
+  `pass:abap-rules (other)` - so the parts add up to the whole and a rule that
+  has no entry of its own is visibly inside one, not free. The model of the
+  class (`abap-model`) is built under its own entry, or the first rule to
+  touch it would pay for it. A timed run skips the cache (a replayed verdict
+  took no time). `lib/timing.mjs`; a new pass is one `timed( )` around its
+  call.
 - **`emptyViews` is the point, not a detail.** "7 classes produced none" is
   the only thing in a green report that can say the gate is not seeing the
   corpus. Never drop it to shorten the block.

@@ -123,7 +123,7 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
     const timings = new Map();
     runRules(rules, 'class', { report: (x) => seen.push(x) }, { timings });
     assert(seen.map((x) => x.type).join() === 'a-rule', `only the class-scoped rule that is not opt-in ran (${seen.map((x) => x.type).join()})`);
-    assert(timings.has('a-rule') && !timings.has('b-rule') && timings.get('a-rule') >= 0, 'the time is recorded per rule that ran');
+    assert(timings.has('rule:a-rule') && !timings.has('rule:b-rule') && timings.get('rule:a-rule') >= 0, 'the time is recorded per rule that ran, under rule:<id>');
     runRules(rules, 'class', { report: (x) => seen.push(x), enabled: (id) => id === 'c-rule' });
     assert(seen.map((x) => x.type).join() === 'a-rule,a-rule,c-rule', 'an opt-in rule runs when the run enables it');
   });

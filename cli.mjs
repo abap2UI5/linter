@@ -115,6 +115,12 @@
  *                      controls, bindings, icons), which gates ran, what the
  *                      baseline swallowed and how long it took. On by default
  *                      for more than one file, --no-stats switches it off
+ *   --timing           measure where the check spends its time and add a
+ *                      `slowest` line to the run summary (and `stats.timings`
+ *                      to --format json): each rule written as one unit on
+ *                      its own (`rule:<id>`), the rules that still share a
+ *                      function by the pass they run in (`pass:<name>`), the
+ *                      reconstruction and the property gate. Implies --stats
  *   --progress         report the gates while they run, on stderr (stdout stays
  *                      pipeable). Default: on a terminal and inside GitHub
  *                      Actions, where it becomes one collapsed log group;
@@ -326,7 +332,7 @@ const USAGE ='usage: abap2ui5lint [paths...] [--ui5 1.71] [--deprecated-at 1.136
   + '[--cache] [--cache-location <file>] [--stdin] [--stdin-filename <name>] '
   + '[--sarif-out <file>] [--json-out <file>] '
   + '[--badge <file>] [--badge-corpus <file>] [--no-badge] '
-  + '[--quiet] [--stats|--no-stats] [--progress|--no-progress] '
+  + '[--quiet] [--stats|--no-stats] [--timing] [--progress|--no-progress] '
   + '[--annotate|--no-annotate] [--render|--no-render] [--render-pages <n>] [--jobs <n>] [--no-properties] [--all-classes] [--advisory] [--verbose] '
   + '[--screenshot <file>] [--screenshot-theme sap_horizon] [--screenshot-size 1280x900] '
   + '[--screenshot-model <file.json>] [--watch] '
@@ -674,6 +680,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--annotate') opt.annotate = true;
   else if (a === '--no-annotate') opt.annotate = false;
   else if (a === '--stats') opt.stats = true;
+  else if (a === '--timing') { opt.timing = true; opt.stats ??= true; }
   else if (a === '--no-stats') opt.stats = false;
   else if (a === '--progress') opt.progress = true;
   else if (a === '--no-progress') opt.progress = false;
@@ -1462,7 +1469,9 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
    * The stored result is the full pre-baseline result: the baseline and the
    * exit code are decided per RUN, on replayed findings like on fresh ones. */
   let cache = null;
-  if (opt.cache) {
+  /* A verdict replayed from the cache took no time to reach, so --timing
+   * measures a run without it - neither read nor written. */
+  if (opt.cache && !opt.timing) {
     const version = ownVersion();
     const file = path.resolve(opt.cacheLocation ?? DEFAULT_CACHE_FILE);
     // the runtime's UI5 release keys a RENDERED result too (lib/cache.mjs)
