@@ -20,13 +20,7 @@ AGENTS.md is the contract. The short version of what a change owes:
 
 ## If this adds or changes a rule
 
-A new rule is one file — `lib/rules/<id>.mjs` with `defineRule( )`, and its import line in `lib/rules/index.mjs` (AGENTS.md, "Adding or changing a rule"). A rule still in the old shape moves four places together:
-
-- [ ] the emit site in `lib/`
-- [ ] its severity in `SEVERITY_BY_TYPE` (`lib/findings.mjs`) — that is also what registers the id
-- [ ] an entry in `RULE_DOCS` (`lib/rule-docs.mjs`): category, summary, detail, example
-
-Either way:
+A rule is one file — `lib/rules/<id>.mjs` with `defineRule( )`, and its import line in `lib/rules/index.mjs` (AGENTS.md, "Adding or changing a rule"); every registry reads it from there.
 
 - [ ] a fixture in `test/fixtures/` **and its negative counter-case** — the suite has to see the defect *and* leave the neighbouring legal form alone
 
