@@ -405,6 +405,10 @@
   class rule) and the tag the property walk meets;
   `obsoleteCcHelperFindings( )` runs it as before. 169 of 173 rules are
   units now.
+- **`raw-javascript-to-frontend` is one file**, one rule for its five shapes
+  (a follow_up_action custom_js, a <script> or inline handler in markup, a
+  literal on an event, a javascript: URL), run by the wire dispatcher and
+  the property walk. 170 of 173 rules are units now.
 
 ## 0.9.0 - 2026-10-14
 
