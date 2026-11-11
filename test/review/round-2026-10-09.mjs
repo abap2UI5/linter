@@ -100,7 +100,7 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
    * run). The harness now counts the requests in flight and lets them settle
    * into the window of the document that sent them; a page still waiting
    * after the bound is reloaded, so the answer is lost rather than misfiled. */
-  section('round 2026-10-09: an answer after the render window is charged to its own document', async () => {
+  section.browser('round 2026-10-09: an answer after the render window is charged to its own document', async () => {
     const server = http.createServer((req) => setTimeout(() => req.socket.destroy(), 400));
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const url = `http://127.0.0.1:${server.address().port}/late`;

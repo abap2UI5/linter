@@ -142,7 +142,7 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
    * runner) the fetch rejects whenever the network says so - after the
    * document's window, so view-gates failed app 180, 183, 184 or 185
    * depending on the run, with "TypeError: Failed to fetch". */
-  section('corpus 2026-10-08: a fetch the network refuses is not a render error', async () => {
+  section.browser('corpus 2026-10-08: a fetch the network refuses is not a render error', async () => {
     const dir = tempDir('a2l-fetch-');
     const file = path.join(dir, 'card.view.xml');
     fs.writeFileSync(file, '<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m" xmlns:w="sap.ui.integration.widgets">\n'

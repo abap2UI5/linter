@@ -105,6 +105,7 @@
   "scripts": {
     "check": "npm test && node experimental/github-app/dryrun.mjs test/fixtures",
     "test": "node --test test/run.mjs",
+    "test:static": "node test/static.mjs",
     "generate-metadata": "node scripts/generate-metadata.mjs",
     "generate-icons": "node scripts/generate-icons.mjs",
     "check-upstream": "node scripts/check-upstream.mjs",

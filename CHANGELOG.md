@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **`ABAP2UI5LINT_NO_BROWSER=1` refuses Chromium.** With it set the render
+  gate behaves as on a machine without a browser, also where one is
+  installed: a default-on gate steps aside with its notice, an asked-for one
+  is the usual tool error. For this repository's own suite (`npm run
+  test:static` - every section that needs no browser, after a bare `npm
+  ci`), and for anyone who has to prove a run starts none.
 - **A baseline entry can say it is a false positive, and the linter writes
   the issue for it.** A baseline holds debt and misfires side by side, and a
   misfire frozen in a consumer's baseline never reached this repository: its

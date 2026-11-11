@@ -147,6 +147,7 @@ Action is a user, but never appears in this list.
 
 ```sh
 npm ci
+npm run test:static               # everything that needs no browser - runs right after npm ci
 npx playwright install chromium   # the render runtime is an npm workspace here
 node cli.mjs test/fixtures --no-render   # the CLI, from the checkout, over its own fixtures
 node cli.mjs ../your-app/src             # or over a sibling app (this checkout has no src/)

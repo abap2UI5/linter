@@ -47,7 +47,15 @@ export const checkXmlSource = (...args) => {
   return result;
 };
 
+/* In the static half (test/run.mjs, `section.browser`) a call that does not
+ * ASK for the render gate runs without it: the default is "on", and the
+ * fixtures the suite loads before its first section would otherwise start a
+ * browser the static half refuses. A call that says `render: true` keeps
+ * saying it, and fails there unless its section is marked. */
+const STATIC = process.env.ABAP2UI5LINT_TEST_STATIC === '1';
+
 export const checkFiles = async (...args) => {
+  if (STATIC && args[1]?.render === undefined) args[1] = { ...args[1], render: false };
   const results = await index.checkFiles(...args);
   for (const result of results ?? []) note(result?.findings);
   return results;

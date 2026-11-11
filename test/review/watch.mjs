@@ -164,7 +164,7 @@ export default function ({ section, assert, f, FIX, tempDir }) {
    * 130 - and its handler was registered before the loop's, so a watch with
    * the render gate on ended with the exit code of a killed process. The loop
    * opens its renderer with handleSIGINT: false and closes it itself now. */
-  section('watch: the render gate keeps one browser and Ctrl+C is still exit 0', async () => {
+  section.browser('watch: the render gate keeps one browser and Ctrl+C is still exit 0', async () => {
     const dir = tempDir('a2ui5-watch-render-');
     fs.copyFileSync(f('good.clas.abap'), path.join(dir, 'good.clas.abap'));
     const child = cp.spawn('node', [CLI, dir, '--watch', '--render', '--no-progress', '--no-config'],

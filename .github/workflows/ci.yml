@@ -50,6 +50,13 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # BEFORE the browser is installed, on purpose: the static half is the
+      # promise that everything but the `section.browser( )` sections runs
+      # after a bare `npm ci`. It also refuses Chromium where one exists
+      # (ABAP2UI5LINT_NO_BROWSER), so a render test that forgot its mark is
+      # red here rather than green on every machine that has a browser.
+      - run: npm run test:static
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
       # the Chromium download is the slow half of the install; cache it keyed
       # on the lockfile (which pins the playwright version). On a hit,
       # `playwright install` finds the browser and only installs system deps

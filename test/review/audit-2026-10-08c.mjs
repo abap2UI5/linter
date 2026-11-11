@@ -339,7 +339,7 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
    * text itself calls legitimate) went through XMLView.create and failed
    * with "XMLView's root node must be 'View'". The file name decides now,
    * and the sniff reads past the prolog and any prefix. */
-  section('audit 2026-10-08c: a raw fragment file renders as a fragment, whatever its prolog or root', async () => {
+  section.browser('audit 2026-10-08c: a raw fragment file renders as a fragment, whatever its prolog or root', async () => {
     const dir = tempDir('a2l-frag-');
     const body = '<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">\n  <Dialog title="x"><Text text="y"/></Dialog>\n</core:FragmentDefinition>\n';
     const files = {

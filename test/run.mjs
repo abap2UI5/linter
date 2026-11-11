@@ -83,7 +83,7 @@ export const assert = (cond, msg) => {
 
 /** One section of the suite: isolated, ordered, and failing with every one of
  *  its assertions rather than with the first. */
-export const section = (name, body) => test(name, async () => {
+const runSection = (name, body, options = {}) => test(name, options, async () => {
   bucket = [];
   try {
     await body();
@@ -94,6 +94,26 @@ export const section = (name, body) => test(name, async () => {
       `${failures.length} assertion(s) failed:\n  - ${failures.join('\n  - ')}`);
   }
 });
+export const section = (name, body) => runSection(name, body);
+
+/* THE STATIC HALF (`npm run test:static`, test/static.mjs). Most of this
+ * suite asks questions a browser has no part in - what a rule reports, what
+ * the reconstructor rebuilds, what the CLI prints - and it used to be
+ * unreachable without `npx playwright install chromium`, because the first
+ * statement of the file renders. Under ABAP2UI5LINT_TEST_STATIC=1:
+ *
+ *   - a section written `section.browser( )` is SKIPPED (and reported as
+ *     skipped, never as passed),
+ *   - a check that does not say `render` runs without the render gate
+ *     (test/observe.mjs), so the fixtures loaded at the top of this file load,
+ *   - and Chromium is refused outright (ABAP2UI5LINT_NO_BROWSER, lib/render.mjs,
+ *     inherited by every spawned CLI): a section that needs the browser and
+ *     is not marked FAILS there. That is what keeps the marking true - CI runs
+ *     both halves, so a new render test that forgets `.browser` is red.
+ *
+ * `npm test` is unchanged: every section runs, marked or not. */
+export const STATIC = process.env.ABAP2UI5LINT_TEST_STATIC === '1';
+section.browser = (name, body) => runSection(name, body, STATIC ? { skip: 'needs the render gate - npm test runs it' } : {});
 
 /* Temp directories, cleaned up centrally.
  *
@@ -158,7 +178,7 @@ section('barefragment', async () => {
 });
 
 const broken = by('broken.clas.abap');
-section('broken', async () => {
+section.browser('broken', async () => {
   assert(broken.renderErrors.length > 0, 'broken: render gate reports errors');
   assert(broken.renderErrors.some((e) => /textt|NoSuchControl/i.test(e)),
     `broken: error names the defect (${(broken.renderErrors[0] || '').slice(0, 80)})`);
@@ -3404,7 +3424,7 @@ section('xmlns (5)', async () => {
 // ------------------------------------------- rules['render-error'] ----
 // the render gate's pseudo-rule: waive or downgrade render failures per file
 // instead of switching the gate off wholesale
-section('render-error', async () => {
+section.browser('render-error', async () => {
     const waived = (await checkFiles([f('broken.clas.abap')], { rules: { 'render-error': { exclude: ['broken'] } } }))[0];
     assert(waived.renderErrors.length === 0 && waived.notes.some((n) => /waived by rules\['render-error'\]/.test(n)),
       'render-error: an exclude waives the render failures of a matching file, saying so in a note');
@@ -3504,7 +3524,7 @@ section('render deps', async () => {
 // checkFiles/screenshotFiles accept an ALREADY-OPEN renderer and then never
 // close it - the contract a long-lived consumer (mcp-server) keeps one warm
 // Chromium on, instead of paying a cold start per validate_view call
-section('shared renderer', async () => {
+section.browser('shared renderer', async () => {
     const { openRenderer } = await import('../lib/render.mjs');
     const files = [f('good.clas.abap'), f('broken.clas.abap')];
     const independent = await checkFiles(files, {});
@@ -3869,7 +3889,7 @@ section('xmlns (6)', async () => {
  */
 const enumKeySrc = fs.readFileSync(f('enumkey.clas.abap'), 'utf8');
 const enumKeyRendered = await checkFiles([f('enumkey.clas.abap')]);
-section('enum key vs value', async () => {
+section.browser('enum key vs value', async () => {
     const { applyFixes } = await import('../lib/fix.mjs');
     const values = (src, minUi5 = '1.71') => checkAbapSource(src, { render: false, minUi5 })
       .findings.filter((x) => x.type === 'invalid-property-value');
@@ -3933,7 +3953,7 @@ section('enum key vs value', async () => {
 });
 
 // ------------------------------------------------ sarif + baseline + cli ----
-section('sarif, baseline and cli', async () => {
+section.browser('sarif, baseline and cli', async () => {
     const cp = await import('node:child_process');
     const os = await import('node:os');
     const CLI = path.join(FIX, '..', '..', 'cli.mjs');
@@ -6571,7 +6591,7 @@ section('rule docs', async () => {
  * is blank), and that a class whose reconstruction is incomplete is refused
  * rather than photographed wrong.
  * ------------------------------------------------------------------------- */
-section('screenshot', async () => {
+section.browser('screenshot', async () => {
     const { screenshotFiles, mockModelFor } = await import('../lib/index.mjs');
     const shots = await screenshotFiles([f('good.clas.abap')], { width: 400, height: 300 });
     assert(shots.length === 1 && Buffer.isBuffer(shots[0].png),

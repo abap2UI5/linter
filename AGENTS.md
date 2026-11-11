@@ -15,6 +15,11 @@ npm ci
 npx playwright install chromium   # BEFORE npm test - the first test uses the render gate
 npm run check                     # npm test + the github-app dry run: the two CI
                                   # jobs a pull request has to pass on a plain checkout
+npm run test:static               # the suite WITHOUT the render gate and without a browser:
+                                  # every section not written `section.browser( )`, about
+                                  # half the time. Needs no playwright install - the loop
+                                  # for rule and reconstructor work (test/static.mjs;
+                                  # -- --test-name-pattern=fix narrows it)
 npm test                          # node --test test/run.mjs: node:test, over 1000 assertions
                                   # in ~125 isolated sections (its own + test/review/*.mjs,
                                   # loaded at the end). One of them:
@@ -41,7 +46,14 @@ node cli.mjs src --watch          # the same, re-run on every save (Eclipse ADT 
 ```
 
 `npm test` fails with an unhelpful Chromium error after a bare `npm ci` —
-the playwright install is mandatory, not optional. CI
+the playwright install is mandatory for it, not optional. `npm run
+test:static` is the half that needs none: a section that drives the render
+gate is written `section.browser( name, body )` and skipped there, and
+Chromium is refused outright in that mode (`ABAP2UI5LINT_NO_BROWSER=1`,
+`launchBrowser( )` in `lib/render.mjs`), so a render test that is not marked
+fails it — CI runs the static half before the browser is installed. Mark a
+new section that renders; split a long one whose render part is a few lines,
+so the rest keeps running in the static half. CI
 (`.github/workflows/ci.yml`) runs exactly these steps on Node 22.
 
 `npm run check` is the entry point CONVENTIONS section 3 asks every repository
