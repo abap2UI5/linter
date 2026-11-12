@@ -1483,7 +1483,7 @@ ENDIF.</code></pre></figure>
             <pre><code>client-&gt;nav_app_call( zcl_app_detail=&gt;factory( ) ).
 " zcl_app_detail: IF client-&gt;check_on_navigated( ). view_display( ). ENDIF.</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/nav-target-never-displays.mjs#L25"><code>lib/rules/nav-target-never-displays.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/nav-target-never-displays.mjs#L27"><code>lib/rules/nav-target-never-displays.mjs</code></a></p>
       </article>
       <article class="rule" id="nest-view-without-destroy" data-search="nest-view-without-destroy a nest_view_display( ) with no method_destroy a nested view is inserted into a control of the main view through the ui5 mutator named in method_insert, "after method_destroy has cleared what was there" — and method_destroy is optional, so the call compiles without it and the first display looks right. the interface's abap doc on that parameter: "the mutator that removes the previous content first (removeallcontent, removeallitems); without it every call adds one more fragment." the second nest_view_display( ) of the same slot then stacks a copy under the first, and the anchor grows by one fragment per roundtrip that re-renders it. both slots are judged (nest2_view_display( ) has exactly the contract of the first). warning">
         <h3><a href="#nest-view-without-destroy">nest-view-without-destroy</a>

@@ -470,7 +470,7 @@ section('rules page', async () => {
     assert(!/<script\s+src|<link\b[^>]*stylesheet/.test(page) && !fetched.length,
       `rules page: self-contained - no external stylesheet, script or font (fetches: ${fetched.join(', ') || 'none'})`);
     // and the offsite links that ARE there are links, not loads
-    assert(page.includes('https://github.com/abap2UI5/linter'),
+    assert(/\bhref="https:\/\/github\.com\/abap2UI5\/linter["/#]/.test(page),
       'rules page: …while still linking back to the repository');
 
     /* The page is served from main and every consumer pins, so without a stamp a
