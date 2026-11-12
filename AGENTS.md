@@ -23,7 +23,8 @@ table below says, not here.
 | A constraint on one function or rule | A comment at that code |
 | What a rule means, for its user | The rule's card (`detail`, `example`, `remedy`) — `--explain` and the rule page print it |
 | A rule that can be checked | A section in the suite. Prose is a request; a gate is a guarantee |
-| Why a rule is shaped the way it is, what it was measured on | `docs/agents/roadmap.md`, or `CHANGELOG.md` for one change |
+| Why a rule is shaped the way it is, what it was measured on | `docs/agents/rule-history.md`, or `CHANGELOG.md` for one change |
+| A rule not built yet | `docs/agents/roadmap.md` |
 | A prohibition you would otherwise violate unknowingly | Here, in one line |
 
 | File | Read it when |
@@ -31,7 +32,8 @@ table below says, not here.
 | `docs/agents/scope.md` | touching `lib/reconstruct.mjs`, file collection, the derived model or the start path — what the linter can and cannot see |
 | `docs/agents/rule-map.md` | you need to find a rule: every id with severity, category, fix, opt-in and the file it is defined in (**generated**) |
 | `docs/agents/rule-modules.md` | working inside a module of `lib/` — what each one is for, the hand-maintained knowledge files, fixes, `dedupe`, the test layout in full |
-| `docs/agents/roadmap.md` | widening, narrowing or adding a rule — where each rule came from, what it was measured against, the open candidates |
+| `docs/agents/roadmap.md` | adding a rule — the open candidates and the rules of the trade (measure on the corpora, check it can see anything) |
+| `docs/agents/rule-history.md` | widening or narrowing a rule — where it came from and what it was measured against |
 | `docs/agents/output.md` | changing a formatter, a flag, the run summary, progress or a badge — the surface shared with ui5lint and abaplint |
 | `docs/agents/data.md` | anything under `data/` — the metadata snapshot, `compat.json`, the abap2UI5 manifest, the portable profile |
 | `docs/agents/render-package.md` | `linter-render/`, a peer range, the `@openui5` pins |
@@ -152,7 +154,7 @@ Then, for every rule:
    the harness (`test/observe.mjs`), or the rule-coverage gate does not count them;
 2. `npm run generate-schema && npm run generate-rules-page && npm run generate-rule-map`;
 3. measure it against the sample corpora before shipping, and check that it
-   can see anything at all (`docs/agents/roadmap.md`, the last three paragraphs);
+   can see anything at all (`docs/agents/roadmap.md`, "Rules of the trade");
 4. a `CHANGELOG.md` entry under *Unreleased*.
 
 Every rule is in this shape - there is no other place a rule is defined, and
