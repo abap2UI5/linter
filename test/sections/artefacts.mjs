@@ -412,6 +412,7 @@ section('rules page', async () => {
       ['source-line-too-long', 'the shortest triggering source is a 256-column line, which the card does not print'],
       ['malformed-xml', 'the builder serializes a tree, so no class can write a document that is not well-formed - the card is raw XML'],
       ['deprecated-after-target', 'it fires only under a deprecation horizon (deprecatedAt), which the frame\'s default config never sets - test/review/deprecation-horizon.mjs judges it'],
+      ['abap2ui5-api-too-new', 'it fires only when the abap2UI5 release is configured (abap2ui5), which the frame\'s default config never sets - test/review/abap2ui5-release.mjs judges it'],
       ['native-html-in-view', 'native markup is deprecated since 1.120, past the default 1.71 floor the frame judges against - test/review/deprecation-horizon.mjs judges it on a 1.120 target'],
     ]);
     const wrappedFires = (id, half) => {

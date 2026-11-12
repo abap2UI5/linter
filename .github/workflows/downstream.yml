@@ -179,7 +179,7 @@ jobs:
         working-directory: vscode-extension
         run: npm run compile
 
-  # The two consumers with no gate wrapper of their own: they run this linter
+  # The consumers with no gate wrapper of their own: they run this linter
   # straight, so what they measure is the RULE SET on real app code rather
   # than a corpus policy's verdict on it. Property gate only (--no-render):
   # minutes of CI instead of a Chromium download each, and every property rule
@@ -196,6 +196,28 @@ jobs:
           - repo: abap2UI5/samples
             paths: src
           - repo: abap2UI5/app-template
+            paths: src
+          - repo: abap2UI5/samples-stack
+            paths: src
+          # the framework's own app classes: its abap2ui5lint.jsonc names
+          # the paths (src, node/srv) and the frozen package it ignores
+          - repo: abap2UI5/abap2UI5
+            paths: ''
+          # the addons that declare the linter (the README's "Used by"):
+          # real apps outside the sample corpora, with their own configs
+          - repo: abap2UI5-addons/popups
+            paths: src
+          - repo: abap2UI5-addons/layout-management
+            paths: src
+          - repo: abap2UI5-addons/sql-console
+            paths: src
+          - repo: abap2UI5-addons/table-maintenance
+            paths: src
+          - repo: abap2UI5-addons/selection-screen
+            paths: src
+          - repo: abap2UI5-addons/se16n
+            paths: src
+          - repo: abap2UI5-addons/rfc-connector
             paths: src
     steps:
       - name: Check out the linter (this change)
@@ -222,6 +244,7 @@ jobs:
         env:
           LINT_PATHS: ${{ matrix.paths }}
         run: |
+          # empty: the repo's abap2ui5lint.jsonc names its paths
           read -r -a PATH_ARGS <<< "$LINT_PATHS"
           node ../linter/cli.mjs "${PATH_ARGS[@]}" --no-render --advisory \
             --json-out "$RUNNER_TEMP/report.json"

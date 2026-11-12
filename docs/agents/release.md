@@ -43,3 +43,27 @@ How a change reaches each channel. `RELEASING.md` has the procedure; this is the
     serve. `scripts/generate-metadata.mjs` stays in `files[]` on purpose —
     see the metadata section above: samples-controls runs it out of
     `node_modules`.
+
+## What 1.0 means — the criteria
+
+`0.x` says "a new rule may change your verdict". 1.0 says the opposite of
+nothing: rules are still added in minors after it. What it promises is that a
+consumer who does NOT read the changelog keeps a working setup across every
+1.x — so the criteria are about the surfaces a consumer writes down, not about
+how many rules there are. Each one is either met (and gated) or named with
+what is missing:
+
+| Surface | 1.0 promise | State |
+| --- | --- | --- |
+| Rule ids | never renamed without an alias for the rest of the major | met: `lib/rule-aliases.mjs` (config, directives, baseline keys), gated by `test/review/rule-aliases.mjs` |
+| Config keys | an accepted key keeps meaning the same thing; an unknown key stays an error | met: `KNOWN` in `lib/config.mjs` and the schema gate in `npm test` |
+| Exit codes | 0 clean / 1 findings / 2 usage or environment | met: `docs/agents/output.md`, tested in `test/sections/cli-output.mjs` |
+| `--format json` | fields only added, never removed or retyped | met in part: the document carries `schemaVersion` (`JSON_SCHEMA_VERSION` in `lib/report.mjs`, 1 since 0.10.0) and a reader checks it. Still missing: a published JSON schema of the report in `data/`, gated like the config schema |
+| Baseline keys | a key written by 1.x is read by every later 1.x | met for renames (`migrateKey`); a change of what a key CONTAINS still needs `migrateKey` support written with it, as 0.9.0 did |
+| Library exports | the `exports` map and `types.d.ts` only grow | met: the typings gate and the VS Code extension's downstream typecheck |
+| Severities | a severity is raised only in a minor with a "Read before upgrading" entry | policy, not gated: `downstream.yml` makes the effect visible on every PR |
+| Render runtime | `@abap2ui5/linter-render`'s peer range covers the whole major | met: `npm run sync-peer-range`, gated |
+
+The one open item is the published schema of the JSON report. Until it
+ships, 1.0 is not due — and nothing else on this list should be loosened to
+get there faster.

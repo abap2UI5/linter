@@ -85,6 +85,11 @@ export function buildSchema() {
         pattern: '^\\d+\\.\\d+(\\.\\d+)?$',
         description: 'The deprecation horizon past "ui5", e.g. "1.136" (the legacy-free baseline). Deprecations that take effect after the target and up to this version are reported as deprecated-after-target hints, naming the replacement and whether the target has it yet. Must not be below "ui5".',
       },
+      abap2ui5: {
+        type: 'string',
+        pattern: '^\\d+\\.\\d+\\.\\d+$',
+        description: 'The abap2UI5 release the app runs on, e.g. "1.140.0" - the version constant of z2ui5_if_app on that system. A client API name added after it (a cs_event constant, a client method) is reported as abap2ui5-api-too-new: the class does not activate there. Leave it out and nothing is judged against a release.',
+      },
       distribution: {
         enum: ['sapui5', 'openui5'],
         description: 'Which distribution the target system serves. On "openui5", controls from SAPUI5-only libraries are errors; on "sapui5" they are not reported at all. Leave the key out and they are hints - the run cannot tell which system you deploy to.',
@@ -137,7 +142,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 175 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 176 rules passed").',
       },
       rules: {
         type: 'object',

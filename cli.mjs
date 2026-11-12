@@ -26,6 +26,10 @@
  *                      as deprecated-after-target hints, naming the
  *                      replacement and whether the target has it yet.
  *                      Nothing else changes. Also "deprecatedAt" in the config
+ *   --abap2ui5 <rel>   the abap2UI5 release the app runs on (e.g. 1.140.0, the
+ *                      version constant of z2ui5_if_app there): a client API
+ *                      name added after it is abap2ui5-api-too-new - the
+ *                      class does not activate. Also "abap2ui5" in the config
  *   --distribution <d>  sapui5 or openui5 - which distribution the target
  *                      system serves. On openui5, controls from SAPUI5-only
  *                      libraries (sap.ui.comp, sap.suite.*, ...) are reported
@@ -127,7 +131,7 @@
  *                      --no-progress switches it off
  *   --badge <file>     write a shields.io endpoint JSON for the verdict, so a
  *                      repo can show it in the README ("check-abap2UI5 |
- *                      175 rules passed" green, "7 errors" red)
+ *                      176 rules passed" green, "7 errors" red)
  *   --badge-corpus <file>
  *                      the same for what the corpus IS, blue and without a
  *                      verdict in it ("abap2UI5 | 148 apps · 172 views ·

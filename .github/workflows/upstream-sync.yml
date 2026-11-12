@@ -78,6 +78,17 @@ jobs:
             echo "framework.mirrored $mirrored matches abap2UI5 main"
           fi
 
+      # data/abap2ui5-since.json dates the client API by release tag
+      # (abap2ui5-api-too-new). It goes stale with every abap2UI5 release and
+      # every name added on main - a WARNING, like the version lag above: the
+      # rule is silent for a name the file does not date, never wrong, and
+      # the refresh is one command.
+      - name: Compare data/abap2ui5-since.json against abap2UI5's releases
+        if: ${{ always() }}
+        run: |
+          node scripts/generate-abap2ui5-since.mjs --check \
+            || echo "::warning::data/abap2ui5-since.json is behind abap2UI5's releases - run node scripts/generate-abap2ui5-since.mjs and commit both files"
+
       # The fifth mirror lives in another repository: data/portable-v1.json,
       # the verbatim copy of abap2UI5/protocol's portable profile that the
       # opt-in portable-app rule judges against. Same exit codes (1 drift,

@@ -1,0 +1,71 @@
+name: release-due
+
+# A release is due when what the linter KNOWS about abap2UI5 moved. The
+# mirrors of its closed sets (data/abap2ui5-manifest.json) and the release
+# dates of its client API (data/abap2ui5-since.json) follow abap2UI5's main,
+# and every consumer on npm (`^0.9.0`: abap2UI5 itself, the addons, the
+# samples) judges the framework's NEW names as unknown until a version with
+# the new mirror is published - the framework's own CI goes red on its own
+# new constant. Merging here does not reach them; only a tag does.
+#
+# So a push to main that changes one of those files opens (or updates) one
+# issue naming what moved since the last release tag. The release itself
+# stays a deliberate step (RELEASING.md): a published version is immutable,
+# and the person cutting it reads the Unreleased block first.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - data/abap2ui5-manifest.json
+      - data/abap2ui5-since.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: release-due
+  cancel-in-progress: false
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Compare the mirrors with the last release tag
+        id: diff
+        run: |
+          set -e
+          last=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          if [ -z "$last" ]; then echo "moved=" >> "$GITHUB_OUTPUT"; exit 0; fi
+          moved=$(git diff --name-only "$last" HEAD -- data/abap2ui5-manifest.json data/abap2ui5-since.json | tr '\n' ' ')
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "moved=$moved" >> "$GITHUB_OUTPUT"
+          git diff --stat "$last" HEAD -- data/abap2ui5-manifest.json data/abap2ui5-since.json > moved.txt || true
+      - name: Open or update the release-due issue
+        if: ${{ steps.diff.outputs.moved != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LAST: ${{ steps.diff.outputs.last }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -e
+          title="release due: the abap2UI5 mirrors moved since the last tag"
+          body="The abap2UI5 knowledge files changed on main since ${LAST}:
+
+          \`\`\`
+          $(cat moved.txt)
+          \`\`\`
+
+          Consumers on npm judge abap2UI5's new names as unknown until a version carrying these files is published. Cut a patch release (RELEASING.md) and close this issue. Updated by every further change: ${RUN_URL}"
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Moved again: ${RUN_URL}"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

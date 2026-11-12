@@ -141,12 +141,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">75 error</span>
+      <span class="badge error">76 error</span>
       <span class="badge warning">68 warning</span>
       <span class="badge hint">33 hint</span>
       <span class="badge fix">75 autofixable</span>
     </div>
-    <p class="stamp">Generated from <strong>v0.9.0</strong>, against the OpenUI5 1.154.0 metadata
+    <p class="stamp">Generated from <strong>v0.10.0</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx --no-install abap2ui5lint --version</code> says which that is.</p>
     <!-- A placeholder is not a label: it names the field only until the first
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 175 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 176 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -742,7 +742,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )
 " to downgrade the gate itself instead: rules: { 'render-error': 'warning' }</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L549"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L550"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="second-root" data-search="second-root a second element beside the document root — the split chain after a standalone factory( ) the builder's chain is one statement. a view written as a statement per subtree keeps its cursor only when the variable holds the node the next statement builds into — data(view) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = view ns = mvc … ). a standalone factory( ). leaves the variable holding the root, so the next view-&gt;tag( ) adds a sibling of the mvc:view instead of a child inside it, and the document ends up with two top-level elements. the render gate rejects that as native html content; the property gate now says why. reported on the second root, naming the first. a bare fragment of two controls is the same document and is reported too — a fragment with several roots needs a core:fragmentdefinition. error">
         <h3><a href="#second-root">second-root</a>
@@ -845,6 +845,20 @@ view-&gt;tag( `Button` )-&gt;a( n = `text` v = `Go` ).</code></pre></figure>
     <section class="cat" id="cat-version">
       <h2>Version and deprecation</h2>
       <p class="blurb">Portability against the UI5 version your system actually runs (--ui5, default 1.71) and the distribution it serves (--distribution).</p>
+      <article class="rule" id="abap2ui5-api-too-new" data-search="abap2ui5-api-too-new a name of the client api newer than the abap2ui5 release the app runs on — the class does not activate there the linter knows abap2ui5 as its main branch is today. an app does not run on main: it runs on the release its system has installed, and a client-&gt;cs_event-… constant or a client-&gt;…( ) method added later does not exist there — the class does not activate, which a systemless pipeline only learns when the transport is imported. with "abap2ui5": "1.140.0" in abap2ui5lint.jsonc (or --abap2ui5 1.140.0; the release is the version constant of z2ui5_if_app on that system) every such name is reported with the release that brought it. the dates come from data/abap2ui5-since.json, read out of z2ui5_if_client at every release tag; a name already in its first release is not judged, and without the setting nothing is. update the installation, or write the app without the newer name. error">
+        <h3><a href="#abap2ui5-api-too-new">abap2ui5-api-too-new</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a name of the client API newer than the abap2UI5 release the app runs on — the class does not activate there</p>
+        <p class="detail">The linter knows abap2UI5 as its <code>main</code> branch is today. An app does not run on main: it runs on the release its system has installed, and a <code>client-&gt;cs_event-…</code> constant or a <code>client-&gt;…( )</code> method added later does not exist there — the class does not activate, which a systemless pipeline only learns when the transport is imported. With <code>"abap2ui5": "1.140.0"</code> in <code>abap2ui5lint.jsonc</code> (or <code>--abap2ui5 1.140.0</code>; the release is the <code>version</code> constant of <code>z2ui5_if_app</code> on that system) every such name is reported with the release that brought it. The dates come from <code>data/abap2ui5-since.json</code>, read out of <code>z2ui5_if_client</code> at every release tag; a name already in its first release is not judged, and without the setting nothing is. Update the installation, or write the app without the newer name.</p>
+        <div class="ba" id="abap2ui5-api-too-new-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>client-&gt;follow_up_action( client-&gt;_event_client( client-&gt;cs_event-set_focus ) ).   " "abap2ui5": "1.140.0" - SET_FOCUS came with 1.142.0</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>" update abap2UI5 to 1.142.0 or later, or move the focus another way on 1.140.0</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/abap2ui5-api-too-new.mjs#L41"><code>lib/rules/abap2ui5-api-too-new.mjs</code></a></p>
+      </article>
       <article class="rule" id="aggregation-too-new" data-search="aggregation-too-new an aggregation tag introduced after your target version the same mistake as member-too-new, with a far worse blast radius, which is why it is its own rule and an error. a post-floor property is dropped silently and the control still renders; a post-floor aggregation is a lowercase tag the release does not know, so ui5 falls back to resolving it as a control class and 404s on sap/&lt;lib&gt;/&lt;name&gt;.js — the whole view fails to load, not just the part below the tag. &lt;footer&gt; on a sap.m.dialog is the recurring case: the public footer aggregation is ~1.110, so on 1.71 ui5 requests sap/m/footer.js. use buttons (1.21.1); ui5 lays them out in an overflow toolbar by itself. error">
         <h3><a href="#aggregation-too-new">aggregation-too-new</a>
           <span class="badge error">error</span>
@@ -3683,13 +3697,13 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
 
   <footer>
     Generated from the rule registry of
-    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.9.0</strong> — do not edit by hand.
+    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.10.0</strong> — do not edit by hand.
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    175 configurable rules, plus <code>render-error</code> — the render gate's
+    176 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “175 rules passed” while this page has 176 cards.
+    <code>--badge</code> says “176 rules passed” while this page has 177 cards.
   </footer>
 </div>
 <script>

@@ -34,6 +34,10 @@ declare module "@abap2ui5/linter" {
      *  that take effect after the target and up to this version are reported
      *  as `deprecated-after-target`. Unset (the default): no such findings. */
     deprecatedAt?: string | null;
+    /** The abap2UI5 release the app runs on (e.g. "1.140.0"): a client API
+     *  name newer than it is `abap2ui5-api-too-new`. Unset (the default):
+     *  nothing is judged against a release. */
+    abap2ui5?: string | null;
     /** Which distribution the target serves. Unset (the default) is its own
      *  answer, not a synonym for "sapui5": a SAPUI5-only control is then a
      *  hint rather than an error ("openui5") or nothing at all ("sapui5"). */
@@ -482,6 +486,8 @@ declare module "@abap2ui5/linter/properties" {
     control?: string;
     member?: string;
     since?: string;
+    /** abap2ui5-api-too-new: the abap2UI5 release the run was told the app runs on. */
+    installed?: string;
     minUi5?: string;
     deprecated?: string | boolean | { since?: string | null; text?: string };
     /** invalid-property-value, unknown-binding-path, duplicate-id,
@@ -884,6 +890,9 @@ declare module "@abap2ui5/linter/abap-rules" {
        *  without it every repository is judged against the 1.71 default,
        *  whatever floor it configured. */
       minUi5?: string;
+      /** The abap2UI5 release the app runs on - abap2ui5-api-too-new judges
+       *  against it; without it that rule is silent. */
+      abap2ui5?: string | null;
     }
   ): PropertyFinding[];
 }
@@ -1183,6 +1192,7 @@ declare module "@abap2ui5/linter/config" {
     ignore?: string[];
     minUi5?: string;
     deprecatedAt?: string;
+    abap2ui5?: string;
     distribution?: string;
     allow?: string[];
     render?: boolean;
@@ -1343,6 +1353,9 @@ declare module "@abap2ui5/linter/report" {
   }
 
   export function formatStylish(results: CheckResult[], summary: Summary, opt?: FormatOptions): string;
+  /** The `schemaVersion` --format json writes: raised only when a field is
+   *  removed or retyped. */
+  export const JSON_SCHEMA_VERSION: number;
   /** The frozen --json contract: may grow keys, never lose or rename them. */
   export function formatJson(results: CheckResult[], summary: Summary, opt?: FormatOptions): string;
   export function formatMarkdown(results: CheckResult[], summary: Summary, opt?: FormatOptions): string;
