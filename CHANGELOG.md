@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### Changes
+
+Found by an org-wide bug hunt (2026-11-12); regression sections in
+`test/review/binding-value-readers.mjs`, `cli-written-files.mjs`,
+`escape-sequence-fix.mjs` and `raw-views.mjs`.
+
+- **`unknown-binding-path` reads every absolute path of a value**: the
+  `{/X}` embedded in a composite (`Hello {/NOPE}!`, `{/A} {/B}`), the string
+  entries of `parts: ['/A', '/B']` and a double-quoted `path: "/X"` were not
+  judged. An event value is read as before. A path below a field bound
+  with `json = abap_true` is no longer judged at all (an object on the
+  client whose shape the class does not declare) - samples app 509 waives
+  one such finding and now gets an `unused-directive` hint for it.
+- **`unknown-model` reads `path: 'm>…'` and the `parts` entries** - only
+  `{m>…}` was seen, so a foreign model written as a binding info passed.
+- **`malformed-xml` reports a bare `&`, an entity XML does not declare
+  (`&nbsp;`), an unquoted attribute value and a raw `<` in an attribute
+  value** - each refused by the browser's parser, each passed `--no-render`.
+- **`invalid-expression-binding` skips string literals**: `{= ${/a} + ' :-)' }`
+  was reported as unbalanced.
+- **`escape-sequence-in-backtick` withholds its fix on a literal that reads
+  as a Windows path** (`C:\temp\new file`, or one with a backslash that
+  escapes nothing); the finding stays.
+- **A config that `extends` a base in another directory and names its own
+  `baseline`** wrote it no more: the base's root was kept beside the child's
+  path, and every write was refused as "outside".
+- **`--update-baseline` creates the directory `--baseline` names** instead of
+  failing with ENOENT.
+- **`--screenshot view.PNG`** is one picture called `view.PNG`, not
+  `view.PNG.png`.
+- **`--format checkstyle` / `junit` name the file relative to the working
+  directory**, as every other format does - an absolute argument was written
+  absolute.
+- **`--init` writes a file ending in one newline**, without trailing blanks.
+- `@abap2ui5/linter-render`'s `homepage` points at the render gate's section
+  of the documentation; `#render-gate` was no anchor of the README.
+
 ## 0.10.0 - 2026-11-12
 
 ### Read before upgrading

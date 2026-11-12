@@ -655,7 +655,7 @@ async function runOnce({ opt, paths, indexPaths = paths, configFile = null, aske
      * full of shot-1.png says nothing about which app broke. */
     const base = shot.out.replace(/\.png$/i, '');
     const nameOf = (s) => {
-      if (taken.length === 1) return shot.out.endsWith('.png') ? shot.out : `${shot.out}.png`;
+      if (taken.length === 1) return /\.png$/i.test(shot.out) ? shot.out : `${shot.out}.png`;
       const stem = path.basename(s.file).replace(/\.(clas\.abap|abap|view\.xml|fragment\.xml|xml)$/i, '');
       // the viewport belongs in the name as soon as there is more than one:
       // three files called zcl_app.png would be a device matrix nobody can read
