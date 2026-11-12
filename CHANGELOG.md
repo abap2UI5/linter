@@ -20,12 +20,32 @@
   `src/01/04/z2ui5_cl_ui5_app_start.clas.abap` whose comment says it does
   not are reported as `unused-directive` (hints - abap2UI5 fails on warning,
   so its gate stays green; remove them anyway).
-- **Two new warnings and one new error, all silent on every measured
-  corpus**: `enum-bound-to-conditional-field`, `enum-cond-without-else` and
-  `abap2ui5-api-too-new` (the last only with `abap2ui5` configured).
+- **New rules, all silent on every measured corpus**: the warnings
+  `enum-bound-to-conditional-field`, `enum-cond-without-else`,
+  `escape-handler-as-string` and `nav-target-never-displays`, the error
+  `abap2ui5-api-too-new` (only with `abap2ui5` configured) and the opt-in
+  hint `xml-indentation`.
 
 ### Changes
 
+- **New rule `escape-handler-as-string`** (warning): `escapeHandler=".onEscape"`
+  on a `sap.m.Dialog` in a raw view or fragment below UI5 1.120 - the
+  property is typed `any` there, the string is kept, and Escape closes the
+  dialog through its plain branch. The `ui5-check` skill entry that was
+  marked ready to move.
+- **New rule `nav-target-never-displays`** (warning), the first that reads
+  another class of the run: `nav_app_call( )` to an app of the project that
+  neither displays anything nor hands control on. The class index carries a
+  `shows` fact per class, and `--cache` keys a caller on its targets'.
+- **New opt-in rule `xml-indentation`** (hint): a raw view's indentation
+  judged against its tree, the way `chain-indentation` judges a chain.
+- **`controllerName` on an `mvc:View` root is no unknown-property**, nor
+  are the resource-bundle settings XMLView reads off its root (found on
+  abap2UI5's own `App.view.xml`).
+- **Presets**: `"extends": "abap2ui5:recommended" | "abap2ui5:strict" |
+  "abap2ui5:adopt"` (`lib/presets.mjs`) - the base of a config like a file.
+- **`npm run fix-coverage -- <path>`**: findings per rule over a corpus and
+  how many carry a fix.
 - **`abap2ui5` in the config (`--abap2ui5`): the release the app runs on.**
   New rule `abap2ui5-api-too-new` (error) reports a `cs_event` constant or a
   client method that release does not have yet - the class does not

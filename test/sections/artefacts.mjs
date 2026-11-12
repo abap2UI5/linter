@@ -413,6 +413,9 @@ section('rules page', async () => {
       ['malformed-xml', 'the builder serializes a tree, so no class can write a document that is not well-formed - the card is raw XML'],
       ['deprecated-after-target', 'it fires only under a deprecation horizon (deprecatedAt), which the frame\'s default config never sets - test/review/deprecation-horizon.mjs judges it'],
       ['abap2ui5-api-too-new', 'it fires only when the abap2UI5 release is configured (abap2ui5), which the frame\'s default config never sets - test/review/abap2ui5-release.mjs judges it'],
+      ['escape-handler-as-string', 'a view the builder produces has no controller, so the rule judges raw views and fragments only - the card is raw XML; test/review/escape-handler.mjs judges it'],
+      ['nav-target-never-displays', 'it reads a SECOND class through the class index, and the frame wraps one - test/review/cross-class.mjs judges it'],
+      ['xml-indentation', 'it judges the layout of a raw view file, which the builder frame does not write - test/review/raw-views.mjs judges it'],
       ['native-html-in-view', 'native markup is deprecated since 1.120, past the default 1.71 floor the frame judges against - test/review/deprecation-horizon.mjs judges it on a 1.120 target'],
     ]);
     const wrappedFires = (id, half) => {

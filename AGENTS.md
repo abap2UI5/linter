@@ -67,6 +67,10 @@ npm run sync-manifest             # data/abap2ui5-manifest.json - abap2UI5's own
                                   # -- --check compares only); npm test holds the mirrors to it
 npm run generate-compat           # data/compat.json - after a version bump, or with
                                   # -- --local <abap2UI5 checkout> after a mirror sync
+npm run generate-abap2ui5-since  # data/abap2ui5-since.json + lib/abap2ui5-since.mjs -
+                                  # NEEDS NETWORK (abap2UI5's release tags); -- --module
+                                  # rewrites the module from the committed data file
+npm run fix-coverage -- <path>    # findings per rule over a corpus, and how many carry a fix
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 81
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
@@ -170,7 +174,8 @@ Each of these has been broken at least once. The number is its name — keep it.
 
 1. **Never hand-edit a generated or vendored file**: `data/properties.json`,
    `data/icons.json`, `data/compat.json`, `data/abap2ui5lint.schema.json`,
-   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`, `site/index.html`,
+   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`,
+   `data/abap2ui5-since.json`, `lib/abap2ui5-since.mjs`, `site/index.html`,
    `docs/agents/rule-map.md`, the README's dependents block. Each has a
    generator or a sync script in `scripts/`; `npm test` fails while one is stale.
 2. **ABAP is case-insensitive outside literals and comments, and so is every

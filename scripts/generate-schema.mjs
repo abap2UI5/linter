@@ -62,7 +62,8 @@ export function buildSchema() {
       $schema: { type: 'string', description: 'URL of this schema — editor completion only' },
       extends: {
         type: 'string',
-        description: 'Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+        description: 'A preset - "abap2ui5:recommended" (the defaults), "abap2ui5:strict" (hints fail, the house chain layout and the size-limit rule on), "abap2ui5:adopt" (only errors fail) - or the path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+        examples: ['abap2ui5:recommended', 'abap2ui5:strict', 'abap2ui5:adopt'],
       },
       paths: {
         type: 'array',
@@ -142,7 +143,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 176 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 179 rules passed").',
       },
       rules: {
         type: 'object',

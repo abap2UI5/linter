@@ -10,21 +10,23 @@ When a candidate ships, delete it here and write its paragraph there.
 Each with what it needs and what it must not report. A candidate without a
 case that happened is a wish; it goes into abap2UI5's `backlog/` first.
 
-- **Cross-class checks** — a sub-app that builds into a handle its host hands
-  over (samples 105/112: `view_parent->tag( … )`, rendered skipped today), a
-  `nav_app_call( )` to a class whose `main( )` never displays. Needs the
-  project index (`lib/project-index.mjs`) to carry each class's builder
-  entry points, and a corpus measurement before it reports anything: a
-  host's view is only complete together with every class it creates BY
-  NAME, which this source cannot list.
-- **Raw `*.view.xml` layout** — the chain-layout family reads a builder
-  CHAIN; a hand-written view file has an indentation nothing judges. Needs
-  the XML parser's node positions, not the ABAP statement splitter. Worth it
-  only if such files turn out to be a real part of a corpus — none of the
-  measured ones has more than a handful.
-- **A seed in a method the start path calls conditionally** — the branch
+- **A sub-app that builds into its host's handle** (samples 105/112:
+  `view_parent->tag( … )` on a handle the host hands over; render skipped
+  today). `nav-target-never-displays` showed the class index can carry facts
+  about other classes; this one needs it to carry each class's builder entry
+  points AND the host's slot the sub-app fills - which the host decides at
+  runtime, BY NAME, in sample 338. Report nothing until a corpus case shows
+  a defect the reconstruction would find.
+- **A seed in a method the start path calls conditionally** - the branch
   analysis behind `enum-bound-to-conditional-field` reads branches inside
   each span; a method called from one arm of an IF counts as running.
+- **The published schema of the `--format json` report** - the last open
+  item of the 1.0 criteria (`docs/agents/release.md`).
+- **Fixes for the frequent fixless findings** - `npm run fix-coverage` over
+  the corpora (2026-11-12): `member-too-new`, `control-too-new`,
+  `aggregation-too-new` (a version decision), `editable-control-without-binding`
+  and `missing-accessibility` (a text only the author has) lead; none is
+  mechanical, which is why they have none. Rerun it before writing a fix.
 
 ## Rules of the trade
 

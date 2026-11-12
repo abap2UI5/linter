@@ -763,3 +763,21 @@ Measured on samples-controls, samples, samples-stack, app-template,
 abap2UI5 and seven abap2UI5-addons repositories: no new finding but the two
 directives in abap2UI5's start app that excused the linter for not following
 `create_layout_form( )`.
+
+The second 2026-11-12 round worked the rest of that roadmap off:
+
+| Origin | Rule or change |
+| --- | --- |
+| an installation is not abap2UI5's main | `abap2ui5` in the config, `abap2ui5-api-too-new` (error) over `data/abap2ui5-since.json` - 0 findings against 1.148.0 on samples-controls, 1,633 against 1.140.0 |
+| abap2UI5's `ui5-check` entry "escapeHandler as an XML attribute is a string on 1.71", marked ready | `escape-handler-as-string` (warning, raw XML only) |
+| the first rule over ANOTHER class | `nav-target-never-displays` (warning) - 26 nav targets judged in silence across samples, samples-controls, samples-stack, abap2UI5 and popups, all of which display |
+| the raw-view half of the chain layout family | `xml-indentation` (opt-in hint) - silent on abap2UI5's frontend, the only hand-written raw views in any corpus |
+| abap2UI5's `App.view.xml`, checked for the first time | `controllerName` and the resource-bundle settings of an XMLView root are no unknown-property |
+| consumers spelling out the same intentions key by key | presets `abap2ui5:recommended`, `abap2ui5:strict`, `abap2ui5:adopt` as the base of `extends` |
+| a rename was the one breaking change of its own | `lib/rule-aliases.mjs` |
+
+`npm run fix-coverage` measured the fix question before any fix was written:
+of 2,817 findings on samples-controls 113 carry one, and every rule that
+fires there more than eight times without one needs a decision only the
+author can make. No fix was added for the sake of the ratio.
+

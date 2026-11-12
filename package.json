@@ -122,6 +122,8 @@
     "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs",
     "generate-rule-map": "node scripts/generate-rule-map.mjs",
+    "fix-coverage": "node scripts/fix-coverage.mjs",
+    "generate-abap2ui5-since": "node scripts/generate-abap2ui5-since.mjs",
     "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
     "sync-manifest": "node scripts/sync-manifest.mjs",
     "generate-sets": "node scripts/generate-sets.mjs",
