@@ -22,12 +22,24 @@
   so its gate stays green; remove them anyway).
 - **New rules, all silent on every measured corpus**: the warnings
   `enum-bound-to-conditional-field`, `enum-cond-without-else`,
-  `escape-handler-as-string` and `nav-target-never-displays`, the error
-  `abap2ui5-api-too-new` (only with `abap2ui5` configured) and the opt-in
-  hint `xml-indentation`.
+  `escape-handler-as-string` and `nav-target-never-displays`, the errors
+  `unknown-builder-method` and `abap2ui5-api-too-new` (the latter only with
+  `abap2ui5` configured) and the opt-in hint `xml-indentation`.
 
 ### Changes
 
+- **New rule `unknown-builder-method`** (error): a method the view builder
+  does not have - `z2ui5_cl_ui5_view_builder=>page( )`, `view->input( )`,
+  the frozen builder's per-control API written on the current class. Such a
+  class does not activate and used to pass as "no view built". Found by the
+  eval pack: one model wrote exactly that in all twelve answers.
+- **The evals run per release.** `experimental/evals/baselines/` holds two
+  committed answer sets (2026-11-12: one model 12/12 on the frozen builder,
+  one 12/12 on an invented builder API), `results/` their scores,
+  `score.mjs --compare` what moved, and `.github/workflows/evals.yml`
+  re-scores the baselines on every tag.
+- **The GitHub App spike is decided**: not built out, kept only for its dry
+  run of the in-memory entry points (`docs/agents/experimental.md`).
 - **New rule `escape-handler-as-string`** (warning): `escapeHandler=".onEscape"`
   on a `sap.m.Dialog` in a raw view or fragment below UI5 1.120 - the
   property is typed `any` there, the string is kept, and Escape closes the

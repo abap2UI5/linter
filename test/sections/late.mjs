@@ -37,6 +37,9 @@ section('rule docs', async () => {
     const ABOUT_THE_OLD_BUILDER = new Map([
       ['frozen-view-builder', null],
       ['obsolete-custom-control', new Set(['summary', 'detail'])],
+      // reports the old builder's per-control calls written on the current one:
+      // its example IS that call, its remedy stays gated
+      ['unknown-builder-method', new Set(['summary', 'detail', 'example'])],
     ]);
 
     const wrong = [];

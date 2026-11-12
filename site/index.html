@@ -141,7 +141,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">76 error</span>
+      <span class="badge error">77 error</span>
       <span class="badge warning">70 warning</span>
       <span class="badge hint">34 hint</span>
       <span class="badge fix">75 autofixable</span>
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 179 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 180 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -816,6 +816,23 @@ view-&gt;tag( `Button` )-&gt;a( n = `text` v = `Go` ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVFda4MwFP0rF58UZh4GeykoOI1MsLZUNxhzaGrjFohR_GjXju23j2hs6QbLS5Jzzr3n5OblUxOkotpCOxU8awdOUcFJh8iWNNqN1tVDW0jWDZ04hlkDHvaDKEiCVQTrx_swcMEPIicEd4OdBCsMpQJmOsauVI8QQBAleOM7Lo7hdDuwu4yVGWkaxXpO4kDBGRU9JM9rDBvsQ7K6SCcOpQJH3hgMpSIVvyIGy3WIlzhKnLPxEicPK-_K8rsiTCjfipq2srXg7DEn0veMHgywVHnBM7lJMNsOjO9oa9klKfq6PepgqEJJmzblVAcBFuRPjB5yEJ08V_sin1RyGaZNlOij4qLLR3Qv7x1pUPWPdCE7XaQDQ0XdUvSn_yVGzKqGU79uqzlMOZ4NBKkGooaprwShFtC_U2jrup-6TZMx7fHpO9Y1nBx19dKub5l4Y6UcgRoCjrxp7tf_pX29_gA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/undeclared-namespace.mjs#L19"><code>lib/rules/undeclared-namespace.mjs</code></a></p>
+      </article>
+      <article class="rule" id="unknown-builder-method" data-search="unknown-builder-method a method z2ui5_cl_ui5_view_builder does not have — -&gt;page( ), -&gt;input( ): the frozen builder's api on the current one the view builder has four verbs and a renderer: ele( ), tag( ), a( ), end( ) and stringify( ), plus the static factory( ) and escape_literal( ). the frozen z2ui5_cl_xml_view had one method per control - -&gt;page( ), -&gt;input( ), -&gt;button( ) - and every tutorial on the public web shows that api, so it is what an answer from memory writes, even when it names the current class. such a class does not activate, and it reconstructs no view, so it used to pass as "no view built" with nothing reported. judged on a statement that starts from the builder class or from a handle of it (declared type ref to z2ui5_cl_ui5_view_builder, or captured from a builder call); only the chain's own calls are read, so an argument like client-&gt;_bind( … ) is not one. write the control as ele( \page\ ) / tag( \input\ ) and its properties with a( n = … v = … ). error">
+        <h3><a href="#unknown-builder-method">unknown-builder-method</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a method <code>z2ui5_cl_ui5_view_builder</code> does not have — <code>-&gt;page( )</code>, <code>-&gt;input( )</code>: the frozen builder's API on the current one</p>
+        <p class="detail">The view builder has four verbs and a renderer: <code>ele( )</code>, <code>tag( )</code>, <code>a( )</code>, <code>end( )</code> and <code>stringify( )</code>, plus the static <code>factory( )</code> and <code>escape_literal( )</code>. The frozen <code>z2ui5_cl_xml_view</code> had one method per control - <code>-&gt;page( )</code>, <code>-&gt;input( )</code>, <code>-&gt;button( )</code> - and every tutorial on the public web shows that API, so it is what an answer from memory writes, even when it names the current class. Such a class does not activate, and it reconstructs no view, so it used to pass as "no view built" with nothing reported. Judged on a statement that starts from the builder class or from a handle of it (declared <code>TYPE REF TO z2ui5_cl_ui5_view_builder</code>, or captured from a builder call); only the chain's own calls are read, so an argument like <code>client-&gt;_bind( … )</code> is not one. Write the control as <code>ele( \</code>Page\<code> )</code> / <code>tag( \</code>Input\<code> )</code> and its properties with <code>a( n = … v = … )</code>.</p>
+        <div class="ba" id="unknown-builder-method-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+view-&gt;ele( `Page` )-&gt;input( value = client-&gt;_bind( mv_text ) ).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+view-&gt;ele( `Page` )-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bind( mv_text ) ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2XZBda4MwFIb_ysErhenFYDeDCplGFrCp1OxizJFGm5ZATMWPbu3YfvuwjY7uKvB-nOecvH05RtTSeXTOlebtoGVQadEFohSNc-d0h6GtRjdKUZ7DlIEYJ4QSRlYUspenlESQEIpSiNYYMWy1oDAw2TmOxvRFAiCU4XWCIpzD-X5QD1ztuGga68aIIai0kqYH9pphWOME2OovevWCwmAaXxYLClOYfyuSZZbiJaYMzeAlZs-r-Ab5UwtlLLeWfmixC5gZ00buUckPDxa2Xmk-PqPIy0HprWwX4U5U_aE9ueDZ4mj7odTShU0m9nIDnh8q0wy9C0ehBzmT_JCXymxdqI-8l589ePOQKXBhbVXXaHFy7eiub5XZq93ItAVM4-uhtx_kfL__Ag" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unknown-builder-method.mjs#L77"><code>lib/rules/unknown-builder-method.mjs</code></a></p>
       </article>
       <article class="rule" id="unused-namespace-declaration" data-search="unused-namespace-declaration xmlns:form declared on the root, and nothing in the view uses form: the mirror of undeclared-namespace: a prefix the root declares that no element and no attribute in the reconstructed document carries — neither as ns = form, nor inside a name (core:icon), nor on an attribute (core:require, app:type). the parser does not mind, so this is a hint; what it flags is a stale claim about the view's contents, usually the trace of a control that was removed or of a scaffold's root copied whole. the default xmlns is never reported. judged per document, so a fragment root repeating the view's declarations is judged on its own subtree. hint">
         <h3><a href="#unused-namespace-declaration">unused-namespace-declaration</a>
@@ -3756,9 +3773,9 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    179 configurable rules, plus <code>render-error</code> — the render gate's
+    180 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “179 rules passed” while this page has 180 cards.
+    <code>--badge</code> says “180 rules passed” while this page has 181 cards.
   </footer>
 </div>
 <script>

@@ -4,6 +4,18 @@ Two prototypes kept as documentation that executes. Neither is shipped or suppor
 
 ## `experimental/github-app/` — a spike, not a channel
 
+**Decided 2026-11-12: not built out, and not deleted.** A hosted App is a
+service - persistence, rate limits, the installation lifecycle, someone on
+call - and the two channels it would add nothing to already exist: the
+composite Action puts findings on a pull request's diff, the VS Code
+extension puts them in the editor. What the spike is worth is its dry run:
+`npm run check` and the `github-app-dryrun` CI job lint the fixtures through
+`checkAbapSource`/`checkXmlSource` in memory, with no checkout, which is the
+contract every pipeline-assembling consumer (the extension's web build,
+mcp-server) relies on. It stays for that, unchanged and unsupported; the day
+keeping it costs a change to `lib/`, it is deleted rather than adapted, and
+the in-memory check moves into `test/review/`.
+
 `experimental/github-app/` is a working prototype of the linter as a hosted
 **GitHub App** (webhook → installation token → property gate → check run),
 written to answer

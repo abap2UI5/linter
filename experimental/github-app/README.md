@@ -6,7 +6,9 @@ workflow file in the consumer's repository, the way
 [abaplint.app](https://blog.abaplint.app/) works next door.
 
 It is here to answer one question — *what would this actually take?* — with
-running code instead of an estimate. It is **not deployed, not registered and
+running code instead of an estimate. The answer was taken on 2026-11-12: it is
+not built out (docs/agents/experimental.md says why); its dry run stays as a
+test of the in-memory entry points. It is **not deployed, not registered and
 not maintained as a service.** Read the limits at the bottom before treating
 it as more than that.
 

@@ -1,0 +1,46 @@
+name: evals
+
+# experimental/evals, per release. The committed answer sets under
+# experimental/evals/baselines/ are what a model wrote when asked for an
+# abap2UI5 app with nothing in its context (a fresh session per model, the
+# pack in prompts.json). Re-scoring the SAME answers with every release
+# measures the LINTER: a rule that starts seeing what the answers get wrong
+# moves the number (unknown-builder-method was found this way), and a rule
+# that stops seeing it moves it back. The job prints each baseline's score
+# and its comparison with the newest committed result into the job summary;
+# it calls no model and fails on nothing.
+#
+# A new answer set (a new model, or the same model with llms.txt, the
+# plugin or the MCP server in front of it) is a manual step:
+# experimental/evals/README.md, "Per release".
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Score every committed answer set
+        run: |
+          set -e
+          for dir in experimental/evals/baselines/*/; do
+            label=$(basename "$dir")
+            node experimental/evals/score.mjs "$dir" --label "$label" --json-out "$RUNNER_TEMP/$label.json" >> "$GITHUB_STEP_SUMMARY"
+            last=$(ls experimental/evals/results/*-"$label".json 2>/dev/null | sort | tail -1)
+            if [ -n "$last" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              node experimental/evals/score.mjs --compare "$last" "$RUNNER_TEMP/$label.json" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          done

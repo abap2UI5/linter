@@ -1,0 +1,153 @@
+{
+  "label": "sonnet-blank",
+  "at": "2026-11-12",
+  "linter": "0.10.0",
+  "render": false,
+  "prompts": 12,
+  "answered": 12,
+  "counts": {
+    "current": 0,
+    "frozen": 12,
+    "invented": 0,
+    "noView": 0,
+    "unrecognised": 0,
+    "clean": 0,
+    "renderBroken": 0
+  },
+  "categories": {
+    "lifecycle": {
+      "findings": 12,
+      "answers": 12,
+      "rules": {
+        "frozen-view-builder": 12
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "table-filter",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "value-help",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "nav-two-apps",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "form-validation",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "confirm-delete",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "editable-table",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "upload-download",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "tabs-icons",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "chart",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "tree",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "currency-i18n",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    },
+    {
+      "id": "busy-progress",
+      "state": "frozen builder",
+      "findings": 1,
+      "worst": "warning",
+      "renderErrors": 0,
+      "rules": [
+        "frozen-view-builder"
+      ]
+    }
+  ],
+  "totals": {
+    "error": 0,
+    "warning": 13,
+    "hint": 0
+  }
+}

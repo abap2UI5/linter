@@ -781,3 +781,14 @@ of 2,817 findings on samples-controls 113 carry one, and every rule that
 fires there more than eight times without one needs a decision only the
 author can make. No fix was added for the sake of the ratio.
 
+The eval pack paid for itself the day it first ran (2026-11-12): two answer
+sets written by two models with nothing in their context. One wrote the
+frozen `z2ui5_cl_xml_view` twelve times - `frozen-view-builder` said so. The
+other named the CURRENT builder and called the frozen builder's per-control
+methods on it (`=>page( )`, `->input( )`), and the linter reported "no view
+built" and nothing else: a class that does not activate, passed as a class
+that merely displays nothing. `unknown-builder-method` closes it - 150
+findings across those twelve answers, 0 on every corpus, after a first cut
+that read handles class-wide reported a popup class's `lo_popup->result( )`
+in abap2UI5-addons/popups (a handle is now scoped to its method).
+
