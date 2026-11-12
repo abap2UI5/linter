@@ -140,6 +140,11 @@ npm run generate-schema && npm run generate-rules-page && npm run generate-compa
 #     generate-compat keeps `framework.mirrored` as committed; it moves only
 #     with `-- --local <abap2UI5 checkout>`, after a mirror sync.
 
+# 1e. The eval baselines are re-scored by evals.yml on the tag. A NEW answer
+#     set - a model or a tooling setup worth measuring this release - is the
+#     manual half (experimental/evals/README.md, "Per release"); commit its
+#     answers and its results/<date>-<label>.json before tagging.
+
 # 2. Rename the CHANGELOG.md "Unreleased" heading to the new version. The
 #     publish job refuses a tag whose version has no section, or one that
 #     still has entries under Unreleased, so a forgotten rename costs a

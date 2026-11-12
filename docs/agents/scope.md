@@ -46,12 +46,26 @@ What is collected, which builders are read, how a name is resolved to a value an
   [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did).
 - The knowledge bound is the committed metadata snapshot (`docs/agents/data.md`): the
   gate cannot know about anything newer than its `ui5Version`.
-- **One builder chain per document.** The reconstructor reads a chain as one
-  ABAP statement; a chain **split across statements on the same handle**
-  (`popover->ele( … ).` then `popover->ele( \`List\` )`) keeps its cursor at
-  runtime but is re-rooted here, so the document comes out with two roots.
-  It fails loudly (the render gate rejects it as native HTML content) rather
-  than silently — but the fix is in the port: write one chain per view.
+- **One builder chain per document, or one handle replayed.** A chain split
+  across statements on the same handle is replayed handle by handle (copies of
+  the handle's stack, so a statement moves its own cursor). A standalone
+  `factory( ).` followed by `view->ele( … )` statements adds SIBLINGS of the
+  root - at runtime too - and `second-root` reports it.
+- **Helpers are replayed, not guessed.** A void helper that takes a handle and
+  a RETURNING helper whose body is more than `result = io_x->chain` are both
+  replayed against the handle the call passes, and a call that captures the
+  result (`DATA(form) = create_layout_form( page )`) gets the handle the body
+  leaves in the returning parameter. A one-statement RETURNING body is still
+  inlined as text. A handle a factory method leaves in an ATTRIBUTE
+  (`DATA mo_page TYPE REF TO z2ui5_cl_ui5_view_builder` in the definition,
+  `mo_page = page.`) is replayed in every other method that builds on or
+  stringifies it - unless that method hands the attribute to anything but its
+  own builder calls (a field symbol, an argument), in which case what lands in
+  the view depends on code this source does not show and its builder calls
+  count as calls outside any chain: the render is skipped, not given half a
+  view. A call on a receiver declared `TYPE REF TO` another class, or inline
+  from a `NEW` / `cl_…=>` expression naming no builder, is not a builder call
+  (`t->end( )` on a transaction).
 - **A name's value is read in its scope.** The reconstructor resolves an
   attribute value written as a name (`v = lv_type`) to the literal or the
   template the class gives it (`makeResolver( )` in `lib/reconstruct.mjs`),
@@ -117,8 +131,14 @@ Inside a `VALUE #( )` row a parenthesised value (`COND #( )`, a method call)
 is one region (`SEED_CALL` in `parseRows( )`): a conditional whose every
 branch is a literal seeds its ELSE, anything else leaves the field out of the
 render model and at its declared default in the shape.
-Not modelled: branches inside the start path (a seed in one arm of an `IF`
-counts as given) — a seed that is conditional there stays unjudged.
+Branches inside the start path: a literal seed counts as given only when it
+stands at the level of its span, or when every arm of a complete `IF … ELSE`
+or `CASE … WHEN OTHERS` gives one (`unconditionalSeeds( )`); a seed inside a
+`LOOP`/`WHILE`/`DO` or in some arms only puts the field in
+`conditionalFields`, which `enum-bound-to-conditional-field` reads (a
+warning: whether the other arm runs is a runtime matter). The render model
+keeps the seed. Not modelled: whether a method the start path calls is
+itself called conditionally.
 
 Measured when it shipped (2026-10-08): no new finding and no new render error
 on samples-controls, samples-stack, abap2UI5, popups, sapgui and

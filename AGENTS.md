@@ -15,7 +15,7 @@ it), so what it costs is paid on every task. It holds what you must know
 *before* you can know you need to look something up: the commands, the rules
 that are easy to break without noticing, and where the rest is. It was 156 kB
 once, most of it the history of individual rules; `npm test` now holds it to a
-budget (`AGENTS_BUDGET` in `test/run.mjs`), so new knowledge goes where the
+budget (`AGENTS_BUDGET` in `test/sections/artefacts.mjs`), so new knowledge goes where the
 table below says, not here.
 
 | Kind of knowledge | Where it belongs |
@@ -23,7 +23,8 @@ table below says, not here.
 | A constraint on one function or rule | A comment at that code |
 | What a rule means, for its user | The rule's card (`detail`, `example`, `remedy`) — `--explain` and the rule page print it |
 | A rule that can be checked | A section in the suite. Prose is a request; a gate is a guarantee |
-| Why a rule is shaped the way it is, what it was measured on | `docs/agents/roadmap.md`, or `CHANGELOG.md` for one change |
+| Why a rule is shaped the way it is, what it was measured on | `docs/agents/rule-history.md`, or `CHANGELOG.md` for one change |
+| A rule not built yet | `docs/agents/roadmap.md` |
 | A prohibition you would otherwise violate unknowingly | Here, in one line |
 
 | File | Read it when |
@@ -31,7 +32,8 @@ table below says, not here.
 | `docs/agents/scope.md` | touching `lib/reconstruct.mjs`, file collection, the derived model or the start path — what the linter can and cannot see |
 | `docs/agents/rule-map.md` | you need to find a rule: every id with severity, category, fix, opt-in and the file it is defined in (**generated**) |
 | `docs/agents/rule-modules.md` | working inside a module of `lib/` — what each one is for, the hand-maintained knowledge files, fixes, `dedupe`, the test layout in full |
-| `docs/agents/roadmap.md` | widening, narrowing or adding a rule — where each rule came from, what it was measured against, the open candidates |
+| `docs/agents/roadmap.md` | adding a rule — the open candidates and the rules of the trade (measure on the corpora, check it can see anything) |
+| `docs/agents/rule-history.md` | widening or narrowing a rule — where it came from and what it was measured against |
 | `docs/agents/output.md` | changing a formatter, a flag, the run summary, progress or a badge — the surface shared with ui5lint and abaplint |
 | `docs/agents/data.md` | anything under `data/` — the metadata snapshot, `compat.json`, the abap2UI5 manifest, the portable profile |
 | `docs/agents/render-package.md` | `linter-render/`, a peer range, the `@openui5` pins |
@@ -52,7 +54,7 @@ npm run test:static               # the suite WITHOUT the render gate and withou
                                   # for rule and reconstructor work (test/static.mjs;
                                   # -- --test-name-pattern=fix narrows it)
 npm test                          # node --test test/run.mjs: node:test, over 1000 assertions
-                                  # in ~125 isolated sections (its own + test/review/*.mjs,
+                                  # in ~500 isolated sections (test/sections/ + test/review/,
                                   # loaded at the end). One of them:
                                   #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
@@ -65,6 +67,10 @@ npm run sync-manifest             # data/abap2ui5-manifest.json - abap2UI5's own
                                   # -- --check compares only); npm test holds the mirrors to it
 npm run generate-compat           # data/compat.json - after a version bump, or with
                                   # -- --local <abap2UI5 checkout> after a mirror sync
+npm run generate-abap2ui5-since  # data/abap2ui5-since.json + lib/abap2ui5-since.mjs -
+                                  # NEEDS NETWORK (abap2UI5's release tags); -- --module
+                                  # rewrites the module from the committed data file
+npm run fix-coverage -- <path>    # findings per rule over a corpus, and how many carry a fix
 node scripts/generate-icons.mjs   # data/icons.json - NEEDS NETWORK (packs 81
                                   # OpenUI5 minors), so it is not in npm test:
                                   # the committed file is the contract
@@ -147,11 +153,12 @@ that place.
 Then, for every rule:
 
 1. a fixture in `test/fixtures/` and assertions — a regression test goes into
-   `test/review/<topic>.mjs`, not into `test/run.mjs`; import the checks from
+   `test/review/<topic>.mjs` (a topic, never a date), not into `test/run.mjs`
+   or `test/sections/`; import the checks from
    the harness (`test/observe.mjs`), or the rule-coverage gate does not count them;
 2. `npm run generate-schema && npm run generate-rules-page && npm run generate-rule-map`;
 3. measure it against the sample corpora before shipping, and check that it
-   can see anything at all (`docs/agents/roadmap.md`, the last three paragraphs);
+   can see anything at all (`docs/agents/roadmap.md`, "Rules of the trade");
 4. a `CHANGELOG.md` entry under *Unreleased*.
 
 Every rule is in this shape - there is no other place a rule is defined, and
@@ -167,7 +174,8 @@ Each of these has been broken at least once. The number is its name — keep it.
 
 1. **Never hand-edit a generated or vendored file**: `data/properties.json`,
    `data/icons.json`, `data/compat.json`, `data/abap2ui5lint.schema.json`,
-   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`, `site/index.html`,
+   `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`,
+   `data/abap2ui5-since.json`, `lib/abap2ui5-since.mjs`, `site/index.html`,
    `docs/agents/rule-map.md`, the README's dependents block. Each has a
    generator or a sync script in `scripts/`; `npm test` fails while one is stale.
 2. **ABAP is case-insensitive outside literals and comments, and so is every

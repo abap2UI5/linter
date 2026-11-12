@@ -141,12 +141,12 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <p class="lede">Every rule the <a href="https://github.com/abap2UI5/linter">abap2UI5 view linter</a> can report — the id it prints,
       what it means, and what to do about it.</p>
     <div class="counts">
-      <span class="badge error">75 error</span>
-      <span class="badge warning">66 warning</span>
-      <span class="badge hint">33 hint</span>
+      <span class="badge error">77 error</span>
+      <span class="badge warning">70 warning</span>
+      <span class="badge hint">34 hint</span>
       <span class="badge fix">75 autofixable</span>
     </div>
-    <p class="stamp">Generated from <strong>v0.9.0</strong>, against the OpenUI5 1.154.0 metadata
+    <p class="stamp">Generated from <strong>v0.10.0</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx --no-install abap2ui5lint --version</code> says which that is.</p>
     <!-- A placeholder is not a label: it names the field only until the first
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 173 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 180 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -345,7 +345,7 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = |\{ path: '{ client-&gt;_bind( val 
             <pre><code>view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` )</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZTvz5owEMf_lQuvNJk127IXmkjCgzUjUTTKlixzkQoFm7SFlCLqsv3tSxF_4JMw3lDuvp-7K73rz9-WJIJaY-sS8Z0qOUURJwUie5JbH6wiK1VkvO7c2WzgpoEpnnm-F3hLH1bf3uaeCzPPd-bgrrET4MaGthJu7g12jbo2AXh-gNczx8UbuHwq2ZcdS3Ykzxvv1AkciDijUkPwY4VhjWcQLB_Sqw9tJfandWFoK7fypURvsZrjBfYD5554gYOvy2kr5V9BmGzyCjqwm7QTuOe4VdRTWab7MGnwiO_M68hotduXjMdUTeyERDpT5x70n0GjMaAJMLAppz2QMIHwO6NVCLIwa3GMwitinv7AJo3oJLgsQjiadUFyJDpkYxPlIS0ZijJFUXfssdG8p7oI3pZzcs5K3QUkT0DSJSxPJH8Obj475Jrs-UvtV1PXdomK2wiTmqaKaJZJVLE4pbroDPD6s4TIZCdRtolSsoTRuIsoBFH6XZ4c1fb_brHu0Iau1yjq7ICDFrcjPWidj4fDqqpQ9RllKh1-HI1Gw1MtaYWo-zhckZSG93Y3nT6wNUl7EL6VWmcyfM6mz7fDxSI_kIJdaPyArxM3sOuRilmRc3LuNSELrZhMWWJGqwGwP73Oc_sesP78-gc" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unknown-property.mjs#L17"><code>lib/rules/unknown-property.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unknown-property.mjs#L24"><code>lib/rules/unknown-property.mjs</code></a></p>
       </article>
       <article class="rule" id="unresolved-attribute-value" data-search="unresolved-attribute-value an enum-typed attribute whose value the reconstructor could not follow a builder attribute written with a value this gate cannot resolve — a cond #( ), a variable, a concatenation — is dropped from the reconstructed document, so every rule downstream is blind to it. that blind spot is mostly paid for: the attribute name is still known, which is all a version check needs, so member-too-new judges it anyway. what cannot be paid for is a closed set. an enum-typed property is the one member whose value the gate would otherwise have decided outright, and ui5 rejects a value outside the enum by taking the whole view down — so the one check that mattered here went with the value. deliberately scoped to enum-typed properties: reporting every unresolved attribute would name a blind spot on almost every conditional attribute in a corpus, which is a statistic rather than a finding. a cond #( ) or switch #( ) whose every branch is a literal and which has an else is not a blind spot: each of its values is judged the way a literal is (invalid-property-value names a wrong one), and nothing is said when all of them pass. nor is a name the class writes exactly once, with a string template: its value is the template's, resolved where the name is used. hint">
         <h3><a href="#unresolved-attribute-value">unresolved-attribute-value</a>
@@ -742,7 +742,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )
 " to downgrade the gate itself instead: rules: { 'render-error': 'warning' }</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L549"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L550"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="second-root" data-search="second-root a second element beside the document root — the split chain after a standalone factory( ) the builder's chain is one statement. a view written as a statement per subtree keeps its cursor only when the variable holds the node the next statement builds into — data(view) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = view ns = mvc … ). a standalone factory( ). leaves the variable holding the root, so the next view-&gt;tag( ) adds a sibling of the mvc:view instead of a child inside it, and the document ends up with two top-level elements. the render gate rejects that as native html content; the property gate now says why. reported on the second root, naming the first. a bare fragment of two controls is the same document and is reported too — a fragment with several roots needs a core:fragmentdefinition. error">
         <h3><a href="#second-root">second-root</a>
@@ -817,6 +817,23 @@ view-&gt;tag( `Button` )-&gt;a( n = `text` v = `Go` ).</code></pre></figure>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVFda4MwFP0rF58UZh4GeykoOI1MsLZUNxhzaGrjFohR_GjXju23j2hs6QbLS5Jzzr3n5OblUxOkotpCOxU8awdOUcFJh8iWNNqN1tVDW0jWDZ04hlkDHvaDKEiCVQTrx_swcMEPIicEd4OdBCsMpQJmOsauVI8QQBAleOM7Lo7hdDuwu4yVGWkaxXpO4kDBGRU9JM9rDBvsQ7K6SCcOpQJH3hgMpSIVvyIGy3WIlzhKnLPxEicPK-_K8rsiTCjfipq2srXg7DEn0veMHgywVHnBM7lJMNsOjO9oa9klKfq6PepgqEJJmzblVAcBFuRPjB5yEJ08V_sin1RyGaZNlOij4qLLR3Qv7x1pUPWPdCE7XaQDQ0XdUvSn_yVGzKqGU79uqzlMOZ4NBKkGooaprwShFtC_U2jrup-6TZMx7fHpO9Y1nBx19dKub5l4Y6UcgRoCjrxp7tf_pX29_gA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/undeclared-namespace.mjs#L19"><code>lib/rules/undeclared-namespace.mjs</code></a></p>
       </article>
+      <article class="rule" id="unknown-builder-method" data-search="unknown-builder-method a method z2ui5_cl_ui5_view_builder does not have — -&gt;page( ), -&gt;input( ): the frozen builder's api on the current one the view builder has four verbs and a renderer: ele( ), tag( ), a( ), end( ) and stringify( ), plus the static factory( ) and escape_literal( ). the frozen z2ui5_cl_xml_view had one method per control - -&gt;page( ), -&gt;input( ), -&gt;button( ) - and every tutorial on the public web shows that api, so it is what an answer from memory writes, even when it names the current class. such a class does not activate, and it reconstructs no view, so it used to pass as "no view built" with nothing reported. judged on a statement that starts from the builder class or from a handle of it (declared type ref to z2ui5_cl_ui5_view_builder, or captured from a builder call); only the chain's own calls are read, so an argument like client-&gt;_bind( … ) is not one. write the control as ele( \page\ ) / tag( \input\ ) and its properties with a( n = … v = … ). error">
+        <h3><a href="#unknown-builder-method">unknown-builder-method</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a method <code>z2ui5_cl_ui5_view_builder</code> does not have — <code>-&gt;page( )</code>, <code>-&gt;input( )</code>: the frozen builder's API on the current one</p>
+        <p class="detail">The view builder has four verbs and a renderer: <code>ele( )</code>, <code>tag( )</code>, <code>a( )</code>, <code>end( )</code> and <code>stringify( )</code>, plus the static <code>factory( )</code> and <code>escape_literal( )</code>. The frozen <code>z2ui5_cl_xml_view</code> had one method per control - <code>-&gt;page( )</code>, <code>-&gt;input( )</code>, <code>-&gt;button( )</code> - and every tutorial on the public web shows that API, so it is what an answer from memory writes, even when it names the current class. Such a class does not activate, and it reconstructs no view, so it used to pass as "no view built" with nothing reported. Judged on a statement that starts from the builder class or from a handle of it (declared <code>TYPE REF TO z2ui5_cl_ui5_view_builder</code>, or captured from a builder call); only the chain's own calls are read, so an argument like <code>client-&gt;_bind( … )</code> is not one. Write the control as <code>ele( \</code>Page\<code> )</code> / <code>tag( \</code>Input\<code> )</code> and its properties with <code>a( n = … v = … )</code>.</p>
+        <div class="ba" id="unknown-builder-method-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+view-&gt;ele( `Page` )-&gt;input( value = client-&gt;_bind( mv_text ) ).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+view-&gt;ele( `Page` )-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bind( mv_text ) ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2XZBda4MwFIb_ysErhenFYDeDCplGFrCp1OxizJFGm5ZATMWPbu3YfvuwjY7uKvB-nOecvH05RtTSeXTOlebtoGVQadEFohSNc-d0h6GtRjdKUZ7DlIEYJ4QSRlYUspenlESQEIpSiNYYMWy1oDAw2TmOxvRFAiCU4XWCIpzD-X5QD1ztuGga68aIIai0kqYH9pphWOME2OovevWCwmAaXxYLClOYfyuSZZbiJaYMzeAlZs-r-Ab5UwtlLLeWfmixC5gZ00buUckPDxa2Xmk-PqPIy0HprWwX4U5U_aE9ueDZ4mj7odTShU0m9nIDnh8q0wy9C0ehBzmT_JCXymxdqI-8l589ePOQKXBhbVXXaHFy7eiub5XZq93ItAVM4-uhtx_kfL__Ag" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unknown-builder-method.mjs#L77"><code>lib/rules/unknown-builder-method.mjs</code></a></p>
+      </article>
       <article class="rule" id="unused-namespace-declaration" data-search="unused-namespace-declaration xmlns:form declared on the root, and nothing in the view uses form: the mirror of undeclared-namespace: a prefix the root declares that no element and no attribute in the reconstructed document carries — neither as ns = form, nor inside a name (core:icon), nor on an attribute (core:require, app:type). the parser does not mind, so this is a hint; what it flags is a stale claim about the view's contents, usually the trace of a control that was removed or of a scaffold's root copied whole. the default xmlns is never reported. judged per document, so a fragment root repeating the view's declarations is judged on its own subtree. hint">
         <h3><a href="#unused-namespace-declaration">unused-namespace-declaration</a>
           <span class="badge hint">hint</span>
@@ -841,10 +858,48 @@ view-&gt;tag( `Button` )-&gt;a( n = `text` v = `Go` ).</code></pre></figure>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVFda8IwFP0rlz5VmHkY7EWw0LUpK2gV7QZjHW2sUQNpUppUp2P77SNtdHMP5iXhfNxzOXn7dASpqDNyTiXPm5ZTVHKiEFmR2rlzlGyb0rDBxF8u4ayBEEdxEqfxLIH58-MkDiCKE38CwQL7KbYYygSc6SUOjLqDAOIkxYvID_ASTvcte8jZJid1bdnQT30oOaNCQ_o6x7DAEaSzX2nPoUzgJOwWQ5nIxL8V4-l8gqc4Sf1L8BSnT7PwKvK7IkzY3IoOPRs7hkvGeSN3z-hhAGNrL3luLgPmq5bxNW3G3oaUWjZHFwbWaOihRzl1QcAYihdGDwUIZd7Vvix6lTmDoUes6KPiQhU9vDeAIjWqbmhHZtQfbctQKRuKbieMNrKpiisXJ0fZatQRV0ZNti4Uj63WUhQwQJA5IKTeMbGFFeXyAHpHoZFSQ6uoAjNh1E_oixx6XVNrpmpOjq4tRumGiS3bmMZsZzgJ-2-6_l7n6_0H" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/unused-namespace-declaration.mjs#L22"><code>lib/rules/unused-namespace-declaration.mjs</code></a></p>
       </article>
+      <article class="rule" id="xml-indentation" data-search="xml-indentation a raw view or fragment whose indentation does not follow its tree the raw-xml half of chain-indentation: in a .view.xml or .fragment.xml, an element that begins a line has to stand deeper than the line of its parent, every sibling that begins a line in the column of the first one, and a closing tag on a line of its own in the column of its opening tag. judged against the tree, never against a number of spaces - a file that keeps its own rhythm is silent. opt-in, like the house layout of a builder chain: most raw views in a repository are vendored or generated, and the rule belongs where a team writes its own (abap2ui5's frontend). ask for it with "rules": { "xml-indentation": "hint" }. hint">
+        <h3><a href="#xml-indentation">xml-indentation</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a raw view or fragment whose indentation does not follow its tree</p>
+        <p class="detail">The raw-XML half of <code>chain-indentation</code>: in a <code>*.view.xml</code> or <code>*.fragment.xml</code>, an element that begins a line has to stand deeper than the line of its parent, every sibling that begins a line in the column of the first one, and a closing tag on a line of its own in the column of its opening tag. Judged against the tree, never against a number of spaces - a file that keeps its own rhythm is silent. Opt-in, like the house layout of a builder chain: most raw views in a repository are vendored or generated, and the rule belongs where a team writes its own (abap2UI5's frontend). Ask for it with <code>"rules": { "xml-indentation": "hint" }</code>.</p>
+        <div class="ba" id="xml-indentation-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>&lt;mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"&gt;
+  &lt;Page&gt;
+      &lt;Button text="A"/&gt;
+    &lt;Button text="B"/&gt;
+  &lt;/Page&gt;
+&lt;/mvc:View&gt;</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>&lt;mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m"&gt;
+  &lt;Page&gt;
+    &lt;Button text="A"/&gt;
+    &lt;Button text="B"/&gt;
+  &lt;/Page&gt;
+&lt;/mvc:View&gt;</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/xml-indentation.mjs#L58"><code>lib/rules/xml-indentation.mjs</code></a></p>
+      </article>
     </section>
     <section class="cat" id="cat-version">
       <h2>Version and deprecation</h2>
       <p class="blurb">Portability against the UI5 version your system actually runs (--ui5, default 1.71) and the distribution it serves (--distribution).</p>
+      <article class="rule" id="abap2ui5-api-too-new" data-search="abap2ui5-api-too-new a name of the client api newer than the abap2ui5 release the app runs on — the class does not activate there the linter knows abap2ui5 as its main branch is today. an app does not run on main: it runs on the release its system has installed, and a client-&gt;cs_event-… constant or a client-&gt;…( ) method added later does not exist there — the class does not activate, which a systemless pipeline only learns when the transport is imported. with "abap2ui5": "1.140.0" in abap2ui5lint.jsonc (or --abap2ui5 1.140.0; the release is the version constant of z2ui5_if_app on that system) every such name is reported with the release that brought it. the dates come from data/abap2ui5-since.json, read out of z2ui5_if_client at every release tag; a name already in its first release is not judged, and without the setting nothing is. update the installation, or write the app without the newer name. error">
+        <h3><a href="#abap2ui5-api-too-new">abap2ui5-api-too-new</a>
+          <span class="badge error">error</span>
+        </h3>
+        <p class="summary">a name of the client API newer than the abap2UI5 release the app runs on — the class does not activate there</p>
+        <p class="detail">The linter knows abap2UI5 as its <code>main</code> branch is today. An app does not run on main: it runs on the release its system has installed, and a <code>client-&gt;cs_event-…</code> constant or a <code>client-&gt;…( )</code> method added later does not exist there — the class does not activate, which a systemless pipeline only learns when the transport is imported. With <code>"abap2ui5": "1.140.0"</code> in <code>abap2ui5lint.jsonc</code> (or <code>--abap2ui5 1.140.0</code>; the release is the <code>version</code> constant of <code>z2ui5_if_app</code> on that system) every such name is reported with the release that brought it. The dates come from <code>data/abap2ui5-since.json</code>, read out of <code>z2ui5_if_client</code> at every release tag; a name already in its first release is not judged, and without the setting nothing is. Update the installation, or write the app without the newer name.</p>
+        <div class="ba" id="abap2ui5-api-too-new-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>client-&gt;follow_up_action( client-&gt;_event_client( client-&gt;cs_event-set_focus ) ).   " "abap2ui5": "1.140.0" - SET_FOCUS came with 1.142.0</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>" update abap2UI5 to 1.142.0 or later, or move the focus another way on 1.140.0</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/abap2ui5-api-too-new.mjs#L41"><code>lib/rules/abap2ui5-api-too-new.mjs</code></a></p>
+      </article>
       <article class="rule" id="aggregation-too-new" data-search="aggregation-too-new an aggregation tag introduced after your target version the same mistake as member-too-new, with a far worse blast radius, which is why it is its own rule and an error. a post-floor property is dropped silently and the control still renders; a post-floor aggregation is a lowercase tag the release does not know, so ui5 falls back to resolving it as a control class and 404s on sap/&lt;lib&gt;/&lt;name&gt;.js — the whole view fails to load, not just the part below the tag. &lt;footer&gt; on a sap.m.dialog is the recurring case: the public footer aggregation is ~1.110, so on 1.71 ui5 requests sap/m/footer.js. use buttons (1.21.1); ui5 lays them out in an overflow toolbar by itself. error">
         <h3><a href="#aggregation-too-new">aggregation-too-new</a>
           <span class="badge error">error</span>
@@ -965,6 +1020,21 @@ view-&gt;tag( `Text` )-&gt;a( n = `text` v = |\{ path: '{ client-&gt;_bind( val 
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRtj5pAEP4rEz5pUtfYS9NoIimHa0qiaJQ2aWojKy7cJssuWRbRa9rf3iygJ15C-cIw87zMwgw_f1uCpNSaWK8R36uCUxRxkiNyIJn1wcploSJTdRfOdgtXDMzw3PO9wFv5sP72vPBcmHu-swB3g50ANzm0E3Atb7Fr0FUKwPMDvJk7Lt7C68eCfdqzeE-yrKnOnMCBiDMqNAQ_1hg2eA7B6g1a19BOYH9WNYZ2YiceWvSW6wVeYj9wbsZLHHxdzVqWf1PCROOb0oHd2E7h5nHtqKek1H2YNvSI783txGi5PxSMH6ma2jGJtFSXHvTviQZjiEZgYFNOeyBgCuF3RssQRG7i9BSFNcVc_YFNGtA55SIP4WTinGQo7YBNjMobtGAokoqibu2JwbxndTF4G87JRRa6ixDfEeIuYHEm2b24eeyAa3LgD73Xqa7jEnVsU5jQNFFEMylQyY4J1XmnwOPLSlMpOhlFm1EIFjN67GLkKVH6nU-Gqvx_j1hNaMOuYhR1TsCLTq-f9EXrbDIclmWJyickVTIcjcfj4bmCtCSqOQ7XJKHhbdzNpA9sTZIehM-F1lKE9276kl2_lquYZhHhhgs7C77kTEQURujzE0gBxEQj0EQlVNfa9UIO7GrjjizPOLn0GsdcKyYSFpvNa5rB_qxe9_Zvwvrz6x8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-value-too-new.mjs#L28"><code>lib/rules/enum-value-too-new.mjs</code></a></p>
+      </article>
+      <article class="rule" id="escape-handler-as-string" data-search="escape-handler-as-string escapehandler=".onescape" on a dialog below 1.120 — kept as a string, and escape closes the dialog anyway sap.m.dialog.escapehandler is declared {type: "any"} on 1.71 and "function" on newer releases (1.120 has it so). the xml template processor parses an attribute of type any with datatype("any").parsevalue, which keeps the literal ".onescape": nothing resolves it against the controller, nothing logs, and dialog.onsapescape takes its plain close branch because the property holds no function. newer releases resolve the attribute to the controller method, so every test leg but the old one passes. set the handler in code after the fragment is loaded - odialog.setescapehandler((p) =&gt; this.onescape(p)) - instead of in the xml. raw views and fragments only: a view the builder produces has no controller to name. warning">
+        <h3><a href="#escape-handler-as-string">escape-handler-as-string</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary"><code>escapeHandler=".onEscape"</code> on a Dialog below 1.120 — kept as a string, and Escape closes the dialog anyway</p>
+        <p class="detail"><code>sap.m.Dialog.escapeHandler</code> is declared <code>{type: "any"}</code> on 1.71 and <code>"function"</code> on newer releases (1.120 has it so). The XML template processor parses an attribute of type <code>any</code> with <code>DataType("any").parseValue</code>, which keeps the literal <code>".onEscape"</code>: nothing resolves it against the controller, nothing logs, and <code>Dialog.onsapescape</code> takes its plain close branch because the property holds no function. Newer releases resolve the attribute to the controller method, so every test leg but the old one passes. Set the handler in code after the fragment is loaded - <code>oDialog.setEscapeHandler((p) =&gt; this.onEscape(p))</code> - instead of in the XML. Raw views and fragments only: a view the builder produces has no controller to name.</p>
+        <div class="ba" id="escape-handler-as-string-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>&lt;Dialog xmlns="sap.m" title="Tools" escapeHandler=".onEscape"/&gt;</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>&lt;Dialog xmlns="sap.m" title="Tools"/&gt;
+&lt;!-- after Fragment.load: oDialog.setEscapeHandler((p) =&gt; this.onEscape(p)) --&gt;</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/escape-handler-as-string.mjs#L29"><code>lib/rules/escape-handler-as-string.mjs</code></a></p>
       </article>
       <article class="rule" id="event-parameter-too-new" data-search="event-parameter-too-new a ${$parameters&gt;/name} the event only gained later an event parameter read back in a t_arg that the event did not carry yet at your floor. resolved per event, not per parameter name, so an identically named parameter on another event does not mask it. warning">
         <h3><a href="#event-parameter-too-new">event-parameter-too-new</a>
@@ -1398,6 +1468,22 @@ ENDIF.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRbq5tAEP4rg08G6oa29CGBCDauVEhMSGyhNMVsdDVL11XWNSbn0P72ssZcT7G-OM58l1Fn9serIUhOjbHxEvNI1pyimJMKkR0pjXdGVdQy1tXpzFmv4YIBF3t-4If-IoDl188zfwqeHzgzmK6wE-IuhzYCLuU1nmp0mwLwgxCvPGeK1_DyoWafIpZGpCy7quuEDsScUaEg_L7EsMIehIsb9FxDG4EDt20MbcRGPLXoz5czPMdB6FyN5zj8snAfLP_khInON6eW3dlO4Opx6ciURaEGMOnoMY_07cBoE-1qxhMqJ3ZKYlXIkwmDe6LGaKIWsGzKqQkCJrD9xmizBVHpOD_E2zNFXwPLJh3omHNRbeGg44qUKO-BjbXKDVozFBeSon7tsca8ZfUx-COck1NRqz5CekdI-4D1kZT34vqxB67Ijj_1fk71vS6RySOFCUUzSRQrBGpYklFV9Qo8f6w8L0Qvo35k1IKljCZ9jConUr3xKVGb_-8rthPasdsYxb0TsFf55ZfulSrHw2HTNKj5iAqZDd-PRqPhsYU8SLRzvF2SjG6v4-573d5Ydryn8a-oEBETTN0WAq6AdnMSVpWcnEyQVCRUtutkwuAKx7M1_peoIAeWEUWTe2VJq5rfdteyM6r0jpv3CRMGVhUlkqTKYsnNKHB9r41x4J7Picfzxfj98y8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/missing-view-display-on-navigated.mjs#L45"><code>lib/rules/missing-view-display-on-navigated.mjs</code></a></p>
+      </article>
+      <article class="rule" id="nav-target-never-displays" data-search="nav-target-never-displays nav_app_call( ) to an app of this project that never displays anything the first rule that reads another class of the run. client-&gt;nav_app_call( zcl_detail=&gt;factory( ) ) hands the session to the called app - and the screen only changes when that app displays something. a class that declares z2ui5_if_app and contains no view_display( ), popup_display( ), nest_view_display( ), nav_app_leave( ), further nav_app_call( ) or message box leaves the browser on the caller's view while every event of it now reaches a class that does not handle it. judged only for a class the run's class index holds (the configured paths), without a superclass (which could display for it) and that never hands its client to another object (which could). a warning: an app that displays through a mechanism this source does not show is possible, and the waiver says why. warning">
+        <h3><a href="#nav-target-never-displays">nav-target-never-displays</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary"><code>nav_app_call( )</code> to an app of this project that never displays anything</p>
+        <p class="detail">The first rule that reads another class of the run. <code>client-&gt;nav_app_call( zcl_detail=&gt;factory( ) )</code> hands the session to the called app - and the screen only changes when that app displays something. A class that declares <code>z2ui5_if_app</code> and contains no <code>view_display( )</code>, <code>popup_display( )</code>, <code>nest_view_display( )</code>, <code>nav_app_leave( )</code>, further <code>nav_app_call( )</code> or message box leaves the browser on the caller's view while every event of it now reaches a class that does not handle it. Judged only for a class the run's class index holds (the configured <code>paths</code>), without a superclass (which could display for it) and that never hands its <code>client</code> to another object (which could). A warning: an app that displays through a mechanism this source does not show is possible, and the waiver says why.</p>
+        <div class="ba" id="nav-target-never-displays-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>client-&gt;nav_app_call( zcl_app_detail=&gt;factory( ) ).
+" zcl_app_detail: METHOD z2ui5_if_app~main. mv_count = mv_count + 1. ENDMETHOD.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>client-&gt;nav_app_call( zcl_app_detail=&gt;factory( ) ).
+" zcl_app_detail: IF client-&gt;check_on_navigated( ). view_display( ). ENDIF.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/nav-target-never-displays.mjs#L27"><code>lib/rules/nav-target-never-displays.mjs</code></a></p>
       </article>
       <article class="rule" id="nest-view-without-destroy" data-search="nest-view-without-destroy a nest_view_display( ) with no method_destroy a nested view is inserted into a control of the main view through the ui5 mutator named in method_insert, "after method_destroy has cleared what was there" — and method_destroy is optional, so the call compiles without it and the first display looks right. the interface's abap doc on that parameter: "the mutator that removes the previous content first (removeallcontent, removeallitems); without it every call adds one more fragment." the second nest_view_display( ) of the same slot then stacks a copy under the first, and the anchor grows by one fragment per roundtrip that re-renders it. both slots are judged (nest2_view_display( ) has exactly the contract of the first). warning">
         <h3><a href="#nest-view-without-destroy">nest-view-without-destroy</a>
@@ -2760,6 +2846,67 @@ view-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bind( mv_text ) )</co
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZRRb9owEMe_yilPIA2jbdoDqETKwGiRIKCSTZqWCUxiwJJjR7ZDoLT97JOT0BIqZXmJfff_3Z2TO_-5OIKk1Bk6TzFfq5xTFHOiEdmSzPnkaJmr2HrHM2-1gqsGJnjqB37oLwJY_vw-88cw9QNvBuNH7IW4tqFIwNW9wmOrLk0AfhDix6k3xit4-pKzb2u2W5Msq70TL_Qg5owKA-HvJYZHPIVw8S6tfCgSOJiUhaFIROKuRH--nOE5DkLvLfEchz8Wk0bK15QwUedNac-t047gLce1oo6S0nRhVOMxX9vXkdFivc0ZT6gauTsSG6nOHejeglZjQRug51JOOyBgBJtfjBYbENqu02O8qRD7dHsuqUWnlAu9gaNda5KhtEU2tFHepTlDsVQUtcceWs1Hqo3gTTknZ5mbNmB3A-zahPmJZLfB7bZFbsiW39VemdqOS1TSRJgwdK-IYVKggiV7anRrgPuPlaZStBJ5k8gF2zGatBE6Jcp8yJOh0v7fI5YdWtPlGsWtHXAw6fWXHozJhv1-URSo-Iqk2vc_DwaD_qmUNEKUfbxZkj3dNNs91tp2-_ODNmdOXUQgii6x5FINFU2i6OWhX3meEQBEDpgDBUPTjBNDIZack0xTbSkwEi5V6Goee245cAnTGSfnDthdz9VGMbFnOzt4dS04mFTT3rwlnJe__wA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/collapsed-brace-in-style.mjs#L44"><code>lib/rules/collapsed-brace-in-style.mjs</code></a></p>
       </article>
+      <article class="rule" id="enum-bound-to-conditional-field" data-search="enum-bound-to-conditional-field an enum-typed property bound to an attribute the start path seeds in one branch only — "" terminates the app when the other branch runs the branch half of enum-bound-to-initial-field. the start path — main( ) ahead of its dispatch if, the check_on_init( ) arm, the constructor and what they call — seeds the attribute, but only inside one arm of an if without an else that seeds it too, a case without when others, or a loop / while / do that may not run. on every first display that takes another way the attribute is still "", which is a member of no enum: managedobject.validateproperty throws and the app terminates before the view is shown. a seed counts as given when every arm of a complete if … else or case … when others gives one, and a try body counts as running. a warning, because whether the other arm is taken on the first display is a runtime matter this source does not show. give the attribute a valid start value in its declaration, or seed it in every arm. warning">
+        <h3><a href="#enum-bound-to-conditional-field">enum-bound-to-conditional-field</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an enum-typed property bound to an attribute the start path seeds in one branch only — "" terminates the app when the other branch runs</p>
+        <p class="detail">The branch half of <code>enum-bound-to-initial-field</code>. The start path — <code>main( )</code> ahead of its dispatch <code>IF</code>, the <code>check_on_init( )</code> arm, the constructor and what they call — seeds the attribute, but only inside one arm of an <code>IF</code> without an <code>ELSE</code> that seeds it too, a <code>CASE</code> without <code>WHEN OTHERS</code>, or a <code>LOOP</code> / <code>WHILE</code> / <code>DO</code> that may not run. On every first display that takes another way the attribute is still <code>""</code>, which is a member of no enum: <code>ManagedObject.validateProperty</code> throws and the app terminates before the view is shown. A seed counts as given when every arm of a complete <code>IF … ELSE</code> or <code>CASE … WHEN OTHERS</code> gives one, and a <code>TRY</code> body counts as running. A warning, because whether the other arm is taken on the first display is a runtime matter this source does not show. Give the attribute a valid start value in its declaration, or seed it in every arm.</p>
+        <div class="ba" id="enum-bound-to-conditional-field-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_state TYPE string.
+    DATA mv_failed TYPE abap_bool.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF client-&gt;check_on_init( ).
+      IF mv_failed = abap_true.
+        mv_state = `Error`.
+      ENDIF.
+      DATA(page) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = `View` ns = `mvc`
+          )-&gt;a( n = `xmlns` v = `sap.m`
+          )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+          )-&gt;ele( `Page` ).
+      page-&gt;tag( `MessageStrip`
+          )-&gt;a( n = `type` v = client-&gt;_bind( mv_state ) ).
+      client-&gt;view_display( page-&gt;stringify( ) ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_state TYPE string.
+    DATA mv_failed TYPE abap_bool.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF client-&gt;check_on_init( ).
+      IF mv_failed = abap_true.
+        mv_state = `Error`.
+      ELSE.
+        mv_state = `Success`.
+      ENDIF.
+      DATA(page) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = `View` ns = `mvc`
+          )-&gt;a( n = `xmlns` v = `sap.m`
+          )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+          )-&gt;ele( `Page` ).
+      page-&gt;tag( `MessageStrip`
+          )-&gt;a( n = `type` v = client-&gt;_bind( mv_state ) ).
+      client-&gt;view_display( page-&gt;stringify( ) ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2fZJRb5swFIX_yhVPRGp4qLSXSonEgqMhJTQqbNLUVMZxbpg1Y5Bt0qXT9tsrA4GkavvExedw73cPfvzrKVaid-e9cElZXQdcMhOwHau9G89UjeZOXKzCNIXeAhFZxkmcxfcJbL5_XcWLYKugLyElC6e0RwBxkpGHZbggKbzcNuILFYd2SqdGYRZCeaTGMouQ_dwQMFYLVbzRD0xI3HcGh0Z3VSWDrSJJ1JIFW7VV14zxerMia5Jk4UCzJtm3--iK43_JhDqjLoFLgcpO5_wX8t-0UlQoYX2Y9I7WM-LMOharGxwMMK4zg5xoXel8EEkSxcvhzS3n16zACcx6KC6pexwFPtNdI-Qe9Wx-YNxW-uTDZDpHiT4o1_qHwOcclHF1eeT5CADOyHrbn1Iqk8PR1YbVQfmp8c51Gs2NCHilMXinfwuSb1iB-UU8bpvp3LLCh3yNxrACU6tF_dFQe6qxm3dOnu6E2vtjiJOL7mdPG89emFqyk9_P7K6NOLiYhk_GvEkSdX__-tJ4_55eAQ" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-bound-to-conditional-field.mjs#L25"><code>lib/rules/enum-bound-to-conditional-field.mjs</code></a></p>
+      </article>
       <article class="rule" id="enum-bound-to-initial-field" data-search="enum-bound-to-initial-field an enum-typed property bound to an attribute nothing gives a value before the first display — "" terminates the app the root-field twin of enum-field-unset-on-insert. a type, state, design or any other enum-typed property bound to a type string attribute receives "" when the attribute is still initial, and "" is a member of no enum: managedobject.validateproperty throws and the app terminates before the view is shown — also while the control is invisible, because a hidden control still resolves its bindings. the typical shape is a result strip that only an event handler fills: type = error in a catch, type = success after a save, nothing at all on the first display. the view is judged against what the start path leaves in the attributes: the statements of main( ) ahead of its dispatch if, the check_on_init( ) branch (or, in a chain with no init arm, the check_on_navigated( ) branch — init implies navigated), the constructor and every method those call. an attribute counts as given a value by a literal seed there, by a declared value, or by any other write there (an expression, a select … into, an importing actual) — the last one is a runtime value and not judged. only a document built on the start path is judged; a popup built in an event handler is shown after that handler ran. a class whose main( ) has neither branch has no start path to read and is not judged, nor is a field the bind leaves out under omit_initial (ui5 then keeps the property default). the render gate renders the same documents against the same start-path model, so with it on the view also fails there; this finding names the attribute. error">
         <h3><a href="#enum-bound-to-initial-field">enum-bound-to-initial-field</a>
           <span class="badge error">error</span>
@@ -2826,6 +2973,21 @@ ENDCLASS.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVJbi5wwFP4rB58c6PhQ6MvCDFiNrTBeGNNCqUUzTsYNjVESdTtb2t9e4mVGd5c-efB8-W7J99-GIBU1HozngmekaayCE2WRE2mMd4aqO1nopXOwkwQmCLjI80Mf-1EI8ZePB9-xUgHTCAly9Gb4BeCHGB0920EJPL_v2IeMXQaVceva2AZJVcfbrL02FPC3GIFqJROlBQCpAbXgV2gfKWCUYKA9FS1cGOcKWDuoHiOMHIzcF8IBwp8jN4Ge0afszFTDyRX8II6O2A8_QcGZZhr0jsgDHN39jTsrFSh0h-BWKlKxrsAP4gMKUIjtm-aouIr5tyJMzE14k-h2XzzS4mdWi0yQnpWkpWcTNhMMVo7N2ei8RocEvcU0FGNCrlvKF2TLcneQIylrmc9coet7w4xCd3Q_JL1FWTpZ3JjZkJJuYDdFLXimPwP41DF-pnK3v5CireXVhM12Tzk1QWj5r4w-5SCUnqu-yGeXoGFkAv2quFA59HpWpLGq_8AeNMsd2jGrqCW1XnEPFvKYlPRejk6x3bekNCEPqFKkpEkrWfO2nG5wVJq7z05MnM1Vw5sb-QxaX-YoOb5vdtHtTAeWF7B4dcafH_8A" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-bound-to-initial-field.mjs#L33"><code>lib/rules/enum-bound-to-initial-field.mjs</code></a></p>
+      </article>
+      <article class="rule" id="enum-cond-without-else" data-search="enum-cond-without-else a cond #( ) without else on an enum-typed attribute — "" when no when matches, and the view is not created a conditional with no else yields the initial value of its type when no when matches — the empty string for every value a view attribute takes. an enum-typed property refuses "": the xml view fails to load with value '' is not valid for type … (confirmed by the render gate), whether the control is visible or not. each literal branch is still judged on its own (invalid-property-value); this names the branch that is missing. a warning, because a condition that always matches one when is a runtime matter this source does not show. write the else with the enum's default, or bind the property to an attribute that always holds a valid value. warning">
+        <h3><a href="#enum-cond-without-else">enum-cond-without-else</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a <code>COND #( )</code> without ELSE on an enum-typed attribute — "" when no WHEN matches, and the view is not created</p>
+        <p class="detail">A conditional with no <code>ELSE</code> yields the initial value of its type when no <code>WHEN</code> matches — the empty string for every value a view attribute takes. An enum-typed property refuses <code>""</code>: the XML view fails to load with <code>Value '' is not valid for type …</code> (confirmed by the render gate), whether the control is visible or not. Each literal branch is still judged on its own (<code>invalid-property-value</code>); this names the branch that is missing. A warning, because a condition that always matches one <code>WHEN</code> is a runtime matter this source does not show. Write the <code>ELSE</code> with the enum's default, or bind the property to an attribute that always holds a valid value.</p>
+        <div class="ba" id="enum-cond-without-else-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>view-&gt;tag( `MessageStrip` )-&gt;a( n = `type` v = COND #( WHEN lv_failed = abap_true THEN `Error` ) )</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>view-&gt;tag( `MessageStrip` )-&gt;a( n = `type` v = COND #( WHEN lv_failed = abap_true THEN `Error` ELSE `Information` ) )</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRfr5owFP8qJ-wFk1mzLXvQRBIGNZdE0SjbsswFKhRuk1JIKaJ32T77UkSveBPGC-Wc359Tek5__jYEyakxM15iHsqaUxRzUiFyIKXx3qiKWsY66yzt3Q6uGHDxwvO9wFv7sPn6Zek5sPB8ewnOFtsB7mJoL-Ca3mFHo9sQgOcHeLuwHbyDl481-xyyNCRl2WVdO7Ah5owKBcGPDYYtXkCwfoVecmgvsO-2haG92IuHEr3VZolX2A_sm_EKB09rt2f5NydMdL45HVud7RxuHteKTFkUagTzjh7zUL-OjDbhoWY8oXJupSRWhTybMLonaowmaoGxRTk1QcAcom-MNhGISq_zYxxdKPoZjS3SgU45F1UER72uSInyAdhMq7xCa4biQlI0rD3TmLesIQbvwzk5F7UaIqR3hHQIWJ9IeS-uPwfgihz4Q-2X0NB2iUz6FCYUzSRRrBCoYUlGVTUo8Piz8rwQg4y6z6gFSxlNhhhVTqR641OiNv7fLbYd2rHbNYoHO-BZ5dcjfVaqnE0mTdOg5hMqZDb5MJ1OJ6cW0pNo-zjakIxGt3bXnT62FMlMiFa0qkhGd0qyMrr3VOeyOzNn7bvwzoTvT9gHfgxTwjhNYA769gmVrCkEOhVhKQsZwehmdJnOsdWOX8KqkpOz2dlXSjKRsVSPYUfAvnuZ_f6dYfz59Q8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-cond-without-else.mjs#L18"><code>lib/rules/enum-cond-without-else.mjs</code></a></p>
       </article>
       <article class="rule" id="enum-field-unset-on-insert" data-search="enum-field-unset-on-insert a row built at runtime without a field the view binds to an enum — the empty string takes the view down the demo-kit originals push a js object with the key absent, and ui5 falls back to the property default. abap has no absent: an unset field ships as "", which is not a member of any enum, so managedobject.validateproperty throws — and managedobjectbindingsupport re-throws anything that is not a formatexception, so the binding update dies and takes the view with it. both repairs are already in the framework: seed the default (type = 'none'), or name the field in omit_initial_paths. three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an insert/append of a value #( … ) literal, the t = value #( ( … ) ( … ) ) seed a model_init writes (including the nested elements = value #( … ) inside one), and a row assembled in a work area and inserted a few statements later. a row copied wholesale — value #( for row in t_all … ( row ) ) — has no field list to read and is not judged. fields are keyed on the table each bound aggregation names, absolute ({/t_pages}) and relative ({path: 't_appointments'}) alike, and each key gets only the fields of its own row template: a planningcalendar binds rows, specialdates and a nested appointments at once, and only the innermost carries ariahaspopup. not reported where the class fills the field afterwards — a loop … r-&gt;state = … completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an abap component name at all (type="{text}" is the demo kit's own quirk, ported verbatim: it resolves to nothing, so ui5 keeps the default). the widening came from a corpus sweep in 2026-08, where the insert-only reading had missed ten real defects across seven ports, every one of which took its view down. error">
         <h3><a href="#enum-field-unset-on-insert">enum-field-unset-on-insert</a>
@@ -3607,13 +3769,13 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
 
   <footer>
     Generated from the rule registry of
-    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.9.0</strong> — do not edit by hand.
+    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.10.0</strong> — do not edit by hand.
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    173 configurable rules, plus <code>render-error</code> — the render gate's
+    180 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “173 rules passed” while this page has 174 cards.
+    <code>--badge</code> says “180 rules passed” while this page has 181 cards.
   </footer>
 </div>
 <script>

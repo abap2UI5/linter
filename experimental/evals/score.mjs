@@ -29,6 +29,14 @@
  *                        just name real controls. Needs @abap2ui5/linter-render
  *                        and a browser, so it is off by default
  *     --json-out <file>  write the full result as JSON, to compare runs later
+ *   node experimental/evals/score.mjs --compare <before.json> <after.json>
+ *                        what moved between two --json-out results: the
+ *                        headline counts and every prompt whose state or
+ *                        findings changed. Two runs of one answer set under
+ *                        two linter versions measure the LINTER; two answer
+ *                        sets under one version measure the MODEL or its
+ *                        tooling. Both are kept per release
+ *                        (experimental/evals/results/, see the README)
  *
  * An answer file is <prompt-id>.clas.abap (also accepted: <prompt-id>.abap,
  * <prompt-id>.txt). A prompt with no file counts as "no answer" rather than
@@ -90,12 +98,41 @@ function printPrompts() {
   process.stdout.write(lines.join('\n'));
 }
 
+/* --compare: two --json-out results side by side. Exit 2 on a file that is
+ * not one; otherwise 0 whatever moved - this reports, it does not gate. */
+function compare(beforeFile, afterFile) {
+  if (!beforeFile || !afterFile) { console.error('--compare takes two --json-out files'); process.exit(2); }
+  const read = (f) => {
+    try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { console.error(`${f}: ${e.message}`); process.exit(2); }
+  };
+  const a = read(beforeFile);
+  const b = read(afterFile);
+  const out = [`## ${a.label} (${a.linter}, ${a.at}) -> ${b.label} (${b.linter}, ${b.at})`, '', '| | before | after |', '| --- | ---: | ---: |'];
+  for (const k of ['current', 'frozen', 'invented', 'noView', 'unrecognised', 'clean', 'renderBroken']) {
+    out.push(`| ${k} | ${a.counts?.[k] ?? 0} | ${b.counts?.[k] ?? 0} |`);
+  }
+  out.push(`| findings | ${a.rows.reduce((s, r) => s + r.findings, 0)} | ${b.rows.reduce((s, r) => s + r.findings, 0)} |`, '');
+  const before = new Map(a.rows.map((r) => [r.id, r]));
+  const moved = [];
+  for (const r of b.rows) {
+    const o = before.get(r.id);
+    if (!o) { moved.push(`| ${r.id} | (new) | ${r.state}, ${r.findings} |  |`); continue; }
+    const gone = o.rules.filter((x) => !r.rules.includes(x));
+    const came = r.rules.filter((x) => !o.rules.includes(x));
+    if (o.state === r.state && o.findings === r.findings && !gone.length && !came.length) continue;
+    moved.push(`| ${r.id} | ${o.state}, ${o.findings} | ${r.state}, ${r.findings} | ${[...came.map((x) => `+\`${x}\``), ...gone.map((x) => `-\`${x}\``)].join(' ')} |`);
+  }
+  out.push(moved.length ? ['| prompt | before | after | rules |', '| --- | --- | --- | --- |', ...moved].join('\n') : 'no prompt moved', '');
+  process.stdout.write(out.join('\n'));
+}
+
 function parseArgs(argv) {
   const opts = { dir: null, label: null, render: false, jsonOut: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--help' || a === '-h') usage();
     else if (a === '--prompts') { printPrompts(); process.exit(0); }
+    else if (a === '--compare') { compare(argv[i + 1], argv[i + 2]); process.exit(0); }
     else if (a === '--render') opts.render = true;
     else if (a === '--label') opts.label = argv[++i];
     else if (a === '--json-out') opts.jsonOut = argv[++i];
@@ -173,7 +210,7 @@ function main() {
 
   const rows = [];
   const categories = {};
-  let current = 0, frozen = 0, noView = 0, unrecognised = 0, clean = 0, renderBroken = 0;
+  let current = 0, frozen = 0, invented = 0, noView = 0, unrecognised = 0, clean = 0, renderBroken = 0;
 
   for (const p of PROMPTS) {
     if (!answered.includes(p.id)) {
@@ -188,9 +225,14 @@ function main() {
     }
     const findings = r.findings || [];
     const isFrozen = findings.some((f) => f.type === 'frozen-view-builder');
-    const state = r.usesBuilder ? 'current builder' : isFrozen ? 'frozen builder' : 'no view built';
+    /* the current builder's NAME with the frozen builder's per-control
+     * methods (`z2ui5_cl_ui5_view_builder=>page( )`): no view reconstructs,
+     * and it is not "no view built" either - unknown-builder-method */
+    const isInvented = !r.usesBuilder && findings.some((f) => f.type === 'unknown-builder-method');
+    const state = r.usesBuilder ? 'current builder' : isFrozen ? 'frozen builder' : isInvented ? 'invented builder API' : 'no view built';
     if (r.usesBuilder) current++;
     else if (isFrozen) frozen++;
+    else if (isInvented) invented++;
     else noView++;
 
     for (const f of findings) {
@@ -226,6 +268,7 @@ function main() {
   out.push(`| answered | ${pct(answered.length)} |`);
   out.push(`| **current builder** | **${pct(current)}** |`);
   out.push(`| **frozen builder** (\`z2ui5_cl_xml_view\`) | **${pct(frozen)}** |`);
+  out.push(`| **invented builder API** (current class, per-control methods) | **${pct(invented)}** |`);
   out.push(`| no view built | ${pct(noView)} |`);
   out.push(`| not an app class | ${pct(unrecognised)} |`);
   out.push(`| clean (builder, no findings${opts.render ? ', view loads' : ''}) | ${pct(clean)} |`);
@@ -262,7 +305,7 @@ function main() {
       render: opts.render,
       prompts: total,
       answered: answered.length,
-      counts: { current, frozen, noView, unrecognised, clean, renderBroken },
+      counts: { current, frozen, invented, noView, unrecognised, clean, renderBroken },
       categories: Object.fromEntries(cats.map(([cat, c]) =>
         [cat, { findings: c.findings, answers: c.answers.size, rules: c.rules }])),
       rows,

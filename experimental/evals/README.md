@@ -41,6 +41,31 @@ Keep the JSON summaries (small, comparable, worth committing). The raw answers
 are yours to keep or discard; `answers/` under this directory is gitignored so
 a run does not land in a commit by accident.
 
+## Per release
+
+Two things are measured, and they are kept apart:
+
+- **The linter, on fixed answers.** `baselines/<label>/` holds committed
+  answer sets; `.github/workflows/evals.yml` re-scores each of them on every
+  `v*` tag and compares it with the newest `results/*-<label>.json`, in the
+  job summary. A release that changes what the gate sees in model output
+  shows up there without anyone running a model.
+- **The models, on a fixed linter.** A new answer set is a manual step, once
+  per release or when the tooling in front of the model changes: ask the
+  pack in a fresh session (step 1 above), save the answers under
+  `baselines/<model>-<setup>/`, score with `--json-out
+  results/<date>-<label>.json`, commit both, and compare with
+  `score.mjs --compare <before.json> <after.json>`.
+
+The first baselines (2026-11-12) were written by two models through a
+subagent with no context and no tools but the file writes: `sonnet-blank`
+answered all twelve prompts on the frozen `z2ui5_cl_xml_view` (12/12 frozen
+builder), `haiku-blank` named the current `z2ui5_cl_ui5_view_builder` and
+called the frozen builder's per-control methods on it (12/12 invented
+builder API) - which the linter reported as "no view built" until
+`unknown-builder-method` existed. Neither produced a view on the current
+builder.
+
 ## What the numbers mean
 
 The run uses the linter's **defaults** — UI5 1.71, fail on warning,

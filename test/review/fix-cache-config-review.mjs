@@ -588,10 +588,15 @@ ENDCLASS.
    * did not judge the class; by the round's own rule for rules that did not
    * run, its waiver is unjudged, not unused. */
   section('round 2026-09-29b: a waiver of unused-namespace-declaration where the rule stood down is not unused', () => {
+    /* helperns' create_layout_form( ) is followed since the reconstructor
+     * replays a captured RETURNING helper (reconstruction-reach.mjs); a
+     * CALL METHOD … RECEIVING is a call it still does not enter, so the
+     * class stays not fully seen */
     const src = fs.readFileSync(f('helperns.clas.abap'), 'utf8').replace(
       /(\n\s*)(\)->a\( n = `xmlns:form`)/,
       '$1" abap2ui5lint-disable-next-line unused-namespace-declaration -- used by the form create_layout_form( ) adds$1$2',
-    );
+    ).replace('DATA(form) = create_layout_form( page ).',
+      'DATA form TYPE REF TO z2ui5_cl_ui5_view_builder.\n      CALL METHOD create_layout_form EXPORTING view = page RECEIVING result = form.');
     assert(/abap2ui5lint-disable-next-line unused-namespace-declaration/.test(src), 'the waiver sits over the xmlns:form line');
     const r = checkAbapSource(src, { file: 'helperns.clas.abap', render: false });
     assert(!r.findings.some((x) => x.type === 'unused-namespace-declaration'), 'the rule stands down for the class, as the first round made it');

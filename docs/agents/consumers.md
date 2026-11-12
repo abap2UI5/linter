@@ -90,7 +90,7 @@ entry points instead of re-assembling them - the VS Code extension carried
 a port of each of those decisions, pinned to this source by a test of its
 own. A decision `checkAbapSource( )` makes belongs in `check.mjs` as an
 export, not inline: an inline one is a decision every pipeline-assembling
-consumer has to copy. `round-2026-10-09c.mjs` loads `./check` in a fresh
+consumer has to copy. `check-entry-point.mjs` loads `./check` in a fresh
 process with a resolve hook and fails on `render.mjs`, `index.mjs`, a
 `worker_threads`/`http`/`os`/`module` import or anything of the render
 runtime, and walks the static import graph as well.
@@ -107,6 +107,7 @@ the consumer, so no second install is needed):
 | Job | What it catches |
 | --- | --- |
 | `samples-controls corpus` | a rule that starts firing on real ports — run through `view-gates.mjs`, so corpus policy (POST_171 deviations, declared skips, advisories) applies and only a genuine regression fails |
+| `app-corpora` | the property gate straight over samples, samples-stack, app-template, abap2UI5's own apps and the seven addons that declare the linter, each with its own committed config — advisory, so it prints the per-rule count into the job summary rather than gating; the number a rollout note quotes |
 | `vscode-extension typecheck` | a renamed or reshaped export — the extension imports the subpath exports and typechecks them against the typings this package ships, which nothing here would otherwise exercise |
 
 A red downstream job is **not automatically a defect in the change**: a new
@@ -119,7 +120,12 @@ landing unseen. Two traps worth knowing before reading a result:
   changes nothing downstream. Conversely a **renamed rule id** is a silent
   breaking change: the consumer matches `VERSION_TYPES` and its sidecar
   deviations by type name, so a rename un-excuses every finding that name
-  covered (renaming `member-too-new` fails 68 ports).
+  covered (renaming `member-too-new` fails 68 ports). Since 2026-11 a rename
+  is an entry in `lib/rule-aliases.mjs`: the old id keeps working for one
+  minor line in a config `rules` block, a directive and a baseline key -
+  but a consumer's OWN tables (`VERSION_TYPES`, sidecar deviations) still
+  match the new name only, so the rename stays a "Read before upgrading"
+  item.
 - The corpus exercises only a fraction of the rule set — when this was last
   measured (2026-08, 416 ports) just six finding types fired across the whole
   corpus. A green corpus job means *no regression*, not *the new rule is

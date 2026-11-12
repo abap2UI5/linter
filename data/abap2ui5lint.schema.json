@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/abap2UI5/linter/v0.9.0/data/abap2ui5lint.schema.json",
+  "$id": "https://raw.githubusercontent.com/abap2UI5/linter/v0.10.0/data/abap2ui5lint.schema.json",
   "title": "abap2ui5lint.jsonc",
   "description": "Configuration for abap2UI5 linter (https://github.com/abap2UI5/linter)",
   "type": "object",
@@ -12,7 +12,12 @@
     },
     "extends": {
       "type": "string",
-      "description": "Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two \"rules\" blocks merge per rule id. Chains follow; a cycle is refused."
+      "description": "A preset - \"abap2ui5:recommended\" (the defaults), \"abap2ui5:strict\" (hints fail, the house chain layout and the size-limit rule on), \"abap2ui5:adopt\" (only errors fail) - or the path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two \"rules\" blocks merge per rule id. Chains follow; a cycle is refused.",
+      "examples": [
+        "abap2ui5:recommended",
+        "abap2ui5:strict",
+        "abap2ui5:adopt"
+      ]
     },
     "paths": {
       "type": "array",
@@ -43,6 +48,11 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
       "description": "The deprecation horizon past \"ui5\", e.g. \"1.136\" (the legacy-free baseline). Deprecations that take effect after the target and up to this version are reported as deprecated-after-target hints, naming the replacement and whether the target has it yet. Must not be below \"ui5\"."
+    },
+    "abap2ui5": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "The abap2UI5 release the app runs on, e.g. \"1.140.0\" - the version constant of z2ui5_if_app on that system. A client API name added after it (a cs_event constant, a client method) is reported as abap2ui5-api-too-new: the class does not activate there. Leave it out and nothing is judged against a release."
     },
     "distribution": {
       "enum": [
@@ -129,7 +139,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 173 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 180 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -139,6 +149,10 @@
         "abap-date-formatter-mismatch": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'abap-date-formatter-mismatch' — default severity: error"
+        },
+        "abap2ui5-api-too-new": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'abap2ui5-api-too-new' — default severity: error"
         },
         "abapdoc-html-tag": {
           "$ref": "#/definitions/rule",
@@ -352,9 +366,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'empty-catch-block' — default severity: hint"
         },
+        "enum-bound-to-conditional-field": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-bound-to-conditional-field' — default severity: warning"
+        },
         "enum-bound-to-initial-field": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'enum-bound-to-initial-field' — default severity: error"
+        },
+        "enum-cond-without-else": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-cond-without-else' — default severity: warning"
         },
         "enum-field-unset-on-insert": {
           "$ref": "#/definitions/rule",
@@ -363,6 +385,10 @@
         "enum-value-too-new": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'enum-value-too-new' — default severity: warning"
+        },
+        "escape-handler-as-string": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'escape-handler-as-string' — default severity: warning"
         },
         "escape-sequence-in-backtick": {
           "$ref": "#/definitions/rule",
@@ -572,6 +598,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'native-html-in-view' — default severity: hint"
         },
+        "nav-target-never-displays": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'nav-target-never-displays' — default severity: warning"
+        },
         "navigation-lost-on-rebuild": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'navigation-lost-on-rebuild' — default severity: hint"
@@ -760,6 +790,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-binding-type' — default severity: error"
         },
+        "unknown-builder-method": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'unknown-builder-method' — default severity: error"
+        },
         "unknown-control": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'unknown-control' — default severity: error"
@@ -827,6 +861,10 @@
         "view-never-displayed": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'view-never-displayed' — default severity: error"
+        },
+        "xml-indentation": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'xml-indentation' — default severity: hint"
         },
         "render-error": {
           "$ref": "#/definitions/rule",

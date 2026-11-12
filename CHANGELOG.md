@@ -2,6 +2,126 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-12
+
+### Read before upgrading
+
+- **This release is 0.10.0, not 0.9.1.** Since 0.9.0 the mirrors of
+  abap2UI5 moved several times (new `cs_event` constants, `HTMLFrame`, the
+  LLM objects released, the utility classes moved to abap2UI5-ext), and
+  consumers on `^0.9.0` - abap2UI5 itself among them - judge the
+  framework's new names as unknown until they take a release that carries
+  them. Nothing removed or renamed a rule id, a config key or an export; the
+  `--json` document only grew (`schemaVersion`). `@abap2ui5/linter-render`
+  moves to 0.10.0 with it, and its peer range is `>=0.8.0 <0.11.0`.
+- **abap2UI5's start app: drop two directives at the bump.** The
+  reconstructor now follows `create_layout_form( )`, so the two
+  `abap2ui5lint-disable-next-line unused-namespace-declaration` directives in
+  `src/01/04/z2ui5_cl_ui5_app_start.clas.abap` whose comment says it does
+  not are reported as `unused-directive` (hints - abap2UI5 fails on warning,
+  so its gate stays green; remove them anyway).
+- **New rules, all silent on every measured corpus**: the warnings
+  `enum-bound-to-conditional-field`, `enum-cond-without-else`,
+  `escape-handler-as-string` and `nav-target-never-displays`, the errors
+  `unknown-builder-method` and `abap2ui5-api-too-new` (the latter only with
+  `abap2ui5` configured) and the opt-in hint `xml-indentation`.
+
+### Changes
+
+- **New rule `unknown-builder-method`** (error): a method the view builder
+  does not have - `z2ui5_cl_ui5_view_builder=>page( )`, `view->input( )`,
+  the frozen builder's per-control API written on the current class. Such a
+  class does not activate and used to pass as "no view built". Found by the
+  eval pack: one model wrote exactly that in all twelve answers.
+- **The evals run per release.** `experimental/evals/baselines/` holds two
+  committed answer sets (2026-11-12: one model 12/12 on the frozen builder,
+  one 12/12 on an invented builder API), `results/` their scores,
+  `score.mjs --compare` what moved, and `.github/workflows/evals.yml`
+  re-scores the baselines on every tag.
+- **The GitHub App spike is decided**: not built out, kept only for its dry
+  run of the in-memory entry points (`docs/agents/experimental.md`).
+- **New rule `escape-handler-as-string`** (warning): `escapeHandler=".onEscape"`
+  on a `sap.m.Dialog` in a raw view or fragment below UI5 1.120 - the
+  property is typed `any` there, the string is kept, and Escape closes the
+  dialog through its plain branch. The `ui5-check` skill entry that was
+  marked ready to move.
+- **New rule `nav-target-never-displays`** (warning), the first that reads
+  another class of the run: `nav_app_call( )` to an app of the project that
+  neither displays anything nor hands control on. The class index carries a
+  `shows` fact per class, and `--cache` keys a caller on its targets'.
+- **New opt-in rule `xml-indentation`** (hint): a raw view's indentation
+  judged against its tree, the way `chain-indentation` judges a chain.
+- **`controllerName` on an `mvc:View` root is no unknown-property**, nor
+  are the resource-bundle settings XMLView reads off its root (found on
+  abap2UI5's own `App.view.xml`).
+- **Presets**: `"extends": "abap2ui5:recommended" | "abap2ui5:strict" |
+  "abap2ui5:adopt"` (`lib/presets.mjs`) - the base of a config like a file.
+- **`npm run fix-coverage -- <path>`**: findings per rule over a corpus and
+  how many carry a fix.
+- **`abap2ui5` in the config (`--abap2ui5`): the release the app runs on.**
+  New rule `abap2ui5-api-too-new` (error) reports a `cs_event` constant or a
+  client method that release does not have yet - the class does not
+  activate there. The dates are `data/abap2ui5-since.json`, read out of
+  `z2ui5_if_client` at every abap2UI5 release tag from 1.120.0 (names only
+  on main are "main"), mirrored for a browser bundle into
+  `lib/abap2ui5-since.mjs`, refreshed by `node
+  scripts/generate-abap2ui5-since.mjs` and compared weekly by
+  `upstream-sync.yml`. Measured on samples-controls: 0 findings against
+  1.148.0, 1,633 against 1.140.0 (17 names).
+- **Renamed rules keep their old id** (`lib/rule-aliases.mjs`): in the
+  config's `rules` block, in a directive and in a baseline key, for one
+  minor line. The map is empty - no rule has been renamed - and the
+  mechanism is tested with an entry it adds for the run.
+- **`--format json` carries `schemaVersion`** (`JSON_SCHEMA_VERSION`, 1):
+  raised only when a field is removed or retyped. `docs/agents/release.md`
+  states what 1.0 promises and which of it is met.
+- **A release is due when the abap2UI5 mirrors move**:
+  `.github/workflows/release-due.yml` opens one issue naming what changed
+  since the last tag.
+- **The downstream job runs over every consumer that declares the linter**:
+  samples-stack, abap2UI5's own apps and seven abap2UI5-addons joined
+  samples and app-template in the `app-corpora` matrix.
+- **The repository is cut by topic.** `test/run.mjs` is the harness and
+  twelve modules under `test/sections/`; the 23 date-named files under
+  `test/review/` are named by topic. `cli.mjs` keeps the run, and the option
+  loop, `--watch` and the helpers moved to `lib/cli/`.
+  `docs/agents/roadmap.md` is the short list of open candidates, and the
+  history of every round is `docs/agents/rule-history.md`. No behaviour
+  changed: the same 512 sections pass.
+
+- **The reconstructor reaches views it used to give up on.** A RETURNING
+  helper whose body is more than `result = io_x->chain` is replayed like a
+  void one, and a call that captures its result (`DATA(form) =
+  create_layout_form( page )`) builds on the handle the body hands back.
+  A handle a factory method leaves in an attribute is replayed in the method
+  that builds on and stringifies it, unless that method hands it to code the
+  source does not show (then the render is skipped, as before). A call on a
+  receiver that is no builder (`t->end( )` on a transaction) no longer
+  counts as a builder call and no longer skips the render. Measured:
+  abap2UI5's start app now reconstructs and renders whole (182 -> 245
+  controls over abap2UI5's own apps), abap2UI5-addons/layout-management's
+  popups 108 -> 188 controls, sql-console renders; no new finding on
+  samples-controls, samples, samples-stack, app-template, popups, se16n,
+  selection-screen, table-maintenance. Rollout note: abap2UI5's start app
+  carries two `abap2ui5lint-disable-next-line unused-namespace-declaration`
+  directives whose comment says "the linter does not follow
+  create_layout_form( )" - it does now, and they are reported as
+  `unused-directive` hints; remove them at the pin bump.
+- **A structure that INCLUDEs a type the class does not declare is an open
+  shape** (rule 5): its listed fields are still read, but no path into it is
+  reported missing. Found on layout-management, where `INCLUDE TYPE
+  z2ui5_t_11` plus two fields read as a row of exactly those two.
+- **New rule `enum-bound-to-conditional-field`** (warning): an enum-typed
+  property bound to an attribute the start path seeds only in some arms of a
+  branch (an IF without ELSE, a CASE without WHEN OTHERS, a LOOP/DO). The
+  branch half of `enum-bound-to-initial-field`; 0 findings on the corpora.
+- **New rule `enum-cond-without-else`** (warning): a `COND #( )` /
+  `SWITCH #( )` with literal branches and no ELSE on an enum-typed property
+  yields "" when no WHEN matches, and the view is not created (confirmed by
+  the render gate). Its literal branches are now judged too, where such a
+  conditional used to be an `unresolved-attribute-value` hint; 0 findings on
+  the corpora.
+
 - **Twelve more rules are one file each.** `abap-date-formatter-mismatch`,
   `bind-path-as-value`, `bind-path-flag`, `close-only-roundtrip`,
   `escape-sequence-in-backtick`, `event-arg-js-callback`,

@@ -1,6 +1,6 @@
 {
   "name": "@abap2ui5/linter",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Validate abap2UI5 app classes without an SAP system: the ABAP and the view it builds, checked together.",
   "type": "module",
   "bin": {
@@ -122,6 +122,8 @@
     "generate-dependents": "node scripts/generate-dependents.mjs",
     "generate-rules-page": "node scripts/generate-rules-page.mjs",
     "generate-rule-map": "node scripts/generate-rule-map.mjs",
+    "fix-coverage": "node scripts/fix-coverage.mjs",
+    "generate-abap2ui5-since": "node scripts/generate-abap2ui5-since.mjs",
     "sync-portable-profile": "node scripts/sync-portable-profile.mjs",
     "sync-manifest": "node scripts/sync-manifest.mjs",
     "generate-sets": "node scripts/generate-sets.mjs",
@@ -144,7 +146,7 @@
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@abap2ui5/linter-render": ">=0.8.0 <0.10.0",
+    "@abap2ui5/linter-render": ">=0.8.0 <0.11.0",
     "@abap2ui5/render-runtime": ">=0.1.0 <0.8.0"
   },
   "peerDependenciesMeta": {

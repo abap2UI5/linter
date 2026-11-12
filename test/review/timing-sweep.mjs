@@ -22,7 +22,7 @@
  * worker per core; at four times them the same sweep found a class of many
  * views quadratic in the unused-namespace stand-down and a class of many
  * unclosed calls quadratic in every rule that reads an argument list, which
- * at these sizes are still mostly linear work - round-2026-10-09b.mjs asks
+ * at these sizes are still mostly linear work - viewless-waivers-and-scopes.mjs asks
  * those two with shapes of their own. At these sizes it found the third:
  * a write reader's `\s*\)?\s*` splitting a long blank run every way.
  */

@@ -32,6 +32,7 @@ rule and why it is run there:
 | `lib/config.mjs` | no findings — the `abap2ui5lint.jsonc`/`.json` loader (discovery, validation, precedence, the `rules` block). New config keys go through its KNOWN set + a run.mjs assertion |
 | `lib/findings.mjs` | the **severity/wording/position layer** (`severityOf`, `SEVERITIES`, `RULES`, messages) plus the two things a repo can say back to it: `applyRules` (the config's `rules` block) and `applyDirectives` (`abap2ui5lint-disable-*` comments) — and the two findings about the directives themselves, emitted from `applyDirectives` because that is the only place that knows what a directive did: `unknown-directive-rule` (an id not in `RULES`, a warning, with the `caseMatch( )` did-you-mean and a fix that rewrites the id; `render-error` gets its own sentence, since a directive can never address a render failure) and `unused-directive` (a directive that suppressed nothing — per id for a list, as a whole for a bare one; ESLint's `--report-unused-disable-directives`, a hint, with a deleting fix on the line forms). An id whose rule did not RUN on the source (off or excluded in `rules`, an unasked opt-in, a property-walk rule under `properties: false` — `WALK_ONLY_RULES` in `properties.mjs`, gated against the emit sites — and any rule a class that builds no view, or one on the frozen builder, is not judged by — `SOURCE_RULES` in `abap-rules.mjs`, gated the same way, plus `VIEWLESS_APP_RULE` for an app class, `notRunBut( )` in `check.mjs`) is unjudged, never `unused-directive`. Both go through `applyRules` and the directives like any other id, with one asymmetry: a BARE directive cannot waive its own finding, `" abap2ui5lint-disable unused-directive` may. Every consumer (CLI, VS Code extension, samples-controls `view-gates`, mcp-server) reads what a finding *means* from here; a new finding type needs its severity classified here or consumers fall back to a default |
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters, the GitHub workflow-command annotations, and the terminal rendering of `RULE_DOCS` behind `--explain` (`ruleIndex`, `formatExplain`, `formatRuleIndex`, `explainFooter`). The CLI only parses flags and picks one |
+| `lib/cli/` | no findings — the CLI's parts that are not the run: `args.mjs` (the option loop, its value checks, the early exits `--init`/`--version`/`--help`, and the combinations refused before a run; `parseArgs( )` returns what it decided), `watch.mjs` (the `--watch` loop, handed `resolveRun`/`runOnce` by `cli.mjs`) and `support.mjs` (where a path is shown from, the package's own `package.json`, the usage line, the `$schema` `--init` writes). `cli.mjs` keeps the run itself (`resolveRun( )`, `runOnce( )`) and `--explain`; nothing under `lib/cli/` is exported, and `lib/check.mjs` reaches none of it (rule 11) |
 
 **A new rule is ONE file.** `lib/rules/<id>.mjs` exports a `defineRule( )`
 object (`lib/rule.mjs`): id, severity, category, scope, the card (`summary`,
@@ -100,17 +101,18 @@ Import the checks from `./observe.mjs` in tests, not from `../lib/index.mjs`
 or `../lib/abap-rules.mjs` — a check called around the observer counts for
 nothing.
 
-`test/run.mjs` ends by loading every `test/review/*.mjs` — one file per topic
-or per review round (`core.mjs`: reconstructor, CLI plumbing and the
-case policy; `rules.mjs`: the ABAP-side rules and the lifecycle heuristics;
-the generator and property-gate files beside them; `round-<date>.mjs`,
-`audit-<date>.mjs` and `corpus-<date>.mjs` for a day's round, audit or
-corpus sweep). Each file's default export
-receives the harness `{ section, assert, f, FIX, tempDir, checkAbapSource,
-checkXmlSource, checkFiles, prepareAbap }` — the observed checks, so the
-sections count for the rule-coverage gate. A regression test for a rule fix
-goes into the topic's file, not into the 6000-line `test/run.mjs`; a new topic
-is a new file, nothing to register. `test/review/README.md` has the pattern.
+`test/run.mjs` is the harness and the order: it loads the suite's own
+sections from `test/sections/*.mjs` (cut by topic - fixtures, views, config,
+app rules, render, fix, CLI output, artefacts, robustness; the table is in
+`test/sections/README.md`), then every `test/review/*.mjs` - one file per
+TOPIC, never per date (`core.mjs`: reconstructor, CLI plumbing and the case
+policy; `rules.mjs`: the ABAP-side rules and the lifecycle heuristics;
+`row-template-paths.mjs`, `cli-flags.mjs`, …) - then the rule-coverage gate.
+Each review file's default export receives the harness `{ section, assert,
+f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap }`
+— the observed checks, so the sections count for the rule-coverage gate. A
+regression test for a rule fix goes into the topic's file; a new topic is a
+new file, nothing to register. `test/review/README.md` has the pattern.
 
 A test about SPEED asks one question - does the work grow linearly - and
 asks it through `test/timing.mjs` (`scalesLinearly( )`: n against 4n, best
@@ -124,11 +126,11 @@ asked again with the best of three where the screen fails
 (`screenedLinearly( )`). Two things it does not ask: nesting deeper than a
 few hundred levels (a crash question, not a growth one - every walk over a
 tree goes through `lib/tree.mjs`, `walkTree( )`/`nodesOf( )`, which do not
-recurse; `round-2026-10-09c.mjs` judges a view nested 5,000 deep, and a new
+recurse; `check-entry-point.mjs` judges a view nested 5,000 deep, and a new
 walk written as a recursion is what that test catches), and a growth
 whose quadratic part is still small at the sizes it can afford (many
 documents, many unclosed calls): those have targeted tests in
-`round-2026-10-09b.mjs`. A rule whose card changes shape changes what the
+`viewless-waivers-and-scopes.mjs`. A rule whose card changes shape changes what the
 sweep exercises, so a new rule is swept without anything to register.
 
 **Before writing a rule, ask whether the file is even collected.** A rule can
@@ -208,7 +210,7 @@ exact spans in the source it was given, applied by `--fix`. Attach them only
 when the correction is mechanical — a fix that has to guess is worse than a
 finding that stays — and describe it in the rule's `fixNote`, which the test
 requires for everything listed in `FIXABLE` — and list it there:
-`test/review/round-2026-10-12-rules.mjs` runs every card and fails on a
+`test/review/abap-side-rules.mjs` runs every card and fails on a
 finding type observed with a fix that `FIXABLE` does not name (four rules
 rewrote unlisted until 2026-10-12). Write a fix's line breaks as
 `\n`: the entry points rewrite them to the source's own line ending

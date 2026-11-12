@@ -110,9 +110,12 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource, ch
     same('COND #( WHEN n = 1 THEN `Accept` ELSE COND #( WHEN n = 2 THEN `Nope` ELSE `Reject` ) )', ['invalid-property-value:Nope']);
     same('COND #( WHEN n = 1 THEN `Accept` ELSE `Reject` ) ##NO_TEXT', []);
     same('COND #( WHEN n = 1 THEN `Accept` ELSE `Reject` )', [], 't');
-    // still a blind spot: no ELSE (the initial value is a value too), a
-    // branch nothing resolves, a LET, anything after the closing paren
-    same('COND #( WHEN n = 1 THEN `Accept` )', ['unresolved-attribute-value:']);
+    // no ELSE: the literal branches are judged, and the missing ELSE is
+    // enum-cond-without-else's (reconstruction-reach.mjs)
+    same('COND #( WHEN n = 1 THEN `Accept` )', []);
+    same('COND #( WHEN n = 1 THEN `Acept` )', ['invalid-property-value:Acept']);
+    // still a blind spot: a branch nothing resolves, a LET, anything after
+    // the closing paren
     same('COND #( WHEN n = 1 THEN `Accept` ELSE mv_type )', ['unresolved-attribute-value:']);
     same('COND #( LET x = `Accept` IN WHEN n = 1 THEN x ELSE `Reject` )', ['unresolved-attribute-value:']);
     same('COND #( WHEN n = 1 THEN `Accept` ELSE `Reject` ) && mv_suffix', ['unresolved-attribute-value:']);

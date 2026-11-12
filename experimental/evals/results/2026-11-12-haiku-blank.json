@@ -1,0 +1,188 @@
+{
+  "label": "haiku-blank",
+  "at": "2026-11-12",
+  "linter": "0.10.0",
+  "render": false,
+  "prompts": 12,
+  "answered": 12,
+  "counts": {
+    "current": 0,
+    "frozen": 0,
+    "invented": 12,
+    "noView": 0,
+    "unrecognised": 0,
+    "clean": 0,
+    "renderBroken": 0
+  },
+  "categories": {
+    "structure": {
+      "findings": 150,
+      "answers": 12,
+      "rules": {
+        "unknown-builder-method": 150
+      }
+    },
+    "lifecycle": {
+      "findings": 17,
+      "answers": 9,
+      "rules": {
+        "obsolete-binder": 8,
+        "obsolete-model-update": 6,
+        "missing-on-navigated-branch": 2,
+        "non-released-api": 1
+      }
+    },
+    "frontend-wires": {
+      "findings": 1,
+      "answers": 1,
+      "rules": {
+        "handler-without-event": 1
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "table-filter",
+      "state": "invented builder API",
+      "findings": 19,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "obsolete-model-update",
+        "unknown-builder-method",
+        "missing-on-navigated-branch"
+      ]
+    },
+    {
+      "id": "value-help",
+      "state": "invented builder API",
+      "findings": 19,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "obsolete-model-update",
+        "unknown-builder-method",
+        "missing-on-navigated-branch"
+      ]
+    },
+    {
+      "id": "nav-two-apps",
+      "state": "invented builder API",
+      "findings": 16,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "form-validation",
+      "state": "invented builder API",
+      "findings": 14,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "confirm-delete",
+      "state": "invented builder API",
+      "findings": 13,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "obsolete-model-update",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "editable-table",
+      "state": "invented builder API",
+      "findings": 24,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "obsolete-model-update",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "upload-download",
+      "state": "invented builder API",
+      "findings": 16,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "non-released-api",
+        "obsolete-binder",
+        "obsolete-model-update",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "tabs-icons",
+      "state": "invented builder API",
+      "findings": 15,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-binder",
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "chart",
+      "state": "invented builder API",
+      "findings": 6,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "tree",
+      "state": "invented builder API",
+      "findings": 5,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "currency-i18n",
+      "state": "invented builder API",
+      "findings": 14,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "unknown-builder-method"
+      ]
+    },
+    {
+      "id": "busy-progress",
+      "state": "invented builder API",
+      "findings": 7,
+      "worst": "error",
+      "renderErrors": 0,
+      "rules": [
+        "obsolete-model-update",
+        "unknown-builder-method",
+        "handler-without-event"
+      ]
+    }
+  ],
+  "totals": {
+    "error": 150,
+    "warning": 17,
+    "hint": 1
+  }
+}

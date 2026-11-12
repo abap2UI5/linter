@@ -62,7 +62,8 @@ export function buildSchema() {
       $schema: { type: 'string', description: 'URL of this schema — editor completion only' },
       extends: {
         type: 'string',
-        description: 'Path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+        description: 'A preset - "abap2ui5:recommended" (the defaults), "abap2ui5:strict" (hints fail, the house chain layout and the size-limit rule on), "abap2ui5:adopt" (only errors fail) - or the path (relative to this config) of another abap2ui5lint.jsonc/.json whose settings are the base. This file wins per key; the two "rules" blocks merge per rule id. Chains follow; a cycle is refused.',
+        examples: ['abap2ui5:recommended', 'abap2ui5:strict', 'abap2ui5:adopt'],
       },
       paths: {
         type: 'array',
@@ -84,6 +85,11 @@ export function buildSchema() {
         type: 'string',
         pattern: '^\\d+\\.\\d+(\\.\\d+)?$',
         description: 'The deprecation horizon past "ui5", e.g. "1.136" (the legacy-free baseline). Deprecations that take effect after the target and up to this version are reported as deprecated-after-target hints, naming the replacement and whether the target has it yet. Must not be below "ui5".',
+      },
+      abap2ui5: {
+        type: 'string',
+        pattern: '^\\d+\\.\\d+\\.\\d+$',
+        description: 'The abap2UI5 release the app runs on, e.g. "1.140.0" - the version constant of z2ui5_if_app on that system. A client API name added after it (a cs_event constant, a client method) is reported as abap2ui5-api-too-new: the class does not activate there. Leave it out and nothing is judged against a release.',
       },
       distribution: {
         enum: ['sapui5', 'openui5'],
@@ -137,7 +143,7 @@ export function buildSchema() {
           { $ref: '#/definitions/badge' },
           { type: 'array', items: { $ref: '#/definitions/badge' }, description: 'One entry per badge kind.' },
         ],
-        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 173 rules passed").',
+        description: 'Write shields.io endpoint JSON for every run, so the README can show what the corpus IS ("abap2UI5 | 148 apps · 172 views · 2,176 controls") and what the gate said about it ("check-abap2UI5 | 180 rules passed").',
       },
       rules: {
         type: 'object',
