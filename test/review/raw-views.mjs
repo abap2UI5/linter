@@ -3,7 +3,9 @@
  * and the XMLView root settings that are no members of the control.
  * Measured on abap2UI5's own frontend (app/webapp, three files): silent, and
  * App.view.xml's controllerName no longer an unknown-property. Added
- * 2026-11-12.
+ * 2026-11-12. And malformed-xml's character-level half - a bare `&`, an
+ * entity XML does not declare (`&nbsp;`), an unquoted attribute value, a raw
+ * `<` in one - found by the 2026-11-12 org-wide bug hunt.
  */
 export default async function ({ section, assert, checkXmlSource }) {
   const layout = (xml) => checkXmlSource(xml, { render: false, file: 'x.view.xml', rules: { 'xml-indentation': 'hint' } })
@@ -25,5 +27,20 @@ export default async function ({ section, assert, checkXmlSource }) {
     assert(hits.length === 0, `controllerName and resourceBundleName are view settings (${hits.map((x) => x.member).join()})`);
     const typo = checkXmlSource(xml.replace('<Page/>', '<Page titel="x"/>'), { render: false, file: 'x.view.xml' }).findings.filter((x) => x.type === 'unknown-property');
     assert(typo.length === 1, 'a typo on a control is still one');
+  });
+
+  section('malformed-xml: a stray & or <, an undeclared entity and an unquoted value', () => {
+    const doc = (body) => `<mvc:View xmlns:mvc="sap.ui.core.mvc" xmlns="sap.m">\n  <Page title="ok">\n${body}\n  </Page>\n</mvc:View>\n`;
+    const kinds = (body) => checkXmlSource(doc(body), { render: false, file: 'x.view.xml' })
+      .findings.filter((x) => x.type === 'malformed-xml').map((x) => `${x.member}:${x.value}`).sort().join();
+    assert(kinds('    <Text text="a & b"/>') === 'bad-entity:&', `a bare & in an attribute (${kinds('    <Text text="a & b"/>')})`);
+    assert(kinds('    <Text text="a&nbsp;b"/>') === 'bad-entity:&nbsp;', 'an HTML entity name XML does not declare');
+    assert(kinds('    <Text>fish & chips</Text>') === 'bad-entity:&', 'a bare & in character data');
+    assert(kinds('    <Text text=x/>') === 'unquoted-attribute:text', 'an unquoted attribute value');
+    assert(kinds('    <Text text="a < b"/>') === 'lt-in-attribute:text', 'a raw < in an attribute value');
+    // what XML allows stays silent
+    const fine = '    <Text text="A &amp; B &lt; &gt; &quot; &apos; &#169; &#xA9;" tooltip=\'say "hi" > bye\'/>\n'
+      + '    <!-- a & b < c -->\n    <core:HTML xmlns:core="sap.ui.core"><![CDATA[ a & b ]]></core:HTML>';
+    assert(kinds(fine) === '', `the five entities, numeric references, a > in a value, & in a comment and in CDATA (${kinds(fine)})`);
   });
 }

@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/abap2UI5/linter/issues"
   },
-  "homepage": "https://github.com/abap2UI5/linter#render-gate",
+  "homepage": "https://abap2ui5.github.io/docs/advanced/linter.html#the-render-gate",
   "files": [
     "README.md",
     "LICENSE"
