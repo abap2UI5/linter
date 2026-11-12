@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- **The reconstructor reaches views it used to give up on.** A RETURNING
+  helper whose body is more than `result = io_x->chain` is replayed like a
+  void one, and a call that captures its result (`DATA(form) =
+  create_layout_form( page )`) builds on the handle the body hands back.
+  A handle a factory method leaves in an attribute is replayed in the method
+  that builds on and stringifies it, unless that method hands it to code the
+  source does not show (then the render is skipped, as before). A call on a
+  receiver that is no builder (`t->end( )` on a transaction) no longer
+  counts as a builder call and no longer skips the render. Measured:
+  abap2UI5's start app now reconstructs and renders whole (182 -> 245
+  controls over abap2UI5's own apps), abap2UI5-addons/layout-management's
+  popups 108 -> 188 controls, sql-console renders; no new finding on
+  samples-controls, samples, samples-stack, app-template, popups, se16n,
+  selection-screen, table-maintenance. Rollout note: abap2UI5's start app
+  carries two `abap2ui5lint-disable-next-line unused-namespace-declaration`
+  directives whose comment says "the linter does not follow
+  create_layout_form( )" - it does now, and they are reported as
+  `unused-directive` hints; remove them at the pin bump.
+- **A structure that INCLUDEs a type the class does not declare is an open
+  shape** (rule 5): its listed fields are still read, but no path into it is
+  reported missing. Found on layout-management, where `INCLUDE TYPE
+  z2ui5_t_11` plus two fields read as a row of exactly those two.
+- **New rule `enum-bound-to-conditional-field`** (warning): an enum-typed
+  property bound to an attribute the start path seeds only in some arms of a
+  branch (an IF without ELSE, a CASE without WHEN OTHERS, a LOOP/DO). The
+  branch half of `enum-bound-to-initial-field`; 0 findings on the corpora.
+- **New rule `enum-cond-without-else`** (warning): a `COND #( )` /
+  `SWITCH #( )` with literal branches and no ELSE on an enum-typed property
+  yields "" when no WHEN matches, and the view is not created (confirmed by
+  the render gate). Its literal branches are now judged too, where such a
+  conditional used to be an `unresolved-attribute-value` hint; 0 findings on
+  the corpora.
+
 - **Twelve more rules are one file each.** `abap-date-formatter-mismatch`,
   `bind-path-as-value`, `bind-path-flag`, `close-only-roundtrip`,
   `escape-sequence-in-backtick`, `event-arg-js-callback`,

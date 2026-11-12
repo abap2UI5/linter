@@ -142,7 +142,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">75 error</span>
-      <span class="badge warning">66 warning</span>
+      <span class="badge warning">68 warning</span>
       <span class="badge hint">33 hint</span>
       <span class="badge fix">75 autofixable</span>
     </div>
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 173 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 175 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -2760,6 +2760,67 @@ view-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bind( mv_text ) )</co
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2hZRRb9owEMe_yilPIA2jbdoDqETKwGiRIKCSTZqWCUxiwJJjR7ZDoLT97JOT0BIqZXmJfff_3Z2TO_-5OIKk1Bk6TzFfq5xTFHOiEdmSzPnkaJmr2HrHM2-1gqsGJnjqB37oLwJY_vw-88cw9QNvBuNH7IW4tqFIwNW9wmOrLk0AfhDix6k3xit4-pKzb2u2W5Msq70TL_Qg5owKA-HvJYZHPIVw8S6tfCgSOJiUhaFIROKuRH--nOE5DkLvLfEchz8Wk0bK15QwUedNac-t047gLce1oo6S0nRhVOMxX9vXkdFivc0ZT6gauTsSG6nOHejeglZjQRug51JOOyBgBJtfjBYbENqu02O8qRD7dHsuqUWnlAu9gaNda5KhtEU2tFHepTlDsVQUtcceWs1Hqo3gTTknZ5mbNmB3A-zahPmJZLfB7bZFbsiW39VemdqOS1TSRJgwdK-IYVKggiV7anRrgPuPlaZStBJ5k8gF2zGatBE6Jcp8yJOh0v7fI5YdWtPlGsWtHXAw6fWXHozJhv1-URSo-Iqk2vc_DwaD_qmUNEKUfbxZkj3dNNs91tp2-_ODNmdOXUQgii6x5FINFU2i6OWhX3meEQBEDpgDBUPTjBNDIZack0xTbSkwEi5V6Goee245cAnTGSfnDthdz9VGMbFnOzt4dS04mFTT3rwlnJe__wA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/collapsed-brace-in-style.mjs#L44"><code>lib/rules/collapsed-brace-in-style.mjs</code></a></p>
       </article>
+      <article class="rule" id="enum-bound-to-conditional-field" data-search="enum-bound-to-conditional-field an enum-typed property bound to an attribute the start path seeds in one branch only — "" terminates the app when the other branch runs the branch half of enum-bound-to-initial-field. the start path — main( ) ahead of its dispatch if, the check_on_init( ) arm, the constructor and what they call — seeds the attribute, but only inside one arm of an if without an else that seeds it too, a case without when others, or a loop / while / do that may not run. on every first display that takes another way the attribute is still "", which is a member of no enum: managedobject.validateproperty throws and the app terminates before the view is shown. a seed counts as given when every arm of a complete if … else or case … when others gives one, and a try body counts as running. a warning, because whether the other arm is taken on the first display is a runtime matter this source does not show. give the attribute a valid start value in its declaration, or seed it in every arm. warning">
+        <h3><a href="#enum-bound-to-conditional-field">enum-bound-to-conditional-field</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an enum-typed property bound to an attribute the start path seeds in one branch only — "" terminates the app when the other branch runs</p>
+        <p class="detail">The branch half of <code>enum-bound-to-initial-field</code>. The start path — <code>main( )</code> ahead of its dispatch <code>IF</code>, the <code>check_on_init( )</code> arm, the constructor and what they call — seeds the attribute, but only inside one arm of an <code>IF</code> without an <code>ELSE</code> that seeds it too, a <code>CASE</code> without <code>WHEN OTHERS</code>, or a <code>LOOP</code> / <code>WHILE</code> / <code>DO</code> that may not run. On every first display that takes another way the attribute is still <code>""</code>, which is a member of no enum: <code>ManagedObject.validateProperty</code> throws and the app terminates before the view is shown. A seed counts as given when every arm of a complete <code>IF … ELSE</code> or <code>CASE … WHEN OTHERS</code> gives one, and a <code>TRY</code> body counts as running. A warning, because whether the other arm is taken on the first display is a runtime matter this source does not show. Give the attribute a valid start value in its declaration, or seed it in every arm.</p>
+        <div class="ba" id="enum-bound-to-conditional-field-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_state TYPE string.
+    DATA mv_failed TYPE abap_bool.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF client-&gt;check_on_init( ).
+      IF mv_failed = abap_true.
+        mv_state = `Error`.
+      ENDIF.
+      DATA(page) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = `View` ns = `mvc`
+          )-&gt;a( n = `xmlns` v = `sap.m`
+          )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+          )-&gt;ele( `Page` ).
+      page-&gt;tag( `MessageStrip`
+          )-&gt;a( n = `type` v = client-&gt;_bind( mv_state ) ).
+      client-&gt;view_display( page-&gt;stringify( ) ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_state TYPE string.
+    DATA mv_failed TYPE abap_bool.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    IF client-&gt;check_on_init( ).
+      IF mv_failed = abap_true.
+        mv_state = `Error`.
+      ELSE.
+        mv_state = `Success`.
+      ENDIF.
+      DATA(page) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = `View` ns = `mvc`
+          )-&gt;a( n = `xmlns` v = `sap.m`
+          )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+          )-&gt;ele( `Page` ).
+      page-&gt;tag( `MessageStrip`
+          )-&gt;a( n = `type` v = client-&gt;_bind( mv_state ) ).
+      client-&gt;view_display( page-&gt;stringify( ) ).
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2fZJRb5swFIX_yhVPRGp4qLSXSonEgqMhJTQqbNLUVMZxbpg1Y5Bt0qXT9tsrA4GkavvExedw73cPfvzrKVaid-e9cElZXQdcMhOwHau9G89UjeZOXKzCNIXeAhFZxkmcxfcJbL5_XcWLYKugLyElC6e0RwBxkpGHZbggKbzcNuILFYd2SqdGYRZCeaTGMouQ_dwQMFYLVbzRD0xI3HcGh0Z3VSWDrSJJ1JIFW7VV14zxerMia5Jk4UCzJtm3--iK43_JhDqjLoFLgcpO5_wX8t-0UlQoYX2Y9I7WM-LMOharGxwMMK4zg5xoXel8EEkSxcvhzS3n16zACcx6KC6pexwFPtNdI-Qe9Wx-YNxW-uTDZDpHiT4o1_qHwOcclHF1eeT5CADOyHrbn1Iqk8PR1YbVQfmp8c51Gs2NCHilMXinfwuSb1iB-UU8bpvp3LLCh3yNxrACU6tF_dFQe6qxm3dOnu6E2vtjiJOL7mdPG89emFqyk9_P7K6NOLiYhk_GvEkSdX__-tJ4_55eAQ" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-bound-to-conditional-field.mjs#L25"><code>lib/rules/enum-bound-to-conditional-field.mjs</code></a></p>
+      </article>
       <article class="rule" id="enum-bound-to-initial-field" data-search="enum-bound-to-initial-field an enum-typed property bound to an attribute nothing gives a value before the first display — "" terminates the app the root-field twin of enum-field-unset-on-insert. a type, state, design or any other enum-typed property bound to a type string attribute receives "" when the attribute is still initial, and "" is a member of no enum: managedobject.validateproperty throws and the app terminates before the view is shown — also while the control is invisible, because a hidden control still resolves its bindings. the typical shape is a result strip that only an event handler fills: type = error in a catch, type = success after a save, nothing at all on the first display. the view is judged against what the start path leaves in the attributes: the statements of main( ) ahead of its dispatch if, the check_on_init( ) branch (or, in a chain with no init arm, the check_on_navigated( ) branch — init implies navigated), the constructor and every method those call. an attribute counts as given a value by a literal seed there, by a declared value, or by any other write there (an expression, a select … into, an importing actual) — the last one is a runtime value and not judged. only a document built on the start path is judged; a popup built in an event handler is shown after that handler ran. a class whose main( ) has neither branch has no start path to read and is not judged, nor is a field the bind leaves out under omit_initial (ui5 then keeps the property default). the render gate renders the same documents against the same start-path model, so with it on the view also fails there; this finding names the attribute. error">
         <h3><a href="#enum-bound-to-initial-field">enum-bound-to-initial-field</a>
           <span class="badge error">error</span>
@@ -2826,6 +2887,21 @@ ENDCLASS.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/playground/#2fVJbi5wwFP4rB58c6PhQ6MvCDFiNrTBeGNNCqUUzTsYNjVESdTtb2t9e4mVGd5c-efB8-W7J99-GIBU1HozngmekaayCE2WRE2mMd4aqO1nopXOwkwQmCLjI80Mf-1EI8ZePB9-xUgHTCAly9Gb4BeCHGB0920EJPL_v2IeMXQaVceva2AZJVcfbrL02FPC3GIFqJROlBQCpAbXgV2gfKWCUYKA9FS1cGOcKWDuoHiOMHIzcF8IBwp8jN4Ge0afszFTDyRX8II6O2A8_QcGZZhr0jsgDHN39jTsrFSh0h-BWKlKxrsAP4gMKUIjtm-aouIr5tyJMzE14k-h2XzzS4mdWi0yQnpWkpWcTNhMMVo7N2ei8RocEvcU0FGNCrlvKF2TLcneQIylrmc9coet7w4xCd3Q_JL1FWTpZ3JjZkJJuYDdFLXimPwP41DF-pnK3v5CireXVhM12Tzk1QWj5r4w-5SCUnqu-yGeXoGFkAv2quFA59HpWpLGq_8AeNMsd2jGrqCW1XnEPFvKYlPRejk6x3bekNCEPqFKkpEkrWfO2nG5wVJq7z05MnM1Vw5sb-QxaX-YoOb5vdtHtTAeWF7B4dcafH_8A" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-bound-to-initial-field.mjs#L33"><code>lib/rules/enum-bound-to-initial-field.mjs</code></a></p>
+      </article>
+      <article class="rule" id="enum-cond-without-else" data-search="enum-cond-without-else a cond #( ) without else on an enum-typed attribute — "" when no when matches, and the view is not created a conditional with no else yields the initial value of its type when no when matches — the empty string for every value a view attribute takes. an enum-typed property refuses "": the xml view fails to load with value '' is not valid for type … (confirmed by the render gate), whether the control is visible or not. each literal branch is still judged on its own (invalid-property-value); this names the branch that is missing. a warning, because a condition that always matches one when is a runtime matter this source does not show. write the else with the enum's default, or bind the property to an attribute that always holds a valid value. warning">
+        <h3><a href="#enum-cond-without-else">enum-cond-without-else</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a <code>COND #( )</code> without ELSE on an enum-typed attribute — "" when no WHEN matches, and the view is not created</p>
+        <p class="detail">A conditional with no <code>ELSE</code> yields the initial value of its type when no <code>WHEN</code> matches — the empty string for every value a view attribute takes. An enum-typed property refuses <code>""</code>: the XML view fails to load with <code>Value '' is not valid for type …</code> (confirmed by the render gate), whether the control is visible or not. Each literal branch is still judged on its own (<code>invalid-property-value</code>); this names the branch that is missing. A warning, because a condition that always matches one <code>WHEN</code> is a runtime matter this source does not show. Write the <code>ELSE</code> with the enum's default, or bind the property to an attribute that always holds a valid value.</p>
+        <div class="ba" id="enum-cond-without-else-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>view-&gt;tag( `MessageStrip` )-&gt;a( n = `type` v = COND #( WHEN lv_failed = abap_true THEN `Error` ) )</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>view-&gt;tag( `MessageStrip` )-&gt;a( n = `type` v = COND #( WHEN lv_failed = abap_true THEN `Error` ELSE `Information` ) )</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/playground/#2hVRfr5owFP8qJ-wFk1mzLXvQRBIGNZdE0SjbsswFKhRuk1JIKaJ32T77UkSveBPGC-Wc359Tek5__jYEyakxM15iHsqaUxRzUiFyIKXx3qiKWsY66yzt3Q6uGHDxwvO9wFv7sPn6Zek5sPB8ewnOFtsB7mJoL-Ca3mFHo9sQgOcHeLuwHbyDl481-xyyNCRl2WVdO7Ah5owKBcGPDYYtXkCwfoVecmgvsO-2haG92IuHEr3VZolX2A_sm_EKB09rt2f5NydMdL45HVud7RxuHteKTFkUagTzjh7zUL-OjDbhoWY8oXJupSRWhTybMLonaowmaoGxRTk1QcAcom-MNhGISq_zYxxdKPoZjS3SgU45F1UER72uSInyAdhMq7xCa4biQlI0rD3TmLesIQbvwzk5F7UaIqR3hHQIWJ9IeS-uPwfgihz4Q-2X0NB2iUz6FCYUzSRRrBCoYUlGVTUo8Piz8rwQg4y6z6gFSxlNhhhVTqR641OiNv7fLbYd2rHbNYoHO-BZ5dcjfVaqnE0mTdOg5hMqZDb5MJ1OJ6cW0pNo-zjakIxGt3bXnT62FMlMiFa0qkhGd0qyMrr3VOeyOzNn7bvwzoTvT9gHfgxTwjhNYA769gmVrCkEOhVhKQsZwehmdJnOsdWOX8KqkpOz2dlXSjKRsVSPYUfAvnuZ_f6dYfz59Q8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-cond-without-else.mjs#L18"><code>lib/rules/enum-cond-without-else.mjs</code></a></p>
       </article>
       <article class="rule" id="enum-field-unset-on-insert" data-search="enum-field-unset-on-insert a row built at runtime without a field the view binds to an enum — the empty string takes the view down the demo-kit originals push a js object with the key absent, and ui5 falls back to the property default. abap has no absent: an unset field ships as "", which is not a member of any enum, so managedobject.validateproperty throws — and managedobjectbindingsupport re-throws anything that is not a formatexception, so the binding update dies and takes the view with it. both repairs are already in the framework: seed the default (type = 'none'), or name the field in omit_initial_paths. three construction sites are judged, because a port picks between them for reasons that have nothing to do with this defect: an insert/append of a value #( … ) literal, the t = value #( ( … ) ( … ) ) seed a model_init writes (including the nested elements = value #( … ) inside one), and a row assembled in a work area and inserted a few statements later. a row copied wholesale — value #( for row in t_all … ( row ) ) — has no field list to read and is not judged. fields are keyed on the table each bound aggregation names, absolute ({/t_pages}) and relative ({path: 't_appointments'}) alike, and each key gets only the fields of its own row template: a planningcalendar binds rows, specialdates and a nested appointments at once, and only the innermost carries ariahaspopup. not reported where the class fills the field afterwards — a loop … r-&gt;state = … completing a seed is how half this corpus moves an original's frontend formatter server-side — nor for a mixed-case path, which is not an abap component name at all (type="{text}" is the demo kit's own quirk, ported verbatim: it resolves to nothing, so ui5 keeps the default). the widening came from a corpus sweep in 2026-08, where the insert-only reading had missed ten real defects across seven ports, every one of which took its view down. error">
         <h3><a href="#enum-field-unset-on-insert">enum-field-unset-on-insert</a>
@@ -3611,9 +3687,9 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    173 configurable rules, plus <code>render-error</code> — the render gate's
+    175 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “173 rules passed” while this page has 174 cards.
+    <code>--badge</code> says “175 rules passed” while this page has 176 cards.
   </footer>
 </div>
 <script>

@@ -129,7 +129,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 173 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 175 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -352,9 +352,17 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'empty-catch-block' — default severity: hint"
         },
+        "enum-bound-to-conditional-field": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-bound-to-conditional-field' — default severity: warning"
+        },
         "enum-bound-to-initial-field": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'enum-bound-to-initial-field' — default severity: error"
+        },
+        "enum-cond-without-else": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-cond-without-else' — default severity: warning"
         },
         "enum-field-unset-on-insert": {
           "$ref": "#/definitions/rule",

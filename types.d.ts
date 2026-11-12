@@ -354,6 +354,10 @@ declare module "@abap2ui5/linter/reconstruct" {
     /** Root fields (uppercased) nothing on the start path gives a value -
      *  no literal seed, no declared VALUE, no other write. */
     initialFields: Set<string>;
+    /** Root fields (uppercased) the start path seeds with a literal only in
+     *  some arms of a branch - an IF without ELSE, a CASE without WHEN
+     *  OTHERS, a LOOP/DO (enum-bound-to-conditional-field). */
+    conditionalFields: Set<string>;
     /** Index-aligned with `nodes` / `docs`: whether the document is built on
      *  the start path, and so judged against `initModel`. */
     nodeOnInit: boolean[];
@@ -645,6 +649,10 @@ declare module "@abap2ui5/linter/properties" {
        *  initialFields), for a document the first display shows — without it
        *  enum-bound-to-initial-field never fires. */
       initialFields?: Set<string> | null;
+      /** Root fields the start path seeds only in some branches
+       *  (prepareAbap's conditionalFields) — without it
+       *  enum-bound-to-conditional-field never fires. */
+      conditionalFields?: Set<string> | null;
       /** Whether the class raises a model's size limit (cs_event-set_size_limit)
        *  — `false` lets rows-hidden-by-visible judge, `null` (a raw view, no
        *  class to ask) leaves it silent. */
