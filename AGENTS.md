@@ -15,7 +15,7 @@ it), so what it costs is paid on every task. It holds what you must know
 *before* you can know you need to look something up: the commands, the rules
 that are easy to break without noticing, and where the rest is. It was 156 kB
 once, most of it the history of individual rules; `npm test` now holds it to a
-budget (`AGENTS_BUDGET` in `test/run.mjs`), so new knowledge goes where the
+budget (`AGENTS_BUDGET` in `test/sections/artefacts.mjs`), so new knowledge goes where the
 table below says, not here.
 
 | Kind of knowledge | Where it belongs |
@@ -52,7 +52,7 @@ npm run test:static               # the suite WITHOUT the render gate and withou
                                   # for rule and reconstructor work (test/static.mjs;
                                   # -- --test-name-pattern=fix narrows it)
 npm test                          # node --test test/run.mjs: node:test, over 1000 assertions
-                                  # in ~125 isolated sections (its own + test/review/*.mjs,
+                                  # in ~500 isolated sections (test/sections/ + test/review/,
                                   # loaded at the end). One of them:
                                   #   node --test-name-pattern=fix test/run.mjs
 npm run generate-schema           # after adding a rule - the test gates the drift
@@ -147,7 +147,8 @@ that place.
 Then, for every rule:
 
 1. a fixture in `test/fixtures/` and assertions — a regression test goes into
-   `test/review/<topic>.mjs`, not into `test/run.mjs`; import the checks from
+   `test/review/<topic>.mjs` (a topic, never a date), not into `test/run.mjs`
+   or `test/sections/`; import the checks from
    the harness (`test/observe.mjs`), or the rule-coverage gate does not count them;
 2. `npm run generate-schema && npm run generate-rules-page && npm run generate-rule-map`;
 3. measure it against the sample corpora before shipping, and check that it

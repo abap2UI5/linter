@@ -90,7 +90,7 @@ entry points instead of re-assembling them - the VS Code extension carried
 a port of each of those decisions, pinned to this source by a test of its
 own. A decision `checkAbapSource( )` makes belongs in `check.mjs` as an
 export, not inline: an inline one is a decision every pipeline-assembling
-consumer has to copy. `round-2026-10-09c.mjs` loads `./check` in a fresh
+consumer has to copy. `check-entry-point.mjs` loads `./check` in a fresh
 process with a resolve hook and fails on `render.mjs`, `index.mjs`, a
 `worker_threads`/`http`/`os`/`module` import or anything of the render
 runtime, and walks the static import graph as well.

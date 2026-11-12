@@ -44,7 +44,7 @@ export default function ({ section, assert, checkAbapSource, prepareAbap }) {
     const found = checkAbapSource(src, opts).findings.filter((x) => x.type === 'invalid-property-value').map((x) => x.value);
     assert(!found.length, `no invalid-property-value for a value nobody passes (${found.join() || 'none'})`);
     // the shape the resolution exists for still resolves - an attribute,
-    // since a helper cannot read main's local (round-2026-10-09b.mjs reads
+    // since a helper cannot read main's local (viewless-waivers-and-scopes.mjs reads
     // the scopes)
     const one = src.replace('type TYPE string.', 'kind TYPE string.').replace('v = type', 'v = expr')
       .replace('DATA mv_type TYPE string.', 'DATA mv_type TYPE string.\n    DATA expr TYPE string.')

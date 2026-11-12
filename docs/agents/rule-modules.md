@@ -100,17 +100,18 @@ Import the checks from `./observe.mjs` in tests, not from `../lib/index.mjs`
 or `../lib/abap-rules.mjs` — a check called around the observer counts for
 nothing.
 
-`test/run.mjs` ends by loading every `test/review/*.mjs` — one file per topic
-or per review round (`core.mjs`: reconstructor, CLI plumbing and the
-case policy; `rules.mjs`: the ABAP-side rules and the lifecycle heuristics;
-the generator and property-gate files beside them; `round-<date>.mjs`,
-`audit-<date>.mjs` and `corpus-<date>.mjs` for a day's round, audit or
-corpus sweep). Each file's default export
-receives the harness `{ section, assert, f, FIX, tempDir, checkAbapSource,
-checkXmlSource, checkFiles, prepareAbap }` — the observed checks, so the
-sections count for the rule-coverage gate. A regression test for a rule fix
-goes into the topic's file, not into the 6000-line `test/run.mjs`; a new topic
-is a new file, nothing to register. `test/review/README.md` has the pattern.
+`test/run.mjs` is the harness and the order: it loads the suite's own
+sections from `test/sections/*.mjs` (cut by topic - fixtures, views, config,
+app rules, render, fix, CLI output, artefacts, robustness; the table is in
+`test/sections/README.md`), then every `test/review/*.mjs` - one file per
+TOPIC, never per date (`core.mjs`: reconstructor, CLI plumbing and the case
+policy; `rules.mjs`: the ABAP-side rules and the lifecycle heuristics;
+`row-template-paths.mjs`, `cli-flags.mjs`, …) - then the rule-coverage gate.
+Each review file's default export receives the harness `{ section, assert,
+f, FIX, tempDir, checkAbapSource, checkXmlSource, checkFiles, prepareAbap }`
+— the observed checks, so the sections count for the rule-coverage gate. A
+regression test for a rule fix goes into the topic's file; a new topic is a
+new file, nothing to register. `test/review/README.md` has the pattern.
 
 A test about SPEED asks one question - does the work grow linearly - and
 asks it through `test/timing.mjs` (`scalesLinearly( )`: n against 4n, best
@@ -124,11 +125,11 @@ asked again with the best of three where the screen fails
 (`screenedLinearly( )`). Two things it does not ask: nesting deeper than a
 few hundred levels (a crash question, not a growth one - every walk over a
 tree goes through `lib/tree.mjs`, `walkTree( )`/`nodesOf( )`, which do not
-recurse; `round-2026-10-09c.mjs` judges a view nested 5,000 deep, and a new
+recurse; `check-entry-point.mjs` judges a view nested 5,000 deep, and a new
 walk written as a recursion is what that test catches), and a growth
 whose quadratic part is still small at the sizes it can afford (many
 documents, many unclosed calls): those have targeted tests in
-`round-2026-10-09b.mjs`. A rule whose card changes shape changes what the
+`viewless-waivers-and-scopes.mjs`. A rule whose card changes shape changes what the
 sweep exercises, so a new rule is swept without anything to register.
 
 **Before writing a rule, ask whether the file is even collected.** A rule can
@@ -208,7 +209,7 @@ exact spans in the source it was given, applied by `--fix`. Attach them only
 when the correction is mechanical — a fix that has to guess is worse than a
 finding that stays — and describe it in the rule's `fixNote`, which the test
 requires for everything listed in `FIXABLE` — and list it there:
-`test/review/round-2026-10-12-rules.mjs` runs every card and fails on a
+`test/review/abap-side-rules.mjs` runs every card and fails on a
 finding type observed with a fix that `FIXABLE` does not name (four rules
 rewrote unlisted until 2026-10-12). Write a fix's line breaks as
 `\n`: the entry points rewrite them to the source's own line ending
