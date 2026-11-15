@@ -897,6 +897,91 @@ declare module "@abap2ui5/linter/abap-rules" {
   ): PropertyFinding[];
 }
 
+declare module "@abap2ui5/linter/chain-write" {
+  /** One attribute of a node handed to the chain writer. A `[name, value]`
+   *  pair - the shape `parseXml( )` and the reconstructor produce - is a
+   *  literal written through `v`. */
+  export type ChainAttribute =
+    | [name: string, value: string]
+    | {
+        name: string;
+        /** A literal: written in backticks, cut into `&&` pieces when its
+         *  line would pass `maxLine`. */
+        value?: string;
+        /** ABAP, written as it stands. A value over several lines keeps its
+         *  shape and is re-anchored one level in from its call. */
+        raw?: string;
+        /** ABAP operands joined with `&&`, one per line under the first. */
+        pieces?: string[];
+        /** The parameter of `a( )` (default `v`). */
+        key?: "v" | "b" | "t";
+        /** `b` when no `key` is given. */
+        boolean?: boolean;
+      };
+
+  /** One element of the view. Further fields ride along and come back
+   *  through `owners`. A node whose `name` is null is a document node and
+   *  stands for its one child. */
+  export interface ChainNode {
+    name: string | null;
+    ns?: string | null;
+    attrs?: readonly ChainAttribute[];
+    children?: readonly ChainNode[];
+  }
+
+  export interface WriteChainOptions {
+    /** The column the statement starts in (0). */
+    indent?: number;
+    /** The view variable (`view`). */
+    variable?: string;
+    /** The text in front of the factory call (`DATA(<variable>) = `). */
+    assignment?: string;
+    /** `attached`: one statement hanging off `factory(` (the default).
+     *  `detached`: `factory( ).` on its own, the chain off the variable.
+     *  `none`: the chain alone, for the inside of an existing chain. */
+    factory?: "attached" | "detached" | "none";
+    /** Write the `end( )`s that close the tree (false). */
+    keepTrailingEnds?: boolean;
+    /** The line ending of the file the chain goes into (`\n`). */
+    eol?: string;
+    /** The width a literal is split for (255). */
+    maxLine?: number;
+  }
+
+  /** Four spaces a level - the step `chain-house-layout` checks. */
+  export const STEP: number;
+  /** ABAP's line limit, 255. */
+  export const MAX_LINE: number;
+
+  /** A value as an ABAP backtick literal. */
+  export function abapLiteral(value: unknown): string;
+
+  /** `value` as one or more literals, the first at most `first` characters
+   *  as written, every further one at most `rest`. */
+  export function literalPieces(value: unknown, first: number, rest?: number): string[];
+
+  /** What the writer cannot write (a line break in a literal or a name), as
+   *  a sentence - or undefined. */
+  export function unwritable(tree: ChainNode): string | undefined;
+
+  /** The attribute block of one control at `column`, one entry per
+   *  attribute, the parameter column aligned. `verbatim` answers the text
+   *  right of an attribute's name to keep as it is. */
+  export function attributeLines<A extends ChainAttribute>(
+    node: { attrs?: readonly A[] },
+    column: number,
+    options?: { verbatim?: (attr: A) => string | undefined; maxLine?: number; reserve?: number }
+  ): string[];
+
+  /** The statement that builds `tree`, in the house layout: its text, its
+   *  lines, and per line the node it belongs to (null for a blank line and
+   *  the factory line). Throws on a tree `unwritable( )` refuses. */
+  export function writeChain<N extends ChainNode>(
+    tree: N,
+    options?: WriteChainOptions
+  ): { text: string; lines: string[]; owners: Array<N | null> };
+}
+
 declare module "@abap2ui5/linter/fix" {
   import type { PropertyFinding } from "@abap2ui5/linter/properties";
 

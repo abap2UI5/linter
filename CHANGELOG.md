@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Added
+
+- **`@abap2ui5/linter/chain-write` — the view as the builder chain that builds
+  it.** `writeChain( tree, options )` writes a view tree (the node shape
+  `parseXml( )` and the reconstructor produce, or one whose attributes carry
+  ABAP) as a `z2ui5_cl_ui5_view_builder` chain in the layout
+  `chain-house-layout` checks: one call per line, four spaces a level, the
+  `v =` column aligned across a control's block, the `view-chain-layout`
+  skill's blank lines, a literal over 255 characters cut into `&&` pieces. The
+  `factory` option picks the attached shape, the detached one (`factory( ).`
+  as its own statement) or a block for the inside of an existing chain;
+  `owners` says which node each line belongs to. With it `attributeLines( )`
+  (one control's block, untouched values verbatim), `literalPieces( )`,
+  `abapLiteral( )`, `unwritable( )`, `STEP` and `MAX_LINE`. It is the one
+  writer for the three the playground, the layout editor and the VS Code
+  extension each carried; where they disagreed - the blank lines, the alignment, where a
+  wrapped literal hangs - the skill decided (`docs/agents/consumers.md`, "The
+  chain writer"). `test/review/chain-write.mjs` holds every chain it writes
+  to the three layout rules and to reconstructing to the view it was written
+  from, over what each tool's own writer wrote (`test/fixtures/chain-write/`).
+  No rule and no finding changes.
+
 ### Changes
 
 Found by an org-wide bug hunt (2026-11-12); regression sections in
