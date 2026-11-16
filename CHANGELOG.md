@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-11-16
+
+### Read before upgrading
+
+- **This release is 0.10.0, not 0.9.1.** Since 0.9.0 the mirrors of
+  abap2UI5 moved several times (new `cs_event` constants, `HTMLFrame`, the
+  LLM objects released, the utility classes moved to abap2UI5-ext), and
+  consumers on `^0.9.0` - abap2UI5 itself among them - judge the
+  framework's new names as unknown until they take a release that carries
+  them. Nothing removed or renamed a rule id, a config key or an export; the
+  `--json` document only grew (`schemaVersion`). `@abap2ui5/linter-render`
+  moves to 0.10.0 with it, and its peer range is `>=0.8.0 <0.11.0`.
+- **abap2UI5's start app: drop two directives at the bump.** The
+  reconstructor now follows `create_layout_form( )`, so the two
+  `abap2ui5lint-disable-next-line unused-namespace-declaration` directives in
+  `src/01/04/z2ui5_cl_ui5_app_start.clas.abap` whose comment says it does
+  not are reported as `unused-directive` (hints - abap2UI5 fails on warning,
+  so its gate stays green; remove them anyway).
+- **New rules, all silent on every measured corpus**: the warnings
+  `enum-bound-to-conditional-field`, `enum-cond-without-else`,
+  `escape-handler-as-string` and `nav-target-never-displays`, the errors
+  `unknown-builder-method` and `abap2ui5-api-too-new` (the latter only with
+  `abap2ui5` configured) and the opt-in hint `xml-indentation`.
+
+### Added
+
+- **`@abap2ui5/linter/chain-write` — the view as the builder chain that builds
+  it.** `writeChain( tree, options )` writes a view tree (the node shape
+  `parseXml( )` and the reconstructor produce, or one whose attributes carry
+  ABAP) as a `z2ui5_cl_ui5_view_builder` chain in the layout
+  `chain-house-layout` checks: one call per line, four spaces a level, the
+  `v =` column aligned across a control's block, the `view-chain-layout`
+  skill's blank lines, a literal over 255 characters cut into `&&` pieces. The
+  `factory` option picks the attached shape, the detached one (`factory( ).`
+  as its own statement) or a block for the inside of an existing chain;
+  `owners` says which node each line belongs to. With it `attributeLines( )`
+  (one control's block, untouched values verbatim), `literalPieces( )`,
+  `abapLiteral( )`, `unwritable( )`, `STEP` and `MAX_LINE`. It is the one
+  writer for the three the playground, the layout editor and the VS Code
+  extension each carried; where they disagreed - the blank lines, the alignment, where a
+  wrapped literal hangs - the skill decided (`docs/agents/consumers.md`, "The
+  chain writer"). `test/review/chain-write.mjs` holds every chain it writes
+  to the three layout rules and to reconstructing to the view it was written
+  from, over what each tool's own writer wrote (`test/fixtures/chain-write/`).
+  No rule and no finding changes.
+
 ### Changes
 
 Found by an org-wide bug hunt (2026-11-12); regression sections in
@@ -38,32 +84,6 @@ Found by an org-wide bug hunt (2026-11-12); regression sections in
 - **`--init` writes a file ending in one newline**, without trailing blanks.
 - `@abap2ui5/linter-render`'s `homepage` points at the render gate's section
   of the documentation; `#render-gate` was no anchor of the README.
-
-## 0.10.0 - 2026-11-12
-
-### Read before upgrading
-
-- **This release is 0.10.0, not 0.9.1.** Since 0.9.0 the mirrors of
-  abap2UI5 moved several times (new `cs_event` constants, `HTMLFrame`, the
-  LLM objects released, the utility classes moved to abap2UI5-ext), and
-  consumers on `^0.9.0` - abap2UI5 itself among them - judge the
-  framework's new names as unknown until they take a release that carries
-  them. Nothing removed or renamed a rule id, a config key or an export; the
-  `--json` document only grew (`schemaVersion`). `@abap2ui5/linter-render`
-  moves to 0.10.0 with it, and its peer range is `>=0.8.0 <0.11.0`.
-- **abap2UI5's start app: drop two directives at the bump.** The
-  reconstructor now follows `create_layout_form( )`, so the two
-  `abap2ui5lint-disable-next-line unused-namespace-declaration` directives in
-  `src/01/04/z2ui5_cl_ui5_app_start.clas.abap` whose comment says it does
-  not are reported as `unused-directive` (hints - abap2UI5 fails on warning,
-  so its gate stays green; remove them anyway).
-- **New rules, all silent on every measured corpus**: the warnings
-  `enum-bound-to-conditional-field`, `enum-cond-without-else`,
-  `escape-handler-as-string` and `nav-target-never-displays`, the errors
-  `unknown-builder-method` and `abap2ui5-api-too-new` (the latter only with
-  `abap2ui5` configured) and the opt-in hint `xml-indentation`.
-
-### Changes
 
 - **New rule `unknown-builder-method`** (error): a method the view builder
   does not have - `z2ui5_cl_ui5_view_builder=>page( )`, `view->input( )`,

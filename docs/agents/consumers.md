@@ -132,6 +132,48 @@ landing unseen. Two traps worth knowing before reading a result:
   covered*. The current size is in samples-controls' generated `STATUS.md`;
   quoting it here as a standing number is how this line came to say 280.
 
+## The chain writer
+
+`./chain-write` (`lib/chain-write.mjs`) is the one implementation of "view →
+house-layout chain". Until 2026-11 there were three - the playground's
+`chain-write.mjs`, the layout editor's `viewChain( )` and the VS Code
+extension's `xmltoabap.ts` - and they disagreed about the blank lines, the
+`v =` column and where a wrapped literal hangs. What each consumer keeps is
+its FRONT end, the part that is its own: the playground merges an edited XML
+document with the chain it read (so every untouched value stays the ABAP it
+was), the layout editor maps its design and the release it generates for, the
+extension reads a pasted view forgivingly and wires handlers to events. All
+three end in a tree for `writeChain( )`.
+
+| Consumer | Tree | Options |
+| --- | --- | --- |
+| playground (`src/shell/view-edit.mjs`, `chain-patch.mjs`) | `{ name, ns, attrs: [{ name, raw, key }] }` | `indent`, `assignment`, `eol` as read from the source; `attributeLines( verbatim )` for one control's block |
+| layout-editor (`src/abap.js`) | `{ name, ns, id, attrs: [{ name, key, pieces }] }` | `indent`, `assignment` (`view = ` on 7.02); `owners` links a line to its control |
+| vscode-extension (`src/xmltoabap.ts`) | `{ name, ns, attrs: [{ name, value }` or `{ name, raw }] }` | `factory: 'detached'`, `keepTrailingEnds` for an abbreviation expanded inside a chain |
+
+The contract: **the layout this module writes is the layout
+`chain-house-layout` accepts, and a chain it writes reconstructs to the view
+it was given** - `test/review/chain-write.mjs` holds both over the three
+tools' own corpora (`test/fixtures/chain-write/`, what each tool's writer
+wrote on the day it was replaced). A change to a column, a blank line or a
+line break here is a change to every class the three tools generate; the
+layout editor's byte-identical round trip and the extension's "Format Document
+is a no-op on a conversion" both notice.
+
+The module imports `lib/builders.mjs` and nothing else, on purpose: the layout
+editor is static files without a bundler and cannot resolve a package, so it
+carries the two files as a hash-gated copy for good (`src/vendor/linter/`
+there, `tools/vendor-linter.mjs --check`). The playground carries the same
+copy only until its pin is a release that exports `./chain-write`, and then
+imports the package; the extension imports the package and so switches with
+its pin (its own `xmltoabap.ts` emitter goes in that bump). A third import
+here would have to be vendored too - the suite fails on one.
+
+A chain READER with source positions (which attribute stands where, to patch
+one value in place) is still each tool's own: the reconstructor here reads
+what a chain builds, not where its text is. That is the remaining overlap, and
+it is not this module's.
+
 ## Related repositories
 
 | Repository | Relation |
