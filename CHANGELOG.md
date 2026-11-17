@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.11.1 - 2026-11-17
+
 ### Fixed
 
 Two false positives of `unknown-binding-path`, found in the downstream
