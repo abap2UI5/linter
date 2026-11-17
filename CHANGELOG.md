@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Changed
+
+- **`./check` no longer bundles the rule cards** (#188). Since 0.10.0 every
+  rule module carried its card - summary, detail, example, remedy, fix note -
+  so a browser bundle that only judges views carried the prose of all 180
+  rules. The card is now a file of its own beside each rule,
+  `lib/rules/<id>.card.mjs` (`defineCard( )` in `./rule`), listed in
+  `lib/rules/cards.mjs`, which only `./rule-docs` imports. The playground's
+  linter bundle (`./check` + `./fix` + `./properties`, its own esbuild
+  build) goes from **269,243 to 192,270 bytes gzipped** (1,115,117 to
+  884,184 raw). No finding changes - rule id, severity, message and fix are
+  what they were - and `RULE_DOCS`, `--explain`, the rules page, SARIF rule
+  descriptions and the schema still carry every card. **No consumer import
+  path changes**: `./check` is still the entry for judging, `./rule-docs`
+  still the one for the text. `test/review/check-entry-point.mjs` fails
+  when a judging entry reaches a card again, statically or at runtime, or
+  when a module of `./check` holds a card's text.
+- **`./rule`: a rule definition no longer takes its card.** `defineRule( )`
+  refuses `summary`, `detail`, `example`, `remedy` and `fixNote`, naming the
+  card file they belong in, and takes `fixable: true` where the fix note
+  used to imply it; `defineCard( )` validates a card, and `docOf( rule,
+  card )` pairs the two (it throws on a missing card, another rule's card,
+  or a fix note that disagrees with `fixable`). `RULES_PAGE`, `ruleUrl( )`
+  and `ruleExampleUrl( )` are also exported from `./rule` now (still from
+  `./rule-docs`), so `./findings` links a rule without loading the cards.
+  No downstream repository calls `defineRule( )`.
+
 ## 0.10.0 - 2026-11-16
 
 ### Read before upgrading

@@ -1236,7 +1236,9 @@ declare module "@abap2ui5/linter/rule-docs" {
   }
 
   /** Keyed by rule id - every id in the `RULES` registry has an entry, plus
-   *  the render gate's pseudo-rule. */
+   *  the render gate's pseudo-rule. Read from the rules' card modules, which
+   *  only this entry imports: `./check` and the other judging entries carry
+   *  no card text, so a browser bundle that shows a card imports it here. */
   export const RULE_DOCS: Record<string, RuleDoc>;
 
   export const CATEGORIES: { id: string; title: string; blurb: string }[];
@@ -1924,7 +1926,10 @@ declare module "@abap2ui5/linter/rule" {
     options?: Record<string, unknown>;
     enabled?(id: string): boolean;
   }
-  /** One rule, written in one place: registry entry, card, sentence, check. */
+  /** One rule, written in one place: registry entry, sentence, check. Its
+   *  card - the prose a reader is shown - is a file of its own beside it
+   *  (`lib/rules/<id>.card.mjs`, `defineCard( )`), so what only judges a
+   *  view bundles none of it; `defineRule( )` refuses a card field. */
   export interface RuleDefinition {
     id: string;
     severity: "error" | "warning" | "hint";
@@ -1936,11 +1941,9 @@ declare module "@abap2ui5/linter/rule" {
      *  it builds the view tree; 'directive': run once per abap2ui5lint-
      *  directive of a source. */
     scope: "class" | "app" | "node" | "document" | "tree" | "directive";
-    summary: string;
-    detail: string;
-    example: string;
-    remedy: string;
-    fixNote?: string;
+    /** True for a rule whose findings can carry a fix; its card then has a
+     *  `fixNote`. Default false. */
+    fixable?: boolean;
     optIn?: boolean;
     message(finding: Record<string, any>): string;
     check(context: RuleContext): void;
@@ -1948,8 +1951,33 @@ declare module "@abap2ui5/linter/rule" {
   export type Rule = Readonly<RuleDefinition & { optIn: boolean; fixable: boolean }>;
   /** Validate and freeze a definition; throws with the rule's id. */
   export function defineRule(definition: RuleDefinition): Rule;
-  /** The card of a rule, in RULE_DOCS' shape. */
-  export function docOf(rule: Rule): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** A rule's card: what `--explain`, the rule page and `RULE_DOCS` show. */
+  export interface CardDefinition {
+    /** The id of the rule it belongs to. */
+    id: string;
+    summary: string;
+    detail: string;
+    /** The shortest source that triggers the rule. */
+    example: string;
+    /** The same source, fixed. */
+    remedy: string;
+    /** What `--fix` rewrites - given exactly when the rule is fixable. */
+    fixNote?: string;
+  }
+  export type Card = Readonly<CardDefinition>;
+  /** The fields of a card: summary, detail, example, remedy, fixNote. */
+  export const CARD_FIELDS: readonly string[];
+  /** Validate and freeze a card; throws with the rule's id. */
+  export function defineCard(card: CardDefinition): Card;
+  /** A rule and its card, in RULE_DOCS' shape. Throws when the card is
+   *  missing or another rule's, or its fixNote disagrees with `fixable`. */
+  export function docOf(rule: Rule, card: Card): { category: string; summary: string; detail: string; example: string; remedy: string; fixNote?: string };
+  /** The published rule reference (also on "@abap2ui5/linter/rule-docs"). */
+  export const RULES_PAGE: string;
+  /** The card of one rule on the reference page. */
+  export function ruleUrl(id: string): string;
+  /** The before/after pair inside that card. */
+  export function ruleExampleUrl(id: string): string;
   /** Run ONE rule over a context: findings get its id as `type`, its time
    *  goes under `rule:<id>`, and what its check returns is returned. */
   export function runRule(rule: Rule, context: RuleContext & Record<string, unknown>, options?: { timings?: Map<string, number> | null }): unknown;

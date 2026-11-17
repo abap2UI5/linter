@@ -95,6 +95,24 @@ process with a resolve hook and fails on `render.mjs`, `index.mjs`, a
 `worker_threads`/`http`/`os`/`module` import or anything of the render
 runtime, and walks the static import graph as well.
 
+**`./check` carries no rule card either (#188).** A rule's card - summary,
+detail, example, remedy, fix note - is `lib/rules/<id>.card.mjs`, beside the
+rule, and only `./rule-docs` imports the cards (through
+`lib/rules/cards.mjs`). So a browser consumer that judges views imports
+`./check` (and `./fix`, `./properties`, `./findings`, `./abap-rules`,
+`./reconstruct`, `./chain-write` as it needs them) and bundles no prose: a
+finding still carries its `type`, `severity`, `message`, `fixes` and `url`,
+which is what a consumer shows. One that also SHOWS a card - a hover, a
+`--explain`-like panel, an agent tool - imports `./rule-docs` for it
+(`RULE_DOCS[id]`), in the place that shows it, ideally lazily. No import path
+changed: an entry point never exported the card text, the rule modules did,
+and none is in the exports map. Measured over the playground's own bundle
+(`dist/editor/lint.mjs`: `./check`, `./fix`, `./properties`, built with its
+esbuild plugins): 269,243 bytes gzipped at 0.10.0, 192,270 with the cards
+apart. `check-entry-point.mjs` keeps it that way - a judging entry that
+reaches a card module, or a module of `./check` that holds a card's text,
+fails `npm test`.
+
 ## The downstream contract — `.github/workflows/downstream.yml`
 
 `npm test` only ever proves this linter against its own fixtures. The

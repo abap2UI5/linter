@@ -20,7 +20,7 @@ AGENTS.md is the contract. The short version of what a change owes:
 
 ## If this adds or changes a rule
 
-A rule is one file — `lib/rules/<id>.mjs` with `defineRule( )`, and its import line in `lib/rules/index.mjs` (AGENTS.md, "Adding or changing a rule"); every registry reads it from there.
+A rule is one pair of files — `lib/rules/<id>.mjs` with `defineRule( )` and its card `lib/rules/<id>.card.mjs` with `defineCard( )`, each with its import line (`lib/rules/index.mjs`, `lib/rules/cards.mjs`; AGENTS.md, "Adding or changing a rule"); every registry reads them from there.
 
 - [ ] a fixture in `test/fixtures/` **and its negative counter-case** — the suite has to see the defect *and* leave the neighbouring legal form alone
 

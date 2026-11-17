@@ -35,15 +35,29 @@ rule and why it is run there:
 | `lib/report.mjs` | no findings — the **output layer**: `summarize`, the `stylish`/`json`/`markdown` formatters, the GitHub workflow-command annotations, and the terminal rendering of `RULE_DOCS` behind `--explain` (`ruleIndex`, `formatExplain`, `formatRuleIndex`, `explainFooter`). The CLI only parses flags and picks one |
 | `lib/cli/` | no findings — the CLI's parts that are not the run: `args.mjs` (the option loop, its value checks, the early exits `--init`/`--version`/`--help`, and the combinations refused before a run; `parseArgs( )` returns what it decided), `watch.mjs` (the `--watch` loop, handed `resolveRun`/`runOnce` by `cli.mjs`) and `support.mjs` (where a path is shown from, the package's own `package.json`, the usage line, the `$schema` `--init` writes). `cli.mjs` keeps the run itself (`resolveRun( )`, `runOnce( )`) and `--explain`; nothing under `lib/cli/` is exported, and `lib/check.mjs` reaches none of it (rule 11) |
 
-**A new rule is ONE file.** `lib/rules/<id>.mjs` exports a `defineRule( )`
-object (`lib/rule.mjs`): id, severity, category, scope, the card (`summary`,
-`detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
-and `check( context )`, plus one import line in `lib/rules/index.mjs`. Every
-registry reads it from there — `RULES`, the severities and `describe( )` in
-`findings.mjs`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES`, the rule
-page's "Defined in" link — so there is nothing to keep in step by hand, and a
-definition that would fail a gate later (no card, a remedy equal to its
-example) throws at import with the rule's id. The check reads the SHARED
+**A new rule is ONE pair of files.** `lib/rules/<id>.mjs` exports a
+`defineRule( )` object (`lib/rule.mjs`): id, severity, category, scope,
+`fixable: true` when it fixes, `message( finding )` and `check( context )`,
+plus one import line in `lib/rules/index.mjs`. Its card is
+`lib/rules/<id>.card.mjs`, a `defineCard( )` object: the id, `summary`,
+`detail`, `example`, `remedy` and `fixNote` exactly when the rule is
+fixable, plus one import line in `lib/rules/cards.mjs`. Every registry reads
+them from there — `RULES`, the severities and `describe( )` in
+`findings.mjs`, `RULE_DOCS` (rule-docs.mjs pairs each rule with its card),
+`FIXABLE`, `OPT_IN`, `SOURCE_RULES`, the rule page's "Defined in" link — so
+there is nothing to keep in step by hand, and a definition that would fail a
+gate later (a card missing or unpaired, a remedy equal to its example, a
+`fixNote` without `fixable` or the other way round, prose written into
+`defineRule( )`) throws at import with the rule's id.
+
+The card is a file of its own because nothing that only JUDGES a view reads
+it: until #188 it sat in the rule's module, and every bundle of `./check`
+carried the prose of all rules — 72 kB of the 98 kB (gzipped) the
+playground's linter bundle grew by in 0.10.0. Only `lib/rules/cards.mjs`
+imports a card, and only `rule-docs.mjs` imports that; `findings.mjs` takes
+`ruleUrl( )` from `rule.mjs` for the same reason. `check-entry-point.mjs`
+holds the line: no entry a browser bundles reaches a card, statically or at
+runtime, and no module `./check` reaches holds a card's text. The check reads the SHARED
 model of the class, `context.model` (`lib/abap-model.mjs`: tokens with their
 source offsets, statements with the keyword folded, class parts and
 visibility sections, methods, attributes, locals) instead of scanning text
@@ -87,8 +101,8 @@ reconstructor's, `lib/reconstruct.mjs`), and it records declarations, not
 writes.
 
 The README does not document the rules — it links the generated page — so the
-card in the rule's file is the only place its prose is written, and `npm test`
-gates it against the registry.
+card beside the rule's file is the only place its prose is written, and
+`npm test` gates it against the registry.
 
 The fixture is not on trust either: the **rule-coverage gate** at the end of
 `test/run.mjs` asserts that every id in `RULES` actually fired somewhere in the
