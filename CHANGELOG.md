@@ -28,6 +28,14 @@
   and `ruleExampleUrl( )` are also exported from `./rule` now (still from
   `./rule-docs`), so `./findings` links a rule without loading the cards.
   No downstream repository calls `defineRule( )`.
+- **`./config` no longer reaches the report module, nor the cards with it.**
+  It imported `BADGE_KINDS` from `lib/report.mjs` (which renders `--explain`
+  and SARIF and so reads every card); `BADGE_KINDS` is defined in `./config`
+  now and re-exported from `./report` unchanged. A bundle of the subpaths
+  the VS Code extension imports (`./check`, `./findings`, `./abap-rules`,
+  `./fix`, `./properties`, `./reconstruct`, `./config`, `./baseline`,
+  `./chain-write`, `./icons`, `./portable`) goes from 279,381 to 202,305
+  bytes gzipped.
 
 ## 0.10.0 - 2026-11-16
 

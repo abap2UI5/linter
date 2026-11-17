@@ -109,8 +109,10 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     };
     /* ./check, and what a browser consumer bundles beside it: the
      * playground takes ./fix and ./properties too, the VS Code extension's
-     * web build ./findings, ./abap-rules, ./reconstruct and ./chain-write */
-    for (const entry of ['check.mjs', 'fix.mjs', 'properties.mjs', 'findings.mjs', 'abap-rules.mjs', 'reconstruct.mjs', 'chain-write.mjs', 'portable.mjs', 'icons.mjs']) {
+     * web build ./findings, ./abap-rules, ./reconstruct, ./chain-write,
+     * ./config and ./baseline (config.mjs took BADGE_KINDS from report.mjs,
+     * which shows the cards, until it defined them itself) */
+    for (const entry of ['check.mjs', 'fix.mjs', 'properties.mjs', 'findings.mjs', 'abap-rules.mjs', 'reconstruct.mjs', 'chain-write.mjs', 'portable.mjs', 'icons.mjs', 'config.mjs', 'baseline.mjs']) {
       const cards = [...graphOf(entry)].filter((f) => CARDISH.test(f));
       assert(!cards.length, `lib/${entry} reaches no card and no card registry (reaches ${cards.length ? `${cards.length}: ${cards.slice(0, 3).join(', ')}, …` : 'none'})`);
     }

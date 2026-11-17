@@ -1254,6 +1254,9 @@ declare module "@abap2ui5/linter/rule-docs" {
 }
 
 declare module "@abap2ui5/linter/config" {
+  /** The badge kinds a config's `badge` can name (also on
+   *  "@abap2ui5/linter/report"). */
+  export const BADGE_KINDS: readonly ["corpus", "checks"];
   /** File names discovered, in order - jsonc first. */
   export const CONFIG_NAMES: string[];
   export const CONFIG_NAME: string;
