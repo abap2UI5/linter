@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.11.0 - 2026-11-17
+
+### Read before upgrading
+
+- **This release is 0.11.0, not 0.10.1.** The `./rule` export changed
+  shape: `defineRule( )` refuses the card fields (`summary`, `detail`,
+  `example`, `remedy`, `fixNote`) it took in 0.10.0 and takes `fixable:
+  true` instead, and the card is a separate `defineCard( )` paired by
+  `docOf( rule, card )`. A rule written against 0.10.0's `./rule` throws
+  here, and in `0.x` that is a minor (RELEASING.md, "Which number"). No
+  downstream repository calls `defineRule( )`, no rule id, finding, config
+  key or other import path changed, and the `--json` document is as it
+  was. `@abap2ui5/linter-render` moves to 0.11.0 with it (one tag, both
+  packages, OpenUI5 still 1.154.0) and its peer range is
+  `>=0.8.0 <0.12.0`; FLOOR stays 0.8.0.
+
 ### Changed
 
 - **`./check` no longer bundles the rule cards** (#188). Since 0.10.0 every
