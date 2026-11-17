@@ -130,12 +130,15 @@ baseline. Details: `docs/agents/scope.md`.
 
 ## Adding or changing a rule
 
-**A new rule is ONE file**, `lib/rules/<id>.mjs`, exporting `defineRule( )`
-(`lib/rule.mjs`): id, severity, category, scope, the card (`summary`,
-`detail`, `example`, `remedy`, `fixNote` when it fixes), `message( finding )`
-and `check( context )` — plus one import line in `lib/rules/index.mjs`.
+**A new rule is ONE pair of files.** `lib/rules/<id>.mjs` exports
+`defineRule( )` (`lib/rule.mjs`): id, severity, category, scope, `fixable:
+true` when it fixes, `message( finding )` and `check( context )`;
+`lib/rules/<id>.card.mjs` exports `defineCard( )`: the id and the card
+(`summary`, `detail`, `example`, `remedy`, `fixNote` exactly when it fixes) —
+plus one import line each in `lib/rules/index.mjs` and `lib/rules/cards.mjs`.
+The card is apart so that `./check` bundles none of its prose (#188).
 Severities, `describe( )`, `RULE_DOCS`, `FIXABLE`, `OPT_IN`, `SOURCE_RULES` and
-the rule page read it from there. The scope says where it runs: `'class'`
+the rule page read them from there. The scope says where it runs: `'class'`
 for every class (`context.model`, `lib/abap-model.mjs`: tokens, statements,
 sections, methods, attributes, `resolve( name, offset )` - rather than regular
 expressions of its own), `'app'` at its place in `checkAbapRules( )`, `'node'`
@@ -208,10 +211,11 @@ Each of these has been broken at least once. The number is its name — keep it.
     static half (`npm run test:static`) runs without a browser. An unmarked
     one fails it.
 11. **`lib/check.mjs` reaches no renderer, no worker and no entry point** — a
-    browser bundle imports it. **A rule module imports nothing that leads
-    back to a registry** (`findings`, `rule-docs`, `fix`,
-    `abap-rules`); `test/review/rule-units.mjs` computes it over the import
-    graph.
+    browser bundle imports it - **nor a card**: only `rule-docs.mjs` reaches
+    `lib/rules/cards.mjs` (`test/review/check-entry-point.mjs`). **A rule
+    module imports nothing that leads back to a registry** (`findings`,
+    `rule-docs`, `fix`, `abap-rules`); `test/review/rule-units.mjs` computes
+    it over the import graph.
 12. **stdout is the report.** Progress, notes and prose beside a machine
     format go to stderr; the run summary's `emptyViews` is never dropped.
 13. **The mirrors of abap2UI5's closed sets (`lib/frontend-actions.mjs`,

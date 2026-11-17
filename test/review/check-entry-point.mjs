@@ -83,6 +83,82 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     assert(!hostile.length, `check.mjs's graph imports fs, path and url and nothing else from outside (got ${hostile.join(', ') || 'none'})`);
   });
 
+  /* #188: a rule's card - summary, detail, example, remedy, fix note - was
+   * written in its rule module from 0.10.0 on, so every bundle of ./check
+   * carried the prose of all rules: 72 kB of the 98 kB (gzipped) the
+   * playground's lint.mjs grew by, for text it never shows. The cards are
+   * the <id>.card.mjs beside each rule now, imported only by
+   * lib/rules/cards.mjs and that only by rule-docs.mjs. Held three ways: no
+   * entry a browser bundles reaches a card module, statically or at
+   * runtime, and no module ./check reaches holds a card's text. */
+  section('#188: ./check and the other bundled entries carry no rule card', async () => {
+    const CARDISH = /(?:^|\/)(?:[\w-]+\.card\.mjs|rules\/cards\.mjs|rule-docs\.mjs)$/;
+    const graphOf = (entry) => {
+      const graph = new Set();
+      const visit = (file) => {
+        if (graph.has(file)) return;
+        graph.add(file);
+        const src = fs.readFileSync(path.join(ROOT, 'lib', file), 'utf8');
+        for (const m of src.matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'([^']+)'|import\(\s*'([^']+)'\s*\)/g)) {
+          const spec = m[1] ?? m[2];
+          if (spec.startsWith('.')) visit(path.posix.normalize(path.posix.join(path.posix.dirname(file), spec)));
+        }
+      };
+      visit(entry);
+      return graph;
+    };
+    /* ./check, and what a browser consumer bundles beside it: the
+     * playground takes ./fix and ./properties too, the VS Code extension's
+     * web build ./findings, ./abap-rules, ./reconstruct, ./chain-write,
+     * ./config and ./baseline (config.mjs took BADGE_KINDS from report.mjs,
+     * which shows the cards, until it defined them itself) */
+    for (const entry of ['check.mjs', 'fix.mjs', 'properties.mjs', 'findings.mjs', 'abap-rules.mjs', 'reconstruct.mjs', 'chain-write.mjs', 'portable.mjs', 'icons.mjs', 'config.mjs', 'baseline.mjs']) {
+      const cards = [...graphOf(entry)].filter((f) => CARDISH.test(f));
+      assert(!cards.length, `lib/${entry} reaches no card and no card registry (reaches ${cards.length ? `${cards.length}: ${cards.slice(0, 3).join(', ')}, …` : 'none'})`);
+    }
+    // the line is drawn where it should be: rule-docs reaches every card
+    const docsGraph = graphOf('rule-docs.mjs');
+    const cardFiles = fs.readdirSync(path.join(ROOT, 'lib', 'rules')).filter((n) => n.endsWith('.card.mjs'));
+    assert(cardFiles.length > 100 && cardFiles.every((n) => docsGraph.has(`rules/${n}`)), `rule-docs.mjs reaches all ${cardFiles.length} cards`);
+
+    // at RUNTIME, in a fresh process, as the first section does it
+    const probe = `
+      const m = require('node:module');
+      const seen = [];
+      if (typeof m.registerHooks === 'function') {
+        m.registerHooks({ resolve(spec, ctx, next) { const r = next(spec, ctx); seen.push(r.url); return r; } });
+      }
+      import('@abap2ui5/linter/check').then(() => console.log(JSON.stringify({ hooks: typeof m.registerHooks === 'function', seen })));`;
+    const r = cp.spawnSync(process.execPath, ['-e', probe], { cwd: ROOT, encoding: 'utf8' });
+    const got = JSON.parse(r.stdout || '{}');
+    if (got.hooks) {
+      const loaded = got.seen.filter((u) => CARDISH.test(u));
+      assert(got.seen.length > 50 && !loaded.length, `importing ./check loads no card (${loaded.join(', ') || 'none'} of ${got.seen.length} modules)`);
+    }
+
+    /* And the TEXT: a card's prose copied back into a rule (a message that
+     * quotes its detail, a card inlined again) is the same regression with
+     * no card module to show for it. A run of plain words out of every
+     * detail is looked for in every source ./check reaches - and, as the
+     * control that the probe can hit at all, in the card it came from. */
+    const { RULE_DOCS } = await import('../../lib/rule-docs.mjs');
+    const sources = [...graphOf('check.mjs')].map((f) => [f, fs.readFileSync(path.join(ROOT, 'lib', f), 'utf8')]);
+    const bytes = sources.reduce((n, [, t]) => n + Buffer.byteLength(t), 0);
+    const cardBytes = cardFiles.reduce((n, f) => n + fs.statSync(path.join(ROOT, 'lib', 'rules', f)).size, 0);
+    const leaked = [];
+    let probed = 0;
+    for (const file of cardFiles) {
+      const id = file.replace(/\.card\.mjs$/, '');
+      const run = (RULE_DOCS[id].detail.match(/[A-Za-z0-9 ,.;:()—-]{48,}/g) ?? []).sort((a, b) => b.length - a.length)[0]?.trim();
+      if (!run || !fs.readFileSync(path.join(ROOT, 'lib', 'rules', file), 'utf8').includes(run)) continue;
+      probed++;
+      const at = sources.find(([, t]) => t.includes(run));
+      if (at) leaked.push(`${id} in lib/${at[0]}`);
+    }
+    assert(probed > 150, `a probe out of nearly every card's detail (${probed} of ${cardFiles.length})`);
+    assert(!leaked.length, `no card's text in the ${sources.length} modules (${Math.round(bytes / 1024)} kB of source) ./check reaches - the ${Math.round(cardBytes / 1024)} kB of cards stay out (leaked: ${leaked.join(', ') || 'none'})`);
+  });
+
   section('round 2026-10-09c: ./check and the entry point export the same functions', async () => {
     const check = await import('@abap2ui5/linter/check');
     const main = await import('@abap2ui5/linter');

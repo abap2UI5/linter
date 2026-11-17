@@ -9,8 +9,9 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { defineRule, runRules, docOf } from '../../lib/rule.mjs';
+import { defineRule, defineCard, runRules, docOf } from '../../lib/rule.mjs';
 import { UNIT_RULES, unitRule } from '../../lib/rules/index.mjs';
+import { UNIT_CARDS } from '../../lib/rules/cards.mjs';
 import { abapModel, elementsOf, findWords } from '../../lib/abap-model.mjs';
 import { scrub, splitStatements } from '../../lib/abap.mjs';
 import { RULES, defaultSeverityOf, describe, OPT_IN } from '../../lib/findings.mjs';
@@ -62,35 +63,57 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
   const LIB = path.join(FIX, '..', '..', 'lib');
   const VALID = {
     id: 'sample-rule', severity: 'hint', category: 'structure', scope: 'class',
-    summary: 's', detail: 'd', example: 'a', remedy: 'b', message: () => 'm', check: () => {},
+    message: () => 'm', check: () => {},
   };
+  const CARD = { id: 'sample-rule', summary: 's', detail: 'd', example: 'a', remedy: 'b' };
+  const cardOf = new Map(UNIT_CARDS.map((c) => [c.id, c]));
 
   section('rule units: a definition is validated where it is written', () => {
     const rule = defineRule(VALID);
     assert(Object.isFrozen(rule) && rule.fixable === false && rule.optIn === false, 'frozen, not fixable and not opt-in unless it says so');
-    assert(defineRule({ ...VALID, fixNote: 'renames x' }).fixable === true, 'a fixNote is what makes a rule fixable');
+    assert(defineRule({ ...VALID, fixable: true }).fixable === true, 'fixable: true is what makes a rule fixable');
+    const thrown = (fn) => { try { fn(); } catch (e) { return e.message; } return ''; };
     const refused = (change, re, what) => {
-      let msg = '';
-      try { defineRule({ ...VALID, ...change }); } catch (e) { msg = e.message; }
+      const msg = thrown(() => defineRule({ ...VALID, ...change }));
       assert(re.test(msg), `${what} (${msg || 'accepted'})`);
     };
     refused({ id: 'Sample_Rule' }, /kebab-case/, 'an id that is not kebab-case');
     refused({ severity: 'info' }, /severity must be one of/, 'a severity the linter does not have');
     refused({ scope: 'view' }, /scope must be one of/, 'a scope nothing runs');
-    refused({ remedy: 'a' }, /remedy is the example/, 'a remedy equal to its example');
-    refused({ detail: ' ' }, /'detail' must be a non-empty string/, 'an empty card field');
     refused({ message: 'text' }, /message must be a function/, 'a sentence that cannot read the finding');
-    refused({ fixNote: '' }, /fixNote/, 'an empty fixNote');
-    const doc = docOf(defineRule({ ...VALID, fixNote: 'n' }));
+    refused({ fixable: 'yes' }, /fixable, when given, must be true or false/, 'a fixable that is not a boolean');
+    /* #188: the prose is the card's. Written into the definition it would
+     * ride into every bundle of ./check again, which is what the split is for. */
+    refused({ summary: 's' }, /summary belongs in the card, lib\/rules\/sample-rule\.card\.mjs/, 'a card field in the definition');
+    refused({ detail: 'd', fixNote: 'n' }, /detail, fixNote belong in the card/, 'every card field in the definition is named');
+
+    const card = defineCard(CARD);
+    assert(Object.isFrozen(card) && card.id === 'sample-rule', 'a card is frozen and names its rule');
+    const cardRefused = (change, re, what) => {
+      const msg = thrown(() => defineCard({ ...CARD, ...change }));
+      assert(re.test(msg), `${what} (${msg || 'accepted'})`);
+    };
+    cardRefused({ id: 'Sample' }, /kebab-case id of its rule/, 'a card without its rule\'s id');
+    cardRefused({ remedy: 'a' }, /remedy is the example/, 'a remedy equal to its example');
+    cardRefused({ detail: ' ' }, /'detail' must be a non-empty string/, 'an empty card field');
+    cardRefused({ fixNote: '' }, /fixNote/, 'an empty fixNote');
+    cardRefused({ severity: 'hint' }, /not severity/, 'a field a card does not hold');
+
+    const doc = docOf(defineRule({ ...VALID, fixable: true }), defineCard({ ...CARD, fixNote: 'n' }));
     assert(JSON.stringify(Object.keys(doc)) === '["category","summary","detail","example","remedy","fixNote"]', 'the card has RULE_DOCS\' shape');
+    assert(/has no card/.test(thrown(() => docOf(defineRule(VALID), undefined))), 'a rule without a card is refused');
+    assert(/got the card of 'other-rule'/.test(thrown(() => docOf(defineRule(VALID), defineCard({ ...CARD, id: 'other-rule' })))), 'the card of another rule is refused');
+    assert(/says nothing about the fix/.test(thrown(() => docOf(defineRule({ ...VALID, fixable: true }), card))), 'a fixable rule whose card has no fixNote is refused');
+    assert(/is not fixable/.test(thrown(() => docOf(defineRule(VALID), defineCard({ ...CARD, fixNote: 'n' })))), 'a fixNote on a rule that does not fix is refused');
   });
 
   section('rule units: every registry reads a unit rule from its definition', () => {
     assert(UNIT_RULES.length >= 4, `rules are defined as units (${UNIT_RULES.length})`);
     for (const rule of UNIT_RULES) {
       assert(RULES.includes(rule.id) && defaultSeverityOf(rule.id) === rule.severity, `${rule.id}: registered with its own severity`);
-      assert(RULE_DOCS[rule.id]?.summary === rule.summary && RULE_DOCS[rule.id].example === rule.example, `${rule.id}: its card is in RULE_DOCS`);
-      assert(FIXABLE.includes(rule.id) === rule.fixable, `${rule.id}: FIXABLE says what the definition says`);
+      const card = cardOf.get(rule.id);
+      assert(RULE_DOCS[rule.id]?.summary === card?.summary && RULE_DOCS[rule.id].example === card.example && RULE_DOCS[rule.id].category === rule.category, `${rule.id}: its card is in RULE_DOCS`);
+      assert(FIXABLE.includes(rule.id) === rule.fixable && rule.fixable === (card.fixNote !== undefined), `${rule.id}: FIXABLE says what the definition says, and the card's fix note agrees`);
       assert(OPT_IN.has(rule.id) === rule.optIn, `${rule.id}: OPT_IN says what the definition says`);
       assert(SOURCE_RULES.has(rule.id) === (rule.scope === 'class'), `${rule.id}: a class-scoped rule is a source rule`);
       assert(unitRule(rule.id) === rule && describe({ type: rule.id, member: 'x' }) === rule.message({ type: rule.id, member: 'x' }), `${rule.id}: describe( ) is its message`);
@@ -98,14 +121,33 @@ export default function ({ section, assert, f, FIX, checkAbapSource }) {
   });
 
   section('rule units: one file per rule, named by its id, importing leaf modules only', () => {
-    const files = fs.readdirSync(path.join(LIB, 'rules')).filter((n) => n.endsWith('.mjs') && n !== 'index.mjs').sort();
+    const all = fs.readdirSync(path.join(LIB, 'rules')).filter((n) => n.endsWith('.mjs') && n !== 'index.mjs' && n !== 'cards.mjs').sort();
+    const files = all.filter((n) => !n.endsWith('.card.mjs'));
+    const cardFiles = all.filter((n) => n.endsWith('.card.mjs'));
     assert(JSON.stringify(files) === JSON.stringify(UNIT_RULES.map((r) => `${r.id}.mjs`).sort()),
       `lib/rules holds exactly the listed rules (files: ${files.join(', ')})`);
+    /* #188: a rule is two files now - <id>.mjs, what judges, and
+     * <id>.card.mjs, what a reader is shown - and the two come as a pair:
+     * every rule has its card under its own name, and nothing else is a card. */
+    const unpaired = files.filter((n) => !cardFiles.includes(n.replace(/\.mjs$/, '.card.mjs')))
+      .concat(cardFiles.filter((n) => !files.includes(n.replace(/\.card\.mjs$/, '.mjs'))));
+    assert(!unpaired.length, `every rule file has its card beside it and every card its rule (unpaired: ${unpaired.join(', ') || 'none'})`);
+    assert(JSON.stringify(UNIT_CARDS.map((c) => c.id)) === JSON.stringify(UNIT_RULES.map((r) => r.id)),
+      'lib/rules/cards.mjs lists the cards in the order index.mjs lists the rules');
+    const cardsIndex = fs.readFileSync(path.join(LIB, 'rules', 'cards.mjs'), 'utf8');
+    const listed = [...cardsIndex.matchAll(/^import \w+ from '\.\/([^']+)';$/gm)].map((m) => m[1]).sort();
+    assert(JSON.stringify(listed) === JSON.stringify(cardFiles), `cards.mjs imports every card file and nothing else (${listed.length} of ${cardFiles.length})`);
+    for (const file of cardFiles) {
+      const text = fs.readFileSync(path.join(LIB, 'rules', file), 'utf8');
+      const imports = [...text.matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'([^']+)'/g)].map((m) => m[1]);
+      assert(imports.join() === '../rule.mjs' && text.includes(`id: '${file.replace(/\.card\.mjs$/, '')}'`),
+        `${file} imports rule.mjs only and names its rule (imports ${imports.join(', ') || 'none'})`);
+    }
     /* A rule may import any module that does not lead back to a registry:
      * findings, rule-docs and fix import the rules (and abap-rules runs
      * them), so reaching one of those from a rule is a cycle. Computed over
      * the static import graph, not kept as a list. */
-    const REGISTRIES = new Set(['findings.mjs', 'rule-docs.mjs', 'fix.mjs', 'abap-rules.mjs', 'rules/index.mjs']);
+    const REGISTRIES = new Set(['findings.mjs', 'rule-docs.mjs', 'fix.mjs', 'abap-rules.mjs', 'rules/index.mjs', 'rules/cards.mjs']);
     const importsOf = (rel) => [...fs.readFileSync(path.join(LIB, rel), 'utf8').matchAll(/(?:^|\n)\s*(?:import|export)\b[^'";]*?from\s+'(\.[^']+)'/g)]
       .map((m) => path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1])));
     const reaches = (rel, seen = new Set()) => {
