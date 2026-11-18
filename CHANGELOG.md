@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+## 0.11.1 - 2026-11-17
+
+### Fixed
+
+Two false positives of `unknown-binding-path`, found in the downstream
+repositories on 0.11.0; regression sections in
+`test/review/borrowed-types.mjs` and `test/review/window-state.mjs`.
+
+- **A type borrowed from another class or interface of the run is
+  resolved** (abap2UI5-addons/sql-console). A component typed
+  `s_db TYPE z2ui5_cl_sql_history_api=>ty_s_entry` was given the `''` of a
+  scalar, so `{S_DB/TABNAME}`, `{S_DB/SQL_COMMAND}` and `{S_DB/COUNTER}` were
+  "the rows have no such field" on components the other class declares;
+  the same structure written inline in the class passed. The class index
+  (`classIndexOf( )`) now holds the `TYPES` each class declares in its
+  definition (`declaredTypesOf( )` on `./reconstruct`), indexes an
+  interface for its types, and `prepareAbap( source, { classIndex } )`
+  copies every `owner=>type` the class writes in from there - the owner's
+  own type names qualified with the owner, so a borrowed `ty_s_meta` is
+  never the class's own of the same name. The CLI reads the interfaces under
+  the configured `paths` for it too, with or without `--all-classes`, and
+  `--cache` re-judges a class when a type it borrows changes. A type whose
+  owner is NOT among the sources is not guessed at: the field stays in the
+  row, no path below it is judged, and it is counted under `not judged` -
+  also for a component typed by a DDIC type, which was reported the same
+  way.
+- **`/__WINDOW/<table>/TOTAL`, `COUNT` and `SIZE` are paths of the model**
+  (abap2UI5/docs, `cookbook/model/windowed_tables.md`). abap2UI5 1.149.0
+  keeps the state of a table bound with `client->window_bind_tab( )` beside
+  its rows, and a view binds it - `{/__WINDOW/MT_ROWS/TOTAL} rows`; the
+  derived model had the rows only. The last segment is judged against the
+  three names (a misspelt case gets the did-you-mean fix), the table against
+  the tables the class hands to `window_bind_tab( )` anywhere - the view or
+  an event handler that sets a new order (`windowed` on `prepareAbap( )`,
+  handed to `checkNodes( )`). A table bound with plain `_bind( )` has no
+  window state and is reported, with a message that says so; a call that
+  hands over a data-reference expression (`REF #( mt_rows )`) leaves the
+  table unjudged. `window_bind_tab( )` itself - the released name of
+  `_bind_tab( )` - is read as a binding now, so the table keeps its `items`
+  in the reconstructed view and its row template is judged.
+- Downstream: abap2UI5's `node/srv/zcl_tst_window.clas.abap` waives the
+  `/__WINDOW` path with an `abap2ui5lint-disable-next-line
+  unknown-binding-path`, which is an `unused-directive` hint from this
+  release on (the line can go). Nothing else changes on the downstream
+  corpora (samples-controls, sql-console, popups, layout-management,
+  table-maintenance, se16n, rfc-connector, app-template).
+
 ## 0.11.0 - 2026-11-17
 
 ### Read before upgrading

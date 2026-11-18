@@ -25,6 +25,19 @@ declare module "@abap2ui5/linter" {
      *  naming this class - what silences unbound-/unused-public-attribute.
      *  Optional for a hand-built index. */
     outsideReads?: ReadonlySet<string>;
+    /** The TYPES the class (or interface) declares - what a class that
+     *  types an attribute `owner=>type` is resolved against. Optional for a
+     *  hand-built index; without it such a type is unknown, and no binding
+     *  path below it is judged. */
+    types?: {
+      name: string;
+      kind: "class" | "interface";
+      structs: ReadonlyMap<string, ReadonlyArray<{ name: string; type: string }>>;
+      tables: ReadonlyMap<string, string>;
+      open: ReadonlySet<string>;
+    } | null;
+    /** An entry for an interface, indexed for its `types` alone. */
+    interface?: boolean;
   }>;
 
   export interface CheckOptions {
@@ -249,7 +262,7 @@ declare module "@abap2ui5/linter" {
    *  read for it, nothing in them is returned). */
   export function collectFiles(
     paths: string[],
-    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean; onIgnored?: (file: string) => void }
+    opts?: { ignore?: (string | RegExp)[]; allClasses?: boolean; interfaces?: boolean; onIgnored?: (file: string) => void }
   ): string[];
 
   /** Whether a source declares `INTERFACES z2ui5_if_app` (comments and
@@ -375,6 +388,10 @@ declare module "@abap2ui5/linter/reconstruct" {
     /** The full paths bound with `json = abap_true`, for
      *  json-bind-on-scalar-property. */
     jsonPaths: Set<string>;
+    /** The tables the class binds with `window_bind_tab( )`, as model paths
+     *  (`/MT_ROWS`), and whether a call hands over something whose path is
+     *  not knowable - what `/__WINDOW/<table>/TOTAL` is judged against. */
+    windowed: { paths: Set<string>; open: boolean };
     /** Index-aligned with `docs`: how each document is LOADED, taken from the
      *  consuming call rather than sniffed from its root tag. `undefined` where
      *  no consumer was in the same statement - the renderer sniffs then. */
@@ -390,7 +407,9 @@ declare module "@abap2ui5/linter/reconstruct" {
     structure: PropertyFinding[];
   }
 
-  export function prepareAbap(source: string): PreparedAbap;
+  /** `classIndex` resolves a type the class names in another class or
+   *  interface of the run (`TYPE zcl_x=>ty_s_row`). */
+  export function prepareAbap(source: string, opts?: { classIndex?: import("@abap2ui5/linter").ClassIndex | null }): PreparedAbap;
 
   /** The elements of every `keyword` declaration in `content` - the single
    *  form and the chained `DATA: a TYPE i, b TYPE string.` form alike, each
@@ -398,6 +417,16 @@ declare module "@abap2ui5/linter/reconstruct" {
    *  its one opening element. `keyword` is a RegExp over the statement's
    *  first word, e.g. /^(?:CLASS-)?DATA$/i. */
   export function declarationElements(content: string, keyword: RegExp): string[];
+
+  /** The TYPES a class or interface declares in its DEFINITION part, as the
+   *  class index holds them (`types`), or null when it declares none. */
+  export function declaredTypesOf(source: string): {
+    name: string;
+    kind: "class" | "interface";
+    structs: Map<string, { name: string; type: string }[]>;
+    tables: Map<string, string>;
+    open: Set<string>;
+  } | null;
 
   /** Serialize a reconstructed node tree back to XML ('' for an empty tree). */
   export function toXml(node: ViewNode): string;
@@ -651,6 +680,9 @@ declare module "@abap2ui5/linter/properties" {
       /** The paths bound as JSON (prepareAbap) — without it
        *  json-bind-on-scalar-property never fires. */
       jsonPaths?: Set<string> | null;
+      /** The windowed tables (prepareAbap's `windowed`) — without it a
+       *  `/__WINDOW/<table>/…` path has only its last segment judged. */
+      windowed?: { paths: Set<string>; open: boolean } | null;
       /** Root fields still initial on the first display (prepareAbap's
        *  initialFields), for a document the first display shows — without it
        *  enum-bound-to-initial-field never fires. */

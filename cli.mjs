@@ -587,13 +587,16 @@ const dropWarm = async () => {
  */
 function indexOnlySources(indexPaths, files, opt, collectedFrom) {
   const same = (a, b) => a.length === b.length && a.every((p, i) => path.resolve(p) === path.resolve(b[i]));
-  if (opt.allClasses === true && collectedFrom && same(indexPaths, collectedFrom)) return [];
+  /* the classes are all checked already - the interfaces never are, and a
+   * class may borrow a type of one (`TYPE zif_x=>ty_s_row`) */
+  const classesHeld = opt.allClasses === true && collectedFrom && same(indexPaths, collectedFrom);
   const roots = indexPaths.filter((p) => fs.existsSync(p));
   if (!roots.length) return [];
   const checked = new Set(files.map((f) => path.resolve(f)));
   const out = [];
-  for (const file of collectFiles(roots, { ignore: opt.ignore ?? [], allClasses: true })) {
+  for (const file of collectFiles(roots, { ignore: opt.ignore ?? [], allClasses: true, interfaces: true })) {
     if (checked.has(path.resolve(file)) || !/\.abap$/i.test(file)) continue;
+    if (classesHeld && !/\.intf\.abap$/i.test(file)) continue;
     let src;
     try { src = fs.readFileSync(file, 'utf8'); } catch { continue; }
     if (!isXmlSource(file, src)) out.push(src);
