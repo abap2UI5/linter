@@ -63,7 +63,7 @@ Two more entry points, for the two other ways in:
 
 An abap2UI5 app runs on the UI5 frontend whatever it writes. To keep it
 renderable by **non-UI5 frontends** as well — the UI5 Web Components frontend
-([frontend-webcomponent](https://github.com/abap2UI5/frontend-webcomponent)),
+([embed-webcomponent](https://github.com/abap2UI5-addons/embed-webcomponent)),
 an Adaptive Cards renderer, an agent — ask for the `portable-app` rule:
 
 ```jsonc
