@@ -426,6 +426,8 @@ declare module "@abap2ui5/linter/reconstruct" {
     structs: Map<string, { name: string; type: string }[]>;
     tables: Map<string, string>;
     open: Set<string>;
+    /** a type that names a built-in (`TYPES ty_title TYPE string.`) -> that built-in */
+    scalars: Map<string, string>;
   } | null;
 
   /** Serialize a reconstructed node tree back to XML ('' for an empty tree). */

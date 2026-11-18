@@ -2,6 +2,74 @@
 
 ## Unreleased
 
+### Fixed
+
+Three false positives abap2UI5-addons/abap-cloud-gui wrote around when it
+moved to 0.11.0 (its #70), and the open end 0.11.1 named; regression
+sections in `test/review/unknown-builder-method.mjs`,
+`test/review/branch-arms.mjs`, `test/review/component-views.mjs` and
+`test/review/borrowed-types.mjs`.
+
+- **`unknown-builder-method`: a string template whose embedded expression
+  runs over a line break ends where it ends.** `blankLiterals( )` blanked the
+  whole template, its line break included, so in the blanked source the
+  template's TEXT crossed the line - which a template's text cannot - and
+  `splitStatements( )` ended it at that line end, took the closing `|` on
+  the next line for an opening one and ran the statement on into the next.
+  `->a( n = \`content\` t = |<div>{ cls=>m( a = 1` NEWLINE `b = 2 ) }</div>| ).`
+  made the `client->popup_display( )` and every static call behind it calls
+  of the builder chain. A template whose expression spans lines now keeps
+  the braces of its top-level expressions in the blanked source (`| {`
+  NEWLINE `} |`), so every reader of it agrees on where it ends.
+- **`duplicate-property`: a property set in exclusive arms of one IF /
+  ELSEIF / ELSE or CASE is set once.** The replay runs every arm, so `IF
+  number. node->a( n = \`type\` v = \`Number\` ). ELSEIF secret. node->a( n =
+  \`type\` v = \`Password\` ). ENDIF.` was a second write the builder would
+  assert on. The reconstructor now hands the rule the IF / CASE arms each
+  write sits in, through helpers it replays; two writes that can both run -
+  one before or after the branch, two in one arm, an arm and an IF nested in
+  it - are reported as before. The reconstructed view keeps the first arm's
+  value.
+- **`render-error`: a component that returns its view as a string is
+  reconstructed, and one the replay cannot place is not judged.** `result =
+  view->stringify( )` - the selection screen's `stringify( )`, which builds a
+  page and fills it with `render( page )` - was read as a handle capture, so
+  no document came out and the render gate reported "no view reconstructed
+  from builder calls" (since 0.10.0, when the helpers it calls started to be
+  replayed instead of counted as calls outside any chain). It hands the
+  document over now, like `client->view_display( view->stringify( ) )`. And
+  a handle that two arms of a branch leave at different places of the tree
+  (`IF help. lo_input = lo_box->ele( \`Input\` ). ELSE. lo_input =
+  node->tag( \`Input\` ). ENDIF.` - the new Input in one arm, its container
+  in the other) is dropped after the branch: it was the last arm's, and what
+  was built on it later landed where only the other arm puts it (a
+  `layoutData` in the SimpleForm, an `unknown-aggregation` and a render
+  error on a correct class). What is built on such a handle counts as a
+  builder call the replay cannot place, so the render is skipped with the
+  usual note and the property gate judges what is placed. Two arms that
+  leave the handle at the same place (`lo = page->ele( \`VBox\` )` / `lo =
+  page->ele( \`HBox\` )`) keep the last one, as before. A render error in
+  a component that renders whole is still reported.
+- **An attribute typed by another class's scalar type is a scalar**
+  (0.11.1's open end). `DATA mv_title TYPE zcl_x=>ty_title`, `ty_title TYPE
+  string` in zcl_x, was an object of unknown shape and a
+  `collection-bound-to-property` on the text it was bound to. The class index
+  holds each class's scalar TYPES now (`scalars` on `declaredTypesOf( )`, a
+  `TYPES … TYPE <built-in> [LENGTH n]` and aliases of one), the attribute is
+  the built-in it names, and `--cache` re-judges a class when such a type
+  changes. A component of a borrowed structure typed by one is a known
+  scalar too. A type whose owner is not among the sources is unchanged.
+- Downstream: on abap-cloud-gui with the three workarounds of its #70
+  reverted (the templates computed before the chain, the COND for `type`,
+  `z2ui5_cl_cgui_selscreen` in the `render-error` exclude) the 33
+  `unknown-builder-method`, the 2 `duplicate-property` and the `render-error`
+  are gone. Its selection screen is judged by the property gate for the
+  first time (0.9 skipped it, 0.10 and 0.11.0 reported no view), and that
+  finds `sap.m.Select required` (`@since 1.74`, the repository's floor is
+  1.71) - a `member-too-new` warning, on main too - plus 8 hints. No other
+  finding changes on samples-controls, popups, layout-management, se16n,
+  sql-console, rap-ext, abap2UI5 and abap2UI5/docs' examples.
+
 ## 0.11.1 - 2026-11-17
 
 ### Fixed

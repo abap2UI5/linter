@@ -87,6 +87,22 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
     assert(lint('src', '--all-classes') === 4, '--all-classes: the interface is still read');
   });
 
+  /* 0.11.1's open end: an attribute typed DIRECTLY by another class's scalar
+   * type was an object of unknown shape, and a collection-bound-to-property
+   * on the text it was bound to. */
+  section('collection-bound-to-property: an attribute typed by another class\'s scalar type is a scalar', () => {
+    const owner = 'CLASS zcl_fx_titles DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    TYPES ty_title TYPE string.\n    TYPES ty_id TYPE c LENGTH 10.\n    TYPES ty_name TYPE ty_title.\n    TYPES: BEGIN OF ty_s_head,\n             title TYPE string,\n           END OF ty_s_head.\nENDCLASS.\nCLASS zcl_fx_titles IMPLEMENTATION.\nENDCLASS.\n';
+    const app = (decl) => `CLASS zcl_fx_title_app DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_title TYPE ${decl}.\nENDCLASS.\nCLASS zcl_fx_title_app IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( n = \`View\` ns = \`mvc\`\n        )->a( n = \`xmlns\`     v = \`sap.m\`\n        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`\n        )->ele( \`Page\`\n            )->a( n = \`title\` v = client->_bind( mv_title ) ).\n    client->view_display( view->stringify( ) ).\n  ENDMETHOD.\nENDCLASS.\n`;
+    const hits = (decl) => checkAbapSource(app(decl), { ...opts, classIndex: classIndexOf([app(decl), owner]) })
+      .findings.filter((x) => x.type === 'collection-bound-to-property').length;
+    assert(declaredTypesOf(owner).scalars.get('ty_title') === 'string' && declaredTypesOf(owner).scalars.get('ty_name') === 'string', 'the owner\'s scalar types, an alias of one followed');
+    assert(hits('zcl_fx_titles=>ty_title') === 0 && hits('zcl_fx_titles=>ty_id') === 0 && hits('zcl_fx_titles=>ty_name') === 0, 'a scalar of the owner binds to a text');
+    assert(prepareAbap(app('zcl_fx_titles=>ty_title'), { classIndex: classIndexOf([owner]) }).modelShape.MV_TITLE === '', 'and is a scalar in the shape');
+    assert(hits('zcl_fx_titles=>ty_s_head') === 1, 'a structure of the owner bound to a text is still reported');
+    const a = classIndexDeps(app('zcl_fx_titles=>ty_title'), classIndexOf([owner]));
+    assert(a !== classIndexDeps(app('zcl_fx_titles=>ty_title'), classIndexOf([owner.replace('ty_title TYPE string', 'ty_title TYPE i')])), 'the cache key follows a scalar type');
+  });
+
   section('borrowed types: the cache key follows the borrowed type', () => {
     const a = classIndexDeps(read(APP), classIndexOf([read(APP), read(API), read(INTF)]));
     const b = classIndexDeps(read(APP), classIndexOf([read(APP), read(API).replace('counter     TYPE c LENGTH 20,', ''), read(INTF)]));
