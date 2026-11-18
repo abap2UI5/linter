@@ -27,7 +27,7 @@ import { checkAbapSource } from '../lib/index.mjs';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PAGE_FILE = path.join(ROOT, 'site', 'index.html');
 const REPO = 'https://github.com/abap2UI5/linter';
-export const PLAYGROUND = 'https://abap2ui5.github.io/playground/';
+export const PLAYGROUND = 'https://abap2ui5.github.io/browser-playground/';
 
 /*
  * The jump from a card into the playground: the reported snippet, wrapped
@@ -590,7 +590,7 @@ export function buildPage() {
 <meta property="og:title" content="abap2UI5 linter rules">
 <meta property="og:description" content="${DESCRIPTION}">
 <meta property="og:url" content="${PAGE_URL}">
-<meta property="og:image" content="${ORIGIN}/playground/og-image.png">
+<meta property="og:image" content="${PLAYGROUND}og-image.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -598,9 +598,9 @@ export function buildPage() {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="abap2UI5 linter rules">
 <meta name="twitter:description" content="${DESCRIPTION}">
-<meta name="twitter:image" content="${ORIGIN}/playground/og-image.png">
-<link rel="icon" href="${ORIGIN}/playground/favicon.png">
-<link rel="apple-touch-icon" href="${ORIGIN}/playground/apple-touch-icon.png">
+<meta name="twitter:image" content="${PLAYGROUND}og-image.png">
+<link rel="icon" href="${PLAYGROUND}favicon.png">
+<link rel="apple-touch-icon" href="${PLAYGROUND}apple-touch-icon.png">
 <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
 <script type="application/ld+json">${JSON.stringify(LD_JSON)}</script>

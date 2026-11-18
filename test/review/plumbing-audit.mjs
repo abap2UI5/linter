@@ -202,6 +202,8 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource }) 
     assert(migrateKey('a|unknown-binding-path|sap.m.Text|text|CARID') === 'a|unknown-binding-path|sap.m.Text|text|CARID'
       && migrateKey('a|invalid-property-value|sap.m.Input|maxLength|12') === 'a|invalid-property-value|sap.m.Input|maxLength|12',
       'another rule\'s key - a number in it included - is left alone');
+    assert(migrateKey('a|non-released-api||abap2UI5-ext|z2ui5_cl_util') === 'a|non-released-api||abap2UI5-obsolet|z2ui5_cl_util',
+      'a moved object baselined under abap2UI5-ext is matched under its renamed repository');
   });
 
   section('audit 2026-10-08: view-never-displayed and a helper that returns the stringified view', () => {
