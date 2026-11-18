@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.11.2 - 2026-11-18
+
 ### Fixed
 
 Three false positives abap2UI5-addons/abap-cloud-gui wrote around when it
