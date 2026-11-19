@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.11.3 - 2026-11-19
+
 ### Fixed
 
 - **`collection-bound-to-property`: an attribute whose type the linter
