@@ -66,6 +66,13 @@ What is collected, which builders are read, how a name is resolved to a value an
   view. A call on a receiver declared `TYPE REF TO` another class, or inline
   from a `NEW` / `cl_…=>` expression naming no builder, is not a builder call
   (`t->end( )` on a transaction).
+- **Every arm of an IF / CASE is replayed.** What the arms add lands side by
+  side (a container is marked `branched`); a property written in two arms
+  that exclude each other is one write (`duplicate-property` reads the arms,
+  `ARMS` in `lib/reconstruct.mjs`). A handle two arms leave at different
+  places of the tree is dropped after the branch, and what is built on it
+  counts as an unplaced call - the render is skipped. `result =
+  view->stringify( )` hands the document over like a display call does.
 - **A name's value is read in its scope.** The reconstructor resolves an
   attribute value written as a name (`v = lv_type`) to the literal or the
   template the class gives it (`makeResolver( )` in `lib/reconstruct.mjs`),

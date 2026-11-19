@@ -18,4 +18,19 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(hits(app('    DATA(lo) = CAST zcl_popup( client->get_app_prev( ) ).\n    DATA(r) = lo->result( ).')).length === 0, 'another class\'s method on another handle is not judged');
     assert(hits(app('    DATA(x) = z2ui5_cl_ui5_view_builder=>escape_literal( `{a}` ).')).length === 0, 'escape_literal( ) is a static method of the builder');
   });
+
+  /* abap2UI5-addons/abap-cloud-gui, linter 0.11.0: a string template whose
+   * embedded expression runs over a line break. Blanked as a whole, its text
+   * crossed the line break, the statement splitter ended the template there
+   * and took the closing `|` for an opening one - so the statement ran on,
+   * and the client->popup_display( ) behind the chain was a call of it. */
+  section('unknown-builder-method: a template whose expression spans lines ends the statement it is in', () => {
+    const chain = (template) => app(`    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( \`Page\`\n        )->a( n = \`title\` v = ${template} ).\n    client->popup_display( view->stringify( ) ).\n    zcl_other=>log( \`shown\` ).`);
+    assert(hits(chain('|x{ zcl_other=>m( a = 1\n                                b = 2 ) }y|')).length === 0, 'in the chain: the statements behind it are not the chain\'s');
+    assert(hits(app('    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).\n    view->ele( `Page` ).\n    DATA(t) = |x{ zcl_other=>m( a = 1\n                                b = 2 ) }y|.\n    view->a( n = `title` v = t ).\n    client->popup_display( view->stringify( ) ).')).length === 0,
+      'between two statements of the chain');
+    assert(hits(chain('|{ COND #( WHEN a = 1\n                     THEN |a{ b }| ) }{ c }|')).length === 0, 'a nested template, a second expression');
+    assert(hits(chain('|x{ zcl_other=>m( a = 1\n                                b = 2 ) }y|').replace('client->popup_display(', 'view->button(')).join() === 'button',
+      'a per-control call behind it is still found');
+  });
 }
