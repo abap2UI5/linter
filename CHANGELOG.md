@@ -4,6 +4,20 @@
 
 ## 0.11.2 - 2026-11-18
 
+### Changed
+
+- **The repositories renamed on 2026-11-17 are named by their new names.**
+  `non-released-api` reports the retired utility classes (`z2ui5_cl_util*`,
+  `z2ui5_cx_util_error`, `z2ui5_t_91`) as moved to `abap2UI5-obsolet`
+  (formerly abap2UI5/abap2UI5-ext); a baseline entry written under the old
+  name is read as the new one (`migrateKey( )` in `lib/baseline.mjs`), so
+  nothing resurfaces. The rules page links the playground at its new
+  address, https://abap2ui5.github.io/browser-playground/ (a project
+  site moves with its repository's name) and takes its icon and card image
+  from there; the `portable-app` card, the README and the comments name
+  abap2UI5-addons/embed-webcomponent, abap2UI5-addons/embed-mobile and
+  abap2UI5-addons/embed-excel.
+
 ### Fixed
 
 Three false positives abap2UI5-addons/abap-cloud-gui wrote around when it

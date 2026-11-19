@@ -165,8 +165,8 @@ three end in a tree for `writeChain( )`.
 
 | Consumer | Tree | Options |
 | --- | --- | --- |
-| playground (`src/shell/view-edit.mjs`, `chain-patch.mjs`) | `{ name, ns, attrs: [{ name, raw, key }] }` | `indent`, `assignment`, `eol` as read from the source; `attributeLines( verbatim )` for one control's block |
-| layout-editor (`src/abap.js`) | `{ name, ns, id, attrs: [{ name, key, pieces }] }` | `indent`, `assignment` (`view = ` on 7.02); `owners` links a line to its control |
+| browser-playground (`src/shell/view-edit.mjs`, `chain-patch.mjs`) | `{ name, ns, attrs: [{ name, raw, key }] }` | `indent`, `assignment`, `eol` as read from the source; `attributeLines( verbatim )` for one control's block |
+| browser-layout-editor (`src/abap.js`) | `{ name, ns, id, attrs: [{ name, key, pieces }] }` | `indent`, `assignment` (`view = ` on 7.02); `owners` links a line to its control |
 | vscode-extension (`src/xmltoabap.ts`) | `{ name, ns, attrs: [{ name, value }` or `{ name, raw }] }` | `factory: 'detached'`, `keepTrailingEnds` for an abbreviation expanded inside a chain |
 
 The contract: **the layout this module writes is the layout
