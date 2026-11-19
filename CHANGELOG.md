@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### Fixed
+
+- **`collection-bound-to-property`: an attribute whose type the linter
+  cannot see is not judged.** `DATA mv_cols TYPE int4`, a data element, a DDIC
+  structure or a type of a class that is not among the sources was modelled
+  as an object of unknown shape - so that a path below it is accepted - and
+  the rule took that object for a structure: a finding on every property it
+  was bound to. abap2UI5-addons/layout-management baselined eight of them
+  (ComboBox `selectedKey`s on `int4` attributes); they are stale now and its
+  baseline drops them. The reconstructor marks such a value as of unknown
+  TYPE (`__unknownType`, beside `__unknownShape`) and the rule passes it by;
+  a table or structure the sources declare is reported as before, a
+  structure with an include the sources do not resolve included. Regression
+  sections in `test/review/unknown-not-missing.mjs`.
+- **The predefined DDIC types that are a built-in underneath are scalars.**
+  `int4`, `dats`, `tims`, `datum`, `uzeit`, `sydatum`, `syuzeit`, `sstring`,
+  `rawstring`, `flag`, `xfeld`, `boole_d`, `xsdboolean`, `text<n>`, the
+  timestamps (`timestamp`, `timestampl`, `tzntstmps`, `tzntstmpl`), the
+  `sysuuid_*` GUIDs, `spras` and `sylangu` are read like the ABAP built-ins
+  (`DDIC_SCALAR` in `lib/reconstruct.mjs`): `int4` and the timestamps are
+  numbers in the model, and `abap_boolean`, `xsdboolean`, `flag` and `xfeld`
+  booleans - the types `z2ui5_cl_ajson` writes as booleans. Every other DDIC
+  name stays unknown.
+- Measured against 0.11.2 on samples-controls (`view-gates --strict`), docs
+  (`check:examples`), popups, layout-management, se16n, sql-console, rap-ext,
+  abap-cloud-gui and abap2UI5: no finding and no render result changes but
+  layout-management's eight stale baseline entries.
+
 ## 0.11.2 - 2026-11-18
 
 ### Changed
