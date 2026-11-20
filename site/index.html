@@ -146,7 +146,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       <span class="badge hint">34 hint</span>
       <span class="badge fix">75 autofixable</span>
     </div>
-    <p class="stamp">Generated from <strong>v0.11.2</strong>, against the OpenUI5 1.154.0 metadata
+    <p class="stamp">Generated from <strong>v0.11.3</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx --no-install abap2ui5lint --version</code> says which that is.</p>
     <!-- A placeholder is not a label: it names the field only until the first
@@ -3448,12 +3448,12 @@ view-&gt;ele( `List` )-&gt;a( n = `items` v = client-&gt;_bind( t_notes )
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZRRr5owFMe_SsOTJrNmW_agiSRMa0aiaJTdZJkL1FK4TUohbRHvvdk--1KoXtGF8UI55_c_55Se059vjsA5dabOK-GRrDiFhGMF8RGXzgdHFZUkxjtfefs9uDBggZZ-4If-JgDb719X_hws_cBbgfkOeSGyNngQ4OLeo7mhGxMAfhCi3dKboz14_VSxLxFLI1yW1rvwQg8QzqjQIPyxRWCHliDcvKOt75YuqSRXXGnJRAYPAgWLpm54EAdxtwN_vV2hNQpC71rXGoXfNotORX9yzIRNlNORa6uagYcSBrIo9BDMrJzwyLxOjNbRsWI8oXLmppjoQr4MwPBWaBgjNAFGLuV0AASYgfiJ0ToGQpl1fiJxKzHPcORiC51zLlQMTmatcAnzHmxqoryjFYOkkBT2x54a5lHVp-BdnOOXotJ9gvRGkPaB1RmXt8HNZw-u8ZHf1d6a-raLZdKVMKFpJrFmhYA1SzKqVW-A-5-V54XoVVRdRSVYymjSp1A5lvohTwkb-3-32HSoVTdrSHo74FnnlyN91rqcjsd1XcP6MyxkNv44mUzG5wbphGj6ON7ijMbXdjedPnI1zoxHFpmkSvkiYQTrQv67AjvYT5hX9iTbyRu50ZGJZHCd_OE1ywVoZi9hquT4ZWBzt1cDS80MWgEKFu3gdy8M5_evvw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/binding-type-mismatch.mjs#L28"><code>lib/rules/binding-type-mismatch.mjs</code></a></p>
       </article>
-      <article class="rule" id="collection-bound-to-property" data-search="collection-bound-to-property a table or structure bound to a scalar property the property receives an object where it expects a value. nothing throws; the control shows nothing useful. error">
+      <article class="rule" id="collection-bound-to-property" data-search="collection-bound-to-property a table or structure bound to a scalar property the property receives an object where it expects a value. nothing throws; the control shows nothing useful. judged only when the type is known: a table or structure the sources declare. a type they do not show - a data element, a ddic structure, a type of a class that is not among them - is not judged; the predefined ddic types that are a built-in underneath (int4, dats, text40, flag, the timestamps, ...) are scalars. error">
         <h3><a href="#collection-bound-to-property">collection-bound-to-property</a>
           <span class="badge error">error</span>
         </h3>
         <p class="summary">a table or structure bound to a scalar property</p>
-        <p class="detail">The property receives an object where it expects a value. Nothing throws; the control shows nothing useful.</p>
+        <p class="detail">The property receives an object where it expects a value. Nothing throws; the control shows nothing useful. Judged only when the type is known: a table or structure the sources declare. A type they do not show - a data element, a DDIC structure, a type of a class that is not among them - is not judged; the predefined DDIC types that are a built-in underneath (<code>int4</code>, <code>dats</code>, <code>text40</code>, <code>flag</code>, the timestamps, ...) are scalars.</p>
         <div class="ba" id="collection-bound-to-property-example">
           <figure class="before"><figcaption>reported</figcaption>
             <pre><code>DATA t_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
@@ -3465,7 +3465,7 @@ view-&gt;ele( `Table` )-&gt;a( n = `headerText` v = client-&gt;_bind( t_rows ) )
 view-&gt;ele( `Table` )-&gt;a( n = `items` v = client-&gt;_bind( t_rows ) )</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVRtr5owFP4rJ3zSZNZsyz5ooglXai6ZotFui5kLVCjaBAopRfQu229fyotXNGF8oZznpefQc_rztyFozIyx8eZHrswjhvyIZogeaGp8MLIkl75GZwtzu4WGAxae245N7JUD628vC3sGc9sxFzDbYJPgOob2Ahp4i2eaXYYAbIfgzdyc4S28fcr5F5eHLk3TGrVMYoIfcSYUkN0awwbPgazeqRV2z1auTIqsYm-J6VjmxgJiviwwrOagrhqGHzZ5Bbxckx18xTu0F9ixyrrQXuzFQ4X2cr3AS-wQ85b3EpPXldXK-G9MuagTidlgWmc9gacUezJJVB8mtdyPXP06c1a4h5xHAZOTaUh9lchrD_r3Qs3RQm0wmLKI9UDABLzvnBUeiEyv47PvVRL99AdTWpMucSQyD856ndEUxR20sXZ5p-Yc-YlkqNt7rDnPqi5F1KZH9JrkqksQ3gnCLmJ-oem9uf7soCt6iB5yr0Jd5VIZtCVcKHaUVPFEoIIHR6ayToPHnxXHiehU5G1FLnjIWdClyGIq1dM-KSrj_y2x7NBaXa6R39kBJxU3R3pSKh0Ph0VRoOIzSuRx-HE0Gg0vJaVlUfaxt6ZH5t3aXXd6g5DqbO42OzEaMEnYpa6sGrHB1D1wEfSaK6B_c2vwcsYCnqURvfbqPTIluTjyUM9aLcCOVQ14-2Iw_vz6Bw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/collection-bound-to-property.mjs#L24"><code>lib/rules/collection-bound-to-property.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/collection-bound-to-property.mjs#L30"><code>lib/rules/collection-bound-to-property.mjs</code></a></p>
       </article>
       <article class="rule" id="column-cell-count-mismatch" data-search="column-cell-count-mismatch a row template with a different number of cells than the table has columns sap.m.table maps the cells of a columnlistitem to its columns by index. a cell past the last column is never rendered; a column past the last cell stays empty — and ui5 logs nothing either way, the table just renders shifted or short. the commonest way a ported sample loses a column: one column dropped, the cells left as they were. judged only when both aggregations are written out (a bound columns or cells is a runtime shape); an item with no cells aggregation — a groupheaderlistitem — is not a row template and is skipped. a template whose cells are filled in exclusive if / case branches — an edit and a display row — is not judged: the static replay runs every branch, so the count would be their sum. warning">
         <h3><a href="#column-cell-count-mismatch">column-cell-count-mismatch</a>
@@ -3769,7 +3769,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
 
   <footer>
     Generated from the rule registry of
-    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.11.2</strong> — do not edit by hand.
+    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.11.3</strong> — do not edit by hand.
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>

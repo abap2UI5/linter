@@ -10,6 +10,14 @@
  *   non-released-api       a `z2ui5_t_<n>` the linted repository ships itself
  *                          was reported as the framework's table, from its
  *                          name alone
+ *   collection-bound-to-property
+ *                          an attribute of a type the source does not show
+ *                          (`TYPE int4`, a data element, a type of a class
+ *                          not among the sources) was an object of unknown
+ *                          shape, and reported as a collection on every
+ *                          property it was bound to (abap2UI5-addons/
+ *                          layout-management, eight baselined ComboBox
+ *                          selectedKeys; linter 0.11.3)
  *
  * See test/review/README.md for the harness.
  */
@@ -140,5 +148,59 @@ ENDCLASS.
     assert(own.join() === 'z2ui5_t_26,zcl_addon', `the table and the class, not what a dot-directory holds (got ${own.join()})`);
     const [r] = await checkFiles([path.join(dir, 'src', 'zcl_addon.clas.abap')], { ...opts, allClasses: true, ownObjects: own });
     assert(api(r).join() === 'z2ui5_t_01,z2ui5_cl_ui5_own_helper', `checkFiles hands the list to the rule (got ${api(r).join()})`);
+  });
+
+  /* One attribute of the given declaration, bound to a Page title (a string
+   * property). The class declares a structure and a table of its own, and a
+   * structure with an include it cannot resolve. */
+  const titled = (decl) => `CLASS zcl_fx_typed DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s_head,
+             title TYPE string,
+           END OF ty_s_head,
+           ty_t_head TYPE STANDARD TABLE OF ty_s_head WITH EMPTY KEY.
+    TYPES BEGIN OF ty_s_open.
+    INCLUDE TYPE zfx_ddic_struct.
+    TYPES END OF ty_s_open.
+    DATA mv_x TYPE ${decl}.
+ENDCLASS.
+CLASS zcl_fx_typed IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\`
+        )->a( n = \`xmlns\`     v = \`sap.m\`
+        )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\`
+        )->ele( \`Page\`
+            )->a( n = \`title\` v = client->_bind( mv_x ) ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+  const collections = (decl) => checkAbapSource(titled(decl), opts)
+    .findings.filter((x) => x.type === 'collection-bound-to-property').length;
+  const shapeOf = (decl) => prepareAbap(titled(decl)).modelShape.MV_X;
+
+  section('collection-bound-to-property: a type the source does not show is not judged', () => {
+    for (const decl of ['zfx_de_amount', 'zcl_fx_absent=>ty_title', 'zif_fx_absent=>ty_s_row'])
+      assert(collections(decl) === 0, `TYPE ${decl}: unknown, not a collection (got ${collections(decl)})`);
+    assert(typeof shapeOf('zfx_de_amount') === 'object', 'its shape stays an object, so a path below it is still accepted');
+  });
+
+  section('collection-bound-to-property: a DDIC type that is a built-in underneath is a scalar', () => {
+    for (const decl of ['int4', 'INT4', 'dats', 'tims', 'text40', 'sysuuid_x16', 'timestampl', 'flag', 'xsdboolean'])
+      assert(collections(decl) === 0, `TYPE ${decl} binds to a text (got ${collections(decl)})`);
+    assert(shapeOf('int4') === 0 && shapeOf('timestampl') === 0, 'int4 and a timestamp are numbers, as abap2UI5 sends them');
+    assert(shapeOf('flag') === false && shapeOf('xsdboolean') === false && shapeOf('abap_boolean') === false,
+      'the types z2ui5_cl_ajson writes as booleans are booleans');
+    assert(shapeOf('boole_d') === '' && shapeOf('text40') === '', 'boole_d and a text are strings');
+  });
+
+  section('collection-bound-to-property: a known table or structure is still reported', () => {
+    assert(collections('ty_s_head') === 1, 'the class\'s own structure');
+    assert(collections('ty_t_head') === 1, 'the class\'s own table type');
+    assert(collections('STANDARD TABLE OF ty_s_head WITH EMPTY KEY') === 1, 'an inline table');
+    assert(collections('ty_s_open') === 1, 'a structure with an include this source cannot resolve is still a structure');
+    assert(collections('string_table') === 1, 'a standard table of scalars');
   });
 }
