@@ -16,6 +16,16 @@
   entry carries `app`). A chain that leaves the paths is unknown, not "no
   app": such a class stays uncollected. Regression sections in
   `test/review/inherited-apps.mjs`.
+- **`event-without-handler` and `handler-without-event` read the class's
+  family.** With a class index (every CLI run), an event raised in a base
+  class and handled in a subclass's redefined `on_event( )`, or the other way
+  round, is no finding any more; neither is an app's handler for an event a
+  view helper of the run (a class that is no app) raises, nor a helper's
+  event that an app of the run handles. A dynamic handler anywhere in the
+  family (`WHEN OTHERS`, `check_on_event( lv_x )`) stands the rules down, as
+  it does in the class itself (`relatedEvents( )` in `lib/guide-rules.mjs`;
+  the index entry carries `events`, and `--cache` keys on them). On the EWM
+  app suite the two rules went from 32 hints to 7.
 
 ## 0.11.3 - 2026-11-19
 
