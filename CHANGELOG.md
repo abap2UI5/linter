@@ -4,6 +4,92 @@
 
 ### Added
 
+- **Ten rules from abap2UI5's backlog (the 2026-11 reviews).** Each with
+  its card and regression sections; measured on abap2UI5's own apps (28
+  files): 4 findings by default, all real - see the counts per rule.
+  - **`framework-table-access`** (warning): Open SQL (`SELECT`, `INSERT`,
+    `UPDATE`, `MODIFY`, `DELETE`, `OPEN CURSOR`, `WITH`, subqueries
+    included) on a table the framework or an addon keeps its own state in -
+    `z2ui5_t_01` (drafts), `z2ui5_t_11` (layout-management's layouts) -
+    bypasses the owner and authority checks and the replaceable draft store,
+    and breaks when the internal table changes. The list is data in the rule,
+    each table with the API to use instead; code of the owning package (by
+    class prefix), a repository that defines the table, a `TYPE` reference
+    and other `z2ui5_t_*` tables are not reported. 0 findings.
+  - **`start-param-by-hand`** (hint): a read of `client->get( )-t_comp_params`
+    or a `url_param_get( )` / `url_param_get_tab( )` on
+    `client->get( )-s_config-search` (directly or through one assignment) in
+    an app covers one or two of the three ways an app is started;
+    `client->get_start_param( )` (abap2UI5 4eed97a1) reads the URL, the tile
+    and the intent. Other reads of `s_config` are not reported. 1 finding
+    (an e2e fixture).
+  - **`namespaced-row-binding`** (warning, fixable): in a row template, a
+    binding `{/SEG/NAME}` whose first segment is no attribute of the class
+    reads a namespaced column (`/CWM/XCWMAT`, written as a level of its row
+    since abap2UI5 40e8a073) from the model root - an empty cell and a lost
+    edit; the fix drops the slash. Also the run-time shape
+    `|\{{ comp-name }\}|` around a variable or component: wrap the name in
+    `z2ui5_cl_ui5_view_builder=>component_path( )` (no fix). Root bindings,
+    resolvable names, an embedded call, a variable filled from `_bind*( )` or
+    `component_path( )`, an OData default model and raw XML views are not
+    reported. 0 findings.
+  - **`enum-binding-no-fallback`** (warning): an enum-typed property (`type`,
+    `state`, `valueColor` …) bound straight to a row field (`{TYPE}`,
+    `{ path: 'TYPE' }`, `|\{{ path }/TYPE\}|`) gets `""` from an initial
+    cell, which no enum of the snapshot accepts, and UI5 takes the whole view
+    down; bind with a fallback (`{= ${TYPE} || 'Default' }`) or a formatter.
+    Expression bindings, binding infos with a formatter or type, root paths
+    (`enum-bound-to-initial-field`'s), literals and paths the row does not
+    have are not reported. 0 findings (6 on the linter's own fixtures).
+  - **`message-before-navigation`** (warning): a `message_toast_display( )`,
+    `message_box_display( )` or CONTROL_GLOBAL `MESSAGE_TOAST`/`MESSAGE_BOX`
+    followed in the same statement sequence by `nav_app_leave( )` /
+    `nav_app_call( )` is dropped with the leaving app's screen. abap2UI5
+    cefce923 adds `keep_messages = abap_true` - on its DEV branch only, so the
+    rule offers no fix until main has the parameter. Different branches, a
+    RETURN in between, a navigation that names `keep_messages`, a message
+    after the navigation and a `nav_app_call( )` to a popup app are not
+    reported. 0 findings.
+  - **`stateful-without-release`** (warning): an app that turns
+    `set_session_stateful( )` on and navigates with `nav_app_leave( )` /
+    `nav_app_call( )` without `set_session_stateful( abap_false )` before it
+    (written out, or in a method of the class it calls) - the lock and the
+    work process stay until the session times out; also an `ENQUEUE_*` call
+    with no `DEQUEUE_*` named in the class. A `nav_app_call( )` to a popup or
+    one whose result the class takes back is not reported. 0 findings.
+  - **`draft-id-as-link`** (warning): `client->get( )-s_draft-id` (or
+    `-s_draft-id_prev`) that reaches, in the same method and through at most
+    one variable, a URL-shaped string, a `follow_up_action( )` that opens or
+    copies a link, an `href`/`src` attribute or a database write. Since
+    abap2UI5 04ead8ec a chain keeps two drafts and since cdd2fb25 an
+    unchanged tick writes none: the link points at nothing two roundtrips
+    later; `client->app_state_get_href( )` keeps its draft. Logging, a
+    comparison and a pass to the framework are not reported. 0 findings.
+  - **`nonserializable-attribute`** (warning): an instance attribute of an
+    app typed `REF TO` a class known not to implement
+    `if_serializable_object` - a class of the checked paths whose whole chain
+    lacks the marker, or `z2ui5_cl_ui5_view_builder` - is left out of the
+    draft without a word and initial on the next roundtrip. Unknown classes,
+    interfaces, `REF TO data`/`object`, `z2ui5_if_client` and `CLASS-DATA`
+    are not reported. The class index records the interfaces of every class
+    and indexes every interface; `--cache` keys an app on the verdict for
+    each class it references. 3 findings (abap2UI5's test-server apps).
+  - **`style-block-per-view`** (hint): a `<style>` block of 2048 bytes or
+    more of literal CSS in a view the class displays from an event branch
+    travels with every such `view_display( )`; the exit's `styles_css` writes
+    it into the page once. A display only on init or navigation and a block
+    built from data are not reported; the threshold is fixed (a rule takes no
+    options). 0 findings.
+  - **`timer-tick-changes-state`** (hint, opt-in): in the handler of a
+    `START_TIMER` (or `timer_set( )`) event, an assignment to an instance
+    attribute from a value that differs on every call (`sy-uzeit`,
+    `utclong_current( )`, `GET TIME STAMP`, a counter) - since abap2UI5
+    cdd2fb25 an unchanged tick writes no draft, such a handler makes every
+    tick write one. Guarded assignments and non-literal timer events are not
+    reported. 3 findings when switched on (e2e fixtures that count ticks).
+- **Package size quoted as ~750 kB** (README, RELEASING, release.yml): the
+  tarball is 760 kB with these rules.
+
 - **Builder helpers of another class with a body are replayed, one level
   deep.** Beyond the literal factory and the stringify helper (0.11.4), a
   static helper of another class of the run whose body builds - into a

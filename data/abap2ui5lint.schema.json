@@ -139,7 +139,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 181 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 191 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -342,6 +342,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'double-display-in-branch' — default severity: hint"
         },
+        "draft-id-as-link": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'draft-id-as-link' — default severity: warning"
+        },
         "duplicate-aggregation": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'duplicate-aggregation' — default severity: error"
@@ -365,6 +369,10 @@
         "empty-catch-block": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'empty-catch-block' — default severity: hint"
+        },
+        "enum-binding-no-fallback": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'enum-binding-no-fallback' — default severity: warning"
         },
         "enum-bound-to-conditional-field": {
           "$ref": "#/definitions/rule",
@@ -449,6 +457,10 @@
         "filter-groups-not-arrays": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'filter-groups-not-arrays' — default severity: error"
+        },
+        "framework-table-access": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'framework-table-access' — default severity: warning"
         },
         "frontend-action-as-backend-event": {
           "$ref": "#/definitions/rule",
@@ -570,6 +582,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'member-too-new' — default severity: warning"
         },
+        "message-before-navigation": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'message-before-navigation' — default severity: warning"
+        },
         "message-box-removed-parameter": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'message-box-removed-parameter' — default severity: error"
@@ -594,6 +610,10 @@
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'missing-view-display-on-navigated' — default severity: error"
         },
+        "namespaced-row-binding": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'namespaced-row-binding' — default severity: warning"
+        },
         "native-html-in-view": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'native-html-in-view' — default severity: hint"
@@ -617,6 +637,10 @@
         "nonpublic-data-reference": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'nonpublic-data-reference' — default severity: warning"
+        },
+        "nonserializable-attribute": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'nonserializable-attribute' — default severity: warning"
         },
         "obsolete-bind-argument": {
           "$ref": "#/definitions/rule",
@@ -729,6 +753,22 @@
         "source-line-too-long": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'source-line-too-long' — default severity: error"
+        },
+        "start-param-by-hand": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'start-param-by-hand' — default severity: hint"
+        },
+        "stateful-without-release": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'stateful-without-release' — default severity: warning"
+        },
+        "style-block-per-view": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'style-block-per-view' — default severity: hint"
+        },
+        "timer-tick-changes-state": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'timer-tick-changes-state' — default severity: hint"
         },
         "too-many-children": {
           "$ref": "#/definitions/rule",

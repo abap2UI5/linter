@@ -44,23 +44,13 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(of(two, MBN).length === 2, 'two messages, two findings');
   });
 
-  section('message-before-navigation: the fix adds keep_messages = abap_true', () => {
-    const cases = [
-      ['client->nav_app_leave( ).', 'client->nav_app_leave( keep_messages = abap_true ).'],
-      ['client->nav_app_leave( lo_prev ).', 'client->nav_app_leave( app = lo_prev keep_messages = abap_true ).'],
-      ['client->nav_app_call( app = NEW zcl_list( ) tag = `x` ).', 'client->nav_app_call( app = NEW zcl_list( ) tag = `x` keep_messages = abap_true ).'],
-      ['client->nav_app_call( NEW zcl_list( id = 1 ) ).', 'client->nav_app_call( app = NEW zcl_list( id = 1 ) keep_messages = abap_true ).'],
-    ];
-    for (const [call, want] of cases) {
-      const src = app(`    client->message_toast_display( \`Saved.\` ).\n    ${call}\n`);
-      const out = fixed(src, MBN);
-      assert(out.includes(want), `${call} -> ${want}`);
-      assert(of(out, MBN).length === 0, `the fixed class is silent (${call})`);
-    }
-    const released = app('    client->message_toast_display( `Saved.` ).\n    client->nav_app_leave( ).\n');
-    const r = of(released, MBN, { abap2ui5: '1.140.0' });
-    assert(r.length === 1 && !r[0].fixes, 'with a release configured: reported, no fix (the parameter is in no release)');
-    assert(/no release yet/.test(r[0].message), 'the message says why');
+  section('message-before-navigation: no fix while keep_messages is on abap2UI5 DEV only', () => {
+    const src = app('    client->message_toast_display( `Saved.` ).\n    client->nav_app_leave( ).\n');
+    const f = of(src, MBN);
+    assert(f.length === 1 && !f[0].fixes, 'reported without a fix - the parameter is in no release and not on main');
+    assert(/DEV branch, in no release yet/.test(f[0].message), 'the message says where the parameter is');
+    const r = of(src, MBN, { abap2ui5: '1.140.0' });
+    assert(r.length === 1 && /not in 1\.140\.0/.test(r[0].message), 'with a release configured the message names it');
   });
 
   section('message-before-navigation: what is not reported', () => {

@@ -17,7 +17,7 @@ see them, because the view only exists at runtime.
 npx @abap2ui5/linter src
 ```
 
-That is the whole of it: no install, no SAP system, no configuration. ~600 kB
+That is the whole of it: no install, no SAP system, no configuration. ~750 kB
 and no dependencies, so the line above is a fast one.
 
 ```

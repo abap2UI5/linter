@@ -8,7 +8,7 @@ Two packages come out of this repository, from one tag:
 
 | Package | What it is |
 | --- | --- |
-| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~600 kB |
+| `@abap2ui5/linter` | the CLI, `lib/`, `data/`, the typings. **Zero runtime dependencies**, ~750 kB |
 | `@abap2ui5/linter-render` | the UI5 runtime the render gate serves: the eleven `@openui5/*` source packages, `less-openui5` and `playwright`, as one install (`linter-render/` — an npm **workspace** of this repo) |
 
 **It was `@abap2ui5/render-runtime` up to 0.7.0.** Renamed because the name

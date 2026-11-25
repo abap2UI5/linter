@@ -142,9 +142,9 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       what it means, and what to do about it.</p>
     <div class="counts">
       <span class="badge error">77 error</span>
-      <span class="badge warning">71 warning</span>
-      <span class="badge hint">34 hint</span>
-      <span class="badge fix">76 autofixable</span>
+      <span class="badge warning">78 warning</span>
+      <span class="badge hint">37 hint</span>
+      <span class="badge fix">77 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.11.4</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 181 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 191 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -742,7 +742,7 @@ ENDTRY.</code></pre></figure>
             <pre><code>view-&gt;ele( `Page` )-&gt;ele( `content` )-&gt;tag( `Button` )
 " to downgrade the gate itself instead: rules: { 'render-error': 'warning' }</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L549"><code>lib/findings.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/findings.mjs#L582"><code>lib/findings.mjs</code></a></p>
       </article>
       <article class="rule" id="second-root" data-search="second-root a second element beside the document root — the split chain after a standalone factory( ) the builder's chain is one statement. a view written as a statement per subtree keeps its cursor only when the variable holds the node the next statement builds into — data(view) = z2ui5_cl_ui5_view_builder=&gt;factory( )-&gt;ele( n = view ns = mvc … ). a standalone factory( ). leaves the variable holding the root, so the next view-&gt;tag( ) adds a sibling of the mvc:view instead of a child inside it, and the document ends up with two top-level elements. the render gate rejects that as native html content; the property gate now says why. reported on the second root, naming the first. a bare fragment of two controls is the same document and is reported too — a fragment with several roots needs a core:fragmentdefinition. error">
         <h3><a href="#second-root">second-root</a>
@@ -1298,6 +1298,23 @@ ENDMETHOD.</code></pre></figure>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#27VXvq9owFP1XLv2kMCPb2AcFhU4jK2iVZzcYc9TYpr5AmpYktfrG9reP9Md71jfyto-D1y9N7j3n5Ka9J_n2wxEkpc7YeYh4KAtOUcSJQuRAcueNo7JCRiY7W7rbLbQYmOOF53uBt_Zh8_nj0pvBwvPdJczusBvgJoZ2Atr0Fs8MugoBeH6A7xbuDG_h4V3BPoQsCUmeN9m5G7gQcUaFhuDrBsMdXkCwfoLWuQa9wsGn9XwLKWEC7QT251WtaCd24qZqb7VZ4hX2A_exlprdktvVeydGyz5MmiUjHpqXCYaHgvGYysk0IZHO5KUH_YZo0oMp5bQHAiaw_8JouQehzDg9RfsaZZ7-YEoa0DnlQu3hZMaK5Ci1wMZG5QlaMBRlkiK79thgnrNsDN6Fc3LJCm0jJFeExAYsziS_FjdTC1yTA7-pvQ7Ztktk3KUwoelREs0ygUoWH6lWVoHbj5WmmbAyii6jECxhNLYxVEqkfrZOjqr4i1usmrJhV2MUWTvgXqftL73XOh8Ph2VZovI9yuRx-HY0Gg3PNaTt5Npfg2nV8DFTOSeXHkgqYipDzpTuQR_6CAB2DkiacxLRGA40ySQFpoEpUJSKvxCLqSaM13IGjv157cjKvo_2vD4kfl15NaWDaXNQTKBzKlQullmm_9XFHfsbgVdLv1r6v7V0R6Lq4_2GHOlLVq-vMqUlE0eWXP7sz6ub1vn5_Tc" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/double-display-in-branch.mjs#L23"><code>lib/rules/double-display-in-branch.mjs</code></a></p>
       </article>
+      <article class="rule" id="draft-id-as-link" data-search="draft-id-as-link a link or bookmark built from client-&gt;get( )-s_draft-id instead of client-&gt;app_state_get_href( ) get( )-s_draft-id is the id of the draft the current roundtrip continues, and it says nothing about how long that draft lives. abap2ui5 keeps two drafts per chain (every save deletes the one at depth three), and an unchanged timer tick writes no draft at all and answers with the id it continued - a link built from the id points at nothing two roundtrips later. the drafts the framework keeps are the ones it hands out itself: client-&gt;app_state_get_href( ) returns the absolute, flp-safe link to the current state and marks its draft as kept. reported: a read of s_draft-id or s_draft-id_prev - from &lt;client&gt;-&gt;get( ), or through a variable holding get( ) or get( )-s_draft - that flows, in the same method, directly or through one variable it is assigned to, into a string template or &amp;&amp;/concatenate with #, ?, sap-, http or a name containing url/href/link; a follow_up_action( ) with open_new_tab, clipboard_copy or urlhelper; the value of an href or src attribute; or an insert/modify/update of a database table (a stored bookmark). not reported: a message, a log or trace call, a message toast or box, a comparison, a pass to a method (the framework's get_app( ) among them), a read in a plain literal, and any flow longer than one assignment. warning">
+        <h3><a href="#draft-id-as-link">draft-id-as-link</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a link or bookmark built from <code>client-&gt;get( )-s_draft-id</code> instead of <code>client-&gt;app_state_get_href( )</code></p>
+        <p class="detail"><code>get( )-s_draft-id</code> is the id of the draft the current roundtrip continues, and it says nothing about how long that draft lives. abap2UI5 keeps two drafts per chain (every save deletes the one at depth three), and an unchanged timer tick writes no draft at all and answers with the id it continued - a link built from the id points at nothing two roundtrips later. The drafts the framework keeps are the ones it hands out itself: <code>client-&gt;app_state_get_href( )</code> returns the absolute, FLP-safe link to the current state and marks its draft as kept. Reported: a read of <code>s_draft-id</code> or <code>s_draft-id_prev</code> - from <code>&lt;client&gt;-&gt;get( )</code>, or through a variable holding <code>get( )</code> or <code>get( )-s_draft</code> - that flows, in the same method, directly or through ONE variable it is assigned to, into a string template or <code>&amp;&amp;</code>/<code>CONCATENATE</code> with <code>#</code>, <code>?</code>, <code>sap-</code>, <code>http</code> or a name containing url/href/link; a <code>follow_up_action( )</code> with <code>OPEN_NEW_TAB</code>, <code>CLIPBOARD_COPY</code> or <code>URLHELPER</code>; the value of an <code>href</code> or <code>src</code> attribute; or an <code>INSERT</code>/<code>MODIFY</code>/<code>UPDATE</code> of a database table (a stored bookmark). Not reported: a <code>MESSAGE</code>, a log or trace call, a message toast or box, a comparison, a pass to a method (the framework's <code>get_app( )</code> among them), a read in a plain literal, and any flow longer than one assignment.</p>
+        <div class="ba" id="draft-id-as-link-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>DATA(lv_link) = |{ lv_flp_url }#/z2ui5-xapp-state={ client-&gt;get( )-s_draft-id }|.
+client-&gt;follow_up_action( val = client-&gt;cs_event-clipboard_copy t_arg = VALUE #( ( lv_link ) ) ).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>DATA(lv_link) = client-&gt;app_state_get_href( ).
+client-&gt;follow_up_action( val = client-&gt;cs_event-clipboard_copy t_arg = VALUE #( ( lv_link ) ) ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVRRb5swEP4rp_SFSINom_bQSEFiiaMhJTRqaKVpmRwHDLVmjGUMJE273z6ZkDakEoMHznffd98Z3_nXcSBIRgfjwXPEsSo5dSJOCofsiBx8GhR5qSITnS689RrOGJihuR_4oX8XwOrh-8KfwtwPvAVM75EXotbnbAScw2s0NejGBeAHIbqfe1O0hucvJfuGWYKJlG105oUeRJxRoSH8uUJwj-YQ3r1DTzFnI1AwawpzNmIjrkr0l6sFWqIg9N6Elyj8cTfrSP7NCBOtbkZtt5WdwJvGuSJL5bkewqSlRxybT8VojXcl4zFVEzchkc7VwYLhJdFgDNEksF3KqQUCJrB9ZLTegiiMnVXR9kQxz9B2SQvaZ1wUW6iMXRDpZD2wscnyDi2ZE-WKOv25xwbzkdXH4F04J4e81H2E5IKQ9AHLPZGXyc2yB67Jjl_VfnL1bZeouEthQtNUEc1y4dQsTqkuehNc_6wsy0Uvo-wySsESRuM-RpERpT_oSKfx_3eLTYe27MZ2ot4OeNLZ-UiftJbj0aiua6f-6uQqHX2-vb0d7RtIJ0XTx9sVSem22-68wpyJP6bjX47AK5xwiUvF4fVm1FRj74mUdqGJppNjO2i2m1JtwdAucKxIom0Ww-tLm_YMSXLO8xqXEpPInJYFFeFvs2q7UYFpZayIM7nLiYpxlMsDaExUChN49BYPCG4ssKAtEobmvZJpZjpmheTkYIFZ2W6hFRMpS8xstwQUzE4XSvciGrz-_gc" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/draft-id-as-link.mjs#L226"><code>lib/rules/draft-id-as-link.mjs</code></a></p>
+      </article>
       <article class="rule" id="duplicate-for-iterator" data-search="duplicate-for-iterator the same for iterator name twice in one method fine on abap 7.50+, where the iterator is local to its value #( ) expression — but a 7.02 downport (abaplint --fix, and the transpiler behind a node-based runtime) materializes each one as data &lt;name&gt; type i in the method body, and the second declaration fails activation with "variable already defined". use distinct names (i, j, k) per value block. warning">
         <h3><a href="#duplicate-for-iterator">duplicate-for-iterator</a>
           <span class="badge warning">warning</span>
@@ -1314,6 +1331,23 @@ DATA(b) = VALUE ty_t( FOR j = 1 WHILE j &lt;= 3 ( j ) ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2lZRRb5swEMe_yomnRFocddUeEg0kljgqEiFRQjtNywQOmNSSMciYkLTaPvtkIG1IJabxgn33_92d4c4_Xw1BUmpMjZeIB7LkFEWcFIjsSW58MoqslJH2zlx7u4WLBuZ44XiO76w8WD9-c50ZLBzPdmG2wbaPWxvaCbi4t3im1bUJwPF8vFnYM7yFl88l-xKwJCB53nrntm9DxBkVCvwfawwbvAB_9S5tfGgnsDevC0M7sRM3JTrLtYuX2PPtt8RL7D-s5p2Uf1LCRJs3pSOrTWvCW45LRQOZZWoIZotHPNCvI6NVsC8Zj6k0rYREKpPnAQyvQa3RoA4wsiinAxBgQvjEaBWCKPQ6PUZhg-hnOLJIKzqlXBQhHPW6IDlKe2RTHeVdWjIUZZKi_thTrflI9RG8K-fknJWqD0iugKRPWJ5Ifh1cb3vkiuz5Te2Nqe-4RMZdhAlFD5IolglUsfhAVdEb4PZjpWkmeomyS5SCJYzGfUSREqk-5MlRbf_nEesObel6jaLeDnhW6eWXPiuVT8fjqqpQdY8yeRjfTSaT8amWdELUfRyuyYGG3XYnutefbPcRgzoHagCL1QYYmHAH3x8cFwODrybcwwAYDLvo_j9RANgZEGeVyDOpaDwFBjGNOJE0BlWxiDbBm2EeWfW0xqzIOTkPQO9GVqEkEweW6Kltq8HevLkquleM8fvXXw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/duplicate-for-iterator.mjs#L25"><code>lib/rules/duplicate-for-iterator.mjs</code></a></p>
+      </article>
+      <article class="rule" id="framework-table-access" data-search="framework-table-access open sql on a table the framework or an addon keeps its own state in (z2ui5_t_01 drafts, z2ui5_t_11 layouts) abap2ui5 keeps its drafts in z2ui5_t_01, layout-management its layouts in z2ui5_t_11. both are one select or delete away from any app, and an app that cleans up its drafts or copies a layout to another user is tempted to go there directly. that bypasses the owner and authority checks the api applies (a layout copied by insert skips z2ui5_if_layo_auth; a draft deleted by hand may belong to an app stack or a kept app state), the draft store a host can replace (z2ui5_if_ui5_draft_store - then the drafts are not in the table at all), and it depends on a shape that is internal and changes without notice. reported: a select, insert, update, modify, delete, open cursor or with whose statement names a listed table (a subquery included). the list is data in the rule, each table with the prefix of the package that owns it: code of the owner (z2ui5_cl_ui5_ for the drafts, z2ui5_cl_layo_ for the layouts) is not reported, nor is a repository that defines the table itself. a type reference (data ls type z2ui5_t_11) is a structure, not an access, and any other z2ui5_t_ table is somebody else's and stays silent. warning">
+        <h3><a href="#framework-table-access">framework-table-access</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">Open SQL on a table the framework or an addon keeps its own state in (<code>z2ui5_t_01</code> drafts, <code>z2ui5_t_11</code> layouts)</p>
+        <p class="detail">abap2UI5 keeps its drafts in <code>z2ui5_t_01</code>, layout-management its layouts in <code>z2ui5_t_11</code>. Both are one <code>SELECT</code> or <code>DELETE</code> away from any app, and an app that cleans up its drafts or copies a layout to another user is tempted to go there directly. That bypasses the owner and authority checks the API applies (a layout copied by <code>INSERT</code> skips <code>z2ui5_if_layo_auth</code>; a draft deleted by hand may belong to an app stack or a kept app state), the draft store a host can replace (<code>z2ui5_if_ui5_draft_store</code> - then the drafts are not in the table at all), and it depends on a shape that is internal and changes without notice. Reported: a <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>MODIFY</code>, <code>DELETE</code>, <code>OPEN CURSOR</code> or <code>WITH</code> whose statement names a listed table (a subquery included). The list is data in the rule, each table with the prefix of the package that owns it: code of the owner (<code>z2ui5_cl_ui5_*</code> for the drafts, <code>z2ui5_cl_layo_*</code> for the layouts) is not reported, nor is a repository that defines the table itself. A <code>TYPE</code> reference (<code>DATA ls TYPE z2ui5_t_11</code>) is a structure, not an access, and any other <code>z2ui5_t_*</code> table is somebody else's and stays silent.</p>
+        <div class="ba" id="framework-table-access-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>DELETE FROM z2ui5_t_01 WHERE uname = @sy-uname.
+SELECT * FROM z2ui5_t_11 WHERE uname = @lv_from INTO TABLE @DATA(lt_layouts).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>" drafts: pruned by the framework - draft_keep_per_chain / draft_exp_time_in_hours in the exit
+DATA(lt_heads) = z2ui5_cl_layo_manager=&gt;select_layouts_by_range( … ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZRRj5pAEMe_yoQnbepa2_ThTCTH4ZojQTRK2zS1gRUXb5NlIcsiepf2szcLeIomlBdmd_6_mVmY2V9vhiAJNcbGa8QDWXCKIk5yRLYkMz4aeVrISHtt11qv4ayBKZ45nuM7Cw-W355cx4aZ41ku2Cts-bjZQxsBZ_ca21pdbQE4no9XM8vGa3j9XLCvAYsDkmWNd2r5FkScUaHA_7nEsMIz8BcXae1DG4G9aVUY2oiNuCnRmS9dPMeeb70nnmP_eTFtpfybECaavAkdmE3aCbznOFfUk2mq-jBp8IgH-nVgtAy2BeM7KidmTCKVylMP-teg1mhQBxiYlNMeCJhA-J3RMgSRazs5RGGN6Kc_MEkjOiZc5CEctJ2TDCUdsrGOcpEWDEWppKg79lhr7qkugrflnJzSQnUB8RUQdwmLI8mug-tlh1yRLb-pvd7qOi6RuzbChKJ7SRRLBSrZbk9V3hng9mMlSSo6iaJNFILFjO66iDwhUt3lyVC1_98jVh3a0JWNos4OeFHJ-Ze-KJWNh8OyLFH5BaVyPxw9PDwMj5WkFaLq43BJ9jS8tDt2sY9htlrMmzFRwacR_HjGKwyFvmhgAo_5aVDZDbTGLrZ9-NDGRncYPwSxTBN9eSzAt55cDI_VfHEV1C2Yn-uoh3dgVtO5Y3nGyakHejUwcyWZ2LNYT2lTOPam9dXQvlKMP7__AQ" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/framework-table-access.mjs#L76"><code>lib/rules/framework-table-access.mjs</code></a></p>
       </article>
       <article class="rule" id="frozen-view-builder" data-search="frozen-view-builder the class builds its view with z2ui5_cl_xml_view — still supported, but no view rule can read it this is the only finding here about what was not judged, and it is a recommendation rather than a complaint. z2ui5_cl_xml_view was the abap2ui5 view builder before z2ui5_cl_ui5_view_builder arrived; it still compiles, still renders, and the plan is for it to move into a separate addon rather than to vanish — so an app that stays on it is making a legitimate choice. what that choice costs is this gate. the linter reconstructs a view from the current builder's five verbs (ele, tag, a, end, stringify); the old api is a different one, so there is no view to judge and every other rule stays silent for lack of anything to read — except obsolete-custom-control, which reads the old builder's _z2ui5( )-&gt;timer( ) helpers by name. worth saying out loud, because until this rule existed such a class was not even collected: a whole app on the old builder came back as "no checkable app classes" and exit 0, which reads like approval. rewrite the chain on z2ui5_cl_ui5_view_builder and the whole gate applies again — controls, properties, bindings, render — which is the real argument for switching. reported as a warning, not an error: nothing here is broken today. an app that is staying on the old builder for now says so once, in its config: "rules": { "frozen-view-builder": "hint" }, or false to switch it off. warning">
         <h3><a href="#frozen-view-builder">frozen-view-builder</a>
@@ -1402,6 +1436,23 @@ ENDIF.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZTvz5owEMf_lQuvNJk127IXmmjCpGQkikbZkmUuUKFos1JIKfLok-1vXwr4A33GeEN79_1c7-CuP14NQRJqjI1zyH1ZcIpCTnJEdiQz3hl5WshQe2dzc7OBiwYsbDuu4zlLF1ZfP8-dGdiOa85htsamhxsb2gq4uDd4ptWVCcBxPby2zRnewPlDwT75LPZJljVey_RMCDmjQoH3fYVhjW3wljdp7WupDzT85TPBFCOcnWlUg7oKf5emHG0Fdq2qCLQVW_FQjrNYzfECu555TXKBvS9Lq5Xen4Qw0Zya0MG0SXECT_n0ZJqqPkwaPOS-fh0ZLf1dwXhE5WQak1Cl8tSD_j2oNRrUAQZTymkPBEwg-MZoGYDI9To5hkGN6Kc_mJJG9JJwkQdw1OucZCjpkI11lJu0YChMJUXdscda80x1Ebwt5-SUFqoLiO-AuEtYvJDsPrjedsgV2fGH3GtTV7lERm2ECUX3kiiWClSyaE9V3hng8WMlSSo6iaJNFILFjEZdRJ4QqZ7OyVBl_2-JVYc2dLVGYWcHHFRy-aUHpbLxcFiWJSo_olTuh-9Ho9HwpZK0QlR9HKzIngbXdnfsN6Z2Uo9sTHhO0SXEP2VKFneqaggH02rKIpZnnJx6IKmIqOxB_3oudi3HbtZvM3o3mOZKMrFn8ekGY9eqr4X2dWL8_vkX" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/manual-init-flag.mjs#L37"><code>lib/rules/manual-init-flag.mjs</code></a></p>
+      </article>
+      <article class="rule" id="message-before-navigation" data-search="message-before-navigation a message queued right before nav_app_leave( ) / nav_app_call( ) without keep_messages = abap_true a navigation builds the response from the target app, and everything the leaving app queued in this roundtrip - toasts, message boxes - is dropped with its screen: the "saved." of a detail page that returns to its list never shows, and nothing logs it. since abap2ui5 cefce923 both navigation methods take keep_messages = abap_true, which carries the messages across the hop and shows them after the target has rendered; the default is the old behaviour. reported at a message_toast_display( ), a message_box_display( ) or a follow_up_action( ) of cs_event-control_global on message_toast / message_box, when the same statement sequence later reaches the navigation - the scope of display-after-nav-app-call: a return, else, when or endif in between, or the navigation in a nested block, is another flow. only calls written out on the client handle are read; a helper method that toasts or navigates is not followed. not reported: a navigation that names keep_messages at all (a variable is the author's decision), a message after the navigation, and a nav_app_call( ) to a popup app - abap2ui5's z2ui5_cl_pop_, or a class of the run that displays a popup and no view - whose caller's screen stays. keep_messages is on abap2ui5's dev branch and in no release yet: with a release configured (abap2ui5, --abap2ui5) the finding stays without a fix. warning">
+        <h3><a href="#message-before-navigation">message-before-navigation</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">a message queued right before <code>nav_app_leave( )</code> / <code>nav_app_call( )</code> without <code>keep_messages = abap_true</code></p>
+        <p class="detail">A navigation builds the response from the TARGET app, and everything the leaving app queued in this roundtrip - toasts, message boxes - is dropped with its screen: the "Saved." of a detail page that returns to its list never shows, and nothing logs it. Since abap2UI5 cefce923 both navigation methods take <code>keep_messages = abap_true</code>, which carries the messages across the hop and shows them after the target has rendered; the default is the old behaviour. Reported at a <code>message_toast_display( )</code>, a <code>message_box_display( )</code> or a <code>follow_up_action( )</code> of <code>cs_event-control_global</code> on <code>MESSAGE_TOAST</code> / <code>MESSAGE_BOX</code>, when the same statement sequence later reaches the navigation - the scope of <code>display-after-nav-app-call</code>: a <code>RETURN</code>, <code>ELSE</code>, <code>WHEN</code> or <code>ENDIF</code> in between, or the navigation in a nested block, is another flow. Only calls written out on the client handle are read; a helper method that toasts or navigates is not followed. Not reported: a navigation that names <code>keep_messages</code> at all (a variable is the author's decision), a message after the navigation, and a <code>nav_app_call( )</code> to a popup app - abap2UI5's <code>z2ui5_cl_pop_*</code>, or a class of the run that displays a popup and no view - whose caller's screen stays. <code>keep_messages</code> is on abap2UI5's DEV branch and in no release yet: with a release configured (<code>abap2ui5</code>, <code>--abap2ui5</code>) the finding stays without a fix.</p>
+        <div class="ba" id="message-before-navigation-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>client-&gt;message_toast_display( `Saved.` ).
+client-&gt;nav_app_leave( ).</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>client-&gt;message_toast_display( `Saved.` ).
+client-&gt;nav_app_leave( keep_messages = abap_true ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZRRr5owFMe_SsOTJrNmW_agiSRMa0aiaJQtWeYCFQq3SVtIW0DvzfbZlyJ6RZOOF9pz_r9zTuGc_npzBObEmTqvCYtkxQhMGFYQH3HpfHBUUcnEeOcrb78HVw1YoKUf-KG_CcD2-9eVPwdLP_BWYL5DXog6GzwIcHXv0dyoWxMAfhCi3dKboz14_VTRLxHNIlyWnXfhhR5IGCVCg_DnFoEdWoJw8y69-OBBoGDRFgYP4iAeSvTX2xVaoyD0bonXKPy2WfRS_uWYii4vJyO3SzsDtxzXigayKPQQzDo8YZF51ZQ00bGiLCVy5mY40YU8D8DwHjQaA5oAI5cwMgACzED8g5ImBkKZNa-T-IKYZzhycSc6cSZUDGqzVriE3CKbmijv0orCpJAE2mNPjeaZshGsL2f4XFTaBmR3QGYTVidc3gc3W4tc4yN7qP1ish0Xy7SPUKFJLrGmhYANTXOilTXA48fivBBWouoTlaAZJamNUBxL_ZSnhK39v0dsO7Sj2zVMrB3wovn1l75oXU7H46ZpYPMZFjIff5xMJuNTK-mFaPs43uKcxLd2vwzNyOVEKZyTSBdY6SilqmT4PADxHtckhc96gWszjBEjuCaDJ3c7ZLcoZjdylZZU5DQzw9YBKFhcJrx_Mzh_fv8D" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/message-before-navigation.mjs#L87"><code>lib/rules/message-before-navigation.mjs</code></a></p>
       </article>
       <article class="rule" id="message-box-removed-parameter" data-search="message-box-removed-parameter a parameter message_box_display( ) / message_toast_display( ) no longer has abap2ui5#2748 (2026-09-13) took the pure ui5 options off both signatures: textdirection, icon, closeonnavigation, dependenton and contentwidth on the box, width, my, at, of, offset, collision, autoclose, animationtimingfunction, animationduration, closeonbrowsernavigation and class on the toast. what the method carries now is what an abap app decides — the data, the kind of box, the buttons, the closing event — and a plain ui5 option is set on the control through the whitelisted global call, whose last argument is the option object 1:1. a call naming a removed parameter does not compile on a current pin, and a systemless pipeline sees that only when somebody imports the transport. no fix: the value moves into a different call. error">
         <h3><a href="#message-box-removed-parameter">message-box-removed-parameter</a>
@@ -1544,6 +1595,29 @@ DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZNhr5owFIb_ygmfNJk127IPmknCoGZkikbZkmUuUKF4m5RCSpHrvdl--1LAe8WbdHyhPX2ft-fAOb-eLUFyas2tp4RHsuYUJZxUiBxJab2zqqKWiT51V85-D1cNeHjpB37obwLYfv-y8l1Y-oGzAneHnRD3MXQQcD3eY1er2xCAH4R4t3RcvIenDzX7FLEsImXZn3pO6EDCGRUKwp9bDDu8hHDzKu3OOvvdJsRuiL27G1qPXEayaAYeKVEEAcDBuuZ6q1z53zB8lkVjHwQOvLZodBAHcVe-v96u8BoHofNy5RqHXzfeoJy_OWGizyenE7svaQE3-XeZjmRRqDEsejzhkX6dGW2iY814SuXCzkiiCnkZwfgW1BoNaoOJTTkdgYAFxD8YbWIQlV7n5yTuEP2MJzbpRY85F1UMZ72uSIlyg2yuXV6lNUNJISkye8-15i1lIvhQzsmlqJUJyG6AzCSsH0l5a663BrkiR36XexcylUtkOkSYUPQkiWKFQA1LT1RVRoP7j5XnhTAS9ZCoBcsYTU1ElROp3txTojb-3xLbDu3pdo0SYwc8qPz6Sx-UKufTadM0qPmICnmavp_NZtPHVjKwaPs43pITjV_avRuaid1ORcqqkpPLCPRuYldKMnFimZ6OHsCB140kGoyy9ef3Pw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/nonpublic-data-reference.mjs#L41"><code>lib/rules/nonpublic-data-reference.mjs</code></a></p>
+      </article>
+      <article class="rule" id="nonserializable-attribute" data-search="nonserializable-attribute an instance attribute of a z2ui5_if_app class typed ref to a class that does not implement if_serializable_object abap2ui5 writes the app into the draft after every roundtrip and restores it before the next. an object reference survives that only when its class implements if_serializable_object; when it does not, the framework leaves the reference out without raising or logging anything, on purpose, and the attribute is initial on the next roundtrip. code that sets and reads it within one roundtrip works; the same code one roundtrip later dereferences a null reference. judged only where the answer is known: a class of the checked paths whose whole chain - its superclasses and the interfaces of each, and the interfaces those include - is in the paths and implements neither if_serializable_object nor z2ui5_if_app (which includes it), and the framework classes known not to be serializable, today z2ui5_cl_ui5_view_builder. not reported: a class the run does not hold (sap standard, an addon outside the paths - unknown is not "not serializable"), a ref to an interface, ref to data and ref to object, ref to z2ui5_if_client (client-handle-capture), class-data, and an attribute of a class that is not an app. warning">
+        <h3><a href="#nonserializable-attribute">nonserializable-attribute</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an instance attribute of a <code>z2ui5_if_app</code> class typed <code>REF TO</code> a class that does not implement <code>if_serializable_object</code></p>
+        <p class="detail">abap2UI5 writes the app into the draft after every roundtrip and restores it before the next. An object reference survives that only when its class implements <code>if_serializable_object</code>; when it does not, the framework leaves the reference out without raising or logging anything, on purpose, and the attribute is <strong>initial</strong> on the next roundtrip. Code that sets and reads it within one roundtrip works; the same code one roundtrip later dereferences a null reference. Judged only where the answer is known: a class of the checked paths whose whole chain - its superclasses and the interfaces of each, and the interfaces those include - is in the paths and implements neither <code>if_serializable_object</code> nor <code>z2ui5_if_app</code> (which includes it), and the framework classes known not to be serializable, today <code>z2ui5_cl_ui5_view_builder</code>. Not reported: a class the run does not hold (SAP standard, an addon outside the paths - unknown is not "not serializable"), a <code>REF TO</code> an interface, <code>REF TO data</code> and <code>REF TO object</code>, <code>REF TO z2ui5_if_client</code> (<code>client-handle-capture</code>), <code>CLASS-DATA</code>, and an attribute of a class that is not an app.</p>
+        <div class="ba" id="nonserializable-attribute-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_my_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+  PROTECTED SECTION.
+    DATA mo_form TYPE REF TO z2ui5_cl_ui5_view_builder.   " initial on the next roundtrip
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD view_display.
+  DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).   " a local, built per roundtrip
+  client-&gt;view_display( view-&gt;stringify( ) ).
+ENDMETHOD.</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2XY_NasMwEIRfZdA56FDIJTdXXoMg2MFWDyUOQnFkIpAlo9j9Sei7F5tAoadd9tuZYY4PFsxg2Y7dO6-Hb23GkXfe3Lg5m5Ft2C3OqVu42GdNg78v5FTIUipZlTi8ve6l4G3Ac0VDYiHrCZClorrIBDW4v8xuq12_Bq2CulIkFOX_NHmmMgxR9zENUO8HQk0FVPV06Lxexoezn_o8O3-xiQNoGVxwkzMeMWC6WgT7NSHFOVym5MY2UJmvVXgb2M_pFw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/nonserializable-attribute.mjs#L44"><code>lib/rules/nonserializable-attribute.mjs</code></a></p>
       </article>
       <article class="rule" id="obsolete-bind-argument" data-search="obsolete-bind-argument _bind( view = … ) and the custom_mapper/custom_filter pair two arguments the binder still accepts and should no longer be given. view is "inactive, not passed on internally": a call scoping a binding to cs_view-popup reads as if the binding belonged to that slot, and nothing reads the value at all — so it is dead weight that documents a behaviour the framework does not have. custom_mapper and custom_filter are the opposite, and worse: they are still evaluated, but both hand the app a reference to the ajson copy bundled in src/00 — a mirror of an external project, not a contract abap2ui5 owns — so an app implementing z2ui5_if_ajson_mapping/_filter binds itself to whatever that mirror looks like today. that is the non-released-api argument one level down, at a parameter rather than a class name. everything they were reached for is declarative on the method now: omit_initial/omit_initial_paths drop initial fields and json splices a json node. warning">
         <h3><a href="#obsolete-bind-argument">obsolete-bind-argument</a>
@@ -1736,6 +1810,110 @@ ENDIF.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZT_qpswFMdf5eBfLawp29gfLbTgamRCa0vrBmMdmsa0DdMoMdbee9nY0-zB9iQjan_YC5n_eHLO93POiZ7k24slSMqssfVMk1CWCUM0IQUiO5Jbb6wiKyXV0dnc3mzgogEHu57vBd7Sh9Xnj3NvBq7n23OYrbEd4NaHtgIu4Q2eaXXtAvD8AK9de4Y38Pyu5B9Cvg9JnrdRxw5soAlnQkHwdYVhjV0IljdpE0NbgX2nbgxtxVY8tOgtVnO8wH5gXwsvcPBp6XRK_koJF23dlA2mbdkJXGtcOurJLFN9mLQ4TUL9OnFWhbuSJzGTk-meUJXJpx7070Gt0aBOMJiyhPVAwASiL5xVEYhC2-mJRg2in_5gSlrROU1EEcFJ2wXJUWqQjXWWm7TkiGaSIXPusda8pkxE0pUn5CkrlQnY3wF7k7A8k_w-uV4a5IrskofeG5dpu0TGXYQLxQ6SKJ4JVPH4wFRhTPD4sdI0E0ai7BKl4HvOYhNRpESqV3VyVPv_u8V6Qlu6thE1TsBRpZdfelQqHw-HVVWh6j3K5GH4djQaDc-1pJOinuNoRQ4suo6757bnZjClR0Z_hJkIueDqdiAAthb8_f2nWWHf8VwDK8iJH4hisU7QsAQKRjMRg-eOYZepI-wkEfTICqBEgCyFuRD2neYa6F4f1s_v_wA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/separate-lifecycle-ifs.mjs#L61"><code>lib/rules/separate-lifecycle-ifs.mjs</code></a></p>
+      </article>
+      <article class="rule" id="start-param-by-hand" data-search="start-param-by-hand an app reads its start parameter from t_comp_params or with url_param_get( ) on s_config-search instead of client-&gt;get_start_param( ) an app is started three ways, and each carries its parameters somewhere else: ?lgn=0001 on the url, a startupparameters entry of a launchpad tile, or the query of a launchpad intent #object-action?lgn=0001. an app that reads one source by hand works the way its author tested it and silently starts empty the other ways; the copies that exist read two of the three, upper-case the value whether or not the key wants it, and drift apart. client-&gt;get_start_param( name ) reads all three in a fixed order and matches the name in any case. reported in a class implementing z2ui5_if_app: a read of t_comp_params of client-&gt;get( ) (directly, in a read table, a table expression or a loop at, or of a variable assigned from client-&gt;get( )), and a call of url_param_get( ) / url_param_get_tab( ) whose arguments hold client-&gt;get( )-s_config-search or a variable assigned from it. s_config-search and s_config-hash read for anything else - the origin, a route, a debug flag on the url - are not reported, nor is a class that is not an app. a variable is followed through one plain assignment in the same class; a value handed to a helper method is not followed. a hint: get_start_param( ) is only there on an abap2ui5 that has it. hint">
+        <h3><a href="#start-param-by-hand">start-param-by-hand</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">an app reads its start parameter from <code>t_comp_params</code> or with <code>url_param_get( )</code> on <code>s_config-search</code> instead of <code>client-&gt;get_start_param( )</code></p>
+        <p class="detail">An app is started three ways, and each carries its parameters somewhere else: <code>?lgn=0001</code> on the URL, a <code>startupParameters</code> entry of a launchpad tile, or the query of a launchpad intent <code>#Object-action?lgn=0001</code>. An app that reads one source by hand works the way its author tested it and silently starts empty the other ways; the copies that exist read two of the three, upper-case the value whether or not the key wants it, and drift apart. <code>client-&gt;get_start_param( name )</code> reads all three in a fixed order and matches the name in any case. Reported in a class implementing <code>z2ui5_if_app</code>: a read of <code>t_comp_params</code> of <code>client-&gt;get( )</code> (directly, in a <code>READ TABLE</code>, a table expression or a <code>LOOP AT</code>, or of a variable assigned from <code>client-&gt;get( )</code>), and a call of <code>url_param_get( )</code> / <code>url_param_get_tab( )</code> whose arguments hold <code>client-&gt;get( )-s_config-search</code> or a variable assigned from it. <code>s_config-search</code> and <code>s_config-hash</code> read for anything else - the origin, a route, a debug flag on the URL - are not reported, nor is a class that is not an app. A variable is followed through one plain assignment in the same class; a value handed to a helper method is not followed. A hint: <code>get_start_param( )</code> is only there on an abap2UI5 that has it.</p>
+        <div class="ba" id="start-param-by-hand-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>DATA(lv_lgn) = z2ui5_cl_util=&gt;url_param_get( val = `lgn` url = client-&gt;get( )-s_config-search ).
+IF lv_lgn IS INITIAL.
+  lv_lgn = VALUE #( client-&gt;get( )-t_comp_params[ n = `LGN` ]-v OPTIONAL ).
+ENDIF.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>DATA(lv_lgn) = client-&gt;get_start_param( `lgn` ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVRRj5pAEP4rE_uiSVnTNn3QBBKqa0uCaJS7pDkvsOKCmywLWRY579L-9mYBPfESyguzM98337DMzNPbQJCUDqaD14gHsuQURZwUiOxJPvg8KLJSRjo6c-3tFi4YmOOF4zm-s_Jg_fDDdWawcDzbhdkG2z5ufWgn4BLe4plG1y4Ax_PxZmHP8BZev5bse8DigOR5G53bvg0RZ1Qo8H-vMWzwAvzVO7SJoZ3A3rwuDO3ETtyV6CzXLl5iz7evwkvs_1rNO5J_U8JEq5tSw2plTbhqXCoayixTIzBbesQD_ToxWgX7kvEDlaYVk0hl8jyE0S1RYzRRJzAsyukQBJgQPjJahSAKbaenKGwo-hkZFmlBLykXRQgnbRckR2kPbKqzvENLhqJMUtSfe6oxH1l9DN6Fc3LOStVHiG8IcR-wfCH5bXJ97IErsud3tTeuvs8l8tClMKFoIolimUAVOyRUFb0J7i8rTTPRyyi7jFKwmNFDH6NIiVQfdHJU-__7iXWHtuzaRlFvBxxVevmlR6Xy6XhcVRWqvqFMJuMvk8lk_FJDOinqPg7XJKFht935KeCJ6E6KYty0SsmDnEiSBglVQzgRrhV5IkIoJb_OnGHV4ZFRBFEmYpYYBSUyOl5VnAU0GuBsoV5DtosutbUREx5t9wHDp-F9VhXom2wKKZ6aa3B_eiE8GydYrfWysN2rFvbmzqK1L4nqmT-wIufkPAR9MqxCSSYSFuvZb8nYmzcLp7uoBn-e_wE" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/start-param-by-hand.mjs#L86"><code>lib/rules/start-param-by-hand.mjs</code></a></p>
+      </article>
+      <article class="rule" id="stateful-without-release" data-search="stateful-without-release an app that calls set_session_stateful( abap_true ) navigates away without set_session_stateful( abap_false ) first client-&gt;set_session_stateful( abap_true ) binds the browser to one work process until the app turns it off again - apps do it to hold an enqueue lock. every way out of the app has to release both: a nav_app_leave( ) or a nav_app_call( ) while the session is still stateful leaves the lock and the work process to the session timeout, and no test shows it. judged in a class that declares z2ui5_if_app and calls set_session_stateful( ) with abap_true or no argument (the default). reported: each navigation not preceded in its method by set_session_stateful( abap_false ), written out or in a method of the class called before it (the release_lock( ) / on_leave( ) helper, followed a few levels deep); and once per class an enqueue_ function call while the class names no dequeue_ anywhere. not reported: a class that passes the method a variable, a nav_app_call( ) to a popup (a target class whose name contains pop) or in a class that takes the called app's result back (id_prev_app, get_app( )) - the session stays stateful on purpose while it is open. a way out the source does not spell as a client call - a launchpad back, _event_nav_app_leave( ), a release made on the client of an earlier roundtrip - is not seen. warning">
+        <h3><a href="#stateful-without-release">stateful-without-release</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an app that calls <code>set_session_stateful( abap_true )</code> navigates away without <code>set_session_stateful( abap_false )</code> first</p>
+        <p class="detail"><code>client-&gt;set_session_stateful( abap_true )</code> binds the browser to one work process until the app turns it off again - apps do it to hold an ENQUEUE lock. Every way out of the app has to release both: a <code>nav_app_leave( )</code> or a <code>nav_app_call( )</code> while the session is still stateful leaves the lock and the work process to the session timeout, and no test shows it. Judged in a class that declares <code>z2ui5_if_app</code> and calls <code>set_session_stateful( )</code> with <code>abap_true</code> or no argument (the default). Reported: each navigation not preceded in its method by <code>set_session_stateful( abap_false )</code>, written out or in a method of the class called before it (the <code>release_lock( )</code> / <code>on_leave( )</code> helper, followed a few levels deep); and once per class an <code>ENQUEUE_*</code> function call while the class names no <code>DEQUEUE_*</code> anywhere. Not reported: a class that passes the method a variable, a <code>nav_app_call( )</code> to a popup (a target class whose name contains <code>pop</code>) or in a class that takes the called app's result back (<code>id_prev_app</code>, <code>get_app( )</code>) - the session stays stateful on purpose while it is open. A way out the source does not spell as a client call - a launchpad back, <code>_event_nav_app_leave( )</code>, a release made on the client of an earlier roundtrip - is not seen.</p>
+        <div class="ba" id="stateful-without-release-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>client-&gt;set_session_stateful( abap_true ).
+…
+WHEN `BACK`.
+  client-&gt;nav_app_leave( ).   " still stateful</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>WHEN `BACK`.
+  release_lock( ).            " DEQUEUE_… and set_session_stateful( abap_false )
+  client-&gt;nav_app_leave( ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVT_j5owFP9XXvhJk1mzLftBE0k4rDkyRaPsLstcoGLxmpRC2iJ6l-1vX4rgiZcwfqF97_PlFd7rrzdLkJRaY-s15qEsOEUxJwqRHcmtT5bKChmbrDt3NhtoMDDFM8_3Am_pw-rHw9xzYeb5zhzcNXYCXMfQVkCT3mDXoKsQgOcHeD1zXLyB1y8F-xayJCR5XmenTuBAzBkVGoKfKwxrPINg-Q695NBWYH9aFYa2YivuSvQWqzleYD9wrsYLHDwupy3LvylhovZN6cCubSdw9Wgq6sks032Y1PSYh-Z1ZLQMdwXjeyondkJinclzD_q3RIMxRCMwsCmnPRAwgeiJ0TICocw6PcbRhWKe_sAmNeiUcqEiOJq1IjlKO2Bjo_IOLRiKM0lRt_bYYD6yuhi8DefknBW6i5DcEJIuYHEi-a242XbANdnxu9ovoa7jErlvU5jQ9CCJZplAJdsfqFadAvcfK00z0cko2oxCsITRfRdDpUTqDz45quL_PWLVoTW7WqO4swNedNr80het8_FwWJYlKr-iTB6Gn0ej0fBUQVoSVR9HK3Kg0bXdL0MzsBXVoaJKsUyEShNNk4L3wNwpoZYFveKfH7EP0YPjfo9QI95oCHI0AxpySo7UTBQAbC1QmnEOjWjbthrGPVM5J-cemN3AVloycWCJGcraF_vTy03QvkGsP7__AQ" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/stateful-without-release.mjs#L82"><code>lib/rules/stateful-without-release.mjs</code></a></p>
+      </article>
+      <article class="rule" id="style-block-per-view" data-search="style-block-per-view a &lt;style&gt; block of more than 2 kb in a view the class displays from an event branch the usual way to give an abap2ui5 app its own css is a core:html whose content is a &lt;style&gt; block. the view is xml sent with the response, so the stylesheet travels with every view_display( ) - and an app that rebuilds its view on every event sends it on every roundtrip; a palette copied into each app's view is the same kilobytes again for every app. two cheaper places exist: the installation's exit, z2ui5_if_ui5_exit=&gt;ty_s_http_config-styles_css, which the http handler writes into the page head once per page load, and a view displayed once, which a roundtrip that only changes data updates through the model. reported: a sheet whose literal css is 2048 bytes or more (a fixed threshold - a rule takes no options), in a method or constant the class reaches from main( ) on a path through an event arm (a when of the event case, check_on_event( ), the else of a lifecycle fork) or unconditionally, and through no check_on_init( ) / check_on_navigated( ) arm. not reported: a smaller block, a view displayed only on init or navigation, a path through any other condition only, a sheet whose method nothing in the class calls, and a sheet built from data (a variable concatenated in, a template with an embedded expression) - it changes per roundtrip and its size is the data's. a native html:style element is not read. a hint: the view works, it is only heavy. hint">
+        <h3><a href="#style-block-per-view">style-block-per-view</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">a <code>&lt;style&gt;</code> block of more than 2 KB in a view the class displays from an event branch</p>
+        <p class="detail">The usual way to give an abap2UI5 app its own CSS is a <code>core:HTML</code> whose <code>content</code> is a <code>&lt;style&gt;</code> block. The view is XML sent with the response, so the stylesheet travels with every <code>view_display( )</code> - and an app that rebuilds its view on every event sends it on every roundtrip; a palette copied into each app's view is the same kilobytes again for every app. Two cheaper places exist: the installation's exit, <code>z2ui5_if_ui5_exit=&gt;ty_s_http_config-styles_css</code>, which the HTTP handler writes into the page head once per page load, and a view displayed once, which a roundtrip that only changes data updates through the model. Reported: a sheet whose literal CSS is 2048 bytes or more (a fixed threshold - a rule takes no options), in a method or constant the class reaches from <code>main( )</code> on a path through an event arm (a <code>WHEN</code> of the event <code>CASE</code>, <code>check_on_event( )</code>, the <code>ELSE</code> of a lifecycle fork) or unconditionally, and through no <code>check_on_init( )</code> / <code>check_on_navigated( )</code> arm. Not reported: a smaller block, a view displayed only on init or navigation, a path through any other condition only, a sheet whose method nothing in the class calls, and a sheet built from data (a variable concatenated in, a template with an embedded expression) - it changes per roundtrip and its size is the data's. A native <code>html:style</code> element is not read. A hint: the view works, it is only heavy.</p>
+        <div class="ba" id="style-block-per-view-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>METHOD z2ui5_if_app~main.
+  " … every event:
+  client-&gt;view_display( view-&gt;stringify( ) ).   " the view carries a 9 KB &lt;style&gt;</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>METHOD z2ui5_if_app~main.
+  IF client-&gt;check_on_init( ).
+    client-&gt;view_display( view-&gt;stringify( ) ).   " displayed once
+  ENDIF.
+  " the palette: z2ui5_if_ui5_exit, ty_s_http_config-styles_css</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/style-block-per-view.mjs#L148"><code>lib/rules/style-block-per-view.mjs</code></a></p>
+      </article>
+      <article class="rule" id="timer-tick-changes-state" data-search="timer-tick-changes-state the handler of a timer tick sets an attribute from a value that differs on every call (opt-in) since abap2ui5 cdd2fb25 a start_timer tick whose main( ) left the app so that it serializes byte for byte to the draft it continued writes no draft: the framework answers with that draft's id. hours of polling become one row instead of thousands - but only when the tick really changes nothing. a handler that writes the current time into an attribute ("last refreshed 12:04:31") or counts the ticks makes every tick different, and the page writes one draft per tick for as long as it is open. reported: in the branch handling the event a start_timer follow-up action arms (its first t_arg) or client-&gt;timer_set( event = … ) declares - a when of the event case, check_on_event( ), get_event( ) =, and the methods of the class it calls - an assignment at the branch's own level to an instance attribute from sy-uzeit, sy-datum, sy-timlo, sy-datlo, utclong_current( ), cl_abap_context_info=&gt;get_system_time( )/get_system_date( ), get time stamp field/get time field, or the counter x = x + 1 / x += 1. not reported: an assignment from the polled data itself, one under a further if, case or loop (a comparison with the previous value is the remedy), a local, a class-data, and a timer whose event is not a literal. a hint and off by default ("rules": { "timer-tick-changes-state": "hint" }): the value is often wanted. hint">
+        <h3><a href="#timer-tick-changes-state">timer-tick-changes-state</a>
+          <span class="badge hint">hint</span>
+        </h3>
+        <p class="summary">the handler of a timer tick sets an attribute from a value that differs on every call (opt-in)</p>
+        <p class="detail">Since abap2UI5 cdd2fb25 a <code>START_TIMER</code> tick whose <code>main( )</code> left the app so that it serializes byte for byte to the draft it continued writes no draft: the framework answers with that draft's id. Hours of polling become one row instead of thousands - but only when the tick really changes nothing. A handler that writes the current time into an attribute ("last refreshed 12:04:31") or counts the ticks makes every tick different, and the page writes one draft per tick for as long as it is open. Reported: in the branch handling the event a <code>START_TIMER</code> follow-up action arms (its first <code>t_arg</code>) or <code>client-&gt;timer_set( event = … )</code> declares - a <code>WHEN</code> of the event <code>CASE</code>, <code>check_on_event( )</code>, <code>get_event( ) =</code>, and the methods of the class it calls - an assignment at the branch's own level to an instance attribute from <code>sy-uzeit</code>, <code>sy-datum</code>, <code>sy-timlo</code>, <code>sy-datlo</code>, <code>utclong_current( )</code>, <code>cl_abap_context_info=&gt;get_system_time( )</code>/<code>get_system_date( )</code>, <code>GET TIME STAMP FIELD</code>/<code>GET TIME FIELD</code>, or the counter <code>x = x + 1</code> / <code>x += 1</code>. Not reported: an assignment from the polled data itself, one under a further <code>IF</code>, <code>CASE</code> or <code>LOOP</code> (a comparison with the previous value is the remedy), a local, a <code>CLASS-DATA</code>, and a timer whose event is not a literal. A hint and off by default (<code>"rules": { "timer-tick-changes-state": "hint" }</code>): the value is often wanted.</p>
+        <div class="ba" id="timer-tick-changes-state-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_poll DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_refreshed_at TYPE t.
+ENDCLASS.
+
+CLASS zcl_poll IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    CASE client-&gt;get_event( ).
+      WHEN `ARM`.
+        client-&gt;follow_up_action( val   = client-&gt;cs_event-start_timer
+                                  t_arg = VALUE #( ( `TICK` ) ( `5000` ) ( `` ) ( `X` ) ) ).
+      WHEN `TICK`.
+        mv_refreshed_at = sy-uzeit.   " every tick writes a draft
+    ENDCASE.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CLASS zcl_poll DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mv_refreshed_at TYPE t.
+ENDCLASS.
+
+CLASS zcl_poll IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    CASE client-&gt;get_event( ).
+      WHEN `ARM`.
+        client-&gt;follow_up_action( val   = client-&gt;cs_event-start_timer
+                                  t_arg = VALUE #( ( `TICK` ) ( `5000` ) ( `` ) ( `X` ) ) ).
+      WHEN `TICK`.
+        " the time only when the polled data changed - or shown by the frontend
+    ENDCASE.
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+        </div>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/timer-tick-changes-state.mjs#L130"><code>lib/rules/timer-tick-changes-state.mjs</code></a></p>
       </article>
       <article class="rule" id="unbound-public-attribute" data-search="unbound-public-attribute a public attribute the class uses but never binds the other half of the surface unused-public-attribute judges, kept as a separate rule because the remedy differs: an unused name is deleted, an unbound one moves to protected. only the model filters on visibility — z2ui5_cl_ui5_srv_model serializes the public instance attributes into the view model on every roundtrip — while the draft persists the whole object whatever the section, so state survives at protected just the same. a public attribute that no binding reaches is therefore transport weight and nothing else. judged on the class's own binding vocabulary: the attribute as an argument of a _bind( ) call, as a boolean b = name, or as a model path ({/name}, /name/, omit_initial_paths). app classes only, instance data only; a type ref to attribute stays out (a reference can never be bound, see binding-to-reference), and a name that appears exactly once belongs to the sibling rule. a warning, not an error: a called app may read the attribute from outside (a value help handing its result back is written exactly so), which no single source can see - but a run can: an attribute another class of the run reads as -&gt;name, in a class that names this one (cast, type ref to, new), is not reported. its first corpus run found three: two that the corpus's own gate had excused because its path regex matched the name inside a comment, and one in a class that gate never judged. warning">
         <h3><a href="#unbound-public-attribute">unbound-public-attribute</a>
@@ -2866,6 +3044,71 @@ view-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bind( mv_text ) )</co
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZRRb9owEMe_yilPIA2jbdoDqETKwGiRIKCSTZqWCUxiwJJjR7ZDoLT97JOT0BIqZXmJfff_3Z2TO_-5OIKk1Bk6TzFfq5xTFHOiEdmSzPnkaJmr2HrHM2-1gqsGJnjqB37oLwJY_vw-88cw9QNvBuNH7IW4tqFIwNW9wmOrLk0AfhDix6k3xit4-pKzb2u2W5Msq70TL_Qg5owKA-HvJYZHPIVw8S6tfCgSOJiUhaFIROKuRH--nOE5DkLvLfEchz8Wk0bK15QwUedNac-t047gLce1oo6S0nRhVOMxX9vXkdFivc0ZT6gauTsSG6nOHejeglZjQRug51JOOyBgBJtfjBYbENqu02O8qRD7dHsuqUWnlAu9gaNda5KhtEU2tFHepTlDsVQUtcceWs1Hqo3gTTknZ5mbNmB3A-zahPmJZLfB7bZFbsiW39VemdqOS1TSRJgwdK-IYVKggiV7anRrgPuPlaZStBJ5k8gF2zGatBE6Jcp8yJOh0v7fI5YdWtPlGsWtHXAw6fWXHozJhv1-URSo-Iqk2vc_DwaD_qmUNEKUfbxZkj3dNNs91tp2-_ODNmdOXUQgii6x5FINFU2i6OWhX3meEQBEDpgDBUPTjBNDIZack0xTbSkwEi5V6Goee245cAnTGSfnDthdz9VGMbFnOzt4dS04mFTT3rwlnJe__wA" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/collapsed-brace-in-style.mjs#L44"><code>lib/rules/collapsed-brace-in-style.mjs</code></a></p>
       </article>
+      <article class="rule" id="enum-binding-no-fallback" data-search="enum-binding-no-fallback an enum-typed property (type, state, design, valuecolor …) bound straight to a column of a bound table — an initial cell is "", no member of the enum, and the whole view fails to render a property typed with an enum — sap.m.buttontype, sap.m.switchtype, sap.ui.core.valuestate, sap.m.valuecolor … — validates every value the model hands it: managedobject.validateproperty calls the enum's isvalid( ), which tests membership in its values, and managedobjectbindingsupport rethrows everything but a formatexception. bound to a column of a bound table, the value is whatever the abap row holds, and an initial field ships "" (or 0): ui5 throws and the whole view fails to render, not just the cell. the xml is valid, so abaplint, the transpiled tests and a review stay green. reported: an enum-typed property under a bound aggregation's template (or a sap.ui.table row template) whose value is a plain relative binding — {type}, {row/type}, { path: 'type' } — or the same binding built at run time around one variable, component or component_path( ) call (|\{{ path }/type\}|, the generic table builder's shape). which enums accept the empty value is read off the metadata snapshot (an enum one of whose values is ""); none of ui5's does, so every enum is judged. not reported: an expression binding or a binding info with a formatter, a type or any other key (that is the fallback); a root binding {/x} — the app's own attribute, judged by enum-bound-to-initial-field; a literal (judged as a value); a variable the class fills from _bind( ), whose path is absolute. a warning: a column the app fills in every row is correct as written — the fallback costs nothing and survives the row that is not. warning">
+        <h3><a href="#enum-binding-no-fallback">enum-binding-no-fallback</a>
+          <span class="badge warning">warning</span>
+        </h3>
+        <p class="summary">an enum-typed property (type, state, design, valueColor …) bound straight to a column of a bound table — an initial cell is "", no member of the enum, and the whole view fails to render</p>
+        <p class="detail">A property typed with an enum — <code>sap.m.ButtonType</code>, <code>sap.m.SwitchType</code>, <code>sap.ui.core.ValueState</code>, <code>sap.m.ValueColor</code> … — validates every value the model hands it: <code>ManagedObject.validateProperty</code> calls the enum's <code>isValid( )</code>, which tests membership in its values, and <code>ManagedObjectBindingSupport</code> rethrows everything but a <code>FormatException</code>. Bound to a column of a bound table, the value is whatever the ABAP row holds, and an initial field ships <code>""</code> (or <code>0</code>): UI5 throws and the whole view fails to render, not just the cell. The XML is valid, so abaplint, the transpiled tests and a review stay green. Reported: an enum-typed property under a bound aggregation's template (or a <code>sap.ui.table</code> row template) whose value is a plain relative binding — <code>{TYPE}</code>, <code>{ROW/TYPE}</code>, <code>{ path: 'TYPE' }</code> — or the same binding built at run time around one variable, component or <code>component_path( )</code> call (<code>|\{{ path }/TYPE\}|</code>, the generic table builder's shape). Which enums accept the empty value is read off the metadata snapshot (an enum one of whose values is <code>""</code>); none of UI5's does, so every enum is judged. Not reported: an expression binding or a binding info with a formatter, a type or any other key (that is the fallback); a root binding <code>{/X}</code> — the app's own attribute, judged by <code>enum-bound-to-initial-field</code>; a literal (judged as a value); a variable the class fills from <code>_bind( )</code>, whose path is absolute. A warning: a column the app fills in every row is correct as written — the fallback costs nothing and survives the row that is not.</p>
+        <div class="ba" id="enum-binding-no-fallback-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_row,
+             text TYPE string,
+             type TYPE string,
+           END OF ty_row.
+    DATA mt_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+    view-&gt;ele( n = `View` ns = `mvc`
+        )-&gt;a( n = `xmlns` v = `sap.m`
+        )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )-&gt;ele( n = `Page`
+            )-&gt;ele( n = `List`
+                )-&gt;a( n = `items` v = client-&gt;_bind( mt_rows )
+                )-&gt;ele( n = `CustomListItem`
+                    )-&gt;ele( n = `Button`
+                        )-&gt;a( n = `text` v = `{TEXT}`
+                        )-&gt;a( n = `type` v = `{TYPE}` ).
+    client-&gt;view_display( view-&gt;stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_row,
+             text TYPE string,
+             type TYPE string,
+           END OF ty_row.
+    DATA mt_rows TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+    view-&gt;ele( n = `View` ns = `mvc`
+        )-&gt;a( n = `xmlns` v = `sap.m`
+        )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )-&gt;ele( n = `Page`
+            )-&gt;ele( n = `List`
+                )-&gt;a( n = `items` v = client-&gt;_bind( mt_rows )
+                )-&gt;ele( n = `CustomListItem`
+                    )-&gt;ele( n = `Button`
+                        )-&gt;a( n = `text` v = `{TEXT}`
+                        )-&gt;a( n = `type` v = `{= ${TYPE} || 'Default' }` ).
+    client-&gt;view_display( view-&gt;stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2jVJdj5swEPwrK56IdOHhpL5ESiQCTg-VEHS4H9GlAoc4J0tgEDbJcaf0t1cGF0pyV5UXVjszu-udfXozOMmpMTNe0ywmZWmlGREW2ZPSuDNEUVepAh3fjiLQFHDRygs87G0CCL8ufc-xdhx0CBFyFNKmALwAo8eV7aAIXu9r9ilmx7ZLh-JtiKIZLNFnL4DNCmQTV8X5rgP7T9IX2VJByIrx5xu8KenHOArcobTu69rYhlyqjOiUEbYD1350AdtLHw0C-O7hB0DrEG_hC9paO44Ct92GteM7Pt6Ltw59tEYBtvsNrBF-2Lijt__KCeN_DWKeGD1PYK5JaRarn0rG-5plB1rNF0eSyqJqTJhooYKnC5pREzjMIfnG6DkBLlScn9JkWMFkuiCa9JJnXCRwUrEgpZX_gzZTVQZqzay0qKh1U3sYISTPNBlbM8J9JuQVftWYSZrr-dKMUS6ni3jP-MHsvZq8qx96OLWQRa46eZLm73S7USxrKQv-AfNqPnWIeidvGP3Al_-UNSXtZdsQXZLexj_PbN0-MFFmpDG1ud0xs6NyXQtQ4HYHNb5D4_LzNw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/enum-binding-no-fallback.mjs#L86"><code>lib/rules/enum-binding-no-fallback.mjs</code></a></p>
+      </article>
       <article class="rule" id="enum-bound-to-conditional-field" data-search="enum-bound-to-conditional-field an enum-typed property bound to an attribute the start path seeds in one branch only — "" terminates the app when the other branch runs the branch half of enum-bound-to-initial-field. the start path — main( ) ahead of its dispatch if, the check_on_init( ) arm, the constructor and what they call — seeds the attribute, but only inside one arm of an if without an else that seeds it too, a case without when others, or a loop / while / do that may not run. on every first display that takes another way the attribute is still "", which is a member of no enum: managedobject.validateproperty throws and the app terminates before the view is shown. a seed counts as given when every arm of a complete if … else or case … when others gives one, and a try body counts as running. a warning, because whether the other arm is taken on the first display is a runtime matter this source does not show. give the attribute a valid start value in its declaration, or seed it in every arm. warning">
         <h3><a href="#enum-bound-to-conditional-field">enum-bound-to-conditional-field</a>
           <span class="badge warning">warning</span>
@@ -3144,6 +3387,61 @@ ENDLOOP.</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hZRRb5swEMe_yoknIg1H27SHRAsSDU6HREgU2KRqmcABJ7VkDDImNJ22zz6ZkDSkEuMF--7_uzvDnX_-NgTJqTE1XlMey5pTlHJSIbIjpfHBqIpapto7950whIsGXLzwAi_yVgGsvz_43hwWXuD4MN9gJ8KdDW0FXNwhnmt1awLwgghvFs4ch_D6qWZfYraPSVl2XteJHEg5o0JB9LTGsMELiFZv0rMPbQUO3LYwtBVbcVeit1z7eImDyLkmXuLo28rtpfybEya6vDm17C7tDK45LhWZsijUCGYdnvJYv46MNvGuZjyjcmbvSaoKeTJhdAtqjQZ1AMumnJogYAbJD0abBESl1_kxTc6IfkaWTTrRS85FlcBRrytSonxANtVR3qQ1Q2khKRqOPdWa99QQwftyTk5FrYaA_Q2wHxLWL6S8Da63A3JFdvyu9rNp6LhEZn2ECUUPkihWCNSw7EBVNRjg_mPleSEGibpP1ILtGc2GiConUr3LU6LW_t8jth3a0e0apYMd8Kzyyy99VqqcjsdN06DmMyrkYfxxMpmMX1pJL0Tbx8maHGhybXd_tVqDE0GuYlk0FThh6D0GXvAICw_7rhU-LR9WvvlVFo19YQD0fFi2IgcTEk-UtUpuSzwSXnf_-DyTlh3vmMhMaMNY-vqC0bUEHLi6im53IdoxzVhVcnIyu4SVkkwc2F6Pa4fjwD3fEf27xfjz6x8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/loop-work-area-bound.mjs#L58"><code>lib/rules/loop-work-area-bound.mjs</code></a></p>
+      </article>
+      <article class="rule" id="namespaced-row-binding" data-search="namespaced-row-binding a row template binds a namespaced column as {/cwm/xcwmat}, or builds the braces around a run-time column name without component_path( ) — an absolute path: the cell is empty and an edit is lost a ddic column whose name carries a namespace — /cwm/xcwmat, the fields an industry solution or a customer appends to a table — is written into the model as a level of its row ("cwm":{"xcwmat":…}), so its row-relative path is cwm/xcwmat. written as it is named, {/cwm/xcwmat}, the leading slash makes it an absolute path from the model root: the cell renders empty, a user's edit is written where nobody reads it, and nothing logs anything. two shapes are reported, both only inside a row template (the controls a bound aggregation clones per row, and a sap.ui.table column.template): a literal path of the shape /seg/name whose first segment is not an attribute of the class ({/mv_title} in a row template is the documented way to show a root value per row) — fixed by dropping the slash; and a binding built at run time around one variable or component — |\{{ comp-name }\}|, |\{path:'{ comp-name }'…\}|, the generic table maintenance and layout builders — which is right for matnr and wrong for /cwm/xcwmat: wrap the name in z2ui5_cl_ui5_view_builder=&gt;component_path( ) (abap2ui5 40e8a073, on dev until the next release), which returns the row-relative path for a namespaced name and every other name unchanged. not reported: a root binding outside a row template; a name the reconstructor resolves (a literal, a constant, a variable assigned only from literals — then the literal shape decides); an embedded call, component_path( ) above all; a variable the class fills from _bind( )/_bind_path( ) or component_path( ); a cell bound with _bind( val = … tab = … tab_index = … ), whose path the framework writes; a class that switches its default model to an odata service (switch_default_model), whose namespaced entity sets are absolute by design; and a raw xml view, which has no class attributes to tell a namespace from a root field. warning">
+        <h3><a href="#namespaced-row-binding">namespaced-row-binding</a>
+          <span class="badge warning">warning</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary">a row template binds a namespaced column as {/CWM/XCWMAT}, or builds the braces around a run-time column name without component_path( ) — an absolute path: the cell is empty and an edit is lost</p>
+        <p class="detail">A DDIC column whose name carries a namespace — <code>/CWM/XCWMAT</code>, the fields an industry solution or a customer appends to a table — is written into the model as a <strong>level</strong> of its row (<code>"CWM":{"XCWMAT":…}</code>), so its row-relative path is <code>CWM/XCWMAT</code>. Written as it is named, <code>{/CWM/XCWMAT}</code>, the leading slash makes it an absolute path from the model root: the cell renders empty, a user's edit is written where nobody reads it, and nothing logs anything. Two shapes are reported, both only inside a row template (the controls a bound aggregation clones per row, and a <code>sap.ui.table</code> <code>Column.template</code>): <strong>a literal path</strong> of the shape <code>/SEG/NAME</code> whose first segment is not an attribute of the class (<code>{/MV_TITLE}</code> in a row template is the documented way to show a root value per row) — fixed by dropping the slash; and <strong>a binding built at run time</strong> around one variable or component — <code>|\{{ comp-name }\}|</code>, <code>|\{path:'{ comp-name }'…\}|</code>, the generic table maintenance and layout builders — which is right for <code>MATNR</code> and wrong for <code>/CWM/XCWMAT</code>: wrap the name in <code>z2ui5_cl_ui5_view_builder=&gt;component_path( )</code> (abap2UI5 40e8a073, on DEV until the next release), which returns the row-relative path for a namespaced name and every other name unchanged. Not reported: a root binding outside a row template; a name the reconstructor resolves (a literal, a constant, a variable assigned only from literals — then the literal shape decides); an embedded call, <code>component_path( )</code> above all; a variable the class fills from <code>_bind( )</code>/<code>_bind_path( )</code> or <code>component_path( )</code>; a cell bound with <code>_bind( val = … tab = … tab_index = … )</code>, whose path the framework writes; a class that switches its default model to an OData service (<code>switch_default_model</code>), whose namespaced entity sets are absolute by design; and a raw XML view, which has no class attributes to tell a namespace from a root field.</p>
+        <p class="fixnote"><strong>--fix:</strong> For a literal path written in the attribute call itself, deletes the leading slash (<code>{/CWM/XCWMAT}</code> → <code>{CWM/XCWMAT}</code>, also inside a template and after <code>path:</code>). A path that arrives through a variable or a constant, and the run-time shape (which needs <code>component_path( )</code>, a method of abap2UI5 DEV), keep the finding.</p>
+        <div class="ba" id="namespaced-row-binding-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mt_rows TYPE STANDARD TABLE OF zcwm_material WITH EMPTY KEY.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+    view-&gt;ele( n = `View` ns = `mvc`
+        )-&gt;a( n = `xmlns` v = `sap.m`
+        )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )-&gt;ele( n = `Page`
+            )-&gt;ele( n = `List`
+                )-&gt;a( n = `items` v = client-&gt;_bind( mt_rows )
+                )-&gt;ele( n = `StandardListItem`
+                    )-&gt;a( n = `title` v = `{/CWM/XCWMAT}` ).
+    client-&gt;view_display( view-&gt;stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CLASS zcl_app DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    DATA mt_rows TYPE STANDARD TABLE OF zcwm_material WITH EMPTY KEY.
+ENDCLASS.
+
+CLASS zcl_app IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=&gt;factory( ).
+    view-&gt;ele( n = `View` ns = `mvc`
+        )-&gt;a( n = `xmlns` v = `sap.m`
+        )-&gt;a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
+        )-&gt;ele( n = `Page`
+            )-&gt;ele( n = `List`
+                )-&gt;a( n = `items` v = client-&gt;_bind( mt_rows )
+                )-&gt;ele( n = `StandardListItem`
+                    )-&gt;a( n = `title` v = `{CWM/XCWMAT}` ).
+    client-&gt;view_display( view-&gt;stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2fVLRatswFP2Vi58cWFwY7KWQgGor1Mx2TK0tC0uxFVkpAkkxlpKsKd23DyVa0qSletFF59x7jnT0-yXQVPHgNtgzWdOui5ikJqJL2gVfArPe9MyBcYaqCjwFEjxJi5Sk0wLKH3dZGkcLDb6ECscOORwBpAXBDxMU4wr2XzfiWy1WB5UjmiCCQNm6X-8MkHmJoSKoSNBDAgTdZRimE9iznaoVtbwXVMIsJfeA85LM4TueRwuNi-RgLlrohb60meZlhnNcEHQylGNyP00urPxVVOg3fsKt4LsBjDyJydpt7rBeboRseT8aryiz6_45hIFvdPBwzCUPQcMImp-C7xrQxtVqy5ojy63BcEw96Y-S2jSwdbWhXaQ-od26KWfqRkRs3fPo3eyzhZI-8TfYOzwTxl7hV8LCcuX9MSm4tsNxvRS6DU-RDT7sP2tUluqW9q3TSi1XH-hdaVphJfcXfbmJZ_nNr3iWI_LanN76v5dDJK0wnaTPoU_A2F7oJ7Fy0fgGXCTH1C8_S_D6-A8" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/namespaced-row-binding.mjs#L67"><code>lib/rules/namespaced-row-binding.mjs</code></a></p>
       </article>
       <article class="rule" id="omit-initial-drops-false" data-search="omit-initial-drops-false omit_initial = abap_true on a table whose boolean the control defaults to true an abap field is never absent — it is initial — so by default every field reaches the browser as an explicit ""/0/false and overrides the control's own default; omit_initial = abap_true is the blanket answer, keeping initial fields out of the model so each control keeps its ui5 default. a boolean the view binds to a property that defaults to true is the one field that turns that around: abap_false is itself initial, so the flag drops exactly the value that had to arrive, and the control shows true. the interface's abap doc on omit_initial_paths: "an abap_false that must reach the client is itself initial, so omit_initial would drop it and the control would fall back to its own default — list the numeric/enum columns instead and leave the booleans". judged from what the entry point already knows — the row field is bound to a boolean property whose snapshot defaultvalue is true (the same read absent-boolean-overrides-default makes), and the class declares that component with a boolean type. no fix: which columns to list in omit_initial_paths is the author's call. warning">
         <h3><a href="#omit-initial-drops-false">omit-initial-drops-false</a>
@@ -3793,9 +4091,9 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    181 configurable rules, plus <code>render-error</code> — the render gate's
+    191 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “181 rules passed” while this page has 182 cards.
+    <code>--badge</code> says “191 rules passed” while this page has 192 cards.
   </footer>
 </div>
 <script>
