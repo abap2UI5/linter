@@ -146,7 +146,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
       <span class="badge hint">34 hint</span>
       <span class="badge fix">76 autofixable</span>
     </div>
-    <p class="stamp">Generated from <strong>v0.11.3</strong>, against the OpenUI5 1.154.0 metadata
+    <p class="stamp">Generated from <strong>v0.11.4</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
       <code>npx --no-install abap2ui5lint --version</code> says which that is.</p>
     <!-- A placeholder is not a label: it names the field only until the first
@@ -898,7 +898,7 @@ view-&gt;ele( `Page` )-&gt;tag( `Input` )-&gt;a( n = `value` v = client-&gt;_bin
           <figure class="after"><figcaption>fixed</figcaption>
             <pre><code>" update abap2UI5 to 1.142.0 or later, or move the focus another way on 1.140.0</code></pre></figure>
         </div>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/abap2ui5-api-too-new.mjs#L41"><code>lib/rules/abap2ui5-api-too-new.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/abap2ui5-api-too-new.mjs#L44"><code>lib/rules/abap2ui5-api-too-new.mjs</code></a></p>
       </article>
       <article class="rule" id="aggregation-too-new" data-search="aggregation-too-new an aggregation tag introduced after your target version the same mistake as member-too-new, with a far worse blast radius, which is why it is its own rule and an error. a post-floor property is dropped silently and the control still renders; a post-floor aggregation is a lowercase tag the release does not know, so ui5 falls back to resolving it as a control class and 404s on sap/&lt;lib&gt;/&lt;name&gt;.js — the whole view fails to load, not just the part below the tag. &lt;footer&gt; on a sap.m.dialog is the recurring case: the public footer aggregation is ~1.110, so on 1.71 ui5 requests sap/m/footer.js. use buttons (1.21.1); ui5 lays them out in an overflow toolbar by itself. error">
         <h3><a href="#aggregation-too-new">aggregation-too-new</a>
@@ -1524,7 +1524,7 @@ DATA(off) = find( val = json sub = |"{ name }":"| case = abap_false ).
 DATA(html) = view-&gt;xml_escape( data ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVRRitswEL3K4K8ENg5t6ccGYnAThxqy3rBxC6UujlaWsyqyJCQ5jlNaeoiesCcpsp3dOAuufizNvPdmJM_M1x8ORwVxZs4Js1SVjLiYIe2iRySdG0eLUmHrXaz97RbOGFgGqzAK4_A-gs2nD-twAasw8teweAj8OOhsbsLh7N4GC4tuTABhFAcPK38RbOH0tqTvU5qnSMrOu_RjHzCjhBuIv2wCeAhWEN-_QFufm_AgWjaJuQlP-FWK4d1mHdwFUew_B74L4o_3y17IXwWivItbkInXhZ3Dc4xzRiMlhBnDvKNjltrPgZIqfSwpy4iaeznCRqh6BONLosVYohWYeISREXCYw-4zJdUOuLb74oB3LcWu8cRDHehYMK53cLB7jaRbDMBmVuUFWlIXC0XcYe2ZxbxmDTFYH85QLUozRMgvCPkQsDwieSlujwNwgx7ZVe6taei6SGV9CuWG7BUyVHC3otmeGD0ocP1YRSH4IKPsM0pOc0qyIYYukDKv4ki3sf_3ik2Fduxm7-LBCngyxfmXPhkjZ9NpVVVu9c4Vaj99c3t7Oz02kJ5EU8e7DdqTXb_cv2vBe32CrGXuYUWQISkppGk6pJNKHDgQnglFMsBC1jegiB1JGQgO5okAJ0cDuua4jfEsK4VMjUix4DlVRa_54GolDuRKnAiHv7__QKlJIyyFLKUGlGWCX-Rvr9rvc0PZ3DsWLNVGUb6neT2CDBnUREocUMRQm74FUlODnaC6VWzHyMRr5kRGtWSoHoE9TbwLtXH3hEG0bIdUf7g5P7_9Aw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
-        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/non-released-api.mjs#L61"><code>lib/rules/non-released-api.mjs</code></a></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/non-released-api.mjs#L62"><code>lib/rules/non-released-api.mjs</code></a></p>
       </article>
       <article class="rule" id="nonpublic-data-reference" data-search="nonpublic-data-reference a type ref to data instance attribute of a z2ui5_if_app class outside the public section abap2ui5 writes the app into the draft after every roundtrip. the generic data references of public attributes are written by the framework's own s-rtti handling; a protected or private one is left to call transformation, which refuses a target whose type was built at run time (create data … type handle, like a row of an rtti table): the first roundtrip fails with app_serialization_error / cx_reference_not_serializable "the (anonymous) data object referenced has only got a technical type". only on a system - the transpiled runtime and the unit tests pass. a warning, an error when the class itself fills the reference with type handle or like. only the direct type ref to data is read; a structure or table type holding one is not resolved. class-data is not app state and is not reported. warning">
         <h3><a href="#nonpublic-data-reference">nonpublic-data-reference</a>
@@ -3789,7 +3789,7 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
 
   <footer>
     Generated from the rule registry of
-    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.11.3</strong> — do not edit by hand.
+    <a href="https://github.com/abap2UI5/linter">abap2UI5 linter</a> <strong>v0.11.4</strong> — do not edit by hand.
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>

@@ -38,6 +38,7 @@ export const KEYS = Object.freeze([
   'formatters', 'clipboardCallbacks', 'messageBoxTypes', 'cssProperties',
   'controlMethodDenyExact', 'controlMethodDenyPrefixes', 'bindingMethods', 'filterOperators',
   'shortcutModifiers', 'shortcutAliases', 'urlHelperActions', 'urlPolicies', 'controlMethodKinds',
+  'frontendEvents',
 ]);
 
 export function buildSets(manifestText = fs.readFileSync(MANIFEST, 'utf8')) {
