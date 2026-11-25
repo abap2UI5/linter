@@ -1,5 +1,5 @@
 * A copy of z2ui5_if_client=>cs_event - abap2UI5, src/02/z2ui5_if_client.intf.abap,
-* as of 2026-10-26: the closed set of event names an app may hand to
+* as of 2026-11-25 (release 1.151.0): the closed set of event names an app may hand to
 * _event_client( ) or follow_up_action( ). scripts/check-upstream.mjs reads the
 * live interface (weekly, with network); this copy is what the suite reads
 * offline, so every constant here has to be accepted by lib/frontend-actions.mjs
@@ -28,6 +28,7 @@ INTERFACE zif_fixture_cs_event PUBLIC.
       scroll_to                 TYPE string VALUE `SCROLL_TO`,
       scroll_into_view          TYPE string VALUE `SCROLL_INTO_VIEW`,
       start_timer               TYPE string VALUE `START_TIMER`,
+      stop_timer                TYPE string VALUE `STOP_TIMER`,
       system_logout             TYPE string VALUE `SYSTEM_LOGOUT`,
       keyboard_shortcut         TYPE string VALUE `KEYBOARD_SHORTCUT`,
       open_new_tab              TYPE string VALUE `OPEN_NEW_TAB`,
@@ -53,7 +54,6 @@ INTERFACE zif_fixture_cs_event PUBLIC.
       hash_attach_changed       TYPE string VALUE `HASH_ATTACH_CHANGED`,
       hash_routing              TYPE string VALUE `SET_NAV_ROUTING`,
       app_state_set_active      TYPE string VALUE `SET_APP_STATE_ACTIVE`,
-      offline_queue             TYPE string VALUE `OFFLINE_QUEUE`,
 
     END OF cs_event.
 

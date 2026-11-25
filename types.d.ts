@@ -567,8 +567,10 @@ declare module "@abap2ui5/linter/properties" {
     distribution?: string;
     /** unknown-binding-path: the aggregation binding the row context came from */
     context?: string;
-    /** non-released-api: which package the object lives in, what that package
-     *  is, and whether it is the frozen one — `member` carries the path. */
+    /** non-released-api: which package the object lives in (or the repository
+     *  it moved to), what that package is, and whether it is the frozen one —
+     *  `member` carries the path. Always false since abap2UI5 1.151.0 removed
+     *  the frozen package src/99; kept because the --json shape only grows. */
     what?: string;
     frozen?: boolean;
     /** non-released-api: the object (or project) that took its place, if any.

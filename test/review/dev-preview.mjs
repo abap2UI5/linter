@@ -34,7 +34,7 @@ export default async function ({ section, assert, checkAbapSource }) {
     }
   });
 
-  section('dev preview: STOP_TIMER is a known frontend action, a misspelling is not', () => {
+  section('main sync: STOP_TIMER is a known frontend action, a misspelling is not', () => {
     const wired = app('    client->follow_up_action( client->_event_client( client->cs_event-stop_timer ) ).\n');
     assert(of(wired, 'unknown-frontend-action').length === 0, 'cs_event-stop_timer passes');
     const literal = app('    client->follow_up_action( val = `STOP_TIMER` ).\n');
@@ -45,18 +45,18 @@ export default async function ({ section, assert, checkAbapSource }) {
     }
   });
 
-  section('dev preview: component_path( ) is a static of the builder, escape( ) is not', () => {
+  section('main sync: component_path( ) is a static of the builder, escape( ) is not', () => {
     const ok = app('    DATA(path) = z2ui5_cl_ui5_view_builder=>component_path( name ).\n');
     assert(of(ok, 'unknown-builder-method').length === 0, 'component_path( ) passes');
     const bad = app('    DATA(text) = z2ui5_cl_ui5_view_builder=>escape( name ).\n');
     assert(of(bad, 'unknown-builder-method').length === 1, 'an unknown static is still reported');
   });
 
-  section('dev preview: abap2ui5-api-too-new knows STOP_TIMER is in no release', () => {
+  section('main sync: abap2ui5-api-too-new knows STOP_TIMER is on main and in no release', () => {
     const src = app('    client->follow_up_action( client->_event_client( client->cs_event-stop_timer ) ).\n');
     const f = of(src, 'abap2ui5-api-too-new', { abap2ui5: '1.148.0' });
-    assert(f.length === 1 && f[0].since === 'DEV', `reported against a release (${f.length}, ${f[0]?.since})`);
-    assert(/is on abap2UI5's DEV and in no release yet/.test(f[0]?.message ?? ''), 'the message says DEV');
+    assert(f.length === 1 && f[0].since === 'main', `reported against a release (${f.length}, ${f[0]?.since})`);
+    assert(/is on abap2UI5's main and in no release yet/.test(f[0]?.message ?? ''), 'the message says main');
     assert(of(src, 'abap2ui5-api-too-new').length === 0, 'without a configured release: not judged');
   });
 
