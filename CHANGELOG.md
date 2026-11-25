@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Added
+
+- **Builder helpers of another class with a body are replayed, one level
+  deep.** Beyond the literal factory and the stringify helper (0.11.4), a
+  static helper of another class of the run whose body builds - into a
+  handle it is given (`build_table( i_xml = page )`), or into one it opens
+  and returns (`build_page( client i_title )`) - is replayed in the calling
+  class with that class's own helpers and resolver: its names never
+  resolve against the caller's attributes, a parameter other than a handle
+  stays unresolved, and a body reaching a further helper through `class=>`
+  is not entered. Regression sections in
+  `test/review/builder-helpers-across-classes.mjs`; the limits in
+  `docs/agents/scope.md`.
+
+### Fixed
+
+- **`missing-view-display-on-navigated`: no re-display after a popup.** A
+  navigated branch that returns from a popups-addon class (`IS [NOT]
+  INSTANCE OF z2ui5_cl_popup_…`, `CAST z2ui5_if_popup_result`) - or from a
+  class of the run that may display a popup itself or through a superclass
+  (`popup` in the class index, `mayShowPopup( )`) - is not judged: the
+  caller's view never left the main slot, or whether it did is decided at
+  runtime. On the EWM app suite: the last two errors of the rule. Regression
+  section in `test/review/inherited-apps.mjs`.
+
 ### Fixed
 
 - **`unescaped-brace-in-style`: a template expression and `a( t = )` carry

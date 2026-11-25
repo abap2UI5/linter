@@ -111,4 +111,21 @@ export default async function ({ section, assert, tempDir, checkAbapSource }) {
     const b = classIndexDeps(sub, classIndexOf([dynBase, sub]));
     assert(a !== b, 'and --cache re-judges it when the base changes');
   });
+  section('missing-view-display-on-navigated: no re-display after a popup', () => {
+    const app = (branch) => 'CLASS zcl_nav DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_val TYPE string.\nENDCLASS.\n\n'
+      + `CLASS zcl_nav IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n${branch}  ENDMETHOD.\nENDCLASS.\n`;
+    const back = (index, branch) => checkAbapSource(app(branch), { render: false, classIndex: index }).findings.filter((f) => f.type === REDISPLAY).length;
+    const popupsAddon = '    IF client->check_on_navigated( ).\n      mv_val = CAST z2ui5_if_popup_result( client->get_app_prev( ) )->value_string( ).\n    ENDIF.\n';
+    assert(back(null, popupsAddon) === 0, 'the result of a popups-addon popup is read - nothing to re-display');
+    const guard = '    IF client->check_on_navigated( ) = abap_false.\n      RETURN.\n    ENDIF.\n    DATA(prev) = client->get_app_prev( ).\n    IF prev IS NOT INSTANCE OF z2ui5_cl_popup_value_help.\n      RETURN.\n    ENDIF.\n';
+    assert(back(null, guard) === 0, 'a guard on INSTANCE OF z2ui5_cl_popup_value_help: the same');
+    // a class of the run that may show a popup (itself or a superclass) - whether it replaced the view is a runtime matter
+    const viewOrPopup = 'CLASS zcl_target DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\nENDCLASS.\nCLASS zcl_target IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n    IF mv_popup = abap_true.\n      client->popup_display( `<x/>` ).\n    ELSE.\n      client->view_display( `<x/>` ).\n    ENDIF.\n  ENDMETHOD.\nENDCLASS.\n';
+    const fromTarget = '    IF client->check_on_navigated( ).\n      DATA(t) = CAST zcl_target( client->get_app_prev( ) ).\n    ENDIF.\n';
+    assert(back(classIndexOf([viewOrPopup, app(fromTarget)]), fromTarget) === 0, 'a run class that may display a popup is not judged');
+    // the neighbouring form: a class of the run that only displays a view is still reported
+    const viewOnly = viewOrPopup.replace('client->popup_display', 'client->view_display');
+    assert(back(classIndexOf([viewOnly, app(fromTarget)]), fromTarget) === 1, 'one that only displays views is still reported');
+    assert(back(null, fromTarget) === 1, 'and so is one the run does not hold');
+  });
 }
