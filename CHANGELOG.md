@@ -4,6 +4,18 @@
 
 ### Fixed
 
+- **`unescaped-brace-in-style`: a template expression and `a( t = )` carry
+  no CSS brace.** `t = |<style type="text/css">{ lv_css }</style>|` was
+  reported as two unescaped braces: the braces of a `|…|` template are its
+  embedded expression, and the builder escapes every brace of a value
+  passed with `t =` itself (an EWM app suite's views class). Template
+  braces are no longer counted, and a stylesheet in a `t =` argument is
+  not judged. A sheet that mixes backtick CSS with a template expression
+  now gets its fix for the backtick braces instead of none. Regression
+  sections in `test/review/abap-side-rules.mjs` and `test/sections/fix.mjs`.
+
+### Fixed
+
 - **`unconditional-popup-display`: a guard or a WHEN arm in a helper is a
   branch too.** The rule followed main( ) into the methods it calls and
   counted a `popup_display( )` anywhere in their bodies as "at the top

@@ -87,6 +87,20 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(open, 'unescaped-brace-in-style').length === 0, 'a sheet with no closing tag in sight is still not bounded, and not judged');
   });
 
+  section('unescaped-brace-in-style: a template expression and a( t = ) carry no CSS brace', () => {
+    /* `t = |<style type="text/css">{ lv_css }</style>|` was reported twice:
+     * the braces are the template's embedded expression, and t = escapes
+     * whatever the value holds (an EWM app suite's views class, 2026-11-25) */
+    const css = '    DATA(lv_css) = `.a \\{ color: red; \\}`.\n';
+    const viaT = (content) => app({ core: true, locals: css, chain: html(content).replace(' v = ', ' t = ') });
+    assert(of(viaT('|<style type="text/css">{ lv_css }</style>|'), 'unescaped-brace-in-style').length === 0, 'an embedded expression passed with t = is no brace');
+    assert(of(viaT('`<style>.a { color: red; }</style>`'), 'unescaped-brace-in-style').length === 0, 'literal braces passed with t = are escaped by the builder');
+    const viaV = app({ core: true, locals: css, chain: html('|<style type="text/css">{ lv_css }</style>|') });
+    assert(of(viaV, 'unescaped-brace-in-style').length === 0, 'the embedded expression is no brace with v = either - what it inserts is not this rule\'s to see');
+    // the neighbouring form: literal braces passed with v = are still reported
+    assert(of(app({ core: true, chain: html('`<style>.a { color: red; }</style>`') }), 'unescaped-brace-in-style').length === 1, 'literal braces with v = are still reported');
+  });
+
   section('round 2026-10-12: hardcoded-binding-path stands down inside a <style> value and on an escaped brace', () => {
     // the old failure: `\{/* brand */` in a core:HTML content was a path
     const sheet = app({ core: true, chain: html('`<style>.myBox \\{/* brand */ color: red; \\}</style>`') });

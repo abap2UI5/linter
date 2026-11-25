@@ -254,7 +254,11 @@ section('fix (3)', async () => {
         'fix: unescaped-brace-in-style escapes every brace of the sheet');
       const mixed = 'DATA(css) = `<style>.box {color:red}` && |.b { expr }</style>|.';
       const m = one(mixed, 'unescaped-brace-in-style');
-      assert(m.length === 1 && !m[0].fixes, 'fix: unescaped-brace-in-style declines a sheet with a brace in a template');
+      /* the template's `{ expr }` is an embedded expression, not CSS: only the
+       * backtick literal's braces are reported, and fixed */
+      assert(m.length === 1 && m[0].count === 2 && m[0].fixes?.length === 2, 'fix: unescaped-brace-in-style counts only the sheet\'s CSS braces, not a template expression');
+      assert(applyFixes(mixed, m).output === 'DATA(css) = `<style>.box \\{color:red\\}` && |.b { expr }</style>|.',
+        'fix: and escapes those, leaving the expression alone');
     }
 
     // --- collapsed-brace-in-style: the doubled backslash, every segment -------
