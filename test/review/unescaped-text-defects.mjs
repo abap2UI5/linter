@@ -280,6 +280,23 @@ export default async function ({ section, assert, FIX, tempDir, checkAbapSource,
 
   // ------------------------------------------------ 6. the flow rules follow helper methods
 
+  section('unconditional-popup-display: a helper\'s guard or WHEN arm is a branch too', () => {
+    /* main( ) calls on_event( ) / on_after_layout( ) unconditionally, and
+     * those display the popup from a WHEN arm or behind an early RETURN -
+     * reported as "at the top level of main( )" (an EWM app suite,
+     * 2026-11-25). One guarded level makes the whole path conditional. */
+    const via = (body) => dispatcher('    IF client->check_on_init( ).\n      view_display( ).\n    ENDIF.\n    on_step( ).\n',
+      { defs: '    METHODS on_step.\n', methods: `  METHOD on_step.\n${body}  ENDMETHOD.\n` });
+    const when = via('    CASE client->get_event( ).\n      WHEN `SETUP`.\n        popup_display( ).\n    ENDCASE.\n');
+    assert(of(when, 'unconditional-popup-display').length === 0, 'a popup from one WHEN arm of the helper is conditional');
+    const guard = via('    IF client->check_on_navigated( ) = abap_false.\n      RETURN.\n    ENDIF.\n    popup_display( ).\n');
+    assert(of(guard, 'unconditional-popup-display').length === 0, 'a popup behind the helper\'s early RETURN is conditional');
+    // the neighbouring form: unconditional at every level is still reported, at main( )'s call
+    const always = via('    popup_display( ).\n');
+    const hit = of(always, 'unconditional-popup-display');
+    assert(hit.length === 1 && hit[0].line === lineOf(always, '    on_step( ).'), `a helper that always displays it is reported at the call in main( ) (${hit.map((x) => x.line)})`);
+  });
+
   section('unconditional-popup-display and display-after-nav-app-call see a display issued through a helper', () => {
     const popup = dispatcher('    IF client->check_on_init( ).\n      view_display( ).\n    ELSEIF client->check_on_navigated( ).\n      view_display( ).\n    ENDIF.\n    popup_display( ).\n');
     const found = of(popup, 'unconditional-popup-display');

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed
+
+- **`unconditional-popup-display`: a guard or a WHEN arm in a helper is a
+  branch too.** The rule followed main( ) into the methods it calls and
+  counted a `popup_display( )` anywhere in their bodies as "at the top
+  level of main( )" - also one in a WHEN arm of `on_event( )`, or behind an
+  `IF client->check_on_navigated( ) = abap_false. RETURN. ENDIF.` guard of
+  `on_after_layout( )` (an EWM app suite, two warnings on correct code).
+  A display counts now only where it is unconditional at every level of
+  the path (`unconditionalCallIn( )` in `lib/lifecycle-rules.mjs`); a helper
+  that always displays the popup is still reported at main( )'s call.
+  Regression section in `test/review/unescaped-text-defects.mjs`.
+
 ## 0.11.4 - 2026-11-25
 
 ### Added
