@@ -23,6 +23,14 @@
 
 ### Fixed
 
+- **`relative-binding-without-context`: no verdict below a control the
+  snapshot does not know.** Such a control's children used to be judged as
+  having no context at all - also a `table:Column` whose `table:` prefix the
+  view leaves to a helper to declare (a views class completing the xmlns
+  after stringify( )): every relative cell of its template was an error.
+  Below an unknown control the context is unknown too (`opaque` on the
+  walk's owner); a relative path outside one is judged as before.
+  Regression section in `test/review/unknown-not-missing.mjs`.
 - **Apps by inheritance are collected and judged as apps.** A class whose
   superclass chain, read over the classes of the linted paths, reaches one
   that declares `INTERFACES z2ui5_if_app` is an app class: the base-app

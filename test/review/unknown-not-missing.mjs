@@ -111,6 +111,45 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     }
   });
 
+  section('relative-binding-without-context: no verdict below a control the snapshot does not know', () => {
+    /* A sap.ui.table Column whose `table:` prefix the view leaves to a helper
+     * to declare (a views class completes the xmlns after stringify( )) is
+     * an unknown control to the walk, and its template lost the row context:
+     * every relative cell was an error (an EWM app suite, 2026-11-25) */
+    const view = (decl, cell) => `CLASS zcl_rows DEFINITION PUBLIC.
+  PUBLIC SECTION.
+    INTERFACES z2ui5_if_app.
+    TYPES: BEGIN OF ty_s, anzser TYPE string, END OF ty_s.
+    DATA mt TYPE STANDARD TABLE OF ty_s WITH EMPTY KEY.
+    DATA anzser TYPE string.
+ENDCLASS.
+CLASS zcl_rows IMPLEMENTATION.
+  METHOD z2ui5_if_app~main.
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    view->ele( n = \`View\` ns = \`mvc\` )->a( n = \`xmlns\` v = \`sap.m\` )->a( n = \`xmlns:mvc\` v = \`sap.ui.core.mvc\` )${decl}
+      )->ele( \`Page\`
+        )->ele( n = \`Table\` ns = \`table\` )->a( n = \`rows\` v = client->_bind( mt )
+          )->ele( n = \`columns\` ns = \`table\`
+            )->ele( n = \`Column\` ns = \`table\`
+              )->ele( n = \`template\` ns = \`table\`
+                )->tag( \`Button\` )->a( n = \`text\` v = \`{ANZSER}\`
+              )->end(
+            )->end(
+          )->end(
+        )->end(
+        )->tag( \`Text\` )->a( n = \`text\` v = \`${cell}\` ).
+    client->view_display( view->stringify( ) ).
+  ENDMETHOD.
+ENDCLASS.
+`;
+    const orphans = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'relative-binding-without-context').map((x) => x.value);
+    assert(orphans(view('->a( n = `xmlns:table` v = `sap.ui.table` )', 'x')).length === 0, 'a declared sap.ui.table template has its row context');
+    const undeclared = orphans(view('', 'x'));
+    assert(undeclared.length === 0, `an undeclared table: prefix makes the Column unknown - its cells are not judged (${undeclared})`);
+    // the neighbouring form: a relative path outside any unknown control is still reported
+    assert(orphans(view('', '{ANZSER}')).join() === 'ANZSER', 'the same relative path on a Page child is still contextless');
+  });
+
   section('unknown-binding-path: a component typed by the class\'s own structure component resolves like its type', () => {
     const src = listOf(['name TYPE string', 'copy TYPE ty_other-name', 'len  TYPE c LENGTH 10', 'neg  TYPE i VALUE -1'], ['COPY', 'LEN', 'NEG', 'NOPE']);
     const got = paths(checkAbapSource(src, opts));
