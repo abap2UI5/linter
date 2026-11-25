@@ -19,6 +19,7 @@ import { buildSets, SETS_FILE, KEYS } from '../../scripts/generate-sets.mjs';
 import { UPSTREAM_SETS } from '../../lib/abap2ui5-sets.mjs';
 import * as actions from '../../lib/frontend-actions.mjs';
 import { CURATED_FORMATTERS, CLIPBOARD_CALLBACKS } from '../../lib/formatters.mjs';
+import { DEV_PREVIEW } from '../../lib/abap2ui5-preview.mjs';
 
 export default function ({ section, assert, FIX, tempDir }) {
   const ROOT = path.join(FIX, '..', '..');
@@ -52,6 +53,8 @@ export default function ({ section, assert, FIX, tempDir }) {
       controlMethodDenyPrefixes: actions.CONTROL_METHOD_DENY_PREFIXES, bindingMethods: actions.BINDING_METHODS,
       filterOperators: actions.FILTER_OPERATORS, shortcutModifiers: actions.SHORTCUT_MODIFIERS, shortcutAliases: actions.SHORTCUT_ALIASES,
       urlHelperActions: actions.URLHELPER_ACTIONS, urlPolicies: actions.URL_POLICIES, controlMethodKinds: actions.CONTROL_METHOD_KINDS,
+      // without the DEV additions main's manifest does not have (lib/abap2ui5-preview.mjs)
+      frontendEvents: actions.FRONTEND_EVENTS.filter((name) => !DEV_PREVIEW.frontendEvents.includes(name) || m.frontendEvents.includes(name)),
     };
     assert(JSON.stringify(Object.keys(mirrors).sort()) === JSON.stringify([...KEYS].sort()), 'every generated key has its mirror named here');
     for (const key of KEYS) {

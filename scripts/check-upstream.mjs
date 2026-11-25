@@ -76,6 +76,8 @@ import {
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES, MESSAGE_BOX_TYPES,
 } from '../lib/frontend-actions.mjs';
 import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
+import { DEV_PREVIEW } from '../lib/abap2ui5-preview.mjs';
+import { VIEW_BUILDER } from '../lib/builders.mjs';
 import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
 
 const RAW = 'https://raw.githubusercontent.com/abap2UI5/abap2UI5/main';
@@ -140,6 +142,7 @@ export function readManifest(text) {
     if (!ok) throw new Error(`'${key}' must be ${type === 'array' ? 'an array' : 'an object'}`);
   }
   if (m.frozenBuilderHelpers === undefined) m.frozenBuilderHelpers = null;
+  if (m.builderStatics === undefined) m.builderStatics = null;
   return m;
 }
 
@@ -455,7 +458,16 @@ if (invokedDirectly) {
       console.error(`check-upstream: could not find the handlers dispatch table — ${fixHint()}`);
       process.exit(2);
     }
-    report('frontend action dispatch table (lib/frontend-actions.mjs)', [...FRONTEND_EVENTS], theirs);
+    // the DEV additions are not main's (lib/abap2ui5-preview.mjs): compared without them
+    const ours = FRONTEND_EVENTS.filter((name) => !DEV_PREVIEW.frontendEvents.includes(name) || theirs.includes(name));
+    report('frontend action dispatch table (lib/frontend-actions.mjs)', ours, theirs);
+  }
+  /* The view builder's CLASS-METHODS - written into the manifest since
+   * abap2UI5 8b10409; an older manifest has no list, and nothing is compared. */
+  if (Array.isArray(up.builderStatics)) {
+    const theirs = up.builderStatics;
+    const ours = VIEW_BUILDER.statics.filter((name) => !DEV_PREVIEW.builderStatics.includes(name) || theirs.includes(name));
+    report('view builder static methods (lib/builders.mjs)', ours, theirs);
   }
   /* FRONTEND_EVENT_ALIASES and SERVER_EVENTS are in no frontend source — the
    * aliases are remapped by z2ui5_cl_ui5_srv_event, the server events are

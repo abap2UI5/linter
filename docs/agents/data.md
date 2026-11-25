@@ -157,22 +157,32 @@ The direction is turned round:
   agree; the test names every set that does not.
 
 - **A mirror that is nothing but its set is not typed in any more.**
-  `scripts/generate-sets.mjs` turns thirteen of the manifest's lists into
+  `scripts/generate-sets.mjs` turns fourteen of the manifest's lists into
   `lib/abap2ui5-sets.mjs` (`UPSTREAM_SETS`; `sync-manifest` rewrites it with
   the copy), and the exports take their value from it: `CURATED_FORMATTERS`,
   `CLIPBOARD_CALLBACKS`, `MESSAGE_BOX_TYPES`, `CSS_PROPERTIES`, the two
   `CONTROL_METHOD_DENY_*` lists, `BINDING_METHODS`, `FILTER_OPERATORS`,
   `SHORTCUT_MODIFIERS`, `SHORTCUT_ALIASES`, `URLHELPER_ACTIONS`,
-  `URL_POLICIES`, `CONTROL_METHOD_KINDS`. For those an upstream change is
+  `URL_POLICIES`, `CONTROL_METHOD_KINDS`, `FRONTEND_EVENTS` (plus the DEV
+  additions, below). For those an upstream change is
   `npm run sync-manifest` and nothing else. A module, not a read of the JSON:
   `lib/check.mjs` is imported where there is no file system.
 
 What is still written by hand, because it carries more than the set:
-`GLOBAL_TARGETS` (the release each needs), `FRONTEND_EVENTS` with the alias
-and server-event lists, `VIEW_SLOTS` (its order is the one messages print),
+`GLOBAL_TARGETS` (the release each needs), the alias and server-event lists
+beside `FRONTEND_EVENTS`, `VIEW_BUILDER.statics` (lib/builders.mjs imports
+nothing; held to the manifest's `builderStatics` once main carries it), `VIEW_SLOTS` (its order is the one messages print),
 `lib/cc-controls.mjs` (property types, the replacement an obsolete control
 names) and `lib/released-api.mjs`. Those are held to the manifest by the test
 above.
+
+- **The copy is main's, not DEV's.** A name abap2UI5 DEV added and main has
+  not yet (STOP_TIMER, component_path) goes into `lib/abap2ui5-preview.mjs`,
+  by hand with its commit: accepted like the manifest's names, judged as in
+  no release by `abap2ui5-api-too-new`, and compared without by
+  `check-upstream`. `test/review/dev-preview.mjs` fails once main's manifest
+  carries a listed name - drop it then. Never sync against DEV: its removals
+  would be reported for every app on the released main.
 
 ## `data/portable-v1.json` — vendored from abap2UI5/protocol, never hand-edited
 

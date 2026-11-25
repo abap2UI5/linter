@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.11.4 - 2026-11-25
+
 ### Added
 
 - **`nonpublic-data-reference`: a `TYPE REF TO data` instance attribute of
@@ -32,8 +34,36 @@
   `test/review/builder-helpers-across-classes.mjs`; the limits in
   `docs/agents/scope.md`.
 
+- **abap2UI5 DEV additions are accepted before main has them.**
+  `z2ui5_cl_ui5_view_builder=>component_path( )` (abap2UI5 40e8a073) was an
+  `unknown-builder-method` and a wired `STOP_TIMER` (4a418249) an
+  `unknown-frontend-action` in every 0.11.x, although DEV documents both
+  (abap2UI5/table-maintenance 880fc2d suppressed the first, the protocol
+  conformance app met the second). `lib/abap2ui5-preview.mjs` lists DEV's
+  additions by hand, each with its commit; `abap2ui5-api-too-new` reports
+  them as in no release yet for a configured release, and
+  `test/review/dev-preview.mjs` fails once main's manifest carries one, so
+  the list empties itself. Syncing against DEV instead would have taken its
+  removals along (`ROUTER`, `VIEW_SLOTS` `display` / `updateModel`) and
+  reported them for every app on the released main.
+
 ### Changed
 
+- **`FRONTEND_EVENTS` comes out of the manifest.** It was the last hand
+  copy among the dispatch-table mirrors, and the one that missed
+  `STOP_TIMER`; `frontendEvents` is a generated set of
+  `lib/abap2ui5-sets.mjs` now, plus the DEV additions.
+- **The view builder's static methods are held to abap2UI5's manifest.**
+  abap2UI5 publishes them as `builderStatics` (8b10409 on DEV);
+  `check-upstream` compares `VIEW_BUILDER.statics` with it when the manifest
+  carries the key, so the next static is drift in this repository rather
+  than an error in a consumer's CI.
+- **Synced with abap2UI5 main's manifest.** `OFFLINE_QUEUE` is gone from
+  the dispatch table and from `cs_event` upstream and is reported now;
+  `z2ui5_cl_http_handler` and `z2ui5_if_exit` were deleted from `src/99` -
+  `non-released-api` keeps reporting them, under the area `removed` (was
+  `src/99`; a baseline entry for either has to be re-recorded) with their
+  successors `z2ui5_cl_ui5_http_handler` / `z2ui5_if_ui5_exit`.
 - **`private-app-attribute` no longer sends a `TYPE REF TO data` to
   PROTECTED.** Its remedy said "PROTECTED for a helper", and its fix renamed
   `PRIVATE SECTION` to `PROTECTED SECTION` - for a data reference exactly the
