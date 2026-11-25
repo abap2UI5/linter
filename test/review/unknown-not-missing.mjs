@@ -90,6 +90,13 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(paths(checkAbapSource(ns, opts)).length === 0, `a path below an attribute of a namespaced DDIC type is unknown, not missing (${paths(checkAbapSource(ns, opts))})`);
   });
 
+  section('unbound-public-attribute: a namespaced class binds what it binds', () => {
+    // `CLASS /kro/cl_x IMPLEMENTATION` was not found, and every PUBLIC attribute was unbound
+    const src = listOf(['name TYPE string'], ['NAME']).replace(/zcl_lock/g, '/kro/cl_lock');
+    const hits = checkAbapSource(src, opts).findings.filter((x) => x.type === 'unbound-public-attribute').map((x) => x.member);
+    assert(hits.length === 0, `mt_locks is bound (${hits.join() || 'none'})`);
+  });
+
   section('unknown-binding-path: a component typed by the class\'s own structure component resolves like its type', () => {
     const src = listOf(['name TYPE string', 'copy TYPE ty_other-name', 'len  TYPE c LENGTH 10', 'neg  TYPE i VALUE -1'], ['COPY', 'LEN', 'NEG', 'NOPE']);
     const got = paths(checkAbapSource(src, opts));

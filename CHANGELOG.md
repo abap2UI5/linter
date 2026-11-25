@@ -43,6 +43,9 @@
   reconstructor take a `/ns/` prefix now; such a DDIC type stays unknown
   (not judged), as any DDIC type does. Regression section in
   `test/review/unknown-not-missing.mjs`.
+- **`unbound-public-attribute` in a namespaced class.** `CLASS /kro/cl_x
+  IMPLEMENTATION` was not found, the bindings were read from nothing, and
+  every PUBLIC attribute of the class was reported as unbound.
 
 ## 0.11.3 - 2026-11-19
 
