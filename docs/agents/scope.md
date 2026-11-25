@@ -6,7 +6,9 @@ What is collected, which builders are read, how a name is resolved to a value an
 
 - Input is **generic-builder classes** — `z2ui5_cl_ui5_view_builder`
   (`ele`/`tag`/`a`/`end`); `collectFiles` picks ABAP files containing
-  `<class>=>factory`, plus every app class (`INTERFACES z2ui5_if_app`) even
+  `<class>=>factory`, plus every app class (`INTERFACES z2ui5_if_app`, or a
+  superclass chain under the paths that reaches such a class - an app by
+  inheritance, `isAppClass( )`) even
   when its view is built in another class — such a class is judged by the
   source-side rules and the ABAP-side rules that read the class rather than
   the view (`VIEWLESS_APP_RULE` in `lib/check.mjs`), and counted in the run

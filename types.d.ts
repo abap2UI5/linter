@@ -21,6 +21,10 @@ declare module "@abap2ui5/linter" {
   export type ClassIndex = Map<string, {
     superclass: string | null;
     csEvent: boolean;
+    /** Whether the class itself declares `INTERFACES z2ui5_if_app` - what
+     *  makes a subclass an app by inheritance. Optional for a hand-built
+     *  index; without it no class inherits an app. */
+    app?: boolean;
     /** Names (lower case) another class of the run reads as `->name` while
      *  naming this class - what silences unbound-/unused-public-attribute.
      *  Optional for a hand-built index. */
@@ -289,6 +293,10 @@ declare module "@abap2ui5/linter/check" {
    *  literals blanked) - an app class, judged as `appWithoutView` when it
    *  builds no view itself. */
   export function declaresApp(source: string): boolean;
+  /** An app class, own or inherited: declaresApp( ), or a superclass chain
+   *  that reaches a class of `classIndex` declaring z2ui5_if_app. A chain
+   *  that leaves the index is not an app. */
+  export function isAppClass(source: string, classIndex?: import("@abap2ui5/linter").ClassIndex | null): boolean;
   /** The rule ids an app class WITHOUT a view is judged by on top of
    *  checkSourceRules( ): checkAbapSource keeps the findings of
    *  checkAbapRules( ) whose type this matches. */

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Apps by inheritance are collected and judged as apps.** A class whose
+  superclass chain, read over the classes of the linted paths, reaches one
+  that declares `INTERFACES z2ui5_if_app` is an app class: the base-app
+  design (one class implements `main( )`, the concrete apps inherit and
+  redefine its hooks) used to leave every concrete app uncollected - on an
+  EWM app suite 41 of 57 app classes, "no checkable app classes" for most of
+  the repository. `collectFiles( )` decides it after the walk, so the
+  superclass may sit anywhere under the paths; `checkAbapSource( )` reads it
+  from the class index (`isAppClass( )`, exported from `./check`; the index
+  entry carries `app`). A chain that leaves the paths is unknown, not "no
+  app": such a class stays uncollected. Regression sections in
+  `test/review/inherited-apps.mjs`.
+
 ## 0.11.3 - 2026-11-19
 
 ### Fixed
