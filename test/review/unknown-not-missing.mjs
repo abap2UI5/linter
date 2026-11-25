@@ -97,6 +97,20 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(hits.length === 0, `mt_locks is bound (${hits.join() || 'none'})`);
   });
 
+  section('unbound-public-attribute: an attribute whose reference is handed out is not judged', () => {
+    /* `REF #( mt_table_data )` handed to layout-management's table builder,
+     * which binds `data->*` - "no binding reaches it" was a guess (an EWM
+     * app suite, 2026-11-25) */
+    const base = listOf(['name TYPE string'], ['NAME'], 'DATA mt_locks TYPE ty_lock_rows.\n    DATA mt_other TYPE ty_lock_rows.');
+    const unbound = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'unbound-public-attribute').map((x) => x.member);
+    const used = base.replace('client->view_display', 'CLEAR mt_other.\n    client->view_display');
+    assert(unbound(used).join() === 'mt_other', `used and unbound is reported (${unbound(used)})`);
+    for (const take of ['DATA(r) = REF #( mt_other ).', 'GET REFERENCE OF me->mt_other INTO DATA(r).']) {
+      const handed = used.replace('CLEAR mt_other.', `CLEAR mt_other.\n    ${take}`);
+      assert(unbound(handed).length === 0, `${take} - unknown, not unbound`);
+    }
+  });
+
   section('unknown-binding-path: a component typed by the class\'s own structure component resolves like its type', () => {
     const src = listOf(['name TYPE string', 'copy TYPE ty_other-name', 'len  TYPE c LENGTH 10', 'neg  TYPE i VALUE -1'], ['COPY', 'LEN', 'NEG', 'NOPE']);
     const got = paths(checkAbapSource(src, opts));

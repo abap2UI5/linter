@@ -65,6 +65,11 @@
 - **`unbound-public-attribute` in a namespaced class.** `CLASS /kro/cl_x
   IMPLEMENTATION` was not found, the bindings were read from nothing, and
   every PUBLIC attribute of the class was reported as unbound.
+- **`unbound-public-attribute`: an attribute whose reference the class
+  hands out is not judged.** `REF #( mt_data )` / `GET REFERENCE OF
+  mt_data` given to another object (layout-management's table builder, a
+  views class binding `i_data->*`) may well be bound there; "no binding
+  reaches it" was a guess.
 
 ## 0.11.3 - 2026-11-19
 
