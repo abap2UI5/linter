@@ -21,6 +21,12 @@ declare module "@abap2ui5/linter" {
   export type ClassIndex = Map<string, {
     superclass: string | null;
     csEvent: boolean;
+    /** Whether the class itself declares `INTERFACES z2ui5_if_app` - what
+     *  makes a subclass an app by inheritance. Optional for a hand-built
+     *  index; without it no class inherits an app. */
+    app?: boolean;
+    /** The builder helpers it offers other classes (builderHelpersOf( )). */
+    builderHelpers?: Map<string, import("@abap2ui5/linter/reconstruct").BuilderHelper> | null;
     /** Names (lower case) another class of the run reads as `->name` while
      *  naming this class - what silences unbound-/unused-public-attribute.
      *  Optional for a hand-built index. */
@@ -289,6 +295,10 @@ declare module "@abap2ui5/linter/check" {
    *  literals blanked) - an app class, judged as `appWithoutView` when it
    *  builds no view itself. */
   export function declaresApp(source: string): boolean;
+  /** An app class, own or inherited: declaresApp( ), or a superclass chain
+   *  that reaches a class of `classIndex` declaring z2ui5_if_app. A chain
+   *  that leaves the index is not an app. */
+  export function isAppClass(source: string, classIndex?: import("@abap2ui5/linter").ClassIndex | null): boolean;
   /** The rule ids an app class WITHOUT a view is judged by on top of
    *  checkSourceRules( ): checkAbapSource keeps the findings of
    *  checkAbapRules( ) whose type this matches. */
@@ -410,6 +420,15 @@ declare module "@abap2ui5/linter/reconstruct" {
   /** `classIndex` resolves a type the class names in another class or
    *  interface of the run (`TYPE zcl_x=>ty_s_row`). */
   export function prepareAbap(source: string, opts?: { classIndex?: import("@abap2ui5/linter").ClassIndex | null }): PreparedAbap;
+  /** A builder helper another class may call statically: `factory` returns
+   *  a handle built as `result = <builder>=>factory( )->chain` with a
+   *  literal-only chain; `stringify` takes one handle and returns its
+   *  stringify( ) (`rewrites` when it edits the string after). */
+  export type BuilderHelper = { kind: "factory"; chain: string } | { kind: "stringify"; rewrites: boolean };
+  /** The builder helpers a class offers, by method name (lower case), or
+   *  null - what the class index carries as `builderHelpers` and
+   *  prepareAbap( ) replays in a class that calls them. */
+  export function builderHelpersOf(source: string): Map<string, BuilderHelper> | null;
 
   /** The elements of every `keyword` declaration in `content` - the single
    *  form and the chained `DATA: a TYPE i, b TYPE string.` form alike, each

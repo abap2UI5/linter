@@ -77,6 +77,40 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(got.join() === 'GNAEM', `only the name the row does not declare is reported (got ${got.join() || 'none'})`);
   });
 
+  section('unknown-binding-path: a namespaced type is a type', () => {
+    /* `lgnum TYPE /scwm/lgnum` dropped the field from the row, `DATA ms TYPE
+     * /kro/s_val` left the attribute undeclared - every binding below them
+     * "no such field / path" (an EWM app suite, 2026-11-25) */
+    const src = listOf(['lgnum TYPE /scwm/lgnum', 'werks TYPE werks_d'], ['LGNUM', 'WERKS', 'LGNMU']);
+    const row = prepareAbap(src).modelShape.MT_LOCKS[0];
+    assert(Object.keys(row).join() === 'LGNUM,WERKS', `the namespaced component is in the row shape (got ${Object.keys(row).join()})`);
+    assert(paths(checkAbapSource(src, opts)).join() === 'LGNMU', 'only the misspelt name is reported');
+    const ns = listOf(['name TYPE string'], ['NAME'], 'DATA mt_locks TYPE ty_lock_rows.\n    DATA ms_val TYPE /kro/s_value.')
+      .replace('        )->ele( \`Page\`\n', '        )->ele( \`Page\`\n            )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( ms_val-text )\n');
+    assert(paths(checkAbapSource(ns, opts)).length === 0, `a path below an attribute of a namespaced DDIC type is unknown, not missing (${paths(checkAbapSource(ns, opts))})`);
+  });
+
+  section('unbound-public-attribute: a namespaced class binds what it binds', () => {
+    // `CLASS /kro/cl_x IMPLEMENTATION` was not found, and every PUBLIC attribute was unbound
+    const src = listOf(['name TYPE string'], ['NAME']).replace(/zcl_lock/g, '/kro/cl_lock');
+    const hits = checkAbapSource(src, opts).findings.filter((x) => x.type === 'unbound-public-attribute').map((x) => x.member);
+    assert(hits.length === 0, `mt_locks is bound (${hits.join() || 'none'})`);
+  });
+
+  section('unbound-public-attribute: an attribute whose reference is handed out is not judged', () => {
+    /* `REF #( mt_table_data )` handed to layout-management's table builder,
+     * which binds `data->*` - "no binding reaches it" was a guess (an EWM
+     * app suite, 2026-11-25) */
+    const base = listOf(['name TYPE string'], ['NAME'], 'DATA mt_locks TYPE ty_lock_rows.\n    DATA mt_other TYPE ty_lock_rows.');
+    const unbound = (src) => checkAbapSource(src, opts).findings.filter((x) => x.type === 'unbound-public-attribute').map((x) => x.member);
+    const used = base.replace('client->view_display', 'CLEAR mt_other.\n    client->view_display');
+    assert(unbound(used).join() === 'mt_other', `used and unbound is reported (${unbound(used)})`);
+    for (const take of ['DATA(r) = REF #( mt_other ).', 'GET REFERENCE OF me->mt_other INTO DATA(r).']) {
+      const handed = used.replace('CLEAR mt_other.', `CLEAR mt_other.\n    ${take}`);
+      assert(unbound(handed).length === 0, `${take} - unknown, not unbound`);
+    }
+  });
+
   section('unknown-binding-path: a component typed by the class\'s own structure component resolves like its type', () => {
     const src = listOf(['name TYPE string', 'copy TYPE ty_other-name', 'len  TYPE c LENGTH 10', 'neg  TYPE i VALUE -1'], ['COPY', 'LEN', 'NEG', 'NOPE']);
     const got = paths(checkAbapSource(src, opts));

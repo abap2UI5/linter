@@ -15,6 +15,23 @@
   to the PUBLIC SECTION. Regression sections in
   `test/review/data-references.mjs`.
 
+- **Builder helpers of another class are followed, one level deep.** An
+  app suite that builds every screen through a views class -
+  `DATA(page) = zcl_views=>factory_view( )`, `page->ele( … )`,
+  `client->view_display( zcl_views=>stringify( page ) )` - reconstructed no
+  view at all. A static factory helper whose body is
+  `result = <builder>=>factory( )->…` with a literal-only chain, and a static
+  stringify helper taking one handle, are read into the class index
+  (`builderHelpersOf( )`, `builderHelpers`) and replayed in every class
+  that calls them. What such a class hands to a helper the replay does not
+  enter counts as unplaced (no render), and a stringify helper that edits
+  the string after stringify( ) skips the render and stands
+  `undeclared-namespace` / `unused-namespace-declaration` down for that
+  document. On the EWM app suite: 0 -> 13 documents, 363 controls, 151
+  bindings. Regression sections in
+  `test/review/builder-helpers-across-classes.mjs`; the limits in
+  `docs/agents/scope.md`.
+
 ### Changed
 
 - **`private-app-attribute` no longer sends a `TYPE REF TO data` to
@@ -23,6 +40,62 @@
   change that fails on the system. Such an attribute is now moved to PUBLIC,
   the rename is not offered while the section holds one, and the message and
   card say so.
+
+### Fixed
+
+- **Apps by inheritance are collected and judged as apps.** A class whose
+  superclass chain, read over the classes of the linted paths, reaches one
+  that declares `INTERFACES z2ui5_if_app` is an app class: the base-app
+  design (one class implements `main( )`, the concrete apps inherit and
+  redefine its hooks) used to leave every concrete app uncollected - on an
+  EWM app suite 41 of 57 app classes, "no checkable app classes" for most of
+  the repository. `collectFiles( )` decides it after the walk, so the
+  superclass may sit anywhere under the paths; `checkAbapSource( )` reads it
+  from the class index (`isAppClass( )`, exported from `./check`; the index
+  entry carries `app`). A chain that leaves the paths is unknown, not "no
+  app": such a class stays uncollected. Regression sections in
+  `test/review/inherited-apps.mjs`.
+- **`event-without-handler` and `handler-without-event` read the class's
+  family.** With a class index (every CLI run), an event raised in a base
+  class and handled in a subclass's redefined `on_event( )`, or the other way
+  round, is no finding any more; neither is an app's handler for an event a
+  view helper of the run (a class that is no app) raises, nor a helper's
+  event that an app of the run handles. A dynamic handler anywhere in the
+  family (`WHEN OTHERS`, `check_on_event( lv_x )`) stands the rules down, as
+  it does in the class itself (`relatedEvents( )` in `lib/guide-rules.mjs`;
+  the index entry carries `events`, and `--cache` keys on them). On the EWM
+  app suite the two rules went from 32 hints to 7.
+- **A dynamic call makes "never re-displays" undecidable.** A class that
+  calls a method by a runtime name - `CALL METHOD obj->(name)`, `CALL
+  METHOD (name)`, `obj->(name)( )`, `CREATE OBJECT … TYPE (name)` - itself
+  or through a superclass of the run may hand its view back through that
+  call: `missing-view-display-on-navigated` stands down there instead of
+  raising an error, and `nav-target-never-displays` treats such a target as
+  unknown (`DYNAMIC_CALL` in `lib/lifecycle-rules.mjs`, `dynamicCall` in the
+  class index, `inheritsDynamicCall( )`). A dynamic attribute access
+  (`r->('X') = 1`) is no call.
+- **A namespaced type is a type.** `lgnum TYPE /scwm/lgnum` in a structure
+  dropped the component from the row, and `DATA ms_val TYPE /kro/s_value` or
+  `TYPE STANDARD TABLE OF /kro/s_value` left the attribute undeclared - every
+  binding below them was `unknown-binding-path` ("no such field" / "no such
+  path") on a field declared two lines above. The type readers of the
+  reconstructor take a `/ns/` prefix now; such a DDIC type stays unknown
+  (not judged), as any DDIC type does. Regression section in
+  `test/review/unknown-not-missing.mjs`.
+- **`unbound-public-attribute` in a namespaced class.** `CLASS /kro/cl_x
+  IMPLEMENTATION` was not found, the bindings were read from nothing, and
+  every PUBLIC attribute of the class was reported as unbound.
+- **`unbound-public-attribute`: an attribute whose reference the class
+  hands out is not judged.** `REF #( mt_data )` / `GET REFERENCE OF
+  mt_data` given to another object (layout-management's table builder, a
+  views class binding `i_data->*`) may well be bound there; "no binding
+  reaches it" was a guess.
+- **`binding-to-local`: `_bind( val = mt_data->* )` binds no local.** A
+  dereference is refused as a root, and the scan then backed off the
+  optional `val =` and took the parameter name `val` itself - a "local"
+  wherever the method declares a `<val>` field symbol or a `val` variable.
+  A name followed by `=` is a parameter name now, never the bound one
+  (`test/review/abap-side-rules.mjs`).
 
 ## 0.11.3 - 2026-11-19
 
