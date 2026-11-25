@@ -77,6 +77,19 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(got.join() === 'GNAEM', `only the name the row does not declare is reported (got ${got.join() || 'none'})`);
   });
 
+  section('unknown-binding-path: a namespaced type is a type', () => {
+    /* `lgnum TYPE /scwm/lgnum` dropped the field from the row, `DATA ms TYPE
+     * /kro/s_val` left the attribute undeclared - every binding below them
+     * "no such field / path" (an EWM app suite, 2026-11-25) */
+    const src = listOf(['lgnum TYPE /scwm/lgnum', 'werks TYPE werks_d'], ['LGNUM', 'WERKS', 'LGNMU']);
+    const row = prepareAbap(src).modelShape.MT_LOCKS[0];
+    assert(Object.keys(row).join() === 'LGNUM,WERKS', `the namespaced component is in the row shape (got ${Object.keys(row).join()})`);
+    assert(paths(checkAbapSource(src, opts)).join() === 'LGNMU', 'only the misspelt name is reported');
+    const ns = listOf(['name TYPE string'], ['NAME'], 'DATA mt_locks TYPE ty_lock_rows.\n    DATA ms_val TYPE /kro/s_value.')
+      .replace('        )->ele( \`Page\`\n', '        )->ele( \`Page\`\n            )->tag( \`Text\` )->a( n = \`text\` v = client->_bind( ms_val-text )\n');
+    assert(paths(checkAbapSource(ns, opts)).length === 0, `a path below an attribute of a namespaced DDIC type is unknown, not missing (${paths(checkAbapSource(ns, opts))})`);
+  });
+
   section('unknown-binding-path: a component typed by the class\'s own structure component resolves like its type', () => {
     const src = listOf(['name TYPE string', 'copy TYPE ty_other-name', 'len  TYPE c LENGTH 10', 'neg  TYPE i VALUE -1'], ['COPY', 'LEN', 'NEG', 'NOPE']);
     const got = paths(checkAbapSource(src, opts));

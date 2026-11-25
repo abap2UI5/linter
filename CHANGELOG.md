@@ -35,6 +35,14 @@
   unknown (`DYNAMIC_CALL` in `lib/lifecycle-rules.mjs`, `dynamicCall` in the
   class index, `inheritsDynamicCall( )`). A dynamic attribute access
   (`r->('X') = 1`) is no call.
+- **A namespaced type is a type.** `lgnum TYPE /scwm/lgnum` in a structure
+  dropped the component from the row, and `DATA ms_val TYPE /kro/s_value` or
+  `TYPE STANDARD TABLE OF /kro/s_value` left the attribute undeclared - every
+  binding below them was `unknown-binding-path` ("no such field" / "no such
+  path") on a field declared two lines above. The type readers of the
+  reconstructor take a `/ns/` prefix now; such a DDIC type stays unknown
+  (not judged), as any DDIC type does. Regression section in
+  `test/review/unknown-not-missing.mjs`.
 
 ## 0.11.3 - 2026-11-19
 
