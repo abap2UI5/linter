@@ -12,8 +12,9 @@ import path from 'path';
 import { loadBaseline, loadFalsePositives, applyBaseline, writeBaseline } from '../../lib/baseline.mjs';
 import { falsePositiveIssue, sourceExcerpt, ISSUES_URL } from '../../lib/false-positive.mjs';
 
-/* A class with one finding that needs no view: an access to the framework's
- * draft table. */
+/* A class with one finding that needs no view: a framework table name
+ * (non-released-api). Not z2ui5_t_01: SQL on the draft table is reported by
+ * framework-table-access as well, and this run wants exactly one finding. */
 const SOURCE = `CLASS zcl_fp DEFINITION PUBLIC FINAL CREATE PUBLIC.
   PUBLIC SECTION.
     METHODS read.
@@ -21,13 +22,13 @@ ENDCLASS.
 
 CLASS zcl_fp IMPLEMENTATION.
   METHOD read.
-    SELECT SINGLE * FROM z2ui5_t_01 INTO @DATA(ls_draft).
+    SELECT SINGLE * FROM z2ui5_t_02 INTO @DATA(ls_draft).
     DATA(text) = |a \`literal\` in a {
       ls_draft-id } template|.
   ENDMETHOD.
 ENDCLASS.
 `;
-const KEY = 'src/zcl_fp.clas.abap|non-released-api||src/01|z2ui5_t_01';
+const KEY = 'src/zcl_fp.clas.abap|non-released-api||src/01|z2ui5_t_02';
 const REASON = 'the table is read through a wrapper the framework releases';
 
 export default function ({ section, assert, FIX, tempDir }) {
@@ -73,7 +74,7 @@ export default function ({ section, assert, FIX, tempDir }) {
   });
 
   section('false positives: applyBaseline names the findings a marked entry suppressed', () => {
-    const finding = { type: 'non-released-api', member: 'src/01', value: 'z2ui5_t_01', line: 9, column: 26, message: 'm' };
+    const finding = { type: 'non-released-api', member: 'src/01', value: 'z2ui5_t_02', line: 9, column: 26, message: 'm' };
     const results = [{ file: path.resolve('src/zcl_fp.clas.abap'), findings: [{ ...finding }, { type: 'other', value: 'v' }] }];
     const r = applyBaseline(results, new Map([[KEY, 1]]), process.cwd(), { falsePositives: new Map([[KEY, REASON]]) });
     assert(r.suppressed === 1 && r.falsePositives.length === 1 && r.falsePositives[0].reason === REASON
@@ -83,14 +84,14 @@ export default function ({ section, assert, FIX, tempDir }) {
   });
 
   section('false positives: the issue carries the template\'s sections and a link that opens it', () => {
-    const finding = { type: 'non-released-api', member: 'src/01', value: 'z2ui5_t_01', line: 9, column: 26, severity: 'warning', message: 'z2ui5_t_01 is not part of the released API' };
+    const finding = { type: 'non-released-api', member: 'src/01', value: 'z2ui5_t_02', line: 9, column: 26, severity: 'warning', message: 'z2ui5_t_02 is not part of the released API' };
     const issue = falsePositiveIssue({ finding, file: 'src/zcl_fp.clas.abap', reason: REASON, source: SOURCE, version: '0.9.0', ui5: '1.71', distribution: 'openui5' });
-    assert(issue.title === 'non-released-api on z2ui5_t_01', `the title names the rule and what it flagged (${issue.title})`);
+    assert(issue.title === 'non-released-api on z2ui5_t_02', `the title names the rule and what it flagged (${issue.title})`);
     for (const heading of ['**Rule id**', '**The finding**', '**The source it reported**', '**Why it is correct**', '**Version**']) {
       assert(issue.body.includes(heading), `the body has the template's ${heading}`);
     }
-    assert(issue.body.includes('9:26  warning  z2ui5_t_01 is not part of the released API  non-released-api'), 'the finding as it was printed');
-    assert(issue.body.includes('SELECT SINGLE * FROM z2ui5_t_01') && issue.body.includes(REASON)
+    assert(issue.body.includes('9:26  warning  z2ui5_t_02 is not part of the released API  non-released-api'), 'the finding as it was printed');
+    assert(issue.body.includes('SELECT SINGLE * FROM z2ui5_t_02') && issue.body.includes(REASON)
       && issue.body.includes('@abap2ui5/linter 0.9.0, ui5 1.71, distribution openui5'), 'source, reason and versions');
     const fenceLine = issue.body.split('\n').find((l) => /^`+abap$/.test(l));
     assert(fenceLine && fenceLine.length - 4 > 1, `the fence is longer than the backticks inside the excerpt (${fenceLine})`);
@@ -112,7 +113,7 @@ export default function ({ section, assert, FIX, tempDir }) {
       && /1 of them marked as false positives/.test(normal.out) && /--report-false-positives/.test(normal.out),
     `the note counts them apart and names the command (exit ${normal.code}: ${normal.out.trim().split('\n').pop()})`);
     const report = run(dir, ['src', '--all-classes', '--no-config', '--report-false-positives']);
-    assert(report.code === 0 && report.out.includes('# non-released-api on z2ui5_t_01')
+    assert(report.code === 0 && report.out.includes('# non-released-api on z2ui5_t_02')
       && report.out.includes('**Why it is correct**') && report.out.includes(REASON)
       && report.out.includes(`file it: ${ISSUES_URL}?`) && /nothing has been sent/.test(report.out),
     `the issue, its link and the promise that nothing left the machine (exit ${report.code}: ${report.err.trim()})`);
@@ -139,7 +140,7 @@ export default function ({ section, assert, FIX, tempDir }) {
     const dir = project('fp-update', { findings: { [KEY]: 1 }, falsePositives: { [KEY]: REASON } });
     const file = path.join(dir, 'abap2ui5lint-baseline.json');
     assert(run(dir, [...ARGS, '--update-baseline']).code === 0 && loadFalsePositives(file).get(KEY) === REASON, 'the finding is still there: the mark stays');
-    fs.writeFileSync(path.join(dir, 'src', 'zcl_fp.clas.abap'), SOURCE.replace('z2ui5_t_01', 'zmy_table'));
+    fs.writeFileSync(path.join(dir, 'src', 'zcl_fp.clas.abap'), SOURCE.replace('z2ui5_t_02', 'zmy_table'));
     assert(run(dir, [...ARGS, '--update-baseline']).code === 0 && loadFalsePositives(file).size === 0
       && loadBaseline(file).size === 0, 'the finding is gone: entry and mark go together');
   });
