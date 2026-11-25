@@ -731,6 +731,11 @@ declare module "@abap2ui5/linter/properties" {
        *  raw-javascript-to-frontend judge a value as authored only when this
        *  says so. */
       fromAbap?: boolean;
+      /** The ABAP class the document was built from - read by the two rules
+       *  that judge a binding the reconstructor could only guess at
+       *  (namespaced-row-binding, enum-binding-no-fallback). Null for raw
+       *  XML. */
+      source?: string | null;
       /** The class element-binds the slot this document is displayed into, so
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
