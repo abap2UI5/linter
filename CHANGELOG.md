@@ -4,6 +4,17 @@
 
 ### Added
 
+- **`nonpublic-data-reference`: a `TYPE REF TO data` instance attribute of
+  an app class outside the PUBLIC SECTION.** abap2UI5 writes the generic data
+  references of PUBLIC attributes itself (S-RTTI); a PROTECTED or PRIVATE one
+  goes to `CALL TRANSFORMATION`, which refuses a target typed at run time -
+  `APP_SERIALIZATION_ERROR` / `CX_REFERENCE_NOT_SERIALIZABLE` on the first
+  roundtrip, on a system only (abap2UI5-addons/table-maintenance 9c8f911,
+  fixed in ca6da36). A warning, an error when the class fills the reference
+  with `CREATE DATA … TYPE HANDLE` or `LIKE`; the fix moves the declaration
+  to the PUBLIC SECTION. Regression sections in
+  `test/review/data-references.mjs`.
+
 - **Builder helpers of another class are followed, one level deep.** An
   app suite that builds every screen through a views class -
   `DATA(page) = zcl_views=>factory_view( )`, `page->ele( … )`,
@@ -20,6 +31,15 @@
   bindings. Regression sections in
   `test/review/builder-helpers-across-classes.mjs`; the limits in
   `docs/agents/scope.md`.
+
+### Changed
+
+- **`private-app-attribute` no longer sends a `TYPE REF TO data` to
+  PROTECTED.** Its remedy said "PROTECTED for a helper", and its fix renamed
+  `PRIVATE SECTION` to `PROTECTED SECTION` - for a data reference exactly the
+  change that fails on the system. Such an attribute is now moved to PUBLIC,
+  the rename is not offered while the section holds one, and the message and
+  card say so.
 
 ### Fixed
 
