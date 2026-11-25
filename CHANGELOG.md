@@ -102,6 +102,21 @@
   `test/review/builder-helpers-across-classes.mjs`; the limits in
   `docs/agents/scope.md`.
 
+### Changed
+
+- **`enum-binding-no-fallback` is a hint, and leaves seeded rows to
+  `enum-field-unset-on-insert`.** On samples-controls it reported 170
+  bindings in 86 classes, nearly all over demo tables the class builds row
+  by row from literals - where `enum-field-unset-on-insert` already judges an
+  omitted field, as an error. Such tables are not judged here any more; what
+  is left (rows from a SELECT, a dynamic table, a field filled after the
+  constructor) cannot be decided from the source, so the finding is a hint:
+  21 on samples-controls, 0 failing ports.
+- **`namespaced-row-binding`: the run-time shape (`|\{{ comp-name }\}|`) is
+  a hint**, the literal `{/CWM/XCWMAT}` stays a warning: whether a run-time
+  column name ever carries a namespace is the data's (2 on samples-controls,
+  over literal column lists).
+
 ### Fixed
 
 - **`missing-view-display-on-navigated`: no re-display after a popup.** A

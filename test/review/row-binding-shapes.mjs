@@ -86,6 +86,7 @@ export default async function ({ section, assert, checkAbapSource, checkXmlSourc
   section('namespaced-row-binding: a column name known only at run time, without component_path( )', () => {
     const f = of(frame({ view: loop('Text', 'text', '|\\{{ comp-name }\\}|') }), NS);
     assert(f.length === 1 && f[0].kind === 'dynamic' && f[0].value === 'comp-name', `the |\\{{ x }\\}| shape (${f.length})`);
+    assert(f[0].severity === 'hint', `the run-time shape is a hint (${f[0].severity})`);
     assert(/component_path/.test(f[0].message ?? ''), 'the message names component_path( )');
     assert(!f[0].fixes, 'no fix: component_path( ) is a method of abap2UI5 DEV');
     assert(of(frame({ view: loop('Text', 'text', "|\\{path:'{ comp-name }'\\}|") }), NS).length === 1, "the |\\{path:'{ x }'…| shape");
@@ -116,10 +117,18 @@ export default async function ({ section, assert, checkAbapSource, checkXmlSourc
     assert(checkXmlSource(xml, { render: false, properties: true }).findings.every((x) => x.type !== NS), 'a raw XML view');
   });
 
+  section('enum-binding-no-fallback: rows the class builds from literals are enum-field-unset-on-insert\'s', () => {
+    // samples-controls: 170 findings on demo tables seeded row by row
+    const seeded = frame({ locals: '    t_rows = VALUE #( ( name = `a` type = `Accept` ) ( name = `b` type = `Reject` ) ).\n', view: cell('Button', 'type', '`{TYPE}`') });
+    assert(of(seeded, EN).length === 0, 'seeded rows: not judged here');
+    const unseeded = frame({ locals: '    SELECT name, type FROM ztab INTO TABLE @t_rows.\n', view: cell('Button', 'type', '`{TYPE}`') });
+    assert(of(unseeded, EN).length === 1, 'rows from a SELECT: reported');
+  });
+
   section('enum-binding-no-fallback: an enum property bound straight to a row field', () => {
     const f = of(frame({ view: cell('Button', 'type', '`{TYPE}`') }), EN);
     assert(f.length === 1 && f[0].value === 'TYPE' && f[0].memberType === 'sap.m.ButtonType', `reported once (${f.length})`);
-    assert((f[0].severity ?? 'warning') === 'warning', 'a warning');
+    assert(f[0].severity === 'hint', `a hint - whether a cell is ever initial is the data's (${f[0].severity})`);
     assert(/\{= \$\{TYPE\} \|\| 'Default' \}/.test(f[0].message ?? ''), 'the message shows the fallback binding');
     const state = of(frame({ view: cell('ObjectNumber', 'state', "`{ path: 'TYPE' }`") }), EN);
     assert(state.length === 1 && /'None'/.test(state[0].message ?? ''), 'a path-only binding info; ValueState falls back to None');
