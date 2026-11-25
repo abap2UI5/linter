@@ -215,6 +215,26 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(cells, 'binding-to-local').length === 0, `a reference dereference and a cell binding through tab = are not locals (${of(cells, 'binding-to-local').map((x) => x.member).join(', ') || 'none'})`);
   });
 
+  section('binding-to-local: a named val = in front of a dereference is not the bound name', () => {
+    /* `_bind( val = mt_data->* )` on a PUBLIC REF TO data: the dereference is
+     * refused as a root, and the scan used to back off the optional `val =`
+     * and take `val` - a "local" because the method holds FIELD-SYMBOLS <val>
+     * (an EWM app suite, 2026-11-25) */
+    const deref = app({
+      pub: '    DATA mt_data TYPE REF TO data.\n',
+      locals: '    FIELD-SYMBOLS <val> TYPE any.\n    DATA val TYPE string.\n',
+      chain: '                )->ele( `Table` )->a( n = `items` v = client->_bind( val = mt_data->* )\n'
+        + '                    )->ele( `columns`\n'
+        + '                    )->end(\n'
+        + '                )->end(\n',
+    });
+    const hits = of(deref, 'binding-to-local').map((x) => x.member);
+    assert(hits.length === 0, `val = mt_data->* binds no local (${hits.join(', ') || 'none'})`);
+    // the same parameter in front of a real local is still reported
+    const local = app({ locals: '    DATA val TYPE string.\n', chain: '                )->tag( `Input`\n                    )->a( n = `value` v = client->_bind( val = val )\n' });
+    assert(of(local, 'binding-to-local').map((x) => x.member).join() === 'val', 'val = val binds the local named val');
+  });
+
   section('round 2026-10-12: every rule that rewrites under --fix is listed in FIXABLE, and says so', () => {
     const late = ['unknown-view-slot', 'invalid-frontend-action', 'association-unknown-id', 'unknown-source-property'];
     for (const id of late) assert(FIXABLE.includes(id) && RULE_DOCS[id].fixNote, `${id} is fixable and documents its fix`);
