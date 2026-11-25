@@ -70,6 +70,14 @@
   mt_data` given to another object (layout-management's table builder, a
   views class binding `i_data->*`) may well be bound there; "no binding
   reaches it" was a guess.
+### Fixed
+
+- **`binding-to-local`: `_bind( val = mt_data->* )` binds no local.** A
+  dereference is refused as a root, and the scan then backed off the
+  optional `val =` and took the parameter name `val` itself - a "local"
+  wherever the method declares a `<val>` field symbol or a `val` variable.
+  A name followed by `=` is a parameter name now, never the bound one
+  (`test/review/abap-side-rules.mjs`).
 
 ## 0.11.3 - 2026-11-19
 
