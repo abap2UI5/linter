@@ -372,7 +372,7 @@
         },
         "enum-binding-no-fallback": {
           "$ref": "#/definitions/rule",
-          "description": "abap2UI5 linter rule 'enum-binding-no-fallback' — default severity: warning"
+          "description": "abap2UI5 linter rule 'enum-binding-no-fallback' — default severity: hint"
         },
         "enum-bound-to-conditional-field": {
           "$ref": "#/definitions/rule",
