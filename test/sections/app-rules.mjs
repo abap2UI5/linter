@@ -830,13 +830,21 @@ section('display-root-mismatch', async () => {
      * action group. check-upstream could not see any of them while it still
      * read the single, now-emptied z2ui5_cl_ui5f_frontact_js class. */
     for (const [target, method] of [
-      ['VIEW_SLOTS', 'destroy'], ['VIEW_SLOTS', 'updateModel'],
-      ['ROUTER', 'sync'], ['MESSAGE_BOX', 'alert'], ['MESSAGE_BOX', 'confirm'],
+      ['VIEW_SLOTS', 'destroy'], ['MESSAGE_BOX', 'alert'], ['MESSAGE_BOX', 'confirm'],
     ]) {
       assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
         + `t_arg = VALUE #( ( \`${target}\` ) ( \`${method}\` ) ) ).`)
         .filter((x) => x.type === 'invalid-frontend-action').length === 0,
         `invalid-frontend-action: ${target}.${method} is a known CONTROL_GLOBAL wire`);
+    }
+    /* Removed in abap2UI5 1.151.0 (protocol 3: views and navigation travel in
+     * S_FRONT-VIEWS / NAV): nothing writes these any more, so a wire naming
+     * one is reported. */
+    for (const [target, method] of [['VIEW_SLOTS', 'display'], ['VIEW_SLOTS', 'updateModel'], ['ROUTER', 'sync']]) {
+      assert(checkAbapRules('client->follow_up_action( val = client->cs_event-control_global '
+        + `t_arg = VALUE #( ( \`${target}\` ) ( \`${method}\` ) ) ).`)
+        .filter((x) => x.type === 'invalid-frontend-action').length === 1,
+        `invalid-frontend-action: ${target}.${method} left CONTROL_GLOBAL in 1.151.0 and is reported`);
     }
     /* Removed upstream (BREAKING, changelog): the constants are gone from
      * z2ui5_if_client, so naming them is broken code and must be reported. */
@@ -1557,8 +1565,8 @@ section('non-released-api', async () => {
       .filter((x) => x.type === 'non-released-api').map((x) => x.value);
 
     for (const [name, area] of [
-      ['z2ui5_cl_util', 'abap2UI5-obsolet'],    // retired utility class, moved out of the core
-      ['z2ui5_cl_pop_to_confirm', 'src/99/02'], // built-in popup, replaced by the addon
+      ['z2ui5_cl_util', 'abap2UI5-ext'],        // retired utility class, moved out of the core
+      ['z2ui5_cl_pop_to_confirm', 'abap2UI5-ext'], // built-in popup, moved out with src/99 in 1.151.0
       ['z2ui5_cl_ajson', 'src/00/01'],          // vendored copy, renamed on every sync
       ['z2ui5_if_ajson', 'src/00/01'],          // …in a declaration, not only a call
       ['z2ui5_cl_ui5_client', 'src/01'],        // the core engine
@@ -1573,23 +1581,30 @@ section('non-released-api', async () => {
     // z2ui5_if_types WAS released, because the released client->get( ) returned
     // z2ui5_if_types=>ty_s_get and an app declaring a variable of that type
     // could not avoid the name. Upstream moved every type onto the object that
-    // uses it and retired the shared interface into src/99 - it still SHIPS, so
-    // an app naming it still compiles, which is exactly why it has to be
-    // reported now, with the object the types moved to.
+    // uses it and retired the shared interface into src/99, which left abap2UI5
+    // for abap2UI5-ext in 1.151.0 - reported, with the object the types moved to.
     assert(named.includes('z2ui5_if_types')
-      && apiVerdict('z2ui5_if_types').area === 'src/99'
+      && apiVerdict('z2ui5_if_types').area === 'abap2UI5-ext'
       && apiVerdict('z2ui5_if_types').replacement === 'z2ui5_if_client',
       'non-released-api: the retired z2ui5_if_types is reported, pointing at z2ui5_if_client');
     assert(apiVerdict('z2ui5_if_exit')?.replacement === 'z2ui5_if_ui5_exit'
       && apiVerdict('z2ui5_if_ui5_exit') === null,
       'non-released-api: the exit interface reports under its old name and is silent under the new one');
-    // src/99/01 left the core for abap2UI5-obsolet: still reported, as moved -
-    // not as frozen legacy that ships, and the table not as a framework table
-    for (const name of ['z2ui5_cl_util', 'z2ui5_cx_util_error', 'z2ui5_t_91']) {
+    // src/99 left the core for abap2UI5-ext (the utilities first, the rest in
+    // 1.151.0): still reported, as moved - not as frozen legacy that ships, and
+    // the table not as a framework table - each with the advice of its former
+    // package
+    for (const name of ['z2ui5_cl_util', 'z2ui5_cx_util_error', 'z2ui5_t_91',
+      'z2ui5_cl_xml_view', 'z2ui5_cl_xml_view_cc', 'z2ui5_if_types', 'z2ui5_cl_pop_to_confirm']) {
       const v = apiVerdict(name);
-      assert(v?.area === 'abap2UI5-obsolet' && v.moved === true && v.frozen === false,
-        `non-released-api: ${name} is reported as moved to abap2UI5-obsolet`);
+      assert(v?.area === 'abap2UI5-ext' && v.moved === true && v.frozen === false,
+        `non-released-api: ${name} is reported as moved to abap2UI5-ext`);
     }
+    assert(apiVerdict('z2ui5_cl_pop_table').replacement === 'the popups addon (abap2UI5-addons/popups)'
+      && apiVerdict('z2ui5_cl_pop_table').formerly === 'src/99/02',
+      'non-released-api: a moved popup still points at the popups addon');
+    assert(apiVerdict('z2ui5_cl_ui5_test') === null,
+      'non-released-api: the test harness z2ui5_cl_ui5_test (src/02, 1.151.0) is released');
     // an app\'s own z2ui5_-prefixed class matches no framework family
     assert(!named.includes('z2ui5_cl_demo_app_042'),
       'non-released-api: a name outside every framework prefix family is somebody else\'s class');
@@ -1606,9 +1621,9 @@ section('non-released-api', async () => {
   ENDCLASS.`;
     const inOwn = checkAbapRules(own).filter((x) => x.type === 'non-released-api');
     assert(inOwn.length === 1 && inOwn[0].value === 'z2ui5_cl_xml_view',
-      'non-released-api: a class does not use ITSELF — only the frozen builder it names is reported');
+      'non-released-api: a class does not use ITSELF — only the moved builder it names is reported');
     assert(inOwn[0].replacement === 'z2ui5_cl_ui5_view_builder',
-      'non-released-api: the frozen view builder points at its successor');
+      'non-released-api: the moved view builder points at its successor');
 });
 
 // --------------------------------------------------------- lifecycle rules ----
