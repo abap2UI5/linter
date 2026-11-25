@@ -27,6 +27,8 @@ declare module "@abap2ui5/linter" {
     app?: boolean;
     /** The builder helpers it offers other classes (builderHelpersOf( )). */
     builderHelpers?: Map<string, import("@abap2ui5/linter/reconstruct").BuilderHelper> | null;
+    /** Whether the class displays a popup or popover somewhere. */
+    popup?: boolean;
     /** Names (lower case) another class of the run reads as `->name` while
      *  naming this class - what silences unbound-/unused-public-attribute.
      *  Optional for a hand-built index. */
@@ -424,7 +426,11 @@ declare module "@abap2ui5/linter/reconstruct" {
    *  a handle built as `result = <builder>=>factory( )->chain` with a
    *  literal-only chain; `stringify` takes one handle and returns its
    *  stringify( ) (`rewrites` when it edits the string after). */
-  export type BuilderHelper = { kind: "factory"; chain: string } | { kind: "stringify"; rewrites: boolean };
+  export type BuilderHelper = ({ kind: "factory"; chain: string } | { kind: "stringify"; rewrites: boolean } | { kind: "replay" }) & {
+    /** A body the caller's replay runs (one level deep): a handle helper
+     *  (`void`, `ret`, `chain`) or a `root` that returns a handle it opens. */
+    def?: { kind: "void" | "ret" | "chain" | "root"; [key: string]: unknown };
+  };
   /** The builder helpers a class offers, by method name (lower case), or
    *  null - what the class index carries as `builderHelpers` and
    *  prepareAbap( ) replays in a class that calls them. */

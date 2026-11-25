@@ -36,9 +36,9 @@ export default async function ({ section, assert, checkAbapSource, prepareAbap }
     const h = builderHelpersOf(VIEWS());
     assert(h?.get('factory_view')?.kind === 'factory' && /View/.test(h.get('factory_view').chain), 'factory_view is a factory helper with its chain');
     assert(h.get('stringify')?.kind === 'stringify' && h.get('stringify').rewrites === false, 'stringify behind a bound guard is a plain stringify helper');
-    assert(!h.has('build_table'), 'a method that builds into a handle it is given is no helper of either kind');
+    assert(h.get('build_table')?.kind === 'replay' && h.get('build_table').def.kind === 'void', 'a method that builds into a handle it is given is replayed, not inlined');
     const param = VIEWS(undefined, '\n        )->ele( n = `View` ns = `mvc`\n            )->a( n = `title` v = mv_title )');
-    assert(!builderHelpersOf(param)?.has('factory_view'), 'a chain naming a variable is not replayed in another class');
+    assert(builderHelpersOf(param)?.get('factory_view')?.kind !== 'factory', 'a chain naming a variable is no literal factory - its body is replayed instead');
     assert(builderHelpersOf(VIEWS('    result = i_view->stringify( ).\n    REPLACE `<a` IN result WITH `<b`.\n')).get('stringify').rewrites === true, 'a stringify helper that edits the string rewrites');
   });
 
@@ -55,9 +55,34 @@ export default async function ({ section, assert, checkAbapSource, prepareAbap }
   });
 
   section('builder helpers: a handle handed to a helper the replay does not enter', () => {
-    const app = APP('    zcl_views=>build_table( i_xml = page ).\n');
+    // a class outside the run: nothing to replay
+    const app = APP('    zcl_elsewhere=>build_table( i_xml = page ).\n');
     const prep = prepareAbap(app, { classIndex: classIndexOf([VIEWS(), app]) });
     assert(prep.docs.length === 1 && prep.helperTokens > 0, `the document is incomplete, its render skipped (helperTokens ${prep.helperTokens})`);
+  });
+
+  section('builder helpers: a helper body with parameters is replayed, one level deep', () => {
+    // a void helper filling the handle it is given
+    const app = APP('    zcl_views=>build_table( i_xml = page ).\n');
+    const prep = prepareAbap(app, { classIndex: classIndexOf([VIEWS(), app]) });
+    assert(prep.helperTokens === 0 && /<Table\/?>/.test(prep.docs[0]), `build_table( i_xml = page ) adds its Table (${prep.docs[0]})`);
+    // a root helper: no handle in, one out, built from the class's own factory helper
+    const views = VIEWS().replace('    CLASS-METHODS build_table', '    CLASS-METHODS build_page IMPORTING client TYPE REF TO z2ui5_if_client i_title TYPE string RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder.\n    CLASS-METHODS build_table')
+      .replace('  METHOD build_table.', '  METHOD build_page.\n    DATA(view) = factory_view( ).\n    result = view->ele( `Page` )->a( n = `title` t = i_title )->a( n = `navButtonPress` v = client->_event( `BACK` ) ).\n  ENDMETHOD.\n  METHOD build_table.');
+    assert(builderHelpersOf(views).get('build_page')?.def?.kind === 'root', 'build_page is a root helper');
+    const user = 'CLASS zcl_app2 DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_name TYPE string.\nENDCLASS.\n\n'
+      + 'CLASS zcl_app2 IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
+      + '    DATA(page) = zcl_views=>build_page( client = client i_title = `Stock` ).\n'
+      + '    page->tag( `Input` )->a( n = `value` v = client->_bind( mv_name ) ).\n'
+      + '    client->view_display( zcl_views=>stringify( page ) ).\n  ENDMETHOD.\nENDCLASS.\n';
+    const p2 = prepareAbap(user, { classIndex: classIndexOf([views, user]) });
+    assert(p2.usesBuilder && p2.docs.length === 1, `the root helper opens the view (${p2.docs.length} docs)`);
+    assert(/<mvc:View[^>]*>\s*<Page[^>]*navButtonPress="[^"]*"[^>]*>\s*<Input value="\{\/MV_NAME\}"/.test(p2.docs[0]), `its body ran - the class's own factory, the Page, the event - and the app builds on (${p2.docs[0]})`);
+    assert(!/title=/.test(p2.docs[0]), 'a parameter that does not resolve in the caller (i_title) is left out, not guessed');
+    // one level: a helper reached through `class=>` from inside a replayed body is not entered
+    const nested = views.replace('    DATA(view) = factory_view( ).\n', '    DATA(view) = factory_view( ).\n    zcl_views=>build_table( i_xml = view ).\n');
+    const p3 = prepareAbap(user, { classIndex: classIndexOf([nested, user]) });
+    assert(p3.helperTokens > 0, 'a second class-qualified hop into a body is not followed');
   });
 
   section('builder helpers: a stringify helper that rewrites the string', () => {

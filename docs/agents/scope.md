@@ -84,10 +84,18 @@ What is collected, which builders are read, how a name is resolved to a value an
   the class index (`builderHelpers`), and the handle-aware replay treats
   `DATA(page) = zcl_views=>factory_view( )` as a factory and
   `zcl_views=>stringify( page )` as a stringify( ) in every class that
-  calls them. Nothing further: a helper that takes arguments into its
-  chain, builds in branches or calls a helper is not followed; a held
-  handle handed to such a method, or a stringify helper given anything
-  but a held handle, counts as an unplaced builder call (render skipped).
+  calls them. Beyond those two, the BODY of a static helper is replayed
+  (`def`): a handle helper (void, ret, chain - as same-class helpers are
+  read) and a `root` helper that returns a handle it opens itself
+  (`xml_build_page( client i_title )`). The body runs with ITS class's
+  helpers and resolver (`makeResolver( )` over that class's source): its
+  names never resolve against the caller's attributes, a parameter other
+  than a handle stays unresolved, and a binding in it adds nothing to the
+  caller's model. One level: a body that reaches another helper through
+  `class=>` is not entered (a literal factory helper still is). A held
+  handle handed to a static method the run does not hold, or a stringify
+  helper given anything but a held handle, counts as an unplaced builder
+  call (render skipped).
   A stringify helper that edits the string after stringify( ) (`rewrites`,
   e.g. completing the root's xmlns declarations) skips the render too, and
   the two namespace rules stand down for that document.
