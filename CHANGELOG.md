@@ -104,6 +104,13 @@
 
 ### Fixed
 
+- **Four regular expressions of #204 without polynomial backtracking**
+  (CodeQL reported three as high): `stateful-without-release` (the
+  `set_session_stateful( )` argument and the `INTERFACES … z2ui5_if_app`
+  test), `draft-id-as-link` (the log/trace call names) and the class index's
+  `INTERFACES` reader now take the clause whole and judge it in code.
+  Behaviour unchanged.
+
 - **`missing-view-display-on-navigated`: no re-display after a popup.** A
   navigated branch that returns from a popups-addon class (`IS [NOT]
   INSTANCE OF z2ui5_cl_popup_…`, `CAST z2ui5_if_popup_result`) - or from a
