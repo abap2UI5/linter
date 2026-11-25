@@ -20,8 +20,9 @@
  *                                does not hold - FRONTEND_EVENT_ALIASES and
  *                                SERVER_EVENTS)
  *   lib/released-api.mjs      <- the abapGit object layout of src/
- *                                (the released package src/02, the frozen
- *                                package src/99, and the prefix families
+ *                                (the released package src/02, no moved or
+ *                                removed object back in any package, and the
+ *                                prefix families
  *                                everything else has to fall into)
  *   lib/cc-controls.mjs       <- app/webapp/cc/*.js (the metadata-only
  *                                mirrors the render harness boots with and
@@ -29,9 +30,11 @@
  *                                events and the class each one extends -
  *                                and which of them carry an `// OBSOLETE:`
  *                                header - obsolete-custom-control's list)
- *                             <- src/99/z2ui5_cl_xml_view_cc.clas.abap (the
- *                                frozen builder's helper that writes each
- *                                obsolete control: _z2ui5( )->timer( ))
+ *                             <- z2ui5_cl_xml_view_cc (the frozen builder's
+ *                                helper that writes each obsolete control:
+ *                                _z2ui5( )->timer( )) - formerly src/99, in
+ *                                abap2UI5-ext since 1.151.0, so the manifest
+ *                                no longer carries it
  *
  * Upstream is not a dependency here, so a change there is a SILENT breaking
  * change: a new CONTROL_GLOBAL target makes the linter report correct new
@@ -75,7 +78,7 @@ import {
   CONTROL_METHOD_ID_ARG, OBJECT_ARG_METHODS, CONTROL_METHOD_KINDS, URL_POLICIES,
   SHORTCUT_MODIFIERS, SHORTCUT_ALIASES, MESSAGE_BOX_TYPES,
 } from '../lib/frontend-actions.mjs';
-import { RELEASED_OBJECTS, FROZEN_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
+import { RELEASED_OBJECTS, MOVED_OBJECTS, MOVED_TO, REMOVED_OBJECTS, apiVerdict } from '../lib/released-api.mjs';
 import { DEV_PREVIEW } from '../lib/abap2ui5-preview.mjs';
 import { VIEW_BUILDER } from '../lib/builders.mjs';
 import { CC_CONTROLS, OBSOLETE_CC_CONTROLS } from '../lib/cc-controls.mjs';
@@ -86,7 +89,6 @@ const MANIFEST_PATH = '.github/shared/linter-manifest.json';
 /* Where two of the sets live upstream - named in the messages only, so a
  * reader knows which file a drift is about. */
 const CC_DIR = 'app/webapp/cc';
-const XML_VIEW_CC_PATH = 'src/99/z2ui5_cl_xml_view_cc.clas.abap';
 /** The API names an OBSOLETE header points at: every snake_case identifier
  *  in it (`cs_event-start_timer` -> cs_event, start_timer; `client->hash_set( )`
  *  -> hash_set; `client.get().s_device / s_ui5` -> s_device, s_ui5). The
@@ -111,6 +113,8 @@ export const MANIFEST_SCHEMA = 1;
  *   companionControls                app/webapp/cc/*.js: name -> { properties,
  *                                    events, base, obsolete }
  *   frozenBuilderHelpers             z2ui5_cl_xml_view_cc: helper -> control
+ *                                    (null since 1.151.0: the class left
+ *                                    abap2UI5 for abap2UI5-ext)
  *   objects                          package -> the abapGit objects in it
  *   globalTargets, cssProperties, controlMethodDenyExact,
  *   controlMethodDenyPrefixes, bindingMethods, frontendEvents,
@@ -340,9 +344,13 @@ if (invokedDirectly) {
       }
     }
     if (!up.frozenBuilderHelpers) {
-      drift++;
-      console.log('DRIFT frozen-builder companion helpers (lib/cc-controls.mjs):');
-      console.log(`  ! ${XML_VIEW_CC_PATH} is gone upstream — the helper names obsolete-custom-control matches have no source any more`);
+      /* abap2UI5 1.151.0 moved z2ui5_cl_xml_view_cc, unchanged, to
+       * abap2UI5/abap2UI5-ext with the rest of src/99, so its manifest has
+       * nothing to say about the helpers any more. The class still exists
+       * there and an app on it still calls them, so the names recorded here
+       * stay - as the last mirror of a class that no longer changes, not as
+       * drift. */
+      console.log(`ok    frozen-builder companion helpers (lib/cc-controls.mjs): z2ui5_cl_xml_view_cc left abap2UI5 for ${MOVED_TO} - ${Object.keys(OBSOLETE_CC_CONTROLS).length} helper names kept as last recorded, not compared`);
     } else {
       const helpers = up.frozenBuilderHelpers;
       const obsolete = new Set(Object.keys(OBSOLETE_CC_CONTROLS));
@@ -365,11 +373,13 @@ if (invokedDirectly) {
   /* The object layout of `src/` — the third mirror, and the one that decides
    * what `non-released-api` calls a violation. Three separate questions:
    * does the RELEASED list still match src/02 (a stale entry reports correct
-   * code, a missing one lets a new released object be reported), does the
-   * FROZEN list still match src/99 and its sub-packages, and does every
-   * REMAINING object still fall into one of the internal prefix families
-   * (one that does not is silently allowed, which is how a rule stops
-   * seeing the layer it was written for). */
+   * code, a missing one lets a new released object be reported), is every
+   * object that LEFT abap2UI5 - for abap2UI5-ext (the former frozen package
+   * src/99, gone since 1.151.0) or deleted - still gone from every package
+   * (one that is back is shipped by the core again, and the advice the
+   * finding gives is wrong), and does every REMAINING object still fall into
+   * one of the internal prefix families (one that does not is silently
+   * allowed, which is how a rule stops seeing the layer it was written for). */
   {
     const packages = up.objects;
     const inPackages = Object.entries(packages);
@@ -379,21 +389,24 @@ if (invokedDirectly) {
     }
     report('released API objects (lib/released-api.mjs)', [...RELEASED_OBJECTS], packages['src/02'] ?? []);
 
-    const frozenPackages = inPackages.filter(([p]) => p === 'src/99' || p.startsWith('src/99/'));
-    report('frozen package objects (lib/released-api.mjs)',
-      Object.keys(FROZEN_OBJECTS),
-      frozenPackages.flatMap(([, names]) => names));
-    // …and WHERE each of them sits: an object moving between 99/01 and 99/02
-    // does not change the verdict but does change the advice the finding gives
-    report('frozen package layout (lib/released-api.mjs)',
-      Object.entries(FROZEN_OBJECTS).map(([n, o]) => `${n}@${o.area}`),
-      frozenPackages.flatMap(([p, names]) => names.map((n) => `${n}@${p}`)));
+    const gone = new Set([...Object.keys(MOVED_OBJECTS), ...Object.keys(REMOVED_OBJECTS)]);
+    const back = inPackages.flatMap(([p, names]) => names.filter((n) => gone.has(n)).map((n) => `${n} (${p})`));
+    const frozen = inPackages.filter(([p]) => p === 'src/99' || p.startsWith('src/99/')).map(([p]) => p);
+    if (!back.length && !frozen.length) {
+      console.log(`ok    moved and removed objects (lib/released-api.mjs): none is back in abap2UI5 (${Object.keys(MOVED_OBJECTS).length} moved to ${MOVED_TO}, ${Object.keys(REMOVED_OBJECTS).length} removed), and there is no src/99`);
+    } else {
+      drift++;
+      console.log('DRIFT moved and removed objects (lib/released-api.mjs):');
+      for (const n of back) console.log(`  + '${n}' is shipped by abap2UI5 again — recorded here as moved or removed, so the finding's advice is wrong (move it back into the right list)`);
+      for (const p of frozen) console.log(`  + upstream has a package ${p} again — the frozen package was retired in 1.151.0 (decide what its objects are)`);
+    }
 
     const strays = [];
     let classified = 0;
     for (const [pkg, names] of inPackages) {
-      if (pkg === 'src/02' || pkg === 'src/99' || pkg.startsWith('src/99/')) continue;
+      if (pkg === 'src/02') continue;
       for (const name of names) {
+        if (gone.has(name)) continue; // reported above
         if (apiVerdict(name)) classified++;
         else strays.push(`${name} (${pkg})`);
       }

@@ -102,6 +102,64 @@
   `test/review/builder-helpers-across-classes.mjs`; the limits in
   `docs/agents/scope.md`.
 
+### Changed
+
+- **Synced with abap2UI5 1.151.0 (#195).** abap2UI5 main has no `src/99`
+  any more: `z2ui5_cl_xml_view`, `z2ui5_cl_xml_view_cc`, `z2ui5_if_types`
+  and the seventeen `z2ui5_cl_pop_*` popups moved, unchanged, to the
+  separate repository abap2UI5/abap2UI5-ext, next to the utilities
+  (`z2ui5_cl_util*`, formerly `src/99/01`) that went there before.
+  `FROZEN_OBJECTS` / `FROZEN_AREAS` are gone from `lib/released-api.mjs`;
+  `MOVED_OBJECTS` holds all thirty with the package each had, so
+  `non-released-api` still reports them - as moved (`member`
+  `abap2UI5-ext`, "it compiles only where that repository is installed
+  next to it", `frozen: false`) instead of as frozen legacy that ships - and
+  each keeps its advice: the builders point at `z2ui5_cl_ui5_view_builder`,
+  `z2ui5_if_types` at `z2ui5_if_client`, the popups at the popups addon.
+  `stateful-without-release` and `message-before-navigation` still know the
+  moved popups as popup apps (`isMovedPopup( )`).
+  - **The moved area is `abap2UI5-ext` again.** The repository was renamed
+    abap2UI5-obsolet on 2026-11-17 and back to abap2UI5-ext on 2026-11-25.
+    A baseline key written under `abap2UI5-obsolet`, or under `src/99` /
+    `src/99/02` for an object that moved, is read as the `abap2UI5-ext` key
+    (`migrateKey( )` in `lib/baseline.mjs`); one written under
+    `abap2UI5-ext` stays valid as it is. A `src/99` key of an object that
+    was deleted rather than moved is left alone and goes stale.
+  - **`z2ui5_cl_ui5_test` is released** - the test harness for apps, a
+    global FOR TESTING class in `src/02`. Naming it is no longer reported.
+    The rule card listed six released objects, two of them (`z2ui5_if_exit`,
+    `z2ui5_if_types`) not released any more; it lists `src/02` as it is now.
+  - **`ROUTER` and the `VIEW_SLOTS` methods `display` / `updateModel` are
+    gone** from the `CONTROL_GLOBAL` targets (protocol 3 sends views and
+    navigation in `S_FRONT`, nothing writes those actions): a wire naming
+    one is `invalid-frontend-action` now. `VIEW_SLOTS destroy` stays.
+  - **`STOP_TIMER` and `component_path( )` are main's.** They were DEV
+    additions in `lib/abap2ui5-preview.mjs`; main's manifest carries both,
+    so the preview list is empty, and `abap2ui5-api-too-new` dates
+    `cs_event-stop_timer` `main` (in no release yet) through
+    `data/abap2ui5-since.json`, regenerated up to the 1.150.0 tag
+    (`CROSS_APP_NAV_GET_LINKS`, `SET_APP_FULL_WIDTH`, `OFFLINE_QUEUE`,
+    `window_bind_tab( )` and `window_get_row( )` are dated 1.149.0 now; the
+    new client methods `timer_set( )`, `timer_stop( )`, `check_nav_pending( )`,
+    `check_on_nav_back( )`, `get_nav_tag( )` and `get_start_param( )` `main`).
+    The `cs_event` fixture follows main (`stop_timer` in, `offline_queue`
+    out) and `data/compat.json` records 1.151.0 as `framework.mirrored`.
+- **Portable profile refreshed from abap2UI5/protocol f592b16 (#196).** The
+  only difference is three names more in `frontendActions.excluded`
+  (`CROSS_APP_NAV_GET_LINKS`, `SET_APP_FULL_WIDTH`, `OFFLINE_QUEUE`), a list
+  `portable-app` does not read: its findings over every fixture in
+  `test/fixtures/` are identical before and after (165).
+
+### Fixed
+
+- **`check-upstream` verifies the layout that is, not `src/99`.** Instead of
+  matching a frozen list against `src/99` it now fails when any moved or
+  removed object - or a `src/99` package - is back in abap2UI5, and the
+  frozen builder's helpers (`frozenBuilderHelpers`, `null` in the manifest
+  since the class left) are reported as kept, not as drift: the eight helper
+  names `obsolete-custom-control` matches are the ones abap2UI5-ext's
+  unchanged `z2ui5_cl_xml_view_cc` still declares.
+
 ### Fixed
 
 - **Four regular expressions of #204 without polynomial backtracking**
