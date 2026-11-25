@@ -75,6 +75,22 @@ What is collected, which builders are read, how a name is resolved to a value an
   places of the tree is dropped after the branch, and what is built on it
   counts as an unplaced call - the render is skipped. `result =
   view->stringify( )` hands the document over like a display call does.
+- **Builder helpers of other classes, one level deep.** A class of the run
+  may hand out the root of a view (`CLASS-METHODS factory_view RETURNING
+  VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder`, body exactly
+  `result = <builder>=>factory( )->chain` with a literal-only chain) or
+  take a handle and stringify it (`stringify( i_view ) RETURNING string`,
+  `result = i_view->stringify( )`). `builderHelpersOf( )` reads them into
+  the class index (`builderHelpers`), and the handle-aware replay treats
+  `DATA(page) = zcl_views=>factory_view( )` as a factory and
+  `zcl_views=>stringify( page )` as a stringify( ) in every class that
+  calls them. Nothing further: a helper that takes arguments into its
+  chain, builds in branches or calls a helper is not followed; a held
+  handle handed to such a method, or a stringify helper given anything
+  but a held handle, counts as an unplaced builder call (render skipped).
+  A stringify helper that edits the string after stringify( ) (`rewrites`,
+  e.g. completing the root's xmlns declarations) skips the render too, and
+  the two namespace rules stand down for that document.
 - **A name's value is read in its scope.** The reconstructor resolves an
   attribute value written as a name (`v = lv_type`) to the literal or the
   template the class gives it (`makeResolver( )` in `lib/reconstruct.mjs`),

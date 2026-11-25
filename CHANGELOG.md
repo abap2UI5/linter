@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added
+
+- **Builder helpers of another class are followed, one level deep.** An
+  app suite that builds every screen through a views class -
+  `DATA(page) = zcl_views=>factory_view( )`, `page->ele( … )`,
+  `client->view_display( zcl_views=>stringify( page ) )` - reconstructed no
+  view at all. A static factory helper whose body is
+  `result = <builder>=>factory( )->…` with a literal-only chain, and a static
+  stringify helper taking one handle, are read into the class index
+  (`builderHelpersOf( )`, `builderHelpers`) and replayed in every class
+  that calls them. What such a class hands to a helper the replay does not
+  enter counts as unplaced (no render), and a stringify helper that edits
+  the string after stringify( ) skips the render and stands
+  `undeclared-namespace` / `unused-namespace-declaration` down for that
+  document. On the EWM app suite: 0 -> 13 documents, 363 controls, 151
+  bindings. Regression sections in
+  `test/review/builder-helpers-across-classes.mjs`; the limits in
+  `docs/agents/scope.md`.
+
 ### Fixed
 
 - **Apps by inheritance are collected and judged as apps.** A class whose
