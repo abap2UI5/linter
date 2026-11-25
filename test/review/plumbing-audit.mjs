@@ -202,8 +202,15 @@ export default function ({ section, assert, f, FIX, tempDir, checkAbapSource }) 
     assert(migrateKey('a|unknown-binding-path|sap.m.Text|text|CARID') === 'a|unknown-binding-path|sap.m.Text|text|CARID'
       && migrateKey('a|invalid-property-value|sap.m.Input|maxLength|12') === 'a|invalid-property-value|sap.m.Input|maxLength|12',
       'another rule\'s key - a number in it included - is left alone');
-    assert(migrateKey('a|non-released-api||abap2UI5-ext|z2ui5_cl_util') === 'a|non-released-api||abap2UI5-obsolet|z2ui5_cl_util',
-      'a moved object baselined under abap2UI5-ext is matched under its renamed repository');
+    assert(migrateKey('a|non-released-api||abap2UI5-ext|z2ui5_cl_util') === 'a|non-released-api||abap2UI5-ext|z2ui5_cl_util',
+      'a moved object baselined under abap2UI5-ext keeps its key (the repository carries that name again)');
+    assert(migrateKey('a|non-released-api||abap2UI5-obsolet|z2ui5_cl_util') === 'a|non-released-api||abap2UI5-ext|z2ui5_cl_util',
+      'a moved object baselined under abap2UI5-obsolet is matched under abap2UI5-ext');
+    assert(migrateKey('a|non-released-api||src/99/02|z2ui5_cl_pop_to_confirm') === 'a|non-released-api||abap2UI5-ext|z2ui5_cl_pop_to_confirm'
+      && migrateKey('a|non-released-api||src/99|z2ui5_cl_xml_view') === 'a|non-released-api||abap2UI5-ext|z2ui5_cl_xml_view',
+      'a frozen object baselined under its src/99 package is matched under abap2UI5-ext, where it moved');
+    assert(migrateKey('a|non-released-api||src/99|z2ui5_cl_http_handler') === 'a|non-released-api||src/99|z2ui5_cl_http_handler',
+      'a src/99 key of an object that was deleted, not moved, is left alone');
   });
 
   section('audit 2026-10-08: view-never-displayed and a helper that returns the stringified view', () => {
