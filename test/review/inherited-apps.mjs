@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { collectFiles } from '../../lib/index.mjs';
-import { classIndexOf, classIndexDeps, inheritsApp } from '../../lib/guide-rules.mjs';
+import { classIndexOf, classIndexDeps, inheritsApp, inheritsDynamicCall } from '../../lib/guide-rules.mjs';
 
 export const BASE = 'CLASS zcl_base DEFINITION PUBLIC ABSTRACT.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n'
   + '  PROTECTED SECTION.\n    DATA client TYPE REF TO z2ui5_if_client.\n    METHODS on_event.\nENDCLASS.\n\n'
@@ -75,5 +75,40 @@ export default async function ({ section, assert, tempDir, checkAbapSource }) {
     const a = classIndexDeps(base, classIndexOf([base, kid]));
     const b = classIndexDeps(base, classIndexOf([base, kid.replace('WHEN `HELP`', 'WHEN `HELP2`')]));
     assert(a !== b, 'an edit to a subclass handler re-judges the base under --cache');
+  });
+  /* Step five: a base app whose screen comes from a renderer picked at
+   * runtime (`CALL METHOD lo_obj->(render_method)`, customizing-driven).
+   * Whether a check_on_navigated( ) branch of the class - or of a subclass -
+   * re-displays is not decidable then; the rule stands down instead of
+   * raising an error. */
+  const navApp = (name, head, extra = '') => `CLASS ${name} DEFINITION PUBLIC${head}.\n  PUBLIC SECTION.\n    METHODS on_back.\n  PROTECTED SECTION.\n    DATA client TYPE REF TO z2ui5_if_client.\nENDCLASS.\n\n`
+    + `CLASS ${name} IMPLEMENTATION.\n  METHOD on_back.\n    IF client->check_on_navigated( ).\n      DATA(x) = client->get_app_prev( ).\n    ENDIF.\n${extra}  ENDMETHOD.\nENDCLASS.\n`;
+  const REDISPLAY = 'missing-view-display-on-navigated';
+  const redisplay = (src, index = null) => checkAbapSource(src, { render: false, classIndex: index }).findings.filter((f) => f.type === REDISPLAY).length;
+
+  section('dynamic call: missing-view-display-on-navigated is not decidable', () => {
+    const plain = navApp('zcl_plain', '', '').replace('  PUBLIC SECTION.\n', '  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n');
+    assert(redisplay(plain) === 1, 'a navigated branch that re-displays nothing is reported');
+    for (const call of [
+      '    DATA lo_obj TYPE REF TO object.\n    CALL METHOD lo_obj->(mv_render).\n',
+      "    CALL METHOD me->('RENDER').\n",
+      '    CALL METHOD (mv_class)=>(mv_method).\n',
+      '    DATA lo_obj TYPE REF TO object.\n    CREATE OBJECT lo_obj TYPE (mv_class).\n',
+    ]) {
+      assert(redisplay(plain.replace('  ENDMETHOD.', call + '  ENDMETHOD.')) === 0, `a class with ${call.trim().split('\n').pop()} stands the rule down`);
+    }
+    // a dynamic ATTRIBUTE access is no call
+    assert(redisplay(plain.replace('  ENDMETHOD.', "    DATA r TYPE REF TO object.\n    r->('MV_X') = 1.\n  ENDMETHOD.")) === 1, `r->('MV_X') = 1 is an assignment, not a call`);
+  });
+
+  section('dynamic call: a subclass inherits the stand-down from its base', () => {
+    const dynBase = BASE.replace('  METHOD on_event.\n', '  METHOD on_event.\n    DATA lo_obj TYPE REF TO object.\n    CALL METHOD lo_obj->(mv_render).\n');
+    const sub = navApp('zcl_sub', ' INHERITING FROM zcl_base');
+    assert(inheritsDynamicCall('zcl_base', classIndexOf([dynBase, sub])) === true, 'the base calls by a runtime name');
+    assert(redisplay(sub, classIndexOf([BASE, sub])) === 1, 'under a base without one the subclass is reported');
+    assert(redisplay(sub, classIndexOf([dynBase, sub])) === 0, 'under a base with one it is not');
+    const a = classIndexDeps(sub, classIndexOf([BASE, sub]));
+    const b = classIndexDeps(sub, classIndexOf([dynBase, sub]));
+    assert(a !== b, 'and --cache re-judges it when the base changes');
   });
 }

@@ -26,6 +26,15 @@
   it does in the class itself (`relatedEvents( )` in `lib/guide-rules.mjs`;
   the index entry carries `events`, and `--cache` keys on them). On the EWM
   app suite the two rules went from 32 hints to 7.
+- **A dynamic call makes "never re-displays" undecidable.** A class that
+  calls a method by a runtime name - `CALL METHOD obj->(name)`, `CALL
+  METHOD (name)`, `obj->(name)( )`, `CREATE OBJECT … TYPE (name)` - itself
+  or through a superclass of the run may hand its view back through that
+  call: `missing-view-display-on-navigated` stands down there instead of
+  raising an error, and `nav-target-never-displays` treats such a target as
+  unknown (`DYNAMIC_CALL` in `lib/lifecycle-rules.mjs`, `dynamicCall` in the
+  class index, `inheritsDynamicCall( )`). A dynamic attribute access
+  (`r->('X') = 1`) is no call.
 
 ## 0.11.3 - 2026-11-19
 
