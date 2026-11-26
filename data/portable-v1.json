@@ -195,7 +195,7 @@
       "events": [],
       "webComponent": "(none) - <div style=\"display:flex;flex-direction:column\">",
       "fit": "compose",
-      "mapping": "`alignItems`/`justifyContent`/`wrap`/`width`/`height` are CSS flexbox one-to-one (Start->flex-start, End->flex-end, Center, Stretch, SpaceBetween->space-between, …). `renderType` ignored.",
+      "mapping": "`alignItems`/`justifyContent`/`wrap`/`width`/`height` are CSS flexbox one-to-one (Start->flex-start, End->flex-end, Center, Stretch, SpaceBetween->space-between, \u2026). `renderType` ignored.",
       "notInV1": [
         {
           "kind": "property",
@@ -908,7 +908,7 @@
       "events": [],
       "webComponent": "ui5-toolbar",
       "fit": "adapt",
-      "mapping": "Toolbar children must be toolbar items: Button/OverflowToolbarButton -> `ui5-toolbar-button`, ToolbarSpacer -> `ui5-toolbar-spacer`, Select -> `ui5-toolbar-select`/`ui5-toolbar-select-option`, anything else (Title, Label, Input, SearchField, SegmentedButton, …) wrapped in `ui5-toolbar-item`. `style=\"Clear\"`/`design=\"Transparent\"` -> `design=\"Transparent\"`. `OverflowToolbarLayoutData priority` -> `overflow-priority` (NeverOverflow -> `NeverOverflow`, AlwaysOverflow -> `AlwaysOverflow`).",
+      "mapping": "Toolbar children must be toolbar items: Button/OverflowToolbarButton -> `ui5-toolbar-button`, ToolbarSpacer -> `ui5-toolbar-spacer`, Select -> `ui5-toolbar-select`/`ui5-toolbar-select-option`, anything else (Title, Label, Input, SearchField, SegmentedButton, \u2026) wrapped in `ui5-toolbar-item`. `style=\"Clear\"`/`design=\"Transparent\"` -> `design=\"Transparent\"`. `OverflowToolbarLayoutData priority` -> `overflow-priority` (NeverOverflow -> `NeverOverflow`, AlwaysOverflow -> `AlwaysOverflow`).",
       "notInV1": [
         {
           "kind": "property",
@@ -1301,7 +1301,7 @@
       ],
       "webComponent": "ui5-tag (non-interactive) or styled text",
       "fit": "adapt",
-      "mapping": "No exact counterpart. `state` None/Success/Warning/Error/Information/IndicationNN -> `ui5-tag design` Neutral/Positive/Critical/Negative/Information/Set1..(color-scheme) - BUT a tag renders as a pill; apps expect coloured text (+ icon). Recommended: `<span>` with theming colour vars (`--sapPositiveTextColor`, …) + optional `ui5-icon`; use `ui5-tag` only for `inverted=true`. `title` -> \"title: \" prefix; `active`/`press` -> `ui5-tag interactive` + `click`.",
+      "mapping": "No exact counterpart. `state` None/Success/Warning/Error/Information/IndicationNN -> `ui5-tag design` Neutral/Positive/Critical/Negative/Information/Set1..(color-scheme) - BUT a tag renders as a pill; apps expect coloured text (+ icon). Recommended: `<span>` with theming colour vars (`--sapPositiveTextColor`, \u2026) + optional `ui5-icon`; use `ui5-tag` only for `inverted=true`. `title` -> \"title: \" prefix; `active`/`press` -> `ui5-tag interactive` + `click`.",
       "notInV1": []
     },
     "sap.m.Link": {
@@ -3773,7 +3773,7 @@
       ],
       "webComponent": "ui5-li",
       "fit": "direct",
-      "mapping": "`title` -> `text`, `description`, `icon` (sap-icon://x -> `icon=\"x\"`; an image URL -> `<img slot=\"image\">`), `info` -> `additional-text`, `infoState` -> `additional-text-state` (Success->Positive, …), `highlight` -> `highlight`, `type` Inactive/Active/Navigation/Detail/DetailAndActive -> `type` (Inactive/Active/Navigation/Detail), `selected` (two-way), `wrapping` -> `wrapping-type=\"Normal\"`, `counter` -> append to `additional-text`; `press` <- `click`, `detailPress` <- `detail-click`.",
+      "mapping": "`title` -> `text`, `description`, `icon` (sap-icon://x -> `icon=\"x\"`; an image URL -> `<img slot=\"image\">`), `info` -> `additional-text`, `infoState` -> `additional-text-state` (Success->Positive, \u2026), `highlight` -> `highlight`, `type` Inactive/Active/Navigation/Detail/DetailAndActive -> `type` (Inactive/Active/Navigation/Detail), `selected` (two-way), `wrapping` -> `wrapping-type=\"Normal\"`, `counter` -> append to `additional-text`; `press` <- `click`, `detailPress` <- `detail-click`.",
       "notInV1": [
         {
           "kind": "property",
@@ -4113,7 +4113,7 @@
       ],
       "webComponent": "ui5-popover",
       "fit": "adapt",
-      "mapping": "Shown via `client->popover_display( xml, by_id )` -> `opener` = the DOM id of the control with that view id, `open=true`; POPOVER_CLOSE / `popover_destroy( )` -> close. `title` -> `header-text` (`showHeader=false` -> none), `placement` Top/Bottom/Left/Right/Auto/PreferredTopOrFlip… -> `placement` Top/Bottom/Start/End (Auto -> End), `contentWidth`/`contentHeight` CSS, `footer` -> slot `footer`, `modal`; `afterClose` <- `close`.",
+      "mapping": "Shown via `client->popover_display( xml, by_id )` -> `opener` = the DOM id of the control with that view id, `open=true`; POPOVER_CLOSE / `popover_destroy( )` -> close. `title` -> `header-text` (`showHeader=false` -> none), `placement` Top/Bottom/Left/Right/Auto/PreferredTopOrFlip\u2026 -> `placement` Top/Bottom/Start/End (Auto -> End), `contentWidth`/`contentHeight` CSS, `footer` -> slot `footer`, `modal`; `afterClose` <- `close`.",
       "notInV1": [
         {
           "kind": "event",
@@ -4323,7 +4323,7 @@
       "events": [],
       "webComponent": "none - CSS on the child",
       "fit": "compose",
-      "mapping": "`span=\"XL6 L6 M12 S12\"`/`spanL…` -> `grid-column: span n` per breakpoint, `linebreak*` -> `grid-column-start:1`, `indent*` -> start offset. Safe to drop.",
+      "mapping": "`span=\"XL6 L6 M12 S12\"`/`spanL\u2026` -> `grid-column: span n` per breakpoint, `linebreak*` -> `grid-column-start:1`, `indent*` -> start offset. Safe to drop.",
       "notInV1": [
         {
           "kind": "property",
@@ -4869,7 +4869,7 @@
     ]
   },
   "actions": {
-    "note": "api: the follow_up_action( ) names (cs_event values) a portable app may call - frontendActions.allowed is the same list, kept for consumers of revision 0.2. wire: what a portable renderer actually receives - T_SYSTEM actions with their ROUTER options, and the T_CUSTOM / .eF names. The navigation family of api is folded by the backend into the one ROUTER system action (foldedIntoRouter) and never arrives under its own name.",
+    "note": "api: the follow_up_action( ) names (cs_event values) a portable app may call - frontendActions.allowed is the same list, kept for consumers of revision 0.2. wire: what a portable renderer actually receives (protocol 3) - the entries of S_FRONT.VIEWS, the options of S_FRONT.NAV, and the names in S_FRONT.ACTIONS / .eF. The navigation family of api is folded by the backend into the one NAV section (foldedIntoNav) and never arrives under its own name.",
     "api": [
       "SET_FOCUS",
       "START_TIMER",
@@ -4895,16 +4895,11 @@
       "SET_SIZE_LIMIT"
     ],
     "wire": {
-      "system": {
-        "VIEW_SLOTS": [
-          "display",
-          "destroy"
-        ],
-        "ROUTER": [
-          "sync"
-        ]
-      },
-      "routerOptions": [
+      "views": [
+        "display",
+        "destroy"
+      ],
+      "navOptions": [
         "setNavRouting",
         "checkNavAppCall",
         "navAppCallPrevApp",
@@ -4914,14 +4909,14 @@
         "setHashEvent",
         "setAppStateActive"
       ],
-      "foldedIntoRouter": {
+      "foldedIntoNav": {
         "SET_NAV_ROUTING": "setNavRouting",
         "SET_PUSH_STATE": "setPushState",
         "HASH_REPLACE": "setHashReplace",
         "HASH_ATTACH_CHANGED": "setHashEvent",
         "SET_APP_STATE_ACTIVE": "setAppStateActive"
       },
-      "custom": [
+      "actions": [
         "SET_FOCUS",
         "START_TIMER",
         "DOWNLOAD_B64_FILE",
@@ -4940,7 +4935,7 @@
         "HASH_BACK",
         "SET_SIZE_LIMIT"
       ],
-      "customGlobals": {
+      "actionGlobals": {
         "MESSAGE_TOAST": [
           "show"
         ],
@@ -4968,7 +4963,7 @@
         ]
       },
       "noOpAllowed": [
-        "ROUTER",
+        "NAV",
         "HASH_BACK",
         "SET_SIZE_LIMIT"
       ]
@@ -5076,7 +5071,7 @@
     {
       "family": "object display",
       "controls": "ObjectAttribute, ObjectHeader, Avatar, FormattedText, Carousel, Breadcrumbs",
-      "coreAppsBlocked": "1 each (samples-controls: 43, 26, 40, …)",
+      "coreAppsBlocked": "1 each (samples-controls: 43, 26, 40, \u2026)",
       "webComponent": "compose / ui5-avatar / limited HTML / ui5-carousel / ui5-breadcrumbs",
       "note": "mixed"
     },

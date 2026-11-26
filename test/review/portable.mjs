@@ -171,6 +171,7 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
       'Q10: inside an object-valued allowed': { frontendActions: { allowed: { clientApi: ['SET_NAV_ROUTING'], wire: ['ROUTER', 'HASH_BACK'] }, allowedGlobals: globals } },
       'Q10: entries as objects': { frontendActions: { clientApi: [{ name: 'SET_NAV_ROUTING', wire: 'ROUTER sync' }], wireActions: [{ name: 'ROUTER' }, { name: 'HASH_BACK' }], allowedGlobals: globals } },
       'revision 0.3 (protocol 604d267): actions.api / actions.wire.custom': { actions: { api: ['SET_NAV_ROUTING'], wire: { system: { ROUTER: ['sync'] }, custom: ['HASH_BACK'] } }, frontendActions: { allowed: ['SET_NAV_ROUTING'], allowedGlobals: globals } },
+      'protocol 3 (revision 0.7): actions.wire.actions': { actions: { api: ['SET_NAV_ROUTING'], wire: { views: ['display', 'destroy'], navOptions: ['setNavRouting'], actions: ['HASH_BACK'] } }, frontendActions: { allowed: ['SET_NAV_ROUTING'], allowedGlobals: globals } },
     };
     const app = 'CLASS zcl_q10 DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\nENDCLASS.\nCLASS zcl_q10 IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n'
       + '    client->follow_up_action( client->cs_event-set_nav_routing ).\n'
@@ -182,6 +183,10 @@ export default async function ({ section, assert, f, FIX, tempDir, checkAbapSour
       const values = checkPortable({ source: app, abap: true, profile: shape }).map((x) => x.value);
       assert(values.join() === 'SET_FOCUS', `Q10 ${name}: a listed name and an alias of a listed wire pass, an unlisted one is reported (${values.join(', ')})`);
     }
+    // the vendored profile is read through its own wire list, not the wider
+    // client-API fallback: a folded navigation name never arrives on the wire
+    assert(wireActionsOf(raw).includes('HASH_BACK') && !wireActionsOf(raw).includes('SET_NAV_ROUTING'),
+      'the vendored profile: the wire actions come from actions.wire, not from frontendActions.allowed');
     // a raw view's .eF( ) carries the WIRE name
     const viewXml = '<mvc:View xmlns="sap.m" xmlns:mvc="sap.ui.core.mvc"><Button press=".eF(\'ROUTER\', \'sync\')"/></mvc:View>';
     const { parseXml } = await import('../../lib/properties.mjs');
