@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- **The portable profile follows abap2UI5/protocol 3** (protocol 789bbd2,
+  revisions 0.7-0.9). `data/portable-v1.json` is re-vendored; the profile's
+  wire section is now `views` / `navOptions` / `foldedIntoNav` / `actions`
+  instead of `system` / `routerOptions` / `foldedIntoRouter` / `custom`.
+  `portable-app` reads the raw-view `.eF( )` names from `actions.wire.actions`
+  (the old key is still read for older profiles) - without that it fell back
+  to the wider client-API list and passed folded navigation names such as
+  `SET_NAV_ROUTING` in a raw view's `.eF( )`. Controls, members, bindings and
+  expressions are unchanged; only description texts differ there (#209).
+
 ## 0.12.0 - 2026-11-26
 
 ### Read before upgrading
