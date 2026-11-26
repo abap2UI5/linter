@@ -488,5 +488,24 @@ section('xml (2)', async () => {
   assert(xml.renderErrors.length === 0, `xml: renders clean (${xml.renderErrors[0] || ''})`);
 });
 
+// the builder class itself offers no builder helper: its static factory( )
+// read as one was replayed into every caller, and abap2UI5 (whose src/02
+// holds the builder) reconstructed 0 of its 28 views while staying green
+section('builder class is no helper', async () => {
+  const { builderHelpersOf } = await import('../../lib/reconstruct.mjs');
+  const builder = `CLASS z2ui5_cl_ui5_view_builder DEFINITION PUBLIC CREATE PROTECTED.
+    PUBLIC SECTION.
+      CLASS-METHODS factory RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder.
+  ENDCLASS.
+  CLASS z2ui5_cl_ui5_view_builder IMPLEMENTATION.
+    METHOD factory.
+      result = z2ui5_cl_ui5_view_builder=>factory( ).
+    ENDMETHOD.
+  ENDCLASS.`;
+  assert(builderHelpersOf(builder) === null, 'the builder class has no builder helpers');
+  const views = builder.replace(/z2ui5_cl_ui5_view_builder (DEFINITION|IMPLEMENTATION)/g, 'zcl_views $1');
+  assert(builderHelpersOf(views)?.get('factory')?.kind === 'factory', 'a views class with the same factory still has one');
+});
+
   Object.assign(H, { opaque, cellClass, withEvent, view, misplaced, childOf, foreign, opaqueOwner, dottedNs, xmlPos, bad, xml });
 }

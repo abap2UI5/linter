@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed
+
+- **The builder class is no builder helper.** 0.12.0 indexes every class
+  under `paths`, so in abap2UI5 - whose `src/02` holds
+  `z2ui5_cl_ui5_view_builder` - the builder's own static `factory( )` was
+  read as a helper and replayed into every class that calls it: 0 of 28 views
+  were reconstructed ("24 classes produced none") and the run stayed green.
+  `builderHelpersOf( )` now returns nothing for the builder class itself.
+  abap2UI5's workaround (the builder in `ignore` of `abap2ui5lint.jsonc`) can
+  go once this is released.
+
 ### Changed
 
 - **The portable profile follows abap2UI5/protocol 3** (protocol 789bbd2,
