@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 0.12.0 - 2026-11-26
+
+### Read before upgrading
+
+- **A minor, not a patch: new warnings that fail a consumer's run** (every
+  consumer fails on warning). Measured on 2026-11-26 against the repositories
+  of the ecosystem: `nonserializable-attribute` (abap2UI5's test-server apps 3,
+  abap2UI5/samples 4), `message-before-navigation` (samples-stack 1),
+  `nonpublic-data-reference` (abap-cloud-gui 2). Fix them, or waive them in
+  the baseline (`--update-baseline`) with a reason, before moving the pin.
+- **Baselines go stale.** Entries for findings a rule no longer reports
+  (several `obsolete-*` entries after abap2UI5 1.151.0 removed the APIs they
+  were about) are reported as stale - run `--update-baseline` once.
+- **abap2UI5 1.151.0 is mirrored.** The former `src/99` objects are reported
+  as moved to abap2UI5-ext, `STOP_TIMER` and `component_path( )` are known,
+  `ROUTER` and `VIEW_SLOTS` display/updateModel are gone. A consumer still on
+  abap2UI5 1.150.0 may see findings for names 1.150.0 still has.
+- **0.11.4 was never published.** Its changes are part of this release and
+  listed below under "From 0.11.4".
+
 ### Added
 
 - **Ten rules from abap2UI5's backlog (the 2026-11 reviews).** Each with
@@ -170,9 +190,9 @@
   that always displays the popup is still reported at main( )'s call.
   Regression section in `test/review/unescaped-text-defects.mjs`.
 
-## 0.11.4 - 2026-11-25
+### From 0.11.4 (never published, released with 0.12.0)
 
-### Added
+#### Added
 
 - **`nonpublic-data-reference`: a `TYPE REF TO data` instance attribute of
   an app class outside the PUBLIC SECTION.** abap2UI5 writes the generic data
@@ -215,7 +235,7 @@
   removals along (`ROUTER`, `VIEW_SLOTS` `display` / `updateModel`) and
   reported them for every app on the released main.
 
-### Changed
+#### Changed
 
 - **`FRONTEND_EVENTS` comes out of the manifest.** It was the last hand
   copy among the dispatch-table mirrors, and the one that missed
@@ -239,7 +259,7 @@
   the rename is not offered while the section holds one, and the message and
   card say so.
 
-### Fixed
+#### Fixed
 
 - **`relative-binding-without-context`: no verdict below a control the
   snapshot does not know.** Such a control's children used to be judged as
