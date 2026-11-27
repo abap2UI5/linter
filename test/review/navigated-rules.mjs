@@ -83,4 +83,25 @@ export default async function ({ section, assert, checkAbapSource }) {
     const s = of(silent, REDISPLAY);
     assert(s.length === 1 && !s[0].fixes, 'nothing below the guard displays: still reported, without a fix into the guard');
   });
+
+  /* A review of 2026-11-27: the re-display written in the older call
+   * spelling - `CALL METHOD view_display.`, `CALL METHOD
+   * client->view_display EXPORTING val = …` - has no paren after the name,
+   * and both the own-method reader (ownCalls) and the display test
+   * (REDISPLAY in dispatchFacts) required one: the branch was reported as
+   * one that never re-displays. */
+  section('missing-view-display-on-navigated: a CALL METHOD re-display is a re-display', () => {
+    const nav = (stmt) => app(`    IF client->check_on_init( ).\n      client->view_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      ${stmt}\n    ENDIF.\n`,
+      { defs: '    METHODS show.\n', methods: '  METHOD show.\n    client->view_display( render( ) ).\n  ENDMETHOD.\n' });
+    for (const stmt of ['CALL METHOD show.', 'CALL METHOD me->show.', 'CALL METHOD show( ).', 'CALL METHOD client->view_display EXPORTING val = render( ).',
+      'CALL METHOD me->client->view_display EXPORTING val = render( ).']) {
+      assert(of(nav(stmt), REDISPLAY).length === 0, `${stmt} re-displays (${of(nav(stmt), REDISPLAY).length})`);
+    }
+    // a CALL METHOD of something that displays nothing still leaves the branch without a view
+    const none = nav('CALL METHOD client->message_toast_display EXPORTING text = `back`.');
+    assert(of(none, REDISPLAY).length === 1, 'a CALL METHOD of a toast is no re-display');
+    const missingOwn = app('    IF client->check_on_init( ).\n      client->view_display( render( ) ).\n    ELSEIF client->check_on_navigated( ).\n      CALL METHOD note.\n    ENDIF.\n',
+      { defs: '    METHODS note.\n', methods: '  METHOD note.\n    mv_text = `back`.\n  ENDMETHOD.\n' });
+    assert(of(missingOwn, REDISPLAY).length === 1, 'nor is a CALL METHOD of an own method that displays nothing');
+  });
 }
