@@ -423,8 +423,9 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
    * only that something could not be followed. The replay enters the helper
    * once per call, so it knows the caller: the parameter is the value THAT
    * call passes. Only when every call of the helper in the class passes a
-   * value that resolves - one call the replay does not enter (`me->`), or
-   * passes a variable, and the parameter is a variable again. */
+   * value that resolves - one call whose arguments are not read (`CALL
+   * METHOD`), or one passing a variable, and the parameter is a variable
+   * again. */
   section('round 2026-10-09c: a void helper\'s parameter resolves from the call being replayed', () => {
     const cls = (main, helpers, defs) => 'CLASS zcl_h DEFINITION PUBLIC.\n  PUBLIC SECTION.\n    INTERFACES z2ui5_if_app.\n    DATA mv_type TYPE string.\n'
       + `${defs}ENDCLASS.\nCLASS zcl_h IMPLEMENTATION.\n  METHOD z2ui5_if_app~main.\n`
@@ -446,8 +447,12 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
       `one call passing a variable leaves that parameter unresolved for every call, the other one resolves (${buttons(variable)})`);
     assert(types(variable).startsWith('unresolved-attribute-value'), `and says so (${types(variable)})`);
 
+    // `me->add( )` is entered since 2026-11 (helper-call-shapes.mjs), each call with its own values
     const viaMe = cls('    add( page = page type = `Emphasized` text = `Save` ).\n    me->add( page = page type = `Reject` text = `No` ).\n', add, defs);
-    assert(!/type=/.test(buttons(viaMe)), `a call the replay does not enter keeps the parameter a variable (${buttons(viaMe)})`);
+    assert(buttons(viaMe) === '<Button type="Emphasized" text="Save"/><Button type="Reject" text="No"/>', `a me-> call carries its own values (${buttons(viaMe)})`);
+    // a CALL METHOD's arguments are read nowhere in the resolver: the parameter stays a variable
+    const viaCall = cls('    add( page = page type = `Emphasized` text = `Save` ).\n    CALL METHOD add EXPORTING page = page type = `Reject` text = `No`.\n', add, defs);
+    assert(!/type=/.test(buttons(viaCall)), `a call whose arguments are not read keeps the parameter a variable (${buttons(viaCall)})`);
 
     const forwarded = cls('    outer( page = page type = `Accept` ).\n',
       `${add}  METHOD outer.\n    add( page = page type = type text = \`Go\` ).\n  ENDMETHOD.\n`,

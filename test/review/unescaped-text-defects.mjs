@@ -338,4 +338,45 @@ export default async function ({ section, assert, FIX, tempDir, checkAbapSource,
     assert(/1 class opened a builder and produced no view/.test(one.out), `the line prints for a single file (${one.out.split('\n').filter(Boolean).slice(-2).join(' | ')})`);
     assert(!/opened a builder/.test(run([file, '--no-render', '--stats']).out), 'with the run summary printed, its views row carries the count and the line is not repeated');
   });
+
+  /* A review of 2026-11-27: a name declared with a type that holds no
+   * brace (a number, a date, a time, a numeric text) carries data, but
+   * nothing UI5 could read as a binding; a template interpolating only
+   * constants (`|a{ cl_abap_char_utilities=>newline }b|`) is a constant; and
+   * a value cut at 40 characters said so with nothing. */
+  section('unescaped-text-in-attribute: a number, a date or a constant interpolated is no text a brace can hide in', () => {
+    const defs = '    DATA mv_count TYPE i.\n    DATA mv_amount TYPE p LENGTH 10 DECIMALS 2.\n    DATA mv_day TYPE d.\n    DATA mv_digits TYPE n LENGTH 8.\n'
+      + '    CONSTANTS c_sep TYPE string VALUE `-`.\n';
+    const quiet = frame({
+      defs,
+      main: '    DATA lv_time TYPE t.\n    mv_count = 3.\n',
+      chain: '          )->tag( `Text`\n'
+        + '            )->a( n = `text`    v = mv_count\n'
+        + '            )->a( n = `tooltip` v = |{ mv_amount } EUR|\n'
+        + '          )->tag( `Text`\n'
+        + '            )->a( n = `text`    v = |{ mv_day }{ c_sep }{ lv_time }|\n'
+        + '            )->a( n = `tooltip` v = mv_digits && `x`\n'
+        + '          )->tag( `Text`\n'
+        + '            )->a( n = `text`    v = |a{ cl_abap_char_utilities=>newline }b|\n'
+        + '            )->a( n = `tooltip` v = |a{ zcl_review_round0925=>c_sep }b|\n',
+    });
+    const found = of(quiet, 'unescaped-text-in-attribute');
+    assert(found.length === 0, `numbers, dates, times, numeric texts and constants carry no brace (${found.map((x) => x.value).join(' | ') || 'none'})`);
+    // a string beside them is still data
+    const mixed = frame({ defs, chain: '          )->tag( `Text`\n            )->a( n = `text` v = |{ mv_count } of { lv_name }|\n' });
+    assert(of(mixed, 'unescaped-text-in-attribute').length === 1, 'a template that interpolates a string name as well is still reported');
+    // a name declared inline is of a type this source does not show: judged as before
+    const inline = frame({ main: '    DATA(lv_n) = lines( VALUE string_table( ) ).\n', chain: '          )->tag( `Text`\n            )->a( n = `text` v = lv_n\n' });
+    assert(of(inline, 'unescaped-text-in-attribute').length === 1, 'an inline declaration names no type, and is judged as before');
+  });
+
+  section('unescaped-text-in-attribute: a value cut short in the message ends in an ellipsis', () => {
+    const long = '|Results for { lv_search } in every category there is|';
+    const src = frame({ chain: `          )->tag( \`Text\`\n            )->a( n = \`text\` v = ${long}\n` });
+    const [hit] = of(src, 'unescaped-text-in-attribute');
+    assert(hit?.value === long.slice(0, 40), `the value - part of the baseline key - is the first 40 characters, as before (${hit?.value})`);
+    assert(hit.message.includes(`${long.slice(0, 40)}… carries data`), `and the message says it is cut (${hit.message})`);
+    const short = frame({ chain: '          )->tag( `Text`\n            )->a( n = `text` v = |{ lv_search }|\n' });
+    assert(of(short, 'unescaped-text-in-attribute')[0].message.includes('text: |{ lv_search }| carries data'), 'a value shown whole has none');
+  });
 }
