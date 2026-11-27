@@ -165,7 +165,7 @@ export default function ({ section, assert, tempDir, checkAbapSource, checkXmlSo
     for (const name of ['checkAbapSource', 'checkXmlSource', 'declaresApp', 'isXmlSource', 'isAbapGitXml']) {
       assert(check[name] === main[name], `${name}: one function, both routes`);
     }
-    for (const name of ['VIEWLESS_APP_RULE', 'sizeLimitRaised', 'standDownUnusedNamespaces', 'frozenBuilderOf', 'FROZEN_BUILDERS', 'xmlFileKind']) {
+    for (const name of ['VIEWLESS_APP_RULE', 'FROZEN_APP_RULE', 'sizeLimitRaised', 'standDownUnusedNamespaces', 'frozenBuilderOf', 'FROZEN_BUILDERS', 'xmlFileKind']) {
       assert(name in check, `./check exports ${name}`);
     }
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));

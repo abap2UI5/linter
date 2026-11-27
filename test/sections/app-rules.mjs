@@ -1523,7 +1523,7 @@ section('frozen view builder', async () => {
     assert(frozen && frozen.value === 'z2ui5_cl_xml_view',
       'frozen builder: a class on z2ui5_cl_xml_view is reported, not skipped');
     assert(frozen.severity === 'warning',
-      `frozen builder: a warning - the class compiles and renders today, and breaks on the upgrade the deprecation announces (got ${frozen.severity})`);
+      `frozen builder: a warning - the class compiles and renders wherever abap2UI5-ext is installed, which this run cannot see (got ${frozen.severity})`);
     assert(/recommended/.test(frozen.message) && !/DEPRECATED/.test(frozen.message),
       'frozen builder: the message RECOMMENDS the current builder - the old one keeps working, so it is not shouted at');
     assert(/no view check ran here/.test(frozen.message),
@@ -1533,11 +1533,13 @@ section('frozen view builder', async () => {
     assert(frozen.line === 13,
       `frozen builder: reported at the factory call, not at line 1 (got ${frozen.line})`);
 
-    /* And ONLY that. The other ABAP rules model the current dialect; run over
-     * `page( )`/`button( )` they would be guessing, and confident noise is a
-     * worse trade than the silence it replaces. */
-    assert(found.length === 1,
-      `frozen builder: exactly one finding, no guesses about an API the reconstructor does not model (got ${found.map((x) => x.type).join(', ') || 'none'})`);
+    /* And nothing about the VIEW. The view rules model the current dialect;
+     * run over `page( )`/`button( )` they would be guessing, and confident
+     * noise is a worse trade than the silence it replaces. What reads the
+     * class and not the view does run (test/review/removed-api.mjs): this
+     * fixture calls `_bind_edit( )`, and until 2026-11-27 nothing said so. */
+    assert(found.map((x) => x.type).sort().join() === 'frozen-view-builder,obsolete-binder',
+      `frozen builder: the builder and the one obsolete call, no guesses about an API the reconstructor does not model (got ${found.map((x) => x.type).join(', ') || 'none'})`);
 
     // the collection half - the actual defect, and the half a findings test misses
     const dir = tempDir('a2ui5-frozen-');
@@ -1600,7 +1602,7 @@ section('non-released-api', async () => {
       assert(v?.area === 'abap2UI5-ext' && v.moved === true && v.frozen === false,
         `non-released-api: ${name} is reported as moved to abap2UI5-ext`);
     }
-    assert(apiVerdict('z2ui5_cl_pop_table').replacement === 'the popups addon (abap2UI5-addons/popups)'
+    assert(apiVerdict('z2ui5_cl_pop_table').replacement === 'z2ui5_cl_popup_* from the popups addon (abap2UI5-addons/popups)'
       && apiVerdict('z2ui5_cl_pop_table').formerly === 'src/99/02',
       'non-released-api: a moved popup still points at the popups addon');
     assert(apiVerdict('z2ui5_cl_ui5_test') === null,

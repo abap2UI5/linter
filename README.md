@@ -179,11 +179,12 @@ npm run generate-icons       # data/icons.json — the SAP icon-font snapshot
 npm run generate-dependents  # the "Used by" list above, from GitHub's dependents page
 ```
 
-Two files are vendored from another repository rather than generated:
+Three files are vendored from another repository rather than generated:
 
 ```sh
 npm run sync-portable-profile   # data/portable-v1.json — abap2UI5/protocol's portable profile (-- --local <checkout> to read a clone)
 npm run sync-manifest           # data/abap2ui5-manifest.json — abap2UI5's manifest of the closed sets mirrored in lib/ (-- --local <checkout>)
+npm run sync-deprecations       # data/deprecations.json — what abap2UI5 removed or moved, as abap2UI5/docs publishes it (-- --local <checkout>)
 ```
 
 The profile is refreshed by hand when the protocol moves (`npm test` pins its

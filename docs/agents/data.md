@@ -221,3 +221,64 @@ both the pre-Q10 single list and the split shape, and a section of the test
 pins every shape they accept. Decision **Q1** (NEST/NEST2 tolerated but not
 rendered by portable renderers, so portable APPS must not use them) is the
 `nested-view` reason.
+
+## `data/deprecations.json` — vendored from abap2UI5/docs, never hand-edited
+
+What abap2UI5 deprecated, removed or moved to another repository is decided
+in ONE place: the version table on `resources/deprecations.md` of
+abap2UI5/docs. That repository generates `docs/public/api/deprecations.json`
+from the table (its `check:deprecations` gate holds the two together) and
+publishes it at https://abap2ui5.github.io/docs/api/deprecations.json:
+
+```
+{ schema: 1, source, matching,
+  entries: [ { name, kind, of?, pattern?, status, replacement, movedTo?, since, note? } ] }
+```
+
+`kind` is `class`, `interface`, `dictionary-object`, `method`, `parameter`,
+`constant`, `attribute` or `field`; `of` is the method a parameter or field
+belongs to; `status` is `deprecated`, `removed` or `moved`; `since` is the
+release the status took effect in; `movedTo` (`owner/repository`) goes with
+`moved` and only with it. An entry with `pattern: true` matches every name its
+`*` stands for - an exact entry outranks a pattern, a longer pattern a shorter
+one (`z2ui5_cl_pop_js_loader`, removed, against `z2ui5_cl_pop_*`, moved).
+
+The linter is offline and has no dependency, so the file is **copied byte for
+byte** to `data/deprecations.json`, its origin recorded in
+`data/deprecations.source.json` (`repository`, `path`, `commit`, `sha256`),
+and mirrored into `lib/abap2ui5-deprecations.mjs` because `lib/check.mjs` is
+imported where there is no file system (the `abap2ui5-since` pair, same
+reason):
+
+```bash
+npm run sync-deprecations                        # docs main, from GitHub
+npm run sync-deprecations -- --local ../docs     # a checkout's HEAD (the file must be committed)
+npm run sync-deprecations -- --check             # compare only: 0 in sync, 1 drift, 2 unreachable or another shape
+node scripts/sync-deprecations.mjs --module      # the module from the committed copy
+```
+
+`npm test` (`test/review/removed-api.mjs`) recomputes the hash, regenerates
+the module, validates the shape (`shapeProblem( )` - a document of another
+`schema` is refused by the sync, exit 2, never half-read) and holds the
+hand-maintained mirror to it: every name in `MOVED_OBJECTS` /
+`REMOVED_OBJECTS` of `lib/released-api.mjs` has to be moved / removed in the
+data as well. The weekly `upstream-sync.yml` runs `--check` as a warning.
+
+**Who reads it, through `lib/deprecations.mjs` and nothing else:**
+
+- `removed-api` - the rule made of it: a removed or moved name with its
+  status, release, successor and repository.
+- `non-released-api` - WHICH objects left is its mirror's (`released-api.mjs`,
+  checked against abap2UI5's manifest); WHEN is the data's (`since`).
+- `frozen-view-builder` - where the builder is today. Its sentence said
+  "planned to move into a separate addon" for a release after 1.151.0 had
+  moved it, because the fact was typed into the message.
+
+A refresh is a reviewed change: a new `removed` row over there is a new
+**error** in every project that lints here. Run the fixtures and a corpus
+before committing it, and say in the CHANGELOG which names arrived. A row
+that needs a reading this file does not have (a new `kind`) is not judged
+until `removed-api` learns it - unknown is not missing. The rows that are
+prose on the page (the UI5 options of `message_box_display( )`, the invisible
+custom controls) are not in the file at all; `message-box-removed-parameter`
+and `obsolete-custom-control` keep their own lists.

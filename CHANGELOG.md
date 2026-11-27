@@ -1,5 +1,63 @@
 # Changelog
 
+## Unreleased
+
+### Read before upgrading
+
+- **A new error rule, and more findings on a class that uses the old view
+  builder.** `removed-api` is an error wherever a name abap2UI5 removed is
+  still written; a class on `z2ui5_cl_xml_view` is now judged by the rules
+  that need no view, where it got one finding before. Both are true
+  positives on code that no longer compiles or carries an obsolete call, and
+  both fail a run that passed. An installation that stays on a release older
+  than the one a finding names says so once: `"rules": { "removed-api":
+  "warning" }`.
+
+### Added
+
+- **`removed-api`: a removed or moved name, with the release and what to
+  write instead.** abaplint says `Method "set_nav_back" not found`; this
+  says it was removed from abap2UI5 in 1.143.0 and that `follow_up_action( )`
+  took its place. The facts are not the linter's: abap2UI5/docs generates its
+  deprecations page into `api/deprecations.json`, and the linter carries a
+  copy (`data/deprecations.json`, `npm run sync-deprecations`, hash and shape
+  held by `npm test`). Judged: a removed object (`z2ui5_cl_pop_js_loader`,
+  `z2ui5_cl_pop_bal`, `z2ui5_cl_util_api*`), a removed `client->` method
+  (`set_nav_back`, `set_nav_routing`, `set_push_state`,
+  `set_app_state_active`, `window_get_row`), a removed `cs_event-…` constant,
+  `z2ui5_if_app~check_initialized` / `~check_sticky`, a removed parameter
+  (`window_bind_tab( t_sort = … )`) and `s_ctrl-check_allow_multi_req`. A
+  removed name is an error, a moved one a warning. It reports nothing another
+  rule already reports for the same token (`non-released-api`,
+  `obsolete-binder`, `obsolete-model-update`, `obsolete-bind-argument`,
+  `get-viewname-removed`).
+
+### Fixed
+
+- **A class on the frozen builder was told about its builder and nothing
+  else.** `checkAbapSource( )` returned after `frozen-view-builder`, so no
+  source-side rule and no `obsolete-*` or lifecycle rule ran on a class
+  written from old examples - `_bind_edit( )`, a hand-rolled init flag and
+  `z2ui5_cl_pop_to_confirm` went unreported in exactly the class that has
+  them. It is judged by the source-side rules now, and an app class by the
+  rules that read a `client->` call, the attributes or `main( )`
+  (`FROZEN_APP_RULE`, exported from `./check`). Still no view rule: `page( )`
+  and `button( )` are an API the reconstructor does not model.
+- **`frozen-view-builder` said the builder was "planned to move into a
+  separate addon".** It moved: since abap2UI5 1.151.0 `z2ui5_cl_xml_view` and
+  `z2ui5_cl_xml_view_cc` ship from abap2UI5/abap2UI5-ext and compile only
+  where that repository is installed. The message and the card say so, with
+  the release and the repository read from the vendored deprecations instead
+  of typed in.
+
+### Changed
+
+- **`non-released-api` names the release.** A moved object reads "no longer
+  shipped with abap2UI5 since 1.151.0" (1.149.0 for the utility classes), a
+  deleted one "deleted upstream in 1.151.0"; a built-in popup points at
+  `z2ui5_cl_popup_*` in the popups addon. Type, severity, `value` and
+  `member` are unchanged, so a baseline entry still matches.
+
 ## 0.12.1 - 2026-11-27
 
 ### Fixed
