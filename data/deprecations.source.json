@@ -2,6 +2,6 @@
   "note": "Verbatim copy of abap2UI5/docs docs/public/api/deprecations.json, read at the commit below - what abap2UI5 deprecated, removed or moved out, generated there from resources/deprecations.md. Refresh with npm run sync-deprecations (scripts/sync-deprecations.mjs); never hand-edit data/deprecations.json or lib/abap2ui5-deprecations.mjs, npm test recomputes the hash and the module.",
   "repository": "abap2UI5/docs",
   "path": "docs/public/api/deprecations.json",
-  "commit": "c64bdb1561e3503eb31e66d14a6171e818876abe",
+  "commit": "fc5de7f47147d416c6dce4aa7098e692c5b07c8f",
   "sha256": "24560a69a1e904a98950fde9a1cd1586684325306d4969e03e073137c3c5afd4"
 }
