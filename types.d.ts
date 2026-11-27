@@ -305,6 +305,11 @@ declare module "@abap2ui5/linter/check" {
    *  checkSourceRules( ): checkAbapSource keeps the findings of
    *  checkAbapRules( ) whose type this matches. */
   export const VIEWLESS_APP_RULE: RegExp;
+  /** The same for an app class on the FROZEN builder (`frozenBuilderOf( )`):
+   *  the rules that read a `client->` call, the attributes or the shape of
+   *  `main( )` - and none that reads the chain, which is written in an API
+   *  no rule models. Narrower than VIEWLESS_APP_RULE. */
+  export const FROZEN_APP_RULE: RegExp;
   /** Whether the class raises a model's size limit anywhere (the
    *  `cs_event-set_size_limit` constant outside a literal, or the action
    *  name as one) - checkNodes( )'s `sizeLimitRaised`. */

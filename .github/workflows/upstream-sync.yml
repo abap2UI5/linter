@@ -89,6 +89,19 @@ jobs:
           node scripts/generate-abap2ui5-since.mjs --check \
             || echo "::warning::data/abap2ui5-since.json is behind abap2UI5's releases - run node scripts/generate-abap2ui5-since.mjs and commit both files"
 
+      # data/deprecations.json is the verbatim copy of what abap2UI5/docs
+      # publishes from its deprecations page (removed-api, and the release in
+      # non-released-api and frozen-view-builder). A WARNING like the two
+      # above: a row the copy lacks is a name the rule is silent about, never
+      # a wrong verdict, and the refresh is one reviewed command.
+      - name: Compare data/deprecations.json against abap2UI5/docs main
+        if: ${{ always() }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/sync-deprecations.mjs --check \
+            || echo "::warning::data/deprecations.json is not what abap2UI5/docs main publishes - run npm run sync-deprecations, review what removed-api now reports and commit the three files"
+
       # The fifth mirror lives in another repository: data/portable-v1.json,
       # the verbatim copy of abap2UI5/protocol's portable profile that the
       # opt-in portable-app rule judges against. Same exit codes (1 drift,

@@ -39,11 +39,16 @@ What is collected, which builders are read, how a name is resolved to a value an
   documents have to be identical. A new regex over ABAP text that forgets the
   flag fails that gate on the first fixture that exercises it.
 - Classes built with the **`z2ui5_cl_xml_view` fluent builder** (the
-  per-control wrapper API, also frozen) are still **silently skipped** — that
+  per-control wrapper API, frozen, and since abap2UI5 1.151.0 shipped from
+  abap2UI5/abap2UI5-ext instead of the framework) have **no view read** — that
   design boundary stands, and it is a different thing from the two generic
   builders above: it has one method per UI5 control, so reading it is not a
   vocabulary mapping but a second reconstructor. Support for it was
-  deliberately added and reverted once already. The way in for such a repo is
+  deliberately added and reverted once already. Such a class is collected,
+  reported once (`frozen-view-builder`) and judged by the rules that need no
+  view: the source-side rules, and for an app class `FROZEN_APP_RULE` in
+  `lib/check.mjs` - an obsolete or removed call, a binding on the wrong kind
+  of attribute, the lifecycle of `main( )`. The way in for the view rules is
   to migrate it (as
   [cds-wrapper](https://github.com/abap2UI5-addons/cds-wrapper) did).
 - The knowledge bound is the committed metadata snapshot (`docs/agents/data.md`): the

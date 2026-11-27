@@ -792,3 +792,61 @@ findings across those twelve answers, 0 on every corpus, after a first cut
 that read handles class-wide reported a popup class's `lo_popup->result( )`
 in abap2UI5-addons/popups (a handle is now scoped to its method).
 
+
+## 2026-11-27 — `removed-api`, and what a class on the frozen builder is judged by
+
+**The occasion.** A project made from abap2UI5/app-template (framework 1.151.x)
+was given a class written the way public examples from 2024 are written:
+`z2ui5_cl_xml_view=>factory( )->shell( )->page( … )`, `client->_bind_edit( )`,
+`z2ui5_cl_pop_to_confirm`, a hand-rolled `check_initialized` flag. abaplint
+reported three names as not found. This linter reported ONE finding,
+`frozen-view-builder`, whose sentence said the builder was "still fine to use,
+and planned to move into a separate addon" - a release after it had moved.
+
+**Why the other rules were silent.** Not a severity and not `--all-classes`:
+`checkAbapSource( )` returned straight after `frozen-view-builder` for a class
+on the frozen builder ("and nothing else: the other ABAP rules are written for
+the current dialect"). That took the source-side rules (`non-released-api`)
+and every `obsolete-*` and lifecycle rule with it - none of which reads the
+view. The branch now runs `checkSourceRules( )`, and for an app class the
+rules of `FROZEN_APP_RULE`: the ones that read a `client->` call, the
+attributes or `main( )`. Left out on purpose: `unknown-builder-method` (every
+`page( )` would be one), the `event-*` family and `handler-without-event` (the
+old builder wires events through wrappers these do not read),
+`loop-work-area-bound`, `duplicate-for-iterator`. `non-released-api` is
+dropped at the one token `frozen-view-builder` reports.
+
+**`removed-api`** reads the vendored deprecations (`docs/agents/data.md`):
+removed or moved names as the documentation dates them. One finding per
+token, so it stands down wherever a rule already reports it -
+`non-released-api` for every object its mirror knows, `obsolete-binder`,
+`obsolete-model-update`, `obsolete-bind-argument`, `get-viewname-removed`.
+What is left for it: the removed client methods (`set_nav_back`,
+`set_nav_routing`, `set_push_state`, `set_app_state_active`,
+`window_get_row`), the removed `cs_event-…` constants, `z2ui5_if_app~check_initialized`
+/ `~check_sticky`, `window_bind_tab( t_sort / t_filter )`,
+`s_ctrl-check_allow_multi_req`, and the objects the mirror never listed
+(`z2ui5_cl_pop_bal`, `z2ui5_cl_pop_js_loader`, `z2ui5_cl_util_api*`). A name
+only a MOVED pattern matches is not reported (somebody's own
+`z2ui5_cl_util…`); `cs_config-title` is not judged (the source does not show
+whose `cs_config`).
+
+**Severity.** Removed is an error - the class does not compile on the named
+release or later; moved is a warning on the finding - it compiles where the
+repository is installed, which a run cannot see. `obsolete-binder` and
+`obsolete-model-update` are still warnings although 1.151.0 removed what they
+report: moving them is a severity change for every consumer (rule 8) and was
+not part of this round.
+
+**Measured.** No corpus on the frozen builder exists any more (the ecosystem
+migrated; abap2UI5-ext's popups are on the current builder), so the frozen
+path is held by `test/fixtures/frozenoldstyle.clas.abap`. On the fixture
+corpus the rule added three findings, all true: `windowstate` (`t_sort`),
+`wirekinds` (`cs_event-set_nav_routing`, twice). abap2UI5-ext itself: 95
+findings before, 95 after. Across the ecosystem with `--all-classes`
+(abap2UI5, app-template, the three sample corpora, abap2UI5-ext and 22
+addons, about 1,300 classes): 0 `removed-api` findings everywhere but
+abap2UI5-addons/rap-ext, 3 there and all true - its client wrapper
+`z2ui5_cl_rap_fcl_client` still forwards `window_get_row( )` and passes
+`t_sort` / `t_filter` to `window_bind_tab( )`, none of which `z2ui5_if_client`
+has since 1.151.0.

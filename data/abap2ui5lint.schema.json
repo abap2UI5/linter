@@ -139,7 +139,7 @@
           "description": "One entry per badge kind."
         }
       ],
-      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 191 rules passed\")."
+      "description": "Write shields.io endpoint JSON for every run, so the README can show what the corpus IS (\"abap2UI5 | 148 apps · 172 views · 2,176 controls\") and what the gate said about it (\"check-abap2UI5 | 192 rules passed\")."
     },
     "rules": {
       "type": "object",
@@ -725,6 +725,10 @@
         "relative-binding-without-context": {
           "$ref": "#/definitions/rule",
           "description": "abap2UI5 linter rule 'relative-binding-without-context' — default severity: error"
+        },
+        "removed-api": {
+          "$ref": "#/definitions/rule",
+          "description": "abap2UI5 linter rule 'removed-api' — default severity: error"
         },
         "rows-hidden-by-visible": {
           "$ref": "#/definitions/rule",

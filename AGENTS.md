@@ -35,7 +35,7 @@ table below says, not here.
 | `docs/agents/roadmap.md` | adding a rule — the open candidates and the rules of the trade (measure on the corpora, check it can see anything) |
 | `docs/agents/rule-history.md` | widening or narrowing a rule — where it came from and what it was measured against |
 | `docs/agents/output.md` | changing a formatter, a flag, the run summary, progress or a badge — the surface shared with ui5lint and abaplint |
-| `docs/agents/data.md` | anything under `data/` — the metadata snapshot, `compat.json`, the abap2UI5 manifest, the portable profile |
+| `docs/agents/data.md` | anything under `data/` — the metadata snapshot, `compat.json`, the abap2UI5 manifest, the portable profile, the deprecations |
 | `docs/agents/render-package.md` | `linter-render/`, a peer range, the `@openui5` pins |
 | `docs/agents/consumers.md` | changing a severity, a finding type, the reconstructor or an export — who depends on it, and the downstream contract |
 | `docs/agents/release.md` | versioning or publishing (procedure: `RELEASING.md`) |
@@ -65,6 +65,9 @@ npm run sync-portable-profile     # data/portable-v1.json - abap2UI5/protocol's 
 npm run sync-manifest             # data/abap2ui5-manifest.json - abap2UI5's own manifest of
                                   # the sets mirrored in lib/ (-- --local <abap2UI5 checkout>,
                                   # -- --check compares only); npm test holds the mirrors to it
+npm run sync-deprecations         # data/deprecations.json + lib/abap2ui5-deprecations.mjs - what
+                                  # abap2UI5 removed or moved, as abap2UI5/docs publishes it
+                                  # (-- --local <docs checkout>, -- --check compares only)
 npm run generate-compat           # data/compat.json - after a version bump, or with
                                   # -- --local <abap2UI5 checkout> after a mirror sync
 npm run generate-abap2ui5-since  # data/abap2ui5-since.json + lib/abap2ui5-since.mjs -
@@ -178,7 +181,8 @@ Each of these has been broken at least once. The number is its name — keep it.
 1. **Never hand-edit a generated or vendored file**: `data/properties.json`,
    `data/icons.json`, `data/compat.json`, `data/abap2ui5lint.schema.json`,
    `data/portable-v1.json`, `data/abap2ui5-manifest.json`, `lib/abap2ui5-sets.mjs`,
-   `data/abap2ui5-since.json`, `lib/abap2ui5-since.mjs`, `site/index.html`,
+   `data/abap2ui5-since.json`, `lib/abap2ui5-since.mjs`, `data/deprecations.json`,
+   `lib/abap2ui5-deprecations.mjs`, `site/index.html`,
    `docs/agents/rule-map.md`, the README's dependents block. Each has a
    generator or a sync script in `scripts/`; `npm test` fails while one is stale.
 2. **ABAP is case-insensitive outside literals and comments, and so is every
@@ -223,8 +227,12 @@ Each of these has been broken at least once. The number is its name — keep it.
     only, and move together with `data/abap2ui5-manifest.json`** — `npm test`
     compares the two (`docs/agents/data.md`).
 14. **No second reconstructor.** The frozen `z2ui5_cl_xml_view` builder is
-    reported (`frozen-view-builder`) and otherwise not read; support for it
-    was added and reverted once already.
+    reported (`frozen-view-builder`) and its VIEW is not read; support for it
+    was added and reverted once already. The class around it is judged by
+    the rules that need no view (`FROZEN_APP_RULE`, `lib/check.mjs`).
+17. **A release, a successor or a repository in a message about a removed
+    name comes from `lib/deprecations.mjs`**, never from a literal in a rule:
+    the documentation decides them (`docs/agents/data.md`).
 15. **`--report-false-positives` and everything around it sends nothing.** The
     excerpt is a consumer's source.
 16. **Merging to `main` is a release for every channel but npm**, and the
