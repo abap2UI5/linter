@@ -43,6 +43,56 @@
 
 ### Fixed
 
+- **A call of the class's own builder helper is replayed in every spelling.**
+  `me->add_form( content ).`, `zcl_me=>add_static( content ).` (the class's
+  own name), `CALL METHOD add_form EXPORTING io_parent = content.` (also with
+  `RECEIVING` for a helper that returns the handle) and a helper whose handle
+  is `CHANGING`, or that has `EXPORTING` parameters beside it, were no helper
+  calls: the view came out with an empty `<content/>`, nothing counted as
+  unplaced, and a typo inside the helper passed. And any statement that hands
+  a held handle to a call the replay does not enter (another object's method,
+  a `NEW`, a dynamic `CALL METHOD`) now counts as a builder call the replay
+  cannot place - the render is skipped and the whole-view rules stand down,
+  as for another class's static method before. Reconstruction change:
+  checked against the consumers. `test/review/helper-call-shapes.mjs`,
+  `test/fixtures/helpercalls.clas.abap`.
+- **A literal a later write replaced is no longer the value.** The value
+  resolver took the last literal written into a name and ignored every other
+  write: `DATA(lv_type) = \`Acc\`. lv_type &&= \`ept\`.` reconstructed
+  `type="Acc"` and `invalid-property-value` reported it. A write that is not a
+  literal after the chosen one - `&&=`, `x = x && …`, a call, a `COND`, a
+  template, `CONCATENATE … INTO`, `TRANSLATE`, `CONDENSE`, `SHIFT`,
+  `REPLACE … IN`, `CLEAR` - leaves the name unresolved: before the use for a
+  method's variable, anywhere after the literal for an attribute.
+  `test/review/overwritten-literals.mjs`.
+- **`missing-view-display-on-navigated` and the other dispatch rules read
+  `CALL METHOD`.** `CALL METHOD view_display.` and `CALL METHOD
+  client->view_display EXPORTING val = …` in a `check_on_navigated( )`
+  branch were not read as a re-display (both readers wanted a paren after the
+  name), and the branch was reported as one that shows the called app's view.
+  `test/review/navigated-rules.mjs`.
+- **`unescaped-text-in-attribute` stands down on numbers, dates and
+  constants.** A name declared with a type that holds no brace (`i`, `int8`,
+  `p`, `f`, `decfloat16`/`34`, `d`, `t`, `n`, …; a local, a parameter or an
+  attribute) and a template that interpolates only constants
+  (`|a{ cl_abap_char_utilities=>newline }b|`, the class's own
+  `zcl_me=>c_label`) were reported as data written through `v`. A name
+  declared inline names no type and is judged as before. A value cut at 40
+  characters now ends in `…` in the message; the finding's `value` (part of
+  the baseline key) is unchanged. `test/review/unescaped-text-defects.mjs`.
+- **An event read into a structure is handled.** `DATA(ls_get) =
+  client->get( ). IF ls_get-event = \`GO\`.` - and `IF lv_event = …` after
+  `DATA(lv_event) = client->get( )-event.` or `= client->get_event( ).` - was
+  no handler, and `event-without-handler` reported GO. A `CASE ls_get-event.`
+  is the event CASE `handler-without-event` judges, too.
+  `test/review/event-holders.mjs`.
+- **Linear in the number of helpers.** A class of 2,000 row helpers took 8 s:
+  `unescaped-text-in-attribute` scanned every statement per helper and
+  parameter, the reconstructor searched the whole class for each helper's
+  body and each helper's call sites, and the model's `methodAt( )` and
+  `signature( )` walked every method per question. The call sites are
+  indexed in one pass, the bodies read once and the lookups binary-searched
+  or mapped; the same class takes about 1 s. `test/review/helper-call-shapes.mjs`.
 - **The compiled-theme cache is used only when it is the user's own.** Its
   name in the shared tmpdir carries the uid and it is made `0700`, but the
   name can be taken first: another account creating
