@@ -103,6 +103,20 @@
   run (themes compile anew, which costs speed only), said once on stderr.
   `test/review/theme-cache.mjs`.
 
+### Security
+
+- **The workflows that hold a write token keep it out of what they run.**
+  `release.yml` minted the npm publishing identity workflow-wide
+  (`id-token: write`), so `after-publish` (`contents: write`) could mint one
+  too; it is now granted to the `publish` job alone, which runs in the
+  GitHub environment `release`. `bundle.yml` and `dependabot-openui5.yml`
+  checked out with the token persisted in `.git/config` while `npm ci`, the
+  generators and the test suite ran; both now check out with
+  `persist-credentials: false`, the Dependabot commit is pushed with the
+  token named for that one push, and both installs run `--ignore-scripts`
+  (no package in the lockfile has an install script - the bundle was built
+  and run through the render gate that way).
+
 ## 0.13.0 - 2026-11-27
 
 ### Read before upgrading

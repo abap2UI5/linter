@@ -59,7 +59,8 @@ name: Publish to npm
 #
 # Trusted publishing (OIDC) is deliberate: no NPM_TOKEN secret to leak or
 # rotate, and npm records a provenance attestation tying the tarball to this
-# workflow run and commit. `id-token: write` below is what mints that token.
+# workflow run and commit. `id-token: write` on the `publish` job is what mints
+# that token - on that job only, which runs in the environment `release`.
 # ---------------------------------------------------------------------------
 on:
   push:
@@ -77,12 +78,20 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The publishing identity is minted here and nowhere else: not workflow
+    # wide, where `after-publish` (contents: write) could mint one too. The
+    # environment `release` carries the deployment rule (tags `v*.*.*`, and
+    # `main` for the dispatched dry run) and is
+    # the environment named in each package's npm Trusted Publisher settings.
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

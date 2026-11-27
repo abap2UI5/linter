@@ -65,6 +65,10 @@ jobs:
           # to it, so a merge commit of main would be the wrong tree
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
+          # The write token is NOT left in .git/config: npm ci, the two
+          # generators and the whole test suite run below, and any of them
+          # could otherwise push. The one push names its token itself.
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -89,9 +93,12 @@ jobs:
             echo "moved=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # --ignore-scripts: the bumped tree is the one thing in this job that
+      # changed, and no package in the lockfile has an install script - so
+      # one that a bump brings in does not run with a write token at hand.
       - name: Install the pinned @openui5 sources
         if: steps.pins.outputs.moved == 'true'
-        run: npm ci --no-audit --no-fund
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       # properties.json is read out of node_modules and takes ~2 s; icons.json
       # scans the icon registry of every minor from the floor up and needs
@@ -114,6 +121,7 @@ jobs:
         if: steps.pins.outputs.moved == 'true'
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -e
           if git diff --quiet -- data/properties.json data/icons.json; then
@@ -124,4 +132,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/properties.json data/icons.json
           git commit -m 'data: regenerate the snapshots for the bumped @openui5 release'
-          git push origin "HEAD:$HEAD_REF"
+          # the token is named here, for this one push - the checkout kept none
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$HEAD_REF"
