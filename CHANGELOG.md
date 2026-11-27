@@ -1,12 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.13.0 - 2026-11-27
 
 ### Read before upgrading
 
-- **A new error rule, and more findings on a class that uses the old view
-  builder.** `removed-api` is an error wherever a name abap2UI5 removed is
-  still written; a class on `z2ui5_cl_xml_view` is now judged by the rules
+- **A minor, not a patch: a new error rule, and more findings on a class
+  that uses the old view builder.** Measured on 2026-11-27 against the
+  repositories of the ecosystem: `removed-api` 3 in abap2UI5-addons/rap-ext
+  (fixed there in abap2UI5-addons/rap-ext#40), 0 everywhere else.
+  `removed-api` is an error wherever a name abap2UI5 removed is still
+  written; a class on `z2ui5_cl_xml_view` is now judged by the rules
   that need no view, where it got one finding before. Both are true
   positives on code that no longer compiles or carries an obsolete call, and
   both fail a run that passed. An installation that stays on a release older
