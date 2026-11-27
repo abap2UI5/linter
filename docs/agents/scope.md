@@ -98,9 +98,13 @@ What is collected, which builders are read, how a name is resolved to a value an
   than a handle stays unresolved, and a binding in it adds nothing to the
   caller's model. One level: a body that reaches another helper through
   `class=>` is not entered (a literal factory helper still is). A held
-  handle handed to a static method the run does not hold, or a stringify
-  helper given anything but a held handle, counts as an unplaced builder
-  call (render skipped).
+  handle handed to any call the replay does not enter (a static method the
+  run does not hold, another object's method, a `NEW`, a dynamic `CALL
+  METHOD`), or a stringify helper given anything but a held handle, counts
+  as an unplaced builder call (render skipped). The class's own helper is
+  entered however the call is spelled: bare, `me->`, `<own class>=>`,
+  `CALL METHOD … EXPORTING`/`RECEIVING`; its handle may be IMPORTING or
+  CHANGING, beside EXPORTING parameters of its own.
   A stringify helper that edits the string after stringify( ) (`rewrites`,
   e.g. completing the root's xmlns declarations) skips the render too, and
   the two namespace rules stand down for that document.
@@ -114,14 +118,16 @@ What is collected, which builders are read, how a name is resolved to a value an
   inline or a `DATA`/`STATICS`/`CONSTANTS` declaration, or a parameter) is
   that method's variable and takes the last of its writes before the use;
   any other name is the class's attribute and takes the class's last write.
+  A write that is no literal (`&&=`, a call, a `COND`, `CONCATENATE … INTO`,
+  `TRANSLATE`, `REPLACE … IN`, `CLEAR`, …) after the literal taken - before
+  the use for a variable, anywhere for an attribute - leaves it unresolved.
   A parameter is the caller's, so it stays unresolved - except in a void
   helper the replay enters: during the replay of ONE call the parameter is
   the value that call passes, resolved where the call stands (a forwarded
   parameter through its caller's frame), as long as EVERY call of the
   helper in the class passes a value that resolves and the helper never
-  writes the parameter itself (`inHelperCall( )`; a `me->` call or a
-  `CALL METHOD` is a call the replay does not enter, so it keeps the
-  parameter a variable). A value with no position (a RETURNING helper
+  writes the parameter itself (`inHelperCall( )`; a `CALL METHOD`, whose
+  arguments the resolver does not read, keeps the parameter a variable). A value with no position (a RETURNING helper
   inlined with its arguments - substituted in code spans only, never inside
   a literal, `codeOnly( )`) reads class-wide with the single-declaration
   guard. A parameter the call omits takes its `DEFAULT`. Helpers are
