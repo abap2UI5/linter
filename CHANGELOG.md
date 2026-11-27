@@ -41,6 +41,18 @@
   the data file rather than at import, so the suite that imports it and
   `--module` need no network.
 
+### Fixed
+
+- **The compiled-theme cache is used only when it is the user's own.** Its
+  name in the shared tmpdir carries the uid and it is made `0700`, but the
+  name can be taken first: another account creating
+  `abap2ui5-theme-css-<uid>` (or a symlink of that name) had every preview
+  read its CSS, because `mkdirSync` accepts what is already there. The
+  directory is now checked after it is made - a directory itself, owned by
+  the running uid, closed to group and others - and otherwise skipped for the
+  run (themes compile anew, which costs speed only), said once on stderr.
+  `test/review/theme-cache.mjs`.
+
 ## 0.13.0 - 2026-11-27
 
 ### Read before upgrading
