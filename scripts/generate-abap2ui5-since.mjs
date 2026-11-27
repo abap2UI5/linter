@@ -14,7 +14,9 @@
  * Source: `src/02/z2ui5_if_client.intf.abap` at every release tag of
  * abap2UI5/abap2UI5 from FIRST up - the components of `cs_event` and the
  * METHODS of the interface, and the IMPORTING parameters a method gained
- * after it came (`nav_app_leave-keep_messages`). A name's `since` is the first tag that has it; a
+ * after it came (`nav_app_leave-keep_messages`); and the public statics of
+ * z2ui5_cl_ui5_view_builder (`component_path`), dated from the release that
+ * brought the builder on. A name's `since` is the first tag that has it; a
  * name already in FIRST is not recorded at all (it means "at or before
  * FIRST", and the rule is silent for it); a name only `main` has so far is
  * recorded as "main". Tags whose file is not at that path
@@ -45,6 +47,10 @@ const MODULE = path.join(ROOT, 'lib', 'abap2ui5-since.mjs');
 const REPO = 'abap2UI5/abap2UI5';
 const FILE = 'src/02/z2ui5_if_client.intf.abap';
 const FIRST = '1.120.0';
+/* the view builder's public statics (component_path( ), 1.151.0): the
+ * builder came with 1.143.0, so a tag without the file has none of them and
+ * every one is dated by the first tag that has it - no "at or before FIRST" */
+const BUILDER = 'src/02/z2ui5_cl_ui5_view_builder.clas.abap';
 
 const cmp = (a, b) => {
   const x = a.split('.').map(Number); const y = b.split('.').map(Number);
@@ -98,6 +104,14 @@ export function readApi(src) {
   return { events, methods, parameters };
 }
 
+/* The public CLASS-METHODS of the view builder (lower case, as a call
+ * writes them) - its PUBLIC SECTION only, comments dropped first. */
+export function readBuilderStatics(src) {
+  const code = src.split('\n').map((l) => (l.trimStart().startsWith('*') ? '' : l.replace(/".*$/, ''))).join('\n');
+  const pub = /\bPUBLIC\s+SECTION\b([\s\S]*?)(?=\b(?:PROTECTED|PRIVATE)\s+SECTION\b|\bENDCLASS\b)/i.exec(code)?.[1] ?? '';
+  return new Set([...pub.matchAll(/^\s*CLASS-METHODS\s+(\w+)/gim)].map((m) => m[1].toLowerCase()));
+}
+
 /** The module text for a data object - what npm test compares. */
 export function moduleText(data) {
   return `/*
@@ -116,7 +130,13 @@ async function main() {
     console.error(`wrote ${path.relative(process.cwd(), MODULE)}`);
     return;
   }
-  const since = { clientEvents: {}, clientMethods: {}, clientParameters: {} };
+  const since = { clientEvents: {}, clientMethods: {}, clientParameters: {}, builderStatics: {} };
+  const builder = async (ref, date) => {
+    const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${ref}/${BUILDER}`);
+    if (res.status === 404) return; // before 1.143.0: no builder
+    if (!res.ok) throw new Error(`${ref}: ${BUILDER} answered ${res.status}`);
+    for (const name of readBuilderStatics(await res.text())) if (!(name in since.builderStatics)) since.builderStatics[name] = date;
+  };
   let first = null;
   let latest = null;
   for (const tag of releaseTags()) {
@@ -133,6 +153,7 @@ async function main() {
       for (const m of methods) if (!(m in since.clientMethods)) since.clientMethods[m] = tag;
       for (const p of parameters) if (!(p in since.clientParameters)) since.clientParameters[p] = tag;
     }
+    await builder(tag, tag);
     latest = tag;
     console.error(`${tag}: ${events.size} events, ${methods.size} methods`);
   }
@@ -148,6 +169,7 @@ async function main() {
       for (const m of methods) if (!(m in since.clientMethods)) since.clientMethods[m] = 'main';
       for (const p of parameters) if (!(p in since.clientParameters)) since.clientParameters[p] = 'main';
     }
+    await builder('main', 'main');
   }
   const strip = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v).sort(([a], [b]) => a.localeCompare(b)));
   /* A parameter is recorded only when it came AFTER its method: the
@@ -163,6 +185,7 @@ async function main() {
     clientEvents: strip(since.clientEvents),
     clientMethods: strip(since.clientMethods),
     clientParameters: strip(since.clientParameters),
+    builderStatics: strip(since.builderStatics),
   };
   const text = `${JSON.stringify(data, null, 2)}\n`;
   if (process.argv.includes('--check')) {

@@ -3,7 +3,8 @@
  * (2026-11-25):
  *
  *   namespaced-row-binding - a namespaced column (`/CWM/XCWMAT`) is a level
- *   of its row in the model (abap2UI5 40e8a073), so `{/CWM/XCWMAT}` and a
+ *   of its row in the model (abap2UI5 40e8a073, released in 1.151.0 with
+ *   component_path( )), so `{/CWM/XCWMAT}` and a
  *   run-time `|\{{ comp-name }\}|` bind an absolute path: the cell is empty
  *   and an edit is lost (EWM apps over /SCWM/ tables; table-maintenance
  *   880fc2d, layout-management 0ca56e3);
@@ -88,11 +89,27 @@ export default async function ({ section, assert, checkAbapSource, checkXmlSourc
     assert(f.length === 1 && f[0].kind === 'dynamic' && f[0].value === 'comp-name', `the |\\{{ x }\\}| shape (${f.length})`);
     assert(f[0].severity === 'hint', `the run-time shape is a hint (${f[0].severity})`);
     assert(/component_path/.test(f[0].message ?? ''), 'the message names component_path( )');
-    assert(!f[0].fixes, 'no fix: component_path( ) is a method of abap2UI5 DEV');
+    assert(f[0].fixes?.length === 1 && f[0].since === '1.151.0', 'without a release configured (main): a fix');
     assert(of(frame({ view: loop('Text', 'text', "|\\{path:'{ comp-name }'\\}|") }), NS).length === 1, "the |\\{path:'{ x }'…| shape");
     const viaVar = '    LOOP AT lt_comp INTO DATA(comp).\n      DATA(lv_col) = comp-name.\n'
       + '      cells->tag( `Text` )->a( n = `text` v = |\\{{ lv_col }\\}| ).\n    ENDLOOP.\n';
     assert(of(frame({ view: viaVar }), NS).length === 1, 'a variable filled from the component');
+  });
+
+  section('namespaced-row-binding: the run-time shape is wrapped in component_path( ) from abap2UI5 1.151.0 on', () => {
+    const at = (src, abap2ui5) => checkAbapSource(src, { render: false, properties: true, minUi5: '1.71', abap2ui5 }).findings.filter((x) => x.type === NS);
+    const src = frame({ view: loop('Text', 'text', '|\\{{ comp-name }\\}|') });
+    const out = applyFixes(src, at(src)).output;
+    assert(out.includes('v = |\\{{ z2ui5_cl_ui5_view_builder=>component_path( comp-name ) }\\}|'), `the embed is wrapped:\n${out}`);
+    assert(at(out).length === 0, 'the fixed class is silent');
+    const info = frame({ view: loop('Text', 'text', "|\\{path:'{  me->mv_title }'\\}|") });
+    const fi = at(info);
+    assert(fi.length === 1 && applyFixes(info, fi).output.includes("|\\{path:'{  z2ui5_cl_ui5_view_builder=>component_path( me->mv_title ) }'\\}|"), 'after path:, the blanks around the embed kept');
+    for (const rel of ['1.151.0', '1.160.2']) assert(at(src, rel)[0]?.fixes?.length === 1, `a fix on ${rel}`);
+    const old = at(src, '1.150.0');
+    assert(old.length === 1 && !old[0].fixes, 'a release older than 1.151.0: no fix - the call would not activate there');
+    assert(/came with abap2UI5 1\.151\.0 - not in 1\.150\.0/.test(old[0].message), `the message names both releases (${old[0].message})`);
+    assert(/\(abap2UI5 1\.151\.0 on\)/.test(at(src)[0].message), 'the message with the fix names the release');
   });
 
   section('namespaced-row-binding: what is not reported', () => {

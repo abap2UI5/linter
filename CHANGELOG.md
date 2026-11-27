@@ -16,6 +16,15 @@
   configured release. A comment inside the parentheses keeps the finding
   without a fix too. Findings are unchanged; their message and the fix are
   new.
+- **`namespaced-row-binding` fixes the run-time shape: `component_path( )`
+  came with abap2UI5 1.151.0.** The card called
+  `z2ui5_cl_ui5_view_builder=>component_path( )` a DEV method and the rule
+  offered no fix for `|\{{ comp-name }\}|`; without a configured release or
+  with one at or above 1.151.0, `--fix` now wraps the embedded name
+  (`|\{{ z2ui5_cl_ui5_view_builder=>component_path( comp-name ) }\}|`), which
+  returns every name without a namespace unchanged. An older configured
+  release keeps the hint without a fix and says the method came with 1.151.0
+  and is not in that release. Findings are unchanged.
 - **`data/abap2ui5-since.json` reads release 1.151.0 and the parameters a
   method gained.** `STOP_TIMER`, `check_nav_pending( )`,
   `check_on_nav_back( )`, `get_nav_tag( )`, `get_start_param( )`,
@@ -24,7 +33,10 @@
   reports them against an installation of 1.151.0. The new
   `clientParameters` dates each IMPORTING parameter added to a client method
   after the method itself (`nav_app_leave-keep_messages`: 1.151.0) - where
-  `message-before-navigation` reads when `keep_messages` came.
+  `message-before-navigation` reads when `keep_messages` came - and the
+  new `builderStatics` dates the public statics of
+  `z2ui5_cl_ui5_view_builder` from 1.143.0, the release that brought it
+  (`component_path`: 1.151.0), for `namespaced-row-binding`.
   `scripts/generate-abap2ui5-since.mjs` lists the release tags when it builds
   the data file rather than at import, so the suite that imports it and
   `--module` need no network.
