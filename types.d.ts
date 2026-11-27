@@ -747,6 +747,11 @@ declare module "@abap2ui5/linter/properties" {
        *  a relative binding path HAS a context at runtime that no static walk
        *  can see. */
       boundElement?: boolean;
+      /** The abap2UI5 release the app runs on ("1.151.0", the `abap2ui5`
+       *  option) - namespaced-row-binding offers its component_path( ) fix
+       *  only from the release that has the method. Null judges against
+       *  abap2UI5's main. */
+      abap2ui5?: string | null;
       /** Filled in when given: `rule:<id>` -> ms for the rules of scope
        *  'node' the walk runs (lib/timing.mjs). */
       timings?: Map<string, number> | null;

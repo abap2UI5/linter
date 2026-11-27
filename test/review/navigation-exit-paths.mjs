@@ -1,10 +1,11 @@
 /*
  * What an app leaves behind when it navigates away.
  *
- *   - message-before-navigation: abap2UI5 cefce923 (2026-11-24, DEV) - a
- *     nav_app_leave( ) / nav_app_call( ) drops everything the leaving app
- *     queued in the roundtrip, so the "Saved." toast of a detail page that
- *     returns to its list never showed; keep_messages = abap_true carries it.
+ *   - message-before-navigation: abap2UI5 cefce923 (2026-11-24), released
+ *     in 1.151.0 - a nav_app_leave( ) / nav_app_call( ) drops everything the
+ *     leaving app queued in the roundtrip, so the "Saved." toast of a detail
+ *     page that returns to its list never showed; keep_messages = abap_true
+ *     carries it.
  *   - stateful-without-release: abap2UI5-addons/table-maintenance (DEV,
  *     2026-11-25) - z2ui5_cl_tm_001 locks with ENQUEUE_E_TABLE and
  *     set_session_stateful( abap_true ), and a way out of the app that does
@@ -44,13 +45,36 @@ export default async function ({ section, assert, tempDir, checkAbapSource, chec
     assert(of(two, MBN).length === 2, 'two messages, two findings');
   });
 
-  section('message-before-navigation: no fix while keep_messages is on abap2UI5 DEV only', () => {
+  section('message-before-navigation: keep_messages came with abap2UI5 1.151.0 - a fix from there on', () => {
     const src = app('    client->message_toast_display( `Saved.` ).\n    client->nav_app_leave( ).\n');
     const f = of(src, MBN);
-    assert(f.length === 1 && !f[0].fixes, 'reported without a fix - the parameter is in no release and not on main');
-    assert(/DEV branch, in no release yet/.test(f[0].message), 'the message says where the parameter is');
+    assert(f.length === 1 && f[0].fixes?.length === 1 && f[0].since === '1.151.0', 'without a release configured (main): reported with a fix');
+    assert(/Pass keep_messages = abap_true to the navigation \(it came with abap2UI5 1\.151\.0\)/.test(f[0].message), `the message names the fix and its release (${f[0].message})`);
+    assert(fixed(src, MBN).includes('client->nav_app_leave( keep_messages = abap_true ).'), 'the empty argument list gets the parameter');
+    for (const rel of ['1.151.0', '1.152.3']) {
+      assert(of(src, MBN, { abap2ui5: rel })[0]?.fixes?.length === 1, `a fix on ${rel}`);
+    }
     const r = of(src, MBN, { abap2ui5: '1.140.0' });
-    assert(r.length === 1 && /not in 1\.140\.0/.test(r[0].message), 'with a release configured the message names it');
+    assert(r.length === 1 && !r[0].fixes, 'a release older than 1.151.0: no fix - the parameter would not activate there');
+    assert(/came with abap2UI5 1\.151\.0 - not in 1\.140\.0/.test(r[0].message), `the message names both releases (${r[0].message})`);
+    assert(!of(src, MBN, { abap2ui5: '1.150.0' })[0]?.fixes, 'none on 1.150.0 either');
+  });
+
+  section('message-before-navigation: the fix names app = and keeps the layout', () => {
+    const fix = (nav) => fixed(app(`    client->message_toast_display( \`Saved.\` ).\n${nav}`), MBN);
+    const has = (nav, want, why) => { const out = fix(nav); assert(out.includes(want), `${why}:\n${out}`); };
+    has('    client->nav_app_leave( lo_list ).\n', 'client->nav_app_leave( app = lo_list keep_messages = abap_true ).', 'the positional preferred parameter is named');
+    has('    client->nav_app_call( NEW zcl_list( iv = `a` ) ).\n', 'client->nav_app_call( app = NEW zcl_list( iv = `a` ) keep_messages = abap_true ).', 'nav_app_call( ) with one positional target');
+    has('    client->nav_app_leave( app = lo_list event = `BACK` ).\n', 'client->nav_app_leave( app = lo_list event = `BACK` keep_messages = abap_true ).', 'named arguments: appended');
+    has('    client->nav_app_leave(\n        app   = lo_list\n        event = `BACK` ).\n',
+      'client->nav_app_leave(\n        app   = lo_list\n        event = `BACK`\n        keep_messages = abap_true ).', 'one per line: a line of its own');
+    has('    client->nav_app_leave().\n', 'client->nav_app_leave( keep_messages = abap_true ).', 'no blank between the parentheses');
+    const two = app('    client->message_toast_display( `a` ).\n    client->message_box_display( `b` ).\n    client->nav_app_leave( ).\n');
+    assert((fixed(two, MBN).match(/keep_messages/g) ?? []).length === 1, 'two messages in front of one navigation: the parameter once');
+    const comment = of(app('    client->message_toast_display( `Saved.` ).\n    client->nav_app_leave( app = lo_list " back\n    ).\n'), MBN);
+    assert(comment.length === 1 && !comment[0].fixes, 'a comment inside the parentheses: no fix');
+    const done = fixed(app('    client->message_toast_display( `Saved.` ).\n    client->nav_app_leave( lo_list ).\n'), MBN);
+    assert(of(done, MBN).length === 0, 'the fixed class is not reported again');
   });
 
   section('message-before-navigation: what is not reported', () => {
