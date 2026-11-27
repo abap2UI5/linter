@@ -115,7 +115,11 @@
   `persist-credentials: false`, the Dependabot commit is pushed with the
   token named for that one push, and both installs run `--ignore-scripts`
   (no package in the lockfile has an install script - the bundle was built
-  and run through the render gate that way).
+  and run through the render gate that way). `bundle.yml` is split the
+  way the downstream bump workflows are: `npm ci` and the tarball run in a
+  `bundle` job with `contents: read`, and the bundle travels as an artifact
+  to a `release` job - the only one with `contents: write` - which checks
+  nothing out, runs no npm and only makes the two releases.
 
 ## 0.13.0 - 2026-11-27
 
