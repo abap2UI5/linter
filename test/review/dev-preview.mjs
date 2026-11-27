@@ -52,11 +52,13 @@ export default async function ({ section, assert, checkAbapSource }) {
     assert(of(bad, 'unknown-builder-method').length === 1, 'an unknown static is still reported');
   });
 
-  section('main sync: abap2ui5-api-too-new knows STOP_TIMER is on main and in no release', () => {
+  section('main sync: abap2ui5-api-too-new knows STOP_TIMER came with 1.151.0', () => {
+    // dated 'main' until the 1.151.0 release tag, which the since table reads
     const src = app('    client->follow_up_action( client->_event_client( client->cs_event-stop_timer ) ).\n');
     const f = of(src, 'abap2ui5-api-too-new', { abap2ui5: '1.148.0' });
-    assert(f.length === 1 && f[0].since === 'main', `reported against a release (${f.length}, ${f[0]?.since})`);
-    assert(/is on abap2UI5's main and in no release yet/.test(f[0]?.message ?? ''), 'the message says main');
+    assert(f.length === 1 && f[0].since === '1.151.0', `reported against an older release (${f.length}, ${f[0]?.since})`);
+    assert(/came with abap2UI5 1\.151\.0/.test(f[0]?.message ?? ''), 'the message names the release');
+    assert(of(src, 'abap2ui5-api-too-new', { abap2ui5: '1.151.0' }).length === 0, 'on 1.151.0 it exists');
     assert(of(src, 'abap2ui5-api-too-new').length === 0, 'without a configured release: not judged');
   });
 

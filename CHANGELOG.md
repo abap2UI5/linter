@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`message-before-navigation` fixes: `keep_messages` came with abap2UI5
+  1.151.0.** The rule said the parameter was on abap2UI5's DEV branch and in
+  no release, offered no fix and told users to wait; 1.151.0 (2026-11-26)
+  ships `keep_messages = abap_true` on `nav_app_leave( )` and
+  `nav_app_call( )`. Without a configured release (abap2UI5's main) or with
+  one at or above 1.151.0, `--fix` appends `keep_messages = abap_true` to the
+  navigation's argument list, naming a single positional argument `app = `
+  first; with an older release (`abap2ui5`, `--abap2ui5`) the finding stays
+  without a fix and says the parameter came with 1.151.0 and is not in the
+  configured release. A comment inside the parentheses keeps the finding
+  without a fix too. Findings are unchanged; their message and the fix are
+  new.
+- **`data/abap2ui5-since.json` reads release 1.151.0 and the parameters a
+  method gained.** `STOP_TIMER`, `check_nav_pending( )`,
+  `check_on_nav_back( )`, `get_nav_tag( )`, `get_start_param( )`,
+  `timer_set( )` and `timer_stop( )` were dated `main`; they came with
+  1.151.0, so `abap2ui5-api-too-new` names that release and no longer
+  reports them against an installation of 1.151.0. The new
+  `clientParameters` dates each IMPORTING parameter added to a client method
+  after the method itself (`nav_app_leave-keep_messages`: 1.151.0) - where
+  `message-before-navigation` reads when `keep_messages` came.
+  `scripts/generate-abap2ui5-since.mjs` lists the release tags when it builds
+  the data file rather than at import, so the suite that imports it and
+  `--module` need no network.
+
 ## 0.13.0 - 2026-11-27
 
 ### Read before upgrading

@@ -13,7 +13,8 @@
  *
  * Source: `src/02/z2ui5_if_client.intf.abap` at every release tag of
  * abap2UI5/abap2UI5 from FIRST up - the components of `cs_event` and the
- * METHODS of the interface. A name's `since` is the first tag that has it; a
+ * METHODS of the interface, and the IMPORTING parameters a method gained
+ * after it came (`nav_app_leave-keep_messages`). A name's `since` is the first tag that has it; a
  * name already in FIRST is not recorded at all (it means "at or before
  * FIRST", and the rule is silent for it); a name only `main` has so far is
  * recorded as "main". Tags whose file is not at that path
@@ -52,8 +53,9 @@ const cmp = (a, b) => {
 };
 
 /* Release tags are `1.148.0`; the `-702` twins are the downport of the same
- * release and carry the same API. */
-const tags = execFileSync('git', ['ls-remote', '--tags', `https://github.com/${REPO}`], { encoding: 'utf8' })
+ * release and carry the same API. Listed when the data file is built, not
+ * at import: the suite imports this module, and --module needs no network. */
+const releaseTags = () => execFileSync('git', ['ls-remote', '--tags', `https://github.com/${REPO}`], { encoding: 'utf8' })
   .split('\n').map((l) => l.split('refs/tags/')[1]).filter((t) => t && /^\d+\.\d+\.\d+$/.test(t))
   .filter((t) => cmp(t, FIRST) >= 0).sort(cmp);
 
@@ -67,7 +69,33 @@ export function readApi(src) {
   for (const m of block?.[1].matchAll(/^\s*(\w+)\s+TYPE\b/gim) ?? []) events.add(m[1].toUpperCase());
   const methods = new Set();
   for (const m of code.matchAll(/^\s*METHODS\s+(\w+)/gim)) methods.add(m[1].toLowerCase());
-  return { events, methods };
+  /* The IMPORTING parameters of each method, as `method-parameter`: a
+   * parameter a later release appended (keep_messages on nav_app_leave( ),
+   * 1.151.0) does not activate on an older one either. Read token by token -
+   * name, TYPE or LIKE, the type, then OPTIONAL / DEFAULT x / PREFERRED
+   * PARAMETER x - because a parameter may be NAMED `type`, and a pattern
+   * looking for `<name> TYPE` then took the word in front of it (`OPTIONAL`,
+   * a default value) for a name. `!name`, VALUE( ) and REFERENCE( ) are
+   * unwrapped. A statement ends at the first `.` that closes a line - the
+   * interface's defaults hold none. */
+  const parameters = new Set();
+  for (const m of code.matchAll(/^\s*METHODS\s+(\w+)([\s\S]*?)\.\s*$/gim)) {
+    const importing = /\bIMPORTING\b([\s\S]*?)(?=\b(?:EXPORTING|CHANGING|RETURNING|RAISING|EXCEPTIONS)\b|$)/i.exec(m[2]);
+    const tokens = importing?.[1].split(/\s+/).filter(Boolean) ?? [];
+    for (let i = 0; i < tokens.length;) {
+      const word = tokens[i].toUpperCase();
+      if (word === 'OPTIONAL') { i += 1; continue; }
+      if (word === 'DEFAULT') { i += 2; continue; }
+      if (word === 'PREFERRED') { i += 3; continue; }
+      if (!/^(?:TYPE|LIKE)$/i.test(tokens[i + 1] ?? '')) { i += 1; continue; }
+      const name = /^!?(?:(?:VALUE|REFERENCE)\(!?(\w+)\)|(\w+))$/i.exec(tokens[i]);
+      if (name) parameters.add(`${m[1].toLowerCase()}-${(name[1] ?? name[2]).toLowerCase()}`);
+      i += 2;
+      while (/^(?:REF|TO|STANDARD|SORTED|HASHED|TABLE|LINE|OF)$/i.test(tokens[i] ?? '')) i += 1;
+      i += 1; // the type itself
+    }
+  }
+  return { events, methods, parameters };
 }
 
 /** The module text for a data object - what npm test compares. */
@@ -88,20 +116,22 @@ async function main() {
     console.error(`wrote ${path.relative(process.cwd(), MODULE)}`);
     return;
   }
-  const since = { clientEvents: {}, clientMethods: {} };
+  const since = { clientEvents: {}, clientMethods: {}, clientParameters: {} };
   let first = null;
   let latest = null;
-  for (const tag of tags) {
+  for (const tag of releaseTags()) {
     const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${tag}/${FILE}`);
     if (!res.ok) { console.error(`${tag}: ${res.status} - skipped`); continue; }
-    const { events, methods } = readApi(await res.text());
+    const { events, methods, parameters } = readApi(await res.text());
     if (!first) {
       first = tag;
       for (const e of events) since.clientEvents[e] = null;
       for (const m of methods) since.clientMethods[m] = null;
+      for (const p of parameters) since.clientParameters[p] = null;
     } else {
       for (const e of events) if (!(e in since.clientEvents)) since.clientEvents[e] = tag;
       for (const m of methods) if (!(m in since.clientMethods)) since.clientMethods[m] = tag;
+      for (const p of parameters) if (!(p in since.clientParameters)) since.clientParameters[p] = tag;
     }
     latest = tag;
     console.error(`${tag}: ${events.size} events, ${methods.size} methods`);
@@ -113,12 +143,18 @@ async function main() {
   {
     const res = await fetch(`https://raw.githubusercontent.com/${REPO}/main/${FILE}`);
     if (res.ok) {
-      const { events, methods } = readApi(await res.text());
+      const { events, methods, parameters } = readApi(await res.text());
       for (const e of events) if (!(e in since.clientEvents)) since.clientEvents[e] = 'main';
       for (const m of methods) if (!(m in since.clientMethods)) since.clientMethods[m] = 'main';
+      for (const p of parameters) if (!(p in since.clientParameters)) since.clientParameters[p] = 'main';
     }
   }
   const strip = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v).sort(([a], [b]) => a.localeCompare(b)));
+  /* A parameter is recorded only when it came AFTER its method: the
+   * parameters a new method brought along carry the method's own date. */
+  for (const [key, v] of Object.entries(since.clientParameters)) {
+    if (v === (since.clientMethods[key.slice(0, key.indexOf('-'))] ?? null)) since.clientParameters[key] = null;
+  }
   const data = {
     schema: 1,
     source: `${REPO} ${FILE}, release tags ${first} to ${latest}`,
@@ -126,6 +162,7 @@ async function main() {
     latest,
     clientEvents: strip(since.clientEvents),
     clientMethods: strip(since.clientMethods),
+    clientParameters: strip(since.clientParameters),
   };
   const text = `${JSON.stringify(data, null, 2)}\n`;
   if (process.argv.includes('--check')) {

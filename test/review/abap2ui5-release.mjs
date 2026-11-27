@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { ABAP2UI5_SINCE } from '../../lib/abap2ui5-since.mjs';
-import { moduleText } from '../../scripts/generate-abap2ui5-since.mjs';
+import { moduleText, readApi } from '../../scripts/generate-abap2ui5-since.mjs';
 import { loadConfig } from '../../lib/config.mjs';
 
 export default async function ({ section, assert, FIX, tempDir, checkAbapSource }) {
@@ -43,5 +43,16 @@ export default async function ({ section, assert, FIX, tempDir, checkAbapSource 
     const text = fs.readFileSync(path.join(ROOT, 'lib', 'abap2ui5-since.mjs'), 'utf8');
     assert(text === moduleText(data), 'lib/abap2ui5-since.mjs is generated from the data file - node scripts/generate-abap2ui5-since.mjs --module');
     assert(ABAP2UI5_SINCE.first && Object.values(ABAP2UI5_SINCE.clientEvents).every((v) => v === "main" || /^\d+\.\d+\.\d+$/.test(v)), "every date is a release, or main");
+    const params = Object.entries(ABAP2UI5_SINCE.clientParameters ?? {});
+    assert(params.length && params.every(([k, v]) => /^\w+-\w+$/.test(k) && (v === 'main' || /^\d+\.\d+\.\d+$/.test(v))), 'every parameter is method-parameter, dated by a release or main');
+    assert(ABAP2UI5_SINCE.clientParameters['nav_app_leave-keep_messages'] === '1.151.0', 'keep_messages came with 1.151.0');
+  });
+
+  section('abap2ui5-since: the generator reads the parameters a method gained', () => {
+    const v1 = '  METHODS nav_app_leave\n    IMPORTING\n      VALUE(app) TYPE REF TO z2ui5_if_app OPTIONAL\n      type TYPE clike OPTIONAL\n'
+      + '      !text TYPE any\n      keep_messages TYPE abap_bool DEFAULT abap_false\n        PREFERRED PARAMETER app\n    RETURNING\n      VALUE(result) TYPE string.\n';
+    const { parameters } = readApi(v1);
+    assert([...parameters].sort().join() === 'nav_app_leave-app,nav_app_leave-keep_messages,nav_app_leave-text,nav_app_leave-type',
+      `VALUE( ), !name, a parameter named type, no RETURNING (${[...parameters].join()})`);
   });
 }
