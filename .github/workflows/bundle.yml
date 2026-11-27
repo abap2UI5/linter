@@ -17,19 +17,22 @@ on:
       - .github/workflows/bundle.yml
   workflow_dispatch:
 
+# read only here - each job below asks for what it needs
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # npm installs the lockfile's packages here - third-party code. So this
+  # job has a read-only token and no credential in .git/config; the bundle
+  # travels to `release` below as an artifact.
   bundle:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Nothing here pushes: the two releases below are made through the
-          # API with the token the action is handed, so no contents: write
-          # token is left in .git/config for the install to find.
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -38,8 +41,8 @@ jobs:
       # ordinary (non-dev) dependencies of that workspace and `--omit=dev` keeps
       # it - which is what makes this bundle a render gate at all.
       # --ignore-scripts: no package in the lockfile has an install script
-      # (pure JS, see above), so none runs in a job holding contents: write -
-      # one a dependency gains later would not run unseen.
+      # (pure JS, see above), so none runs here - one a dependency gains
+      # later would not run unseen.
       - run: npm ci --omit=dev --ignore-scripts
       # linter-render/ ships next to node_modules on purpose: npm links the
       # workspace as node_modules/@abap2ui5/linter-render -> ../../linter-render,
@@ -47,6 +50,28 @@ jobs:
       # linter would fall back to the hoisted @openui5 tree anyway, but shipping
       # the manifest keeps resolution on the intended path.
       - run: tar czf view-check-bundle.tgz cli.mjs lib data node_modules package.json linter-render
+      - name: Hand the bundle over
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: view-check-bundle
+          path: view-check-bundle.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  # The only job with contents: write, and it runs no npm and no code of the
+  # bundle: the tarball downloaded, the two releases made through the API
+  # with the token the action is handed. No checkout - nothing here needs
+  # the repository's files.
+  release:
+    needs: bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: view-check-bundle
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: render-gate-bundle
