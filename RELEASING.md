@@ -41,8 +41,13 @@ breaks, because nobody can have installed the broken one yet.
    `--provenance` here: npm only generates provenance from a supported CI and
    aborts anywhere else.
 3. On npmjs.com → each package → *Settings* → *Trusted Publisher*: this
-   repository, workflow file `release.yml`. From then on the workflow publishes
-   with no token at all.
+   repository, workflow file `release.yml`, environment `release`. From then on
+   the workflow publishes with no token at all.
+4. On GitHub → *Settings* → *Environments*: the environment `release`, with a
+   deployment rule admitting the tags `v*.*.*` and the branch `main` (the
+   dispatched dry run runs the same job, without the publish step), and
+   required reviewers if a second pair of eyes should approve each run. The `publish` job runs in
+   it and is the only job that may mint the OIDC token.
 
 ### The rename of the runtime package
 
