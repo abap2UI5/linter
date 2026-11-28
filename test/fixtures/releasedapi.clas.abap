@@ -18,6 +18,9 @@ CLASS zcl_fixture_releasedapi IMPLEMENTATION.
     name = z2ui5_cl_demo_app_042=>get_title( ).
 
     json = z2ui5_cl_ajson=>create_empty( ).
+    " the same vendored copies under their names since 2026-11
+    DATA(json_now) = z2ui5_cl_ui5_ajson=>create_empty( ).
+    DATA(descr) = z2ui5_cl_ui5_srt_type=>create_by_data_object( name ).
     name = z2ui5_cl_util=>get_uuid( ).
     DATA(engine) = NEW z2ui5_cl_ui5_client( ).
 
