@@ -22,8 +22,8 @@ CLASS zcl_fixture_obsolete IMPLEMENTATION.
             " passed on internally; the fix deletes the argument
             )->a( n = `value` v = client->_bind( val = name view = client->cs_view-popup )
           )->tag( `Input`
-            " reported (obsolete-bind-argument) - custom_mapper is still
-            " evaluated, so it carries no fix
+            " reported (removed-api) - custom_mapper was removed from
+            " _bind( ) in 1.152.0, so it carries no fix
             )->a( n = `value` v = client->_bind( val = name custom_mapper = mapper )
           )->tag( `Button`
             )->a( n = `text`  v = `Close`

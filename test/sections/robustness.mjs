@@ -101,15 +101,16 @@ section('wire kinds and the 08-30 round', async () => {
   assert(!of('unknown-frontend-action').length,
     'unknown-frontend-action: SET_PUSH_STATE is consumed by the SERVER and queues no frontend action, so it is not an unknown one');
 
-  // --- the two obsolete binder ARGUMENTS ------------------------------------
-  const obsolete = checkAbapSource(fs.readFileSync(f('obsolete.clas.abap'), 'utf8'))
-    .findings.filter((x) => x.type === 'obsolete-bind-argument');
-  assert(obsolete.length === 2, `obsolete-bind-argument: view and custom_mapper (got ${obsolete.map((x) => x.member).join() || 'none'})`);
+  // --- the obsolete binder ARGUMENT, and the removed mapper pair ------------
+  const found = checkAbapSource(fs.readFileSync(f('obsolete.clas.abap'), 'utf8')).findings;
+  const obsolete = found.filter((x) => x.type === 'obsolete-bind-argument');
+  assert(obsolete.length === 1, `obsolete-bind-argument: view only (got ${obsolete.map((x) => x.member).join() || 'none'})`);
   const viewArg = obsolete.find((x) => x.member === 'view');
   assert(viewArg && viewArg.fixes?.length === 1,
     'obsolete-bind-argument: the inactive `view` argument is deleted by --fix');
-  assert(obsolete.find((x) => x.member === 'custom_mapper')?.fixes === undefined,
-    'obsolete-bind-argument: the mapper pair is still EVALUATED, so dropping one is not a mechanical fix');
+  const mapper = found.filter((x) => x.type === 'removed-api' && x.value === 'custom_mapper');
+  assert(mapper.length === 1 && mapper[0].since === '1.152.0' && !mapper[0].fixes,
+    'removed-api: _bind( custom_mapper = … ) is reported once, as removed, without a fix');
 
   // --- the lifecycle fork that decides nothing ------------------------------
   const fork = checkAbapSource(fs.readFileSync(f('initfork.clas.abap'), 'utf8'))

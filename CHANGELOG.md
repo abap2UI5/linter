@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed
+
+- **`_bind( custom_mapper = … )` / `_bind( custom_filter = … )` are
+  `removed-api` errors now, no longer `obsolete-bind-argument` warnings.**
+  abap2UI5 removed both parameters after 1.151.0 (1.152.0 in the deprecations
+  the documentation publishes, synced into `data/deprecations.json`), so a
+  call that passes one no longer compiles. `obsolete-bind-argument` keeps
+  `_bind( view = … )` alone; the pair is `removed-api`'s, with the release
+  and `omit_initial` / `omit_initial_paths` / `json` as what to write.
+
 ### Added
 
 - **`event-read-by-struct` (hint, fixable).** `client->get( )-event` where

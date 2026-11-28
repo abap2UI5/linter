@@ -534,6 +534,7 @@ remaining generic checks, and the frontend's last unmined closed sets:
 | four small closed sets nothing had mined: `URL_POLICIES`, the ScrollIntoView enums, the HTML `inputmode` set, `InvisibleMessageMode` | all through the existing `ACTION_ARGS` / `invalid-frontend-action` mechanism — the announce mode is read from the SNAPSHOT's enums rather than retyped as a fourth constant |
 | `SET_NAV_ROUTING` / `SET_PUSH_STATE` / `SET_APP_STATE_ACTIVE` are consumed by the SERVER and queue no action, so they are absent from the dispatch table BY DESIGN | `SERVER_EVENTS`, and `cs_nav_mode` as the `set_nav_routing` argument set |
 | `z2ui5_if_client` marks `_bind( view = )` "obsolete - inactive, not passed on internally" and the mapper pair "obsolete - still evaluated" | `obsolete-bind-argument`, with a deleting fix for the inactive half only |
+| abap2UI5 removed the mapper pair from `_bind( )` (1.152.0, deprecations data from abap2UI5/docs) | the pair left `obsolete-bind-argument` for `removed-api`, which takes the release and the successor from the data - one finding per token, and an error, since the call no longer compiles |
 | the app guide's predicative-call rule, and its "the fork decides nothing" rule | `lifecycle-is-initial`, `redundant-init-display` |
 | samples-controls' e2e work isolated a PRIVATE instance attribute as an every-roundtrip ASSERTION_FAILED | `private-app-attribute` |
 | a `backtick` literal has no escape processing, so a `\n` in one renders as two characters | `escape-sequence-in-backtick` |
