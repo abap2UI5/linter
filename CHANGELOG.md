@@ -4,6 +4,17 @@
 
 ### Changed
 
+- **`non-released-api` knows the vendored ajson and S-RTTI under their new
+  names.** abap2UI5 vendors both from abap-util's mirrors now and renames them
+  to the `ui5` segment: `z2ui5_cl_ui5_ajs` (and `z2ui5_if_ui5_ajs*`,
+  `z2ui5_cx_ui5_ajs_error`), `z2ui5_cl_ui5_srt_type` (and the other
+  `z2ui5_cl_ui5_srt_*`). Both are reported as the vendored copies they are,
+  placed in `src/00/01` and `src/00/02` - not as the core engine, which the
+  `ui5` segment would otherwise suggest. The old names stay recognized.
+  `data/abap2ui5-manifest.json` is synced.
+
+### Changed
+
 - **`_bind( custom_mapper = … )` / `_bind( custom_filter = … )` are
   `removed-api` errors now, no longer `obsolete-bind-argument` warnings.**
   abap2UI5 removed both parameters after 1.151.0 (1.152.0 in the deprecations
