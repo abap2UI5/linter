@@ -174,8 +174,8 @@ export default async function ({ section, assert, f, FIX, checkAbapSource }) {
   section('frozen builder: the class is told what replaced each old name, not only that its builder is old', () => {
     const found = of(read('frozenoldstyle.clas.abap'));
     const got = found.map((x) => `${x.line}:${x.column} ${x.severity} ${x.type}`).sort().join('\n');
-    const want = ['17:5 warning manual-init-flag', '19:20 warning frozen-view-builder', '22:25 warning obsolete-binder', '30:31 warning non-released-api'].join('\n');
-    assert(got === want, `frozen builder: the four things a class from 2024's examples has to hear, and nothing about a view nobody read\n${got}`);
+    const want = ['17:5 warning manual-init-flag', '19:20 warning frozen-view-builder', '22:25 warning obsolete-binder', '28:10 hint event-read-by-struct', '30:31 warning non-released-api'].join('\n');
+    assert(got === want, `frozen builder: the five things a class from 2024's examples has to hear, and nothing about a view nobody read\n${got}`);
     const frozen = found.find((x) => x.type === 'frozen-view-builder');
     assert(/since abap2UI5 1\.151\.0 no longer part of the framework/.test(frozen.message) && /moved to github\.com\/abap2UI5\/abap2UI5-ext/.test(frozen.message)
       && /compiles only where that repository is installed/.test(frozen.message) && !/planned to move/.test(frozen.message),

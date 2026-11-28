@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`event-read-by-struct` (hint, fixable).** `client->get( )-event` where
+  `client->get_event( )` is the idiom - the same read, documented in
+  `z2ui5_if_client` as its shortcut. Not a defect, so a hint; the fix replaces
+  the read and keeps the handle in front of it. Only `-event`:
+  `get( )-t_event_arg` is the whole argument list and `get_event_arg( )` one
+  position, so that read is left alone. It also runs on a class on the frozen
+  builder (`FROZEN_APP_RULE`), which is where the struct read is written: an
+  assistant without any setup, asked for a todo app, wrote it beside
+  `z2ui5_cl_xml_view`, `_bind_edit` and `view_model_update`, and every other
+  name of that code already had a rule.
+
 ## 0.13.1 - 2026-11-27
 
 ### Changed

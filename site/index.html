@@ -143,8 +143,8 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
     <div class="counts">
       <span class="badge error">78 error</span>
       <span class="badge warning">77 warning</span>
-      <span class="badge hint">38 hint</span>
-      <span class="badge fix">78 autofixable</span>
+      <span class="badge hint">39 hint</span>
+      <span class="badge fix">79 autofixable</span>
     </div>
     <p class="stamp">Generated from <strong>v0.13.1</strong>, against the OpenUI5 1.154.0 metadata
       snapshot. This page follows <code>main</code>; your pinned CLI reports the rules of the version it is.
@@ -155,7 +155,7 @@ table.sev td { padding: .3rem .8rem .3rem 0; vertical-align: top; }
          and is drawn off-screen, because the placeholder already says it to
          everyone who can see it. -->
     <label class="sr-only" for="filter">Filter the rules by id, wording or severity</label>
-    <input id="filter" type="search" placeholder="Filter 192 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
+    <input id="filter" type="search" placeholder="Filter 193 rules + render-error — id, wording, severity" autocomplete="off" spellcheck="false">
     <p class="hint-line">The id is what the linter prints at the end of every reported line, what the
       <code>rules</code> block of <code>abap2ui5lint.jsonc</code> is keyed by, and what a
       <code>abap2ui5lint-disable-next-line</code> comment names.</p>
@@ -1331,6 +1331,23 @@ DATA(b) = VALUE ty_t( FOR j = 1 WHILE j &lt;= 3 ( j ) ).</code></pre></figure>
         </div>
         <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2lZRRb5swEMe_yomnRFocddUeEg0kljgqEiFRQjtNywQOmNSSMciYkLTaPvtkIG1IJabxgn33_92d4c4_Xw1BUmpMjZeIB7LkFEWcFIjsSW58MoqslJH2zlx7u4WLBuZ44XiO76w8WD9-c50ZLBzPdmG2wbaPWxvaCbi4t3im1bUJwPF8vFnYM7yFl88l-xKwJCB53nrntm9DxBkVCvwfawwbvAB_9S5tfGgnsDevC0M7sRM3JTrLtYuX2PPtt8RL7D-s5p2Uf1LCRJs3pSOrTWvCW45LRQOZZWoIZotHPNCvI6NVsC8Zj6k0rYREKpPnAQyvQa3RoA4wsiinAxBgQvjEaBWCKPQ6PUZhg-hnOLJIKzqlXBQhHPW6IDlKe2RTHeVdWjIUZZKi_thTrflI9RG8K-fknJWqD0iugKRPWJ5Ifh1cb3vkiuz5Te2Nqe-4RMZdhAlFD5IolglUsfhAVdEb4PZjpWkmeomyS5SCJYzGfUSREqk-5MlRbf_nEesObel6jaLeDnhW6eWXPiuVT8fjqqpQdY8yeRjfTSaT8amWdELUfRyuyYGG3XYnutefbPcRgzoHagCL1QYYmHAH3x8cFwODrybcwwAYDLvo_j9RANgZEGeVyDOpaDwFBjGNOJE0BlWxiDbBm2EeWfW0xqzIOTkPQO9GVqEkEweW6Kltq8HevLkquleM8fvXXw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
         <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/duplicate-for-iterator.mjs#L25"><code>lib/rules/duplicate-for-iterator.mjs</code></a></p>
+      </article>
+      <article class="rule" id="event-read-by-struct" data-search="event-read-by-struct client-&gt;get( )-event where client-&gt;get_event( ) is the idiom get_event( ) returns the same field as get( )-event — z2ui5_if_client documents it as the shortcut, made for the dispatcher case client-&gt;get_event( ). both work, so this is a hint. the struct read is what most code written before release 1.143 uses, and what an assistant trained on it writes beside api that has since been removed; the method is the form the app guide, the samples and the framework documentation use, so one spelling is what the next reader looks for. only the event name is renamed: get( )-t_event_arg is the whole argument list, while get_event_arg( ) reads one position, so that read is left as it is. hint">
+        <h3><a href="#event-read-by-struct">event-read-by-struct</a>
+          <span class="badge hint">hint</span>
+          <span class="badge fix">--fix</span>
+        </h3>
+        <p class="summary"><code>client-&gt;get( )-event</code> where <code>client-&gt;get_event( )</code> is the idiom</p>
+        <p class="detail"><code>get_event( )</code> returns the same field as <code>get( )-event</code> — <code>z2ui5_if_client</code> documents it as the shortcut, made for the dispatcher <code>CASE client-&gt;get_event( ).</code> Both work, so this is a hint. The struct read is what most code written before release 1.143 uses, and what an assistant trained on it writes beside API that has since been removed; the method is the form the app guide, the samples and the framework documentation use, so one spelling is what the next reader looks for. Only the event name is renamed: <code>get( )-t_event_arg</code> is the whole argument list, while <code>get_event_arg( )</code> reads one position, so that read is left as it is.</p>
+        <p class="fixnote"><strong>--fix:</strong> The read <code>get( )-event</code> is replaced by <code>get_event( )</code>; the handle in front of it (<code>client-&gt;</code>, <code>me-&gt;client-&gt;</code>, <code>li_client-&gt;</code>) and everything around it stay.</p>
+        <div class="ba" id="event-read-by-struct-example">
+          <figure class="before"><figcaption>reported</figcaption>
+            <pre><code>CASE client-&gt;get( )-event.</code></pre></figure>
+          <figure class="after"><figcaption>fixed</figcaption>
+            <pre><code>CASE client-&gt;get_event( ).</code></pre></figure>
+        </div>
+        <p class="try"><a href="https://abap2ui5.github.io/browser-playground/#2hVNdq5tAEP0rg08J1A1t6UMCEazZUCExIbGF0hTdmNW7sK6yrjG5l_a3lzXmw1zY-uLszDlnZnXOrzdLkJxaE-s14ZGsOUUJJxUie1JaH6yqqGWiq97C3W7hioEZnvuBH_qrANbfvy58D-Z-4C7A22A3xF0O7QRcy1vsaXSbAvCDEG_mroe38PqpZl8ilkakLLvqzA1dSDijQkH4c41hg-cQru7QSw3tBA5m7WBoJ3biaUR_uV7gJQ5C99Z4icNvq1mv5d-cMNH1zantdG2ncOtxnWggi0INYdrREx7p15HRJtrXjB-onDopSVQhzwMYPhI1RhO1gO1QTgcgYArxD0abGESl4_yYxBeKfoa2QzrQKeeiiuGo44qUKDfAJlrlDq0ZSgpJkVl7ojHvWSYG78M5ORe1MhHSB0JqAtYnUj6K66MBrsieP81-SZmuS-ShT2FC0UwSxQqBGnbIqKqMAs8fK88LYWTUfUYtWMrowcSociLVuz4lavP_vWK7oR27jVFi3IAXlV9_6YtS5WQ0apoGNZ9RIbPRx_F4PDq1kJ5Eu8fxmmQ0vq27525x5xzbyagawNCmx7uPrqXWNQdWlZycB6BPtlMpyUTGUu2eThAHs4tl-1a3_vz-Bw" target="_blank" rel="noopener">Open the reported code in the playground ↗</a> <span class="muted">— the snippet in a class, with the linter's verdict beside the editor</span></p>
+        <p class="src">Defined in <a href="https://github.com/abap2UI5/linter/blob/main/lib/rules/event-read-by-struct.mjs#L28"><code>lib/rules/event-read-by-struct.mjs</code></a></p>
       </article>
       <article class="rule" id="framework-table-access" data-search="framework-table-access open sql on a table the framework or an addon keeps its own state in (z2ui5_t_01 drafts, z2ui5_t_11 layouts) abap2ui5 keeps its drafts in z2ui5_t_01, layout-management its layouts in z2ui5_t_11. both are one select or delete away from any app, and an app that cleans up its drafts or copies a layout to another user is tempted to go there directly. that bypasses the owner and authority checks the api applies (a layout copied by insert skips z2ui5_if_layo_auth; a draft deleted by hand may belong to an app stack or a kept app state), the draft store a host can replace (z2ui5_if_ui5_draft_store - then the drafts are not in the table at all), and it depends on a shape that is internal and changes without notice. reported: a select, insert, update, modify, delete, open cursor or with whose statement names a listed table (a subquery included). the list is data in the rule, each table with the prefix of the package that owns it: code of the owner (z2ui5_cl_ui5_ for the drafts, z2ui5_cl_layo_ for the layouts) is not reported, nor is a repository that defines the table itself. a type reference (data ls type z2ui5_t_11) is a structure, not an access, and any other z2ui5_t_ table is somebody else's and stays silent. warning">
         <h3><a href="#framework-table-access">framework-table-access</a>
@@ -4114,9 +4131,9 @@ view-&gt;tag( `Button` )-&gt;a( n = `type` v = `Emphasized` ).</code></pre></fig
     The two gates, the metadata snapshot and the config file are described in
     <a href="https://abap2ui5.github.io/docs/advanced/linter.html">the linter documentation</a>.
     <br>
-    192 configurable rules, plus <code>render-error</code> — the render gate's
+    193 configurable rules, plus <code>render-error</code> — the render gate's
     pseudo-rule, which no check emits and every report can name. That is why
-    <code>--badge</code> says “192 rules passed” while this page has 193 cards.
+    <code>--badge</code> says “193 rules passed” while this page has 194 cards.
   </footer>
 </div>
 <script>
