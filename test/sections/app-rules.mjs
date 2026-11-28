@@ -1571,7 +1571,7 @@ section('non-released-api', async () => {
       ['z2ui5_cl_pop_to_confirm', 'abap2UI5-ext'], // built-in popup, moved out with src/99 in 1.151.0
       ['z2ui5_cl_ajson', 'src/00/01'],          // vendored copy, its name up to 2026-11
       ['z2ui5_if_ajson', 'src/00/01'],          // …in a declaration, not only a call
-      ['z2ui5_cl_ui5_ajson', 'src/00/01'],      // the same copy under its name since then
+      ['z2ui5_cl_ui5_ajs', 'src/00/01'],      // the same copy under its name since then
       ['z2ui5_cl_ui5_srt_type', 'src/00/02'],   // the vendored S-RTTI, likewise
       ['z2ui5_cl_ui5_client', 'src/01'],        // the core engine
     ]) {

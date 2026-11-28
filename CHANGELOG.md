@@ -6,8 +6,8 @@
 
 - **`non-released-api` knows the vendored ajson and S-RTTI under their new
   names.** abap2UI5 vendors both from abap-util's mirrors now and renames them
-  to the `ui5` segment: `z2ui5_cl_ui5_ajson` (and `z2ui5_if_ui5_ajson*`,
-  `z2ui5_cx_ui5_ajson_error`), `z2ui5_cl_ui5_srt_type` (and the other
+  to the `ui5` segment: `z2ui5_cl_ui5_ajs` (and `z2ui5_if_ui5_ajs*`,
+  `z2ui5_cx_ui5_ajs_error`), `z2ui5_cl_ui5_srt_type` (and the other
   `z2ui5_cl_ui5_srt_*`). Both are reported as the vendored copies they are,
   placed in `src/00/01` and `src/00/02` - not as the core engine, which the
   `ui5` segment would otherwise suggest. The old names stay recognized.
