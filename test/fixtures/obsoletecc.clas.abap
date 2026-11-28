@@ -51,7 +51,7 @@ CLASS zcl_obsolete_cc IMPLEMENTATION.
 
     client->view_display( view->stringify( ) ).
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN `TICK`.
         client->message_toast_display( `tick` ).
     ENDCASE.
